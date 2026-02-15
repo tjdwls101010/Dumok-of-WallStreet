@@ -200,8 +200,8 @@ Each analysis step is either automated via script or requires agent-level LLM re
 
 ### Reference Files
 
-**Skill root**: `.claude/skills/MarketData/`
-**Persona dir**: `.claude/skills/MarketData/Personas/MarkMinervini/`
+**Skill root**: `skills/MarketData/`
+**Persona dir**: `skills/MarketData/Personas/MarkMinervini/`
 
 | File | When to Load |
 |------|-------------|
@@ -226,8 +226,8 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 ### Script Execution
 
 ```bash
-VENV=.claude/skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=.claude/skills/MarketData/scripts
+VENV=skills/MarketData/scripts/.venv/bin/python
+SCRIPTS=skills/MarketData/scripts
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`

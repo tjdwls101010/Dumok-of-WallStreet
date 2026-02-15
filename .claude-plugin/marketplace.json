@@ -1,0 +1,28 @@
+{
+  "name": "seongjin's Claude",
+  "owner": {
+    "name": "Seongjin",
+    "url": "https://github.com/tjdwls101010/Claude_Seongjin",
+    "email": "chunghun1@naver.com"
+  },
+  "metadata": {
+    "description": "성진이의 클로드 세팅",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "invest",
+      "source": "./plugins/Invest",
+      "version": "1.0.0",
+      "description": "Financial market data analysis with MarketData skill and analyst personas (Minervini, Serenity)",
+      "category": "finance",
+      "skills": [
+        "./plugins/Invest/skills/MarketData/SKILL.md"
+      ],
+      "commands": [
+        "./plugins/Invest/commands/Minervini.md",
+        "./plugins/Invest/commands/Serenity.md"
+      ]
+    }
+  ]
+}

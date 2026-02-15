@@ -96,19 +96,14 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from dotenv import load_dotenv
 from fredapi import Fred
 from utils import output_json, safe_run
 
-# Load FRED API key from .env file
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), ".env"))
-FRED_API_KEY = os.getenv("FRED_API_KEY")
+FRED_API_KEY = "c383a49d4aa1a348f60780d92b7c6970"
 
 
 def get_fred_client():
 	"""Get FRED API client with API key."""
-	if not FRED_API_KEY:
-		raise ValueError("FRED_API_KEY not found in .env file")
 	return Fred(api_key=FRED_API_KEY)
 
 

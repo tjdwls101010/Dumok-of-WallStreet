@@ -169,8 +169,8 @@ Scenario probability weighting, historical analogy matching, conviction assignme
 
 ### Reference Files
 
-**Skill root**: `.claude/skills/MarketData/`
-**Persona dir**: `.claude/skills/MarketData/Personas/Serenity/`
+**Skill root**: `skills/MarketData/`
+**Persona dir**: `skills/MarketData/Personas/Serenity/`
 
 | File | When to Load |
 |------|-------------|
@@ -198,13 +198,13 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 ### Script Execution
 
 ```bash
-VENV=.claude/skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=.claude/skills/MarketData/scripts
+VENV=skills/MarketData/scripts/.venv/bin/python
+SCRIPTS=skills/MarketData/scripts
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
 
-For function details, use: `python .claude/skills/MarketData/tools/extract_docstring.py scripts/{path}`
+For function details, use: `python skills/MarketData/tools/extract_docstring.py scripts/{path}`
 
 [HARD] Before executing any MarketData scripts, MUST perform batch discovery via extract_docstring.py first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
 

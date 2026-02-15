@@ -110,14 +110,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 import pandas as pd
-from dotenv import load_dotenv
 from fredapi import Fred
 from utils import error_json, output_json, safe_run
 from valuation.cape import fetch_ycharts_html, parse_cape_table
 
-# Load FRED API key
-load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
-FRED_API_KEY = os.getenv("FRED_API_KEY")
+FRED_API_KEY = "c383a49d4aa1a348f60780d92b7c6970"
 
 
 def _fetch_cape_from_ycharts():

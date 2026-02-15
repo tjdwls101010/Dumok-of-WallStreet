@@ -12,10 +12,21 @@ Multi-source financial data retrieval system providing comprehensive market anal
 
 **Setup**:
 ```bash
-cd .claude/skills/MarketData/scripts
+cd skills/MarketData/scripts
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
+
+## Environment Bootstrap Protocol
+
+### First-time Setup (automatic)
+Before running any script, verify the following:
+1. Check if `.venv` exists → if not:
+   ```bash
+   cd skills/MarketData/scripts
+   python3 -m venv .venv
+   .venv/bin/pip install -r requirements.txt
+   ```
 
 ## Progressive Disclosure Architecture
 
@@ -303,7 +314,7 @@ Never pipe script output through `head`, `tail`, or any truncation command. Alwa
 
 **Workflow**: Chain commands for comprehensive analysis (technical → macro → valuation → probability).
 
-**Environment**: FRED API key required in `scripts/.env`. Other sources work without API keys.
+**Environment**: FRED API key is hardcoded. All data sources work out of the box.
 
 **Rate Limits**: FRED 120/min, SEC 10/sec recommended.
 
@@ -316,7 +327,7 @@ Never pipe script output through `head`, `tail`, or any truncation command. Alwa
 
 If a script fails with `ModuleNotFoundError` or import errors:
 
-1. Activate the virtual environment: `cd .claude/skills/MarketData/scripts && python -m venv .venv && .venv/bin/pip install -r requirements.txt`
+1. Activate the virtual environment: `cd skills/MarketData/scripts && python -m venv .venv && .venv/bin/pip install -r requirements.txt`
 2. For individual packages: `.venv/bin/pip install <package-name>`
 3. Common missing packages: `finvizfinance`, `fredapi`, `sec-api`
 
