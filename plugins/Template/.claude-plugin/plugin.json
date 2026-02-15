@@ -1,0 +1,11 @@
+{
+  "name": "template",
+  "version": "1.0.0",
+  "description": "Template plugin for scaffolding new Claude Code plugins",
+  "author": {
+    "name": "Seongjin"
+  },
+  "keywords": ["template", "scaffold", "boilerplate"],
+  "commands": "./commands",
+  "skills": "./skills"
+}

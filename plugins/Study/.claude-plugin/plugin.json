@@ -1,0 +1,11 @@
+{
+  "name": "study",
+  "version": "1.0.0",
+  "description": "Study and knowledge management plugin with PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring",
+  "author": {
+    "name": "Seongjin"
+  },
+  "keywords": ["study", "pdf", "presentation", "notebooklm", "knowledge", "mermaid", "image-description"],
+  "commands": "./commands",
+  "skills": "./skills"
+}

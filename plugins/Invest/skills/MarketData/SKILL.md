@@ -308,6 +308,21 @@ If you have already successfully discovered a script's subcommands in the curren
 
 Never pipe script output through `head`, `tail`, or any truncation command. Always capture and use full output. Partial data leads to incorrect analysis.
 
+### [HARD] Script Failure Mandatory Retry Rule
+
+Every failed script execution MUST be retried. No exceptions.
+
+**Retry Protocol:**
+1. Script returns error or non-zero exit code → Retry with corrected arguments
+2. "Sibling tool call errored" (parallel execution failure) → Re-execute in the NEXT turn
+3. Second failure → Try alternative script from Fallback Chain (see Script-Level Fallback Chain below)
+4. Fallback also fails → Explicitly declare: "⚠️ [script name] data unavailable. Analysis proceeds WITHOUT this data. Affected sections marked."
+
+**Prohibited Behaviors:**
+- NEVER skip a failed script and proceed as if data was collected
+- NEVER infer or estimate values that a failed script would have returned
+- NEVER substitute WebSearch results for failed MarketData scripts without explicitly stating the data source downgrade
+
 ## Integration Notes
 
 **Token Budget**: 2-level Progressive Disclosure keeps token load minimal. This file serves as the complete catalog; use `extract_docstring.py` only when you need detailed function signatures.

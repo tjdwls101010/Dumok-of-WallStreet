@@ -23,6 +23,42 @@
         "./plugins/Invest/commands/Minervini.md",
         "./plugins/Invest/commands/Serenity.md"
       ]
+    },
+    {
+      "name": "study",
+      "source": "./plugins/Study",
+      "version": "1.0.0",
+      "description": "Study and knowledge management with PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring",
+      "category": "education",
+      "skills": [
+        "./plugins/Study/skills/Describe_Images/SKILL.md",
+        "./plugins/Study/skills/Nano-Banana/SKILL.md",
+        "./plugins/Study/skills/NoteBookLM/SKILL.md",
+        "./plugins/Study/skills/Prepare_Book/SKILL.md",
+        "./plugins/Study/skills/Restructure/SKILL.md",
+        "./plugins/Study/skills/pdf/SKILL.md"
+      ],
+      "commands": [
+        "./plugins/Study/commands/Book.md",
+        "./plugins/Study/commands/Knowledge.md",
+        "./plugins/Study/commands/Mermaid.md",
+        "./plugins/Study/commands/PPT.md",
+        "./plugins/Study/commands/Restructure.md"
+      ]
+    },
+    {
+      "name": "moai",
+      "source": "./plugins/Moai",
+      "version": "1.0.0",
+      "description": "MoAI builder toolkit for creating Claude Code agents, plugins, and skills with standards compliance",
+      "category": "developer-tools"
+    },
+    {
+      "name": "template",
+      "source": "./plugins/Template",
+      "version": "1.0.0",
+      "description": "Template plugin for scaffolding new Claude Code plugins",
+      "category": "developer-tools"
     }
   ]
 }
