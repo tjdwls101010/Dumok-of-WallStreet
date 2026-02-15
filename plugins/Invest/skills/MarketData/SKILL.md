@@ -308,6 +308,20 @@ If you have already successfully discovered a script's subcommands in the curren
 
 Never pipe script output through `head`, `tail`, or any truncation command. Always capture and use full output. Partial data leads to incorrect analysis.
 
+### [HARD] Truncation Recovery Rule
+
+`extract_docstring.py` output may be truncated by the system (when exceeding 30KB).
+When truncated, the system saves the full output to a file and provides the path.
+
+**You MUST read the saved file with Read tool before executing any script.**
+
+Guessing subcommands from the preview (first 2KB) alone is prohibited.
+Guessing is treated as a Batch Discovery Rule violation.
+
+Symptom: If you see "Output too large (XXK). Full output saved to: /path/..." in the output:
+→ Immediately read that path with Read tool
+→ Do not execute any script until you have read the full output
+
 ### [HARD] Script Failure Mandatory Retry Rule
 
 Every failed script execution MUST be retried. No exceptions.

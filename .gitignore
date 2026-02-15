@@ -12,3 +12,7 @@ node_modules/
 
 # Environment variables / secrets
 **/.env
+
+# Seongjin's personal directory
+.Seongjin
+CLAUDE.md
