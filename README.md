@@ -2,6 +2,8 @@
 
 A Claude Code plugin marketplace providing custom plugins for financial analysis, study/knowledge management, and plugin development.
 
+![](https://github.com/tjdwls101010/DUMOK/blob/main/Images/nano-banana-5c426c14-6bd7-48dc-8a44-95984888be72.png?raw=true)
+
 ## Installation
 
 ```bash
@@ -27,15 +29,6 @@ Financial market data analysis plugin. Includes the MarketData skill and analyst
 | MarketData | Skill | Multi-source financial data collection via YFinance, FRED, SEC EDGAR, Finviz, CFTC, CBOE |
 | Minervini | Command | Technical analysis based on Mark Minervini's SEPA methodology |
 | Serenity | Command | Supply chain architecture and fundamental analysis |
-
-| Data Source | Coverage |
-|-------------|----------|
-| YFinance | Stock prices, financials, options, company info |
-| FRED | Interest rates, inflation, monetary policy |
-| SEC EDGAR | Filings, insider trading, 13F |
-| Finviz | Screening, sector analysis |
-| CFTC | Futures positioning |
-| CBOE | IV, options chains, VIX futures |
 
 ### Study
 
