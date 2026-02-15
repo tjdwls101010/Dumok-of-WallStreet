@@ -1,6 +1,6 @@
 # Seongjin's Claude Marketplace
 
-A Claude Code plugin marketplace providing custom plugins for financial analysis and investment research.
+A Claude Code plugin marketplace providing custom plugins for financial analysis, study/knowledge management, and plugin development.
 
 ## Installation
 
@@ -30,29 +30,54 @@ Financial market data analysis plugin. Includes the MarketData skill and analyst
 | CFTC | Futures positioning |
 | CBOE | IV, options chains, VIX futures |
 
-**Setup:**
+### Study
 
-The environment is automatically configured on first use. All API keys are included — no additional configuration needed.
+Study and knowledge management plugin. PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring.
+
+**Skills:**
+- **Describe_Images** — Image description and link conversion
+- **Nano-Banana** — Slide/template generation
+- **NoteBookLM** — Google NotebookLM integration
+- **Prepare_Book** — Book preparation workflow
+- **Restructure** — Content restructuring
+- **pdf** — PDF processing
+
+**Commands:** Book, Knowledge, Mermaid, PPT, Restructure
+
+### Moai
+
+MoAI builder toolkit for creating Claude Code agents, plugins, and skills with standards compliance.
+
+**Agents:**
+- **builder-agent** — Agent creation specialist
+- **builder-plugin** — Plugin creation specialist
+- **builder-skill** — Skill creation specialist
+
+### Template
+
+Template plugin for scaffolding new Claude Code plugins.
 
 ## Structure
 
 ```
 Seongjin's Claude/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace definition
+│   └── marketplace.json
 ├── plugins/
-│   └── Invest/
-│       ├── .claude-plugin/
-│       │   └── plugin.json       # Plugin metadata
-│       ├── commands/
-│       │   ├── Minervini.md      # SEPA analysis command
-│       │   └── Serenity.md       # Supply chain analysis command
-│       └── skills/
-│           └── MarketData/
-│               ├── SKILL.md      # Skill catalog
-│               ├── Personas/     # Analyst persona files
-│               ├── scripts/      # Python data collection scripts
-│               └── tools/        # Utilities (docstring extractor, etc.)
+│   ├── Invest/
+│   │   ├── .claude-plugin/plugin.json
+│   │   ├── commands/          # Minervini, Serenity
+│   │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/, tools/
+│   ├── Study/
+│   │   ├── .claude-plugin/plugin.json
+│   │   ├── agents/            # Architector-Knowledge, Architector-Mermaid, Planner-PPT
+│   │   ├── commands/          # Book, Knowledge, Mermaid, PPT, Restructure
+│   │   └── skills/            # Describe_Images, Nano-Banana, NoteBookLM, Prepare_Book, Restructure, pdf
+│   ├── Moai/
+│   │   ├── .claude-plugin/plugin.json
+│   │   └── agents/            # builder-agent, builder-plugin, builder-skill
+│   └── Template/
+│       └── .claude-plugin/plugin.json
 └── README.md
 ```
 
