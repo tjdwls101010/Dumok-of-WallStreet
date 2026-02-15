@@ -11,18 +11,25 @@ claude plugin add <repo-url>
 
 ## Plugins
 
+| Plugin | Category | Description |
+|--------|----------|-------------|
+| **Invest** | Finance | Financial market data analysis with analyst personas |
+| **Study** | Education | Study and knowledge management with PDF, presentation, NotebookLM |
+| **Moai** | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
+| **Template** | Developer Tools | Scaffolding template for new Claude Code plugins |
+
 ### Invest
 
-Financial market data analysis plugin. Includes the MarketData skill and analyst personas (Minervini, Serenity).
+Financial market data analysis plugin. Includes the MarketData skill and analyst personas.
 
-**Key Features:**
-- **MarketData Skill**: Multi-source financial data collection via YFinance, FRED, SEC EDGAR, Finviz, CFTC, CBOE
-- **Minervini Command**: Technical analysis based on Mark Minervini's SEPA methodology
-- **Serenity Command**: Supply chain architecture and fundamental analysis
+| Component | Type | Description |
+|-----------|------|-------------|
+| MarketData | Skill | Multi-source financial data collection via YFinance, FRED, SEC EDGAR, Finviz, CFTC, CBOE |
+| Minervini | Command | Technical analysis based on Mark Minervini's SEPA methodology |
+| Serenity | Command | Supply chain architecture and fundamental analysis |
 
-**Data Sources:**
-| Source | Coverage |
-|--------|----------|
+| Data Source | Coverage |
+|-------------|----------|
 | YFinance | Stock prices, financials, options, company info |
 | FRED | Interest rates, inflation, monetary policy |
 | SEC EDGAR | Filings, insider trading, 13F |
@@ -32,26 +39,31 @@ Financial market data analysis plugin. Includes the MarketData skill and analyst
 
 ### Study
 
-Study and knowledge management plugin. PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring.
+Study and knowledge management plugin.
 
-**Skills:**
-- **Describe_Images** — Image description and link conversion
-- **Nano-Banana** — Slide/template generation
-- **NoteBookLM** — Google NotebookLM integration
-- **Prepare_Book** — Book preparation workflow
-- **Restructure** — Content restructuring
-- **pdf** — PDF processing
-
-**Commands:** Book, Knowledge, Mermaid, PPT, Restructure
+| Component | Type | Description |
+|-----------|------|-------------|
+| Describe_Images | Skill | Image description and link conversion |
+| Nano-Banana | Skill | Slide/template generation |
+| NoteBookLM | Skill | Google NotebookLM integration |
+| Prepare_Book | Skill | Book preparation workflow |
+| Restructure | Skill | Content restructuring |
+| pdf | Skill | PDF processing |
+| Book | Command | Book study workflow |
+| Knowledge | Command | Knowledge graph generation |
+| Mermaid | Command | Mermaid diagram generation |
+| PPT | Command | Presentation generation |
+| Restructure | Command | Content restructuring |
 
 ### Moai
 
 MoAI builder toolkit for creating Claude Code agents, plugins, and skills with standards compliance.
 
-**Agents:**
-- **builder-agent** — Agent creation specialist
-- **builder-plugin** — Plugin creation specialist
-- **builder-skill** — Skill creation specialist
+| Component | Type | Description |
+|-----------|------|-------------|
+| builder-agent | Agent | Agent creation specialist |
+| builder-plugin | Agent | Plugin creation specialist |
+| builder-skill | Agent | Skill creation specialist |
 
 ### Template
 
