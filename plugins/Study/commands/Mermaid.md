@@ -3,7 +3,7 @@ name: Mermaid
 description: "Generate comprehensive Mermaid diagrams from markdown or text files"
 argument-hint: '{source} "{instructions}" - Source folder or file path, and optional diagram generation instructions'
 allowed-tools: Task, Bash
-model: sonnet
+model: opus
 ---
 
 # Mermaid Command

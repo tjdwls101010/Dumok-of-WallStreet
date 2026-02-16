@@ -3,7 +3,7 @@ name: Knowledge
 description: "Restructure text-based learning materials into logically organized prose documents with zero information loss"
 argument-hint: '{source} "{instructions}" - Source folder or file path, and restructuring instructions'
 allowed-tools: Task, Bash
-model: sonnet
+model: opus
 ---
 
 # Knowledge Architect Command

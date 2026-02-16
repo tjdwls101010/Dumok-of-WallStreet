@@ -310,7 +310,7 @@ Agent Frontmatter Structure:
 - name: agent-name
 - description: Agent domain and purpose
 - tools: Required tool list (Read, Write, Edit, Grep, Glob, Bash, etc.)
-- model: sonnet, opus, haiku, or inherit
+- model: opus, opus, haiku, or inherit
 - permissionMode: default, acceptEdits, or dontAsk
 - skills: Injected skills list
 

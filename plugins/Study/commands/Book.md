@@ -4,7 +4,7 @@ description: "Orchestrate the full workflow of restructuring a PDF book into ana
 argument-hint: '{source} "{instructions}" - PDF file path and optional restructuring instructions'
 allowed-tools: Task, Bash, Read, Skill
 skills: Prepare_Book, Describe_Images, Restructure
-model: sonnet
+model: opus
 timeout: 600000
 ---
 

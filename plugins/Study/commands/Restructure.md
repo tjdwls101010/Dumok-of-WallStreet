@@ -3,7 +3,7 @@ name: Restructure
 description: "Restructure unorganized text into readable markdown using Gemini AI"
 argument-hint: '{source} "{additional_prompt}" - Folder/file path and optional instructions'
 allowed-tools: Task, Bash, Skill
-model: sonnet
+model: opus
 skills: Restructure
 ---
 
