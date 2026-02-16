@@ -27,7 +27,7 @@
     {
       "name": "study",
       "source": "./plugins/Study",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Study and knowledge management with PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring",
       "category": "education",
       "skills": [

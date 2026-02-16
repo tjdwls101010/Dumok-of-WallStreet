@@ -18,7 +18,7 @@ Convert Wiki-style image links (![[image.png]]) to Markdown format (![AI-generat
 
 **Purpose**: Convert Wiki-style image links to Markdown format with AI-generated alt text descriptions.
 
-**Script Location**: `.claude/skills/Describe_Images/Scripts/`
+**Script Location**: `Scripts/`
 
 **Two Scripts**:
 1. `Convert_Image-Link.py` - Wiki link to Markdown conversion only
@@ -28,19 +28,19 @@ Convert Wiki-style image links (![[image.png]]) to Markdown format (![AI-generat
 
 ```bash
 # Step 1: Convert Wiki links to Markdown format
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts" && \
+cd "Scripts" && \
 source .venv/bin/activate && \
 python3 Convert_Image-Link.py "{markdown_path}"
 
 # Step 2: Generate AI descriptions for images
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts" && \
+cd "Scripts" && \
 source .venv/bin/activate && \
 python3 Describe_Images.py "{markdown_path}" -m gpt
 ```
 
 **Prerequisites**:
 - Python venv with: `openai`, `google-generativeai`, `pillow`, `python-dotenv`
-- API Key: `.claude/skills/Describe_Images/Scripts/.env` with `OPENAI_API_KEY` or `GOOGLE_API_KEY`
+- API Key: `Scripts/.env` with `OPENAI_API_KEY` or `GOOGLE_API_KEY`
 
 **Output**: In-place modification of the markdown file.
 
@@ -52,7 +52,7 @@ python3 Describe_Images.py "{markdown_path}" -m gpt
 
 **Step 1**: Ensure virtual environment is set up
 ```bash
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts"
+cd "Scripts"
 python -m venv .venv
 source .venv/bin/activate
 pip install python-dotenv openai google-generativeai Pillow
@@ -60,7 +60,7 @@ pip install python-dotenv openai google-generativeai Pillow
 
 **Step 2**: Create `.env` file in Scripts directory
 ```bash
-# Create at: .claude/skills/Describe_Images/Scripts/.env
+# Create at: Scripts/.env
 OPENAI_API_KEY=sk-your-openai-key-here
 OPENAI_MODEL=gpt-5-mini
 
@@ -213,7 +213,7 @@ This skill is also used in the Book processing workflow.
 ## Troubleshooting
 
 **API Key Not Found**:
-- Ensure `.env` file exists at `.claude/skills/Describe_Images/Scripts/.env`
+- Ensure `.env` file exists at `Scripts/.env`
 - Verify `OPENAI_API_KEY` or `GOOGLE_API_KEY` is set correctly
 
 **Image Not Found**:
@@ -234,7 +234,7 @@ This skill is also used in the Book processing workflow.
 **Virtual Environment Issues**:
 ```bash
 # Recreate virtual environment
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts"
+cd "Scripts"
 rm -rf .venv
 python -m venv .venv
 source .venv/bin/activate

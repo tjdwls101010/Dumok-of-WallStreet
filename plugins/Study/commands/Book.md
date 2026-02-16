@@ -38,7 +38,7 @@ Transform PDF books into well-organized prose documents through complete agent d
 
 | Variable | Source | Example |
 |----------|--------|---------|
-| `VAULT_PATH` | Vault root (absolute) | `/Users/seongjin/Documents/⭐성진이의 옵시디언` |
+| `VAULT_PATH` | Vault root (absolute, auto-detected) | `$(pwd)` at command start |
 | `BOOK_FOLDER` | toc.json's parent directory (absolute) | `/Users/.../🚨Temporary/📖Books/📕혐오/HATE` |
 | `BOOK_NAME` | Folder name extracted from BOOK_FOLDER | `HATE` |
 
@@ -47,10 +47,10 @@ Transform PDF books into well-organized prose documents through complete agent d
 # After Prepare_Book outputs: "저장됨: /path/to/HATE/toc.json"
 BOOK_FOLDER="/path/to/HATE"  # Parent directory of toc.json
 BOOK_NAME="HATE"             # Basename of BOOK_FOLDER
-VAULT_PATH="/Users/seongjin/Documents/⭐성진이의 옵시디언"
+VAULT_PATH="$(pwd)"  # Auto-detect vault root at command start
 ```
 
-**NEVER use `$(pwd)`** - working directory may be polluted by previous commands. Always use absolute paths stored in variables.
+**Set `VAULT_PATH="$(pwd)"` ONCE at command start** - then use `$VAULT_PATH` for all subsequent references. Never re-evaluate `$(pwd)` after cd commands.
 
 ---
 
@@ -64,7 +64,7 @@ VAULT_PATH="/Users/seongjin/Documents/⭐성진이의 옵시디언"
 4. **Set variables immediately after reading toc.json**:
 ```bash
 # Extract from toc.json's pdf_path or the "저장됨:" output path
-VAULT_PATH="/Users/seongjin/Documents/⭐성진이의 옵시디언"
+VAULT_PATH="$(pwd)"  # Auto-detect vault root at command start
 BOOK_FOLDER="/absolute/path/to/book_folder"  # e.g., from toc.json location
 BOOK_NAME="book_name"  # basename of BOOK_FOLDER
 ```
@@ -82,7 +82,7 @@ BOOK_NAME="book_name"  # basename of BOOK_FOLDER
 find "$BOOK_FOLDER" -maxdepth 1 -name "*.md" -type f -not -name "*.backup*" -print0 | \
 	sort -zV | while IFS= read -r -d '' file; do
 		echo "Processing: $file"
-		(cd "$VAULT_PATH/.claude/skills/Describe_Images/Scripts" && \
+		(cd "<Describe_Images_skill>/Scripts" && \
 			source .venv/bin/activate && \
 			python Describe_Images.py "$file")
 	done
@@ -96,7 +96,7 @@ find "$BOOK_FOLDER" -maxdepth 1 -name "*.md" -type f -not -name "*.backup*" -pri
 
 **Single Bash() call** with batch script (10-second intervals for API rate limit):
 ```bash
-"$VAULT_PATH/.claude/skills/Restructure/scripts/batch.sh" "$BOOK_FOLDER" "{additional_prompt}"
+"<Restructure_skill>/scripts/batch.sh" "$BOOK_FOLDER" "{additional_prompt}"
 ```
 - **Use `$VAULT_PATH` and `$BOOK_FOLDER` variables** (set in Phase 1)
 - Processes files in ascending filename order (`sort -V`)
@@ -204,7 +204,7 @@ These constraints prevent unrecoverable errors:
 
 1. **Main command MUST NOT Read() markdown files** - only toc.json allowed
 2. **Rate-limited batch processing** - use batch.sh with 10-second delays for API rate limit
-3. **NEVER use `$(pwd)` or relative paths** - working directory may be polluted; always use `$VAULT_PATH`, `$BOOK_FOLDER`, `$BOOK_NAME` variables set in Phase 1
+3. **Set `VAULT_PATH="$(pwd)"` ONCE at Phase 1** - then use `$VAULT_PATH`, `$BOOK_FOLDER`, `$BOOK_NAME` variables consistently; never re-evaluate `$(pwd)` after cd commands
 4. **Use `-print0 | while read -d ''`** for file iteration - handles special characters (`"`, `'`) in filenames safely
 5. **Wait for Bash() completion** before next phase - file existence ≠ content complete
 6. **Use Python file I/O** - macOS unicode (NFC vs NFD) breaks Edit tool on Korean paths
@@ -245,66 +245,6 @@ These constraints prevent unrecoverable errors:
 
 ---
 
-## Version History
-
-**v1.7.0** (2026-02-13)
-- Added Phase 2.1: Restructuring Validation
-- Compares Original vs Restructured character counts, prints comparison table
-- Flags chapters below 35% ratio as abnormal (normal range ~45-55%)
-- Uses `AskUserQuestion()` to confirm reprocessing of flagged chapters
-- Updated Critical Constraint #8 to allow AskUserQuestion in Phase 2.1 only
-
-**v1.6.9** (2026-01-31)
-- Phase 2.5: Added explicit Level Normalization rules (split_level → first heading, shift remaining headings)
-- Prevents inconsistent heading levels from Gemini output without manual correction passes
-
-**v1.6.8** (2026-01-28)
-- Phase 1.5: Changed to sequential processing with `find -print0 | while read -d ''`
-- Fixes special character handling (`"`, `'`) in filenames that broke parallel Bash() calls
-- Single Bash() call instead of multiple parallel calls
-
-**v1.6.7** (2026-01-28)
-- Phase 1.5: Changed to two-step execution (list files → parallel Bash() per file)
-- Removed fragile shell pipeline with subshell, grep, xargs
-- Better error isolation and progress visibility
-- Updated Critical Constraints: removed subshell requirement
-
-**v1.6.6** (2026-01-28)
-- Added "Variable Definitions" section with `VAULT_PATH`, `BOOK_FOLDER`, `BOOK_NAME`
-- Phase 1: Added step 4 to set variables immediately after reading toc.json
-- All phases now use explicit variable names instead of `{placeholder}` syntax
-- Critical Constraints: Added explicit `$(pwd)` prohibition, renumbered constraints
-
-**v1.6.5** (2026-01-27)
-- Phase 2: Changed from parallel Bash() to single batch.sh call (10-second intervals)
-
-**v1.6.4** (2026-01-27)
-- Phase 2.5: Use Bash() heredoc (no temporary py files), removed pseudo code for LLM flexibility
-
-**v1.6.3** (2026-01-27)
-- Phase 2: Changed from `xargs -P 3` to individual Bash() parallel calls (one file per Bash)
-
-**v1.6.2** (2026-01-27)
-- Fixed working directory issue: Phase 1.5 uses subshell `(...)` to prevent `cd` pollution
-- Phase 2 now uses absolute path `{vault_path}/.claude/skills/...`
-- Reduced `-P 5` to `-P 3` to prevent Gemini API rate limit exhaustion
-
-**v1.6.1** (2026-01-27)
-- Changed parallel execution from multiple Bash() calls to single Bash() with `xargs -P 5`
-- Shell-level parallelism: 5 files processed at a time (prevents API rate limit)
-
-**v1.6.0** (2026-01-19)
-- Added ancestor heading insertion for first children in Phase 2.5
-- Chain detection: if parent is also first child, grandparent added too
-
-**v1.5.2**: First heading title replacement with exact toc.json title
-**v1.5.1**: Per-file toc level matching (not global level)
-**v1.5.0**: Added Merge phase with `sort -V` ordering
-**v1.4.0**: Sequential → Parallel execution for restructuring
-**v1.3.1**: Python file I/O for macOS unicode, heading pattern docs
-
----
-
 ## Execution Directive
 
 Execute immediately in sequence:
@@ -315,7 +255,7 @@ Execute immediately in sequence:
 4. Read toc.json (only file to read directly)
 5. **Set variables immediately** (CRITICAL - before any subsequent phase):
 ```bash
-VAULT_PATH="/Users/seongjin/Documents/⭐성진이의 옵시디언"
+VAULT_PATH="$(pwd)"  # Auto-detect vault root at command start
 BOOK_FOLDER="<absolute path from toc.json location>"
 BOOK_NAME="<basename of BOOK_FOLDER>"
 ```

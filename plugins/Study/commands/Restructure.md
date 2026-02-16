@@ -57,11 +57,12 @@ Restructure unorganized text into readable markdown documents using Gemini AI.
 2. Check if folder or file: `ls "{source}"`
 3. If folder, collect all .md files
 4. Load Restructure skill
-5. Execute script for ALL files IN PARALLEL:
+5. Locate the Restructure skill's `scripts/` directory (loaded via `skills: Restructure` frontmatter)
+6. Execute script for ALL files IN PARALLEL:
    - Without additional_prompt:
-     `bash "/Users/seongjin/Documents/⭐성진이의 옵시디언/.claude/skills/Restructure/scripts/restructure.sh" "{file_path}"`
+     `bash "<Restructure_skill>/scripts/restructure.sh" "{file_path}"`
    - With additional_prompt:
-     `bash "/Users/seongjin/Documents/⭐성진이의 옵시디언/.claude/skills/Restructure/scripts/restructure.sh" "{file_path}" "{additional_prompt}"`
+     `bash "<Restructure_skill>/scripts/restructure.sh" "{file_path}" "{additional_prompt}"`
    - [HARD] Send ALL Bash() calls in a SINGLE message
    - [HARD] Quote ALL paths and arguments with double quotes
 6. Get char counts: `wc -m < "{file}" | tr -d ' '`

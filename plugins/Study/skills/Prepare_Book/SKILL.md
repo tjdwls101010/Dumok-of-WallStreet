@@ -19,7 +19,7 @@ Prepares PDF books in an optimized format for LLM analysis. Provides TOC-based s
 
 All scripts are located in a single directory within the skill folder:
 
-- Script Directory: `.claude/skills/Prepare_Book/Scripts/`
+- Script Directory: `Scripts/`
 - Contains: `check_toc.py`, `split_pdf.py`, `pdf_to_md.py`
 
 ### Core Workflow
@@ -35,7 +35,7 @@ All scripts are located in a single directory within the skill folder:
 All commands use the Scripts directory. Use absolute path or set SCRIPTS_DIR variable:
 
 ```bash
-SCRIPTS_DIR="/path/to/vault/.claude/skills/Prepare_Book/Scripts"
+SCRIPTS_DIR="Scripts"  # Relative to this skill's root directory
 ```
 
 TOC Analysis:
@@ -61,7 +61,7 @@ python3 "$SCRIPTS_DIR/pdf_to_md.py" -p "/path/to/split/chapter.pdf"
 Image Description (separate skill):
 
 ```bash
-cd ".claude/skills/Describe_Images/Scripts"
+cd "<Describe_Images_skill>/Scripts"
 source .venv/bin/activate
 python Describe_Images.py "/path/to/chapter.md" -m gpt
 ```
@@ -91,7 +91,7 @@ book/
 ### Initial Setup
 
 ```bash
-SCRIPTS_DIR="/path/to/vault/.claude/skills/Prepare_Book/Scripts"
+SCRIPTS_DIR="Scripts"  # Relative to this skill's root directory
 cd "$SCRIPTS_DIR"
 python3 -m venv .venv
 source .venv/bin/activate
@@ -107,7 +107,7 @@ pip install pymupdf pymupdf4llm python-dotenv
 Analyzes the PDF's table of contents structure and saves it as JSON.
 
 ```bash
-SCRIPTS_DIR="/path/to/vault/.claude/skills/Prepare_Book/Scripts"
+SCRIPTS_DIR="Scripts"  # Relative to this skill's root directory
 "$SCRIPTS_DIR/.venv/bin/python" "$SCRIPTS_DIR/check_toc.py" "/path/to/book.pdf"
 ```
 
@@ -215,7 +215,7 @@ folder/
 For AI image descriptions, use the `Describe_Images` skill:
 
 ```bash
-cd ".claude/skills/Describe_Images/Scripts"
+cd "<Describe_Images_skill>/Scripts"
 source .venv/bin/activate
 python Describe_Images.py "/path/to/chapter.md" -m gpt
 ```

@@ -20,26 +20,26 @@ Generate high-quality PPT slide images from JSON slide outlines using the Gemini
 **Execution Commands**:
 ```bash
 # Generate empty template image (for consistent header/footer)
-uv run python "{skill_scripts_dir}/Generate_Template.py" "{json_file}"
+uv run python "Scripts/Generate_Template.py" "{json_file}"
 
 # Generate all slides (auto-detects template.png in JSON directory)
-uv run python "{skill_scripts_dir}/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}"
+uv run python "Scripts/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}"
 
 # Generate with explicit template image
-uv run python "{skill_scripts_dir}/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --template "{template_path}"
+uv run python "Scripts/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --template "{template_path}"
 
 # Generate specific slides only (for recovery/retry)
-uv run python "{skill_scripts_dir}/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --slides 5
-uv run python "{skill_scripts_dir}/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --slides 5,7,9
+uv run python "Scripts/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --slides 5
+uv run python "Scripts/Generate_Slides.py" "{json_file}" --output-dir "{output_dir}" --slides 5,7,9
 ```
 
 **Script Location**:
-`.claude/skills/Nano-Banana/Scripts/Generate_Slides.py`
-`.claude/skills/Nano-Banana/Scripts/Generate_Template.py`
+`Scripts/Generate_Slides.py`
+`Scripts/Generate_Template.py`
 
 **Prerequisites**:
 - Python dependencies: `google-genai`, `python-dotenv`, `pillow`
-- API Key: `.claude/skills/Nano-Banana/Scripts/.env` with `GOOGLE_API_KEYS=key1,key2` or `GOOGLE_API_KEY=your_key`
+- API Key: `Scripts/.env` with `GOOGLE_API_KEYS=key1,key2` or `GOOGLE_API_KEY=your_key`
 
 **Output**: PNG images saved as `slide_001.png`, `slide_002.png`, etc.
 
@@ -56,7 +56,7 @@ pip install google-genai python-dotenv pillow
 
 **Step 2**: Create `.env` file in skill Scripts directory
 ```bash
-# Create at: .claude/skills/Nano-Banana/Scripts/.env
+# Create at: Scripts/.env
 # Single key
 GOOGLE_API_KEY=your_google_api_key_here
 # Or multiple keys for rotation (recommended)
@@ -457,7 +457,7 @@ def generate_slides(json_path: str, output_dir: str = None) -> int:
 ## Troubleshooting
 
 **API Key Not Found**:
-- Ensure `.env` file exists at `.claude/skills/Nano-Banana/Scripts/.env`
+- Ensure `.env` file exists at `Scripts/.env`
 - Verify `GOOGLE_API_KEYS` or `GOOGLE_API_KEY` is set correctly
 
 **Quota Exceeded**:

@@ -32,8 +32,22 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env")
 
 # ==================== 설정값 ====================
-# Vault 루트 경로 (고정)
-VAULT_ROOT = Path("/Users/seongjin/Documents/⭐성진이의 옵시디언")
+
+
+def find_vault_root(markdown_path: Path) -> Path:
+    """입력 파일에서 상위로 올라가며 .obsidian/ 디렉토리를 찾아 Vault 루트 반환"""
+    current = markdown_path.resolve().parent
+    while current != current.parent:
+        if (current / ".obsidian").is_dir():
+            return current
+        current = current.parent
+    env_root = os.environ.get("VAULT_ROOT")
+    if env_root:
+        return Path(env_root)
+    raise FileNotFoundError("Obsidian vault root not found. Set VAULT_ROOT env var.")
+
+
+VAULT_ROOT: Path = None  # Set dynamically in async_main()
 
 # 환경변수에서 API 키 및 모델명 로드
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -491,6 +505,10 @@ async def async_main():
 
     # Resolve file path
     file_path = Path(args.file)
+
+    # Auto-detect vault root
+    global VAULT_ROOT
+    VAULT_ROOT = find_vault_root(file_path)
 
     if not file_path.exists():
         print(f"Error: File not found: {file_path}", file=sys.stderr)

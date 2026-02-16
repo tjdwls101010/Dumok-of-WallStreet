@@ -21,14 +21,14 @@ color: yellow
 **Execution Command**:
 ```bash
 # 기본 사용
-"{skill_scripts_dir}/restructure.sh" "{input_file_path}"
+"scripts/restructure.sh" "{input_file_path}"
 
 # 추가 프롬프트와 함께
-"{skill_scripts_dir}/restructure.sh" "{input_file_path}" "{additional_prompt}"
+"scripts/restructure.sh" "{input_file_path}" "{additional_prompt}"
 ```
 
 **Script Location**:
-`.claude/skills/Restructure/scripts/restructure.sh`
+`scripts/restructure.sh`
 
 **Prerequisites**:
 - gemini-cli 설치 필요
@@ -42,7 +42,7 @@ color: yellow
 ./restructure.sh "🚨Temporary/📖Books/📕혐오/HATE/4. Introduction.md"
 
 # 절대 경로
-./restructure.sh "/Users/seongjin/Documents/⭐성진이의 옵시디언/🚨Temporary/📖Books/📕혐오/HATE/4. Introduction.md"
+./restructure.sh "/path/to/vault/🚨Temporary/📖Books/📕혐오/HATE/4. Introduction.md"
 
 # 추가 프롬프트 사용
 ./restructure.sh "TMP/draft.md" "'Amos Decker'를 '에이머스 데커'라고 표현해."
@@ -62,8 +62,8 @@ which gemini
 
 **Step 2**: 스크립트 실행
 ```bash
-SKILL_DIR="/path/to/vault/.claude/skills/Restructure/scripts"
-"$SKILL_DIR/restructure.sh" "/path/to/input.md"
+# Script paths are relative to this skill's root directory
+"scripts/restructure.sh" "/path/to/input.md"
 ```
 
 ### 입출력 구조
@@ -171,7 +171,7 @@ Steve Jobs -> 스티브 잡스 (X)
 
 ```bash
 # 프롬프트 파일 위치
-.claude/skills/Restructure/scripts/prompt.md
+scripts/prompt.md
 ```
 
 **주요 설정 항목**:
@@ -186,10 +186,10 @@ Steve Jobs -> 스티브 잡스 (X)
 
 ```bash
 # 기본 사용
-"{skill_scripts_dir}/batch.sh" "{folder_path}"
+"scripts/batch.sh" "{folder_path}"
 
 # 추가 프롬프트와 함께
-"{skill_scripts_dir}/batch.sh" "{folder_path}" "{additional_prompt}"
+"scripts/batch.sh" "{folder_path}" "{additional_prompt}"
 ```
 
 **동작 방식**:
@@ -209,7 +209,7 @@ Steve Jobs -> 스티브 잡스 (X)
 
 **File Structure**:
 ```
-.claude/skills/Restructure/
+Restructure/
 ├── SKILL.md           # 이 문서
 └── scripts/
     ├── restructure.sh # 단일 파일 처리 스크립트

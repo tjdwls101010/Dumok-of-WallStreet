@@ -47,7 +47,7 @@ Generate PPT slide images from a single source file through a two-stage process:
 	3. Execute Nano-Banana script: `uv run python Generate_Slides.py "{json_file}" --output-dir "{output_dir}"`
 	4. Merge slide images into PDF: Python inline script with Pillow
 	- NOTE: Use `uv run python` instead of `python` to ensure correct environment
-	- Script path: `{working_directory}/.claude/skills/Nano-Banana/Scripts/Generate_Slides.py`
+	- Script path: Nano-Banana skill's `Scripts/Generate_Slides.py` (loaded via `skills:` frontmatter)
 
 Main command delegates source file reading to Planner-PPT. Design reference images are read directly by main agent using Read() tool.
 
@@ -63,7 +63,7 @@ Main command delegates source file reading to Planner-PPT. Design reference imag
 
 **Skill**:
 - **Nano-Banana**: Generates slide images from JSON prompts
-	- Script: `.claude/skills/Nano-Banana/Scripts/Generate_Slides.py`
+	- Script: Nano-Banana skill's `Scripts/Generate_Slides.py`
 	- Input: JSON file path, output directory
 	- Output: PNG images for each slide
 
@@ -188,7 +188,7 @@ Convert Wiki-style image links to Markdown format with AI-generated descriptions
 #### Step 4.1: Convert Wiki Links to Markdown Format
 
 ```bash
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts" && source .venv/bin/activate && python Convert_Image-Link.py "{markdown_file_path}"
+cd "<Describe_Images_skill>/Scripts" && source .venv/bin/activate && python Convert_Image-Link.py "{markdown_file_path}"
 ```
 
 - Converts `![[image.png]]` to `![](path/image.png)`
@@ -197,7 +197,7 @@ cd "{working_directory}/.claude/skills/Describe_Images/Scripts" && source .venv/
 #### Step 4.2: Generate AI Descriptions for Images
 
 ```bash
-cd "{working_directory}/.claude/skills/Describe_Images/Scripts" && source .venv/bin/activate && python Describe_Images.py "{markdown_file_path}" -m gpt
+cd "<Describe_Images_skill>/Scripts" && source .venv/bin/activate && python Describe_Images.py "{markdown_file_path}" -m gpt
 ```
 
 - Converts `![](path)` to `![AI description](path)`
@@ -365,7 +365,7 @@ cd "{script_directory}" && uv run python Generate_Template.py "{json_file}"
 
 Example with special characters:
 ```bash
-cd "/Users/seongjin/Documents/⭐성진이의 옵시디언/.claude/skills/Nano-Banana/Scripts" && uv run python Generate_Template.py "/Users/seongjin/Documents/⭐성진이의 옵시디언/TMP/PPT_📰제목/Plan_📰제목.json"
+cd "<Nano-Banana_skill>/Scripts" && uv run python Generate_Template.py "{json_file}"
 ```
 
 - Output: `template.png` in JSON directory (e.g., `PPT_📰제목/template.png`)
@@ -430,7 +430,7 @@ cd "{script_directory}" && uv run python Generate_Slides.py "{json_file}" --outp
 
 Example with special characters:
 ```bash
-cd "/Users/seongjin/Documents/⭐성진이의 옵시디언/.claude/skills/Nano-Banana/Scripts" && uv run python Generate_Slides.py "/Users/seongjin/Documents/⭐성진이의 옵시디언/TMP/PPT_📰제목/Plan_📰제목.json" --output-dir "/Users/seongjin/Documents/⭐성진이의 옵시디언/TMP/PPT_📰제목/"
+cd "<Nano-Banana_skill>/Scripts" && uv run python Generate_Slides.py "{json_file}" --output-dir "{ppt_folder}"
 ```
 
 - `Generate_Slides.py` auto-detects `template.png` in JSON directory
@@ -535,7 +535,7 @@ Do NOT use AskUserQuestion. Do NOT save summary to file.
 | Source Not Found | Invalid path | Verify file exists with `ls` |
 | JSON Generation Failed | Planner-PPT parse error | Check file encoding and format |
 | Image Generation Failed | API error | Script has built-in retry (10 retries, 30s delay) |
-| API Key Missing | No .env file | Create `.claude/skills/Nano-Banana/Scripts/.env` with `GOOGLE_API_KEY` |
+| API Key Missing | No .env file | Create Nano-Banana skill's `Scripts/.env` with `GOOGLE_API_KEY` |
 
 ---
 
@@ -548,26 +548,6 @@ Do NOT use AskUserQuestion. Do NOT save summary to file.
 | JSON file | `Plan_{filename}.json` |
 | Slide images | `slide_001.png` ~ `slide_NNN.png` |
 | PDF file | `{filename}.pdf` |
-
----
-
-## Version History
-
-**v7.1.0** (2026-01-24): Strengthened Step 3.5 to prevent content extraction. Added "Core Principle: Describe HOW, not WHAT" with explicit ❌/✅ examples. Added example for extracting pure design from content-heavy images.
-
-**v7.0.0** (2026-01-24): Design Reference Analysis moved to main agent. Main agent now reads design reference images directly using Read(), extracts design style as natural language, and confirms with user via AskUserQuestion before passing to Planner-PPT. Planner-PPT receives design_style_description (text) instead of image path. Typography selection delegated to Planner-PPT for readability optimization.
-
-**v6.0.0** (2026-01-23): Added Template Generation step (Step 6) with Template Feedback Loop (Step 6.5). Before slide generation, creates `template.png` with consistent header/footer styling using `Generate_Template.py`. User can review and regenerate template until satisfied. Slides now have consistent visual structure across all pages.
-
-**v5.0.0** (2026-01-23): Added User Feedback Loop (Step 5.5) with **combined AskUserQuestion**. After JSON generation, users can review design AND slide structure simultaneously via single AskUserQuestion call (2 questions). Uses Task resume for iterative refinement until both are satisfied.
-
-**v4.0.0** (2026-01-21): Simplified to single-file processing. Removed folder support, parallel execution, and duplicate documentation (Reference Image, Design Reference sections moved to Planner-PPT.md).
-
-**v3.0.0**: Added Design Reference Image support for visual style templates.
-
-**v2.6.0**: Added Image-Describer pre-processing for wiki-style image conversion.
-
-**v2.0.0**: Added Safety Error Recovery workflow with post-hoc handling.
 
 ---
 
