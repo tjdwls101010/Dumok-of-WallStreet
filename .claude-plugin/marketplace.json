@@ -13,7 +13,7 @@
     {
       "name": "invest",
       "source": "./plugins/Invest",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "description": "Financial market data analysis with MarketData skill and analyst personas (Minervini, Serenity)",
       "category": "finance",
       "skills": [
