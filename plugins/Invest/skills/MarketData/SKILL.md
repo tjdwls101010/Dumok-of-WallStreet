@@ -276,13 +276,18 @@ All scripts return JSON. Error format: `{"error": "message"}` with exit code 1.
 
 ### [HARD] Mandatory Batch Discovery Rule
 
-Before executing ANY scripts in parallel, run `extract_docstring.py` ONCE with ALL scripts you plan to use. This is not optional.
+Before executing ANY scripts in parallel, run `extract_docstring.py` with ALL scripts you plan to use. This is not optional.
+
+**Batch Size Limit**: Maximum 5 scripts per `extract_docstring.py` call. If you need more than 5, split into multiple sequential calls of ≤5 scripts each.
 
 **Why**: Wrong subcommand names cause cascading failures -- one bad call cancels ALL parallel sibling tool calls ("Sibling tool call errored"), wasting the entire round-trip. This catalog (Level 1) provides script file names only, NOT subcommand names. For example, `info.py` has subcommands `get-fast-info` and `get-info`, NOT `get`. You cannot guess these from the catalog.
 
 ```bash
-# Discover subcommands for ALL scripts BEFORE parallel execution
-$VENV ../tools/extract_docstring.py scripts/data_sources/info.py scripts/analysis/forward_pe.py scripts/analysis/sbc_analyzer.py
+# Batch 1: data collection scripts (max 5)
+$VENV ../tools/extract_docstring.py scripts/data_sources/info.py scripts/data_sources/financials.py scripts/data_sources/holders.py scripts/data_sources/earnings_acceleration.py scripts/analysis/forward_pe.py
+
+# Batch 2: analysis scripts (max 5)
+$VENV ../tools/extract_docstring.py scripts/analysis/sbc_analyzer.py scripts/analysis/margin_tracker.py scripts/analysis/debt_structure.py scripts/analysis/institutional_quality.py scripts/analysis/no_growth_valuation.py
 
 # Single script discovery
 $VENV ../tools/extract_docstring.py scripts/technical/oscillators.py
@@ -307,20 +312,6 @@ If you have already successfully discovered a script's subcommands in the curren
 ### [HARD] Output Integrity Rule
 
 Never pipe script output through `head`, `tail`, or any truncation command. Always capture and use full output. Partial data leads to incorrect analysis.
-
-### [HARD] Truncation Recovery Rule
-
-`extract_docstring.py` output may be truncated by the system (when exceeding 30KB).
-When truncated, the system saves the full output to a file and provides the path.
-
-**You MUST read the saved file with Read tool before executing any script.**
-
-Guessing subcommands from the preview (first 2KB) alone is prohibited.
-Guessing is treated as a Batch Discovery Rule violation.
-
-Symptom: If you see "Output too large (XXK). Full output saved to: /path/..." in the output:
-→ Immediately read that path with Read tool
-→ Do not execute any script until you have read the full output
 
 ### [HARD] Script Failure Mandatory Retry Rule
 
