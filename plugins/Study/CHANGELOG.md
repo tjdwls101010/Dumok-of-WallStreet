@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.2] - 2026-02-18
+
+### Fixed
+- `Convert_Image-Link.py`: Exclude `.trash`, `.git`, `.obsidian`, `node_modules`, `.venv` directories from image index — prevents resolving images to trash folder when duplicates exist
+
 ## [1.1.1] - 2026-02-18
 
 ### Changed

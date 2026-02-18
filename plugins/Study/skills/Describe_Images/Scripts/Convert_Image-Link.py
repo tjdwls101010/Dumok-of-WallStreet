@@ -46,14 +46,25 @@ FILE_ENCODING = "utf-8"
 WIKI_PATTERN = r'!\[\[([^\]]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp|tiff|ico))\]\]'
 
 
+EXCLUDE_DIRS = {'.trash', '.git', '.obsidian', 'node_modules', '.venv'}
+
+
 def build_image_index(vault_root: Path) -> dict[str, Path]:
-    """vault 전체에서 이미지 파일을 검색하여 {파일명: 절대경로} 인덱스 생성."""
+    """vault 전체에서 이미지 파일을 검색하여 {파일명: 절대경로} 인덱스 생성.
+
+    .trash, .git 등 제외 디렉토리는 건너뛴다.
+    동일 파일명이 여러 곳에 있으면 제외 디렉토리 밖의 경로를 우선한다.
+    """
     extensions = ('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico')
     index = {}
     for ext in extensions:
         for img_path in vault_root.rglob(f'*.{ext}'):
+            if any(part in EXCLUDE_DIRS for part in img_path.relative_to(vault_root).parts):
+                continue
             index[img_path.name] = img_path
         for img_path in vault_root.rglob(f'*.{ext.upper()}'):
+            if any(part in EXCLUDE_DIRS for part in img_path.relative_to(vault_root).parts):
+                continue
             index[img_path.name] = img_path
     return index
 
