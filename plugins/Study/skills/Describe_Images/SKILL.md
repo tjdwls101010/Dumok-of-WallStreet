@@ -40,7 +40,7 @@ python3 Describe_Images.py "{markdown_path}" -m gpt
 
 **Prerequisites**:
 - Python venv with: `openai`, `google-generativeai`, `pillow`, `python-dotenv`
-- API Key: `Scripts/.env` with `OPENAI_API_KEY` or `GOOGLE_API_KEY`
+- API Key: `.env` in working directory (or `Scripts/.env` as fallback) with `OPENAI_API_KEY` or `GOOGLE_API_KEY`
 
 **Output**: In-place modification of the markdown file.
 
@@ -58,9 +58,9 @@ source .venv/bin/activate
 pip install python-dotenv openai google-generativeai Pillow
 ```
 
-**Step 2**: Create `.env` file in Scripts directory
+**Step 2**: Create `.env` file in your working directory (project root)
 ```bash
-# Create at: Scripts/.env
+# Create at: <working_directory>/.env
 OPENAI_API_KEY=sk-your-openai-key-here
 OPENAI_MODEL=gpt-5-mini
 
@@ -213,7 +213,7 @@ This skill is also used in the Book processing workflow.
 ## Troubleshooting
 
 **API Key Not Found**:
-- Ensure `.env` file exists at `Scripts/.env`
+- Ensure `.env` file exists in your working directory (CWD) or at `Scripts/.env` as fallback
 - Verify `OPENAI_API_KEY` or `GOOGLE_API_KEY` is set correctly
 
 **Image Not Found**:

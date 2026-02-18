@@ -28,8 +28,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# .env 파일 로드
-load_dotenv(Path(__file__).parent / ".env")
+# .env 파일 로드 (CWD 우선 → 스크립트 디렉토리 fallback)
+load_dotenv(Path.cwd() / ".env")
+load_dotenv(Path(__file__).parent / ".env")  # override=False (기본값)
 
 # ==================== 설정값 ====================
 

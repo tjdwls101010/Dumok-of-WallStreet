@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.1] - 2026-02-18
+
+### Changed
+- `Describe_Images.py`: `.env` lookup now searches CWD first, then falls back to script directory (plugin portability fix)
+- `SKILL.md`: Updated documentation to reflect CWD-based `.env` loading
+
 ## [1.1.0] - 2026-02-16
 
 ### Changed
