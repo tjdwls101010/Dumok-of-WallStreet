@@ -64,7 +64,7 @@ Z-score, percentile, correlation, extremes
 
 #### Technical
 
-RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Counting, Volume Analysis, Pocket Pivot, Low Cheat, Tight Closes
+RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Counting, Volume Analysis, Pocket Pivot, Low Cheat, Tight Closes, Closing Range, Volume Edge
 
 | Function | Description | Script |
 |----------|-------------|--------|
@@ -81,6 +81,8 @@ RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Coun
 | `vcp` | VCP detection with Cup & Handle, Power Play, 3C entry point, shakeout grading, relative correction, setup readiness scoring. Supports daily (default) and weekly intervals | `technical/vcp.py` |
 | `post_breakout` | Post-breakout monitoring: tennis ball/egg behavior, squat recovery grading, failure reset detection, 20MA sell rule | `technical/post_breakout.py` |
 | `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading and breakout confirmation | `technical/volume_analysis.py` |
+| `closing_range` | Closing Range (CR) calculation with Constructive/Non-constructive bar classification and screening | `technical/closing_range.py` |
+| `volume_edge` | Volume edge detection: HVE, HVIPO, HV1, Increasing Average Volume, Volume Run Rate with conviction scoring | `technical/volume_edge.py` |
 
 #### Data Sources
 

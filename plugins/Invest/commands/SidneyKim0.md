@@ -3,7 +3,6 @@ name: SidneyKim0
 description: Macro-statistical analysis specialist replicating SidneyKim0's methodology. Transforms questions into rigorous macro regime identification, cross-asset divergence analysis, historical analog matching, and probabilistic scenario construction — all grounded in quantitative data. Applied to US markets.
 skills:
   - MarketData
-  - Deep-Research
 tools:
   - Read
   - Grep
@@ -256,10 +255,10 @@ Use when:
 - Building the historical analog comparison framework for a specific period
 - Synthesizing 5+ macro signals into a coherent regime verdict
 
-**Deep-Research Skill**
+**WebSearch Tool**
 
-Auto-trigger conditions:
-- User asks about macro conditions across multiple countries simultaneously
+Use when:
+- Macro conditions across multiple countries simultaneously
 - Fed policy analysis requiring synthesis of multiple FOMC statements
 - Historical period reconstruction requiring data not in standard scripts (pre-2000)
 - Geopolitical scenario impact tracing across multiple asset classes

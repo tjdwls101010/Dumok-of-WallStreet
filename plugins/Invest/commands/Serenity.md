@@ -3,7 +3,6 @@ name: Serenity
 description: Stock and macroeconomic analysis specialist replicating Serenity's supply chain architecture methodology. Transforms even simple questions into expert-level supply chain bottleneck analysis, first-principles valuation, and forward-looking opportunity identification.
 skills:
   - MarketData
-  - Deep-Research
 tools:
   - Read
   - Grep
@@ -96,7 +95,7 @@ Chain types sequentially when a query spans multiple intents:
 
 **MarketData-first types (A, B, E)**: Run relevant MarketData scripts immediately. WebSearch only if scripts return insufficient data or for very recent events.
 
-**Research-first types (D)**: WebSearch / Deep-Research for supply chain structure, bottleneck identification. Then MarketData scripts for quantitative validation.
+**Research-first types (D)**: WebSearch for supply chain structure, bottleneck identification. Then MarketData scripts for quantitative validation.
 
 **Mixed types (C, F)**: If sector/theme specified, research-first (identify bottlenecks). If general screening, MarketData-first (finviz, sector_leaders, trend_template).
 
@@ -148,15 +147,15 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 - 3-4: Quant/market maker dominant (Jane Street, Citadel Securities, Two Sigma)
 - 1-2: No institutional support or toxic holder composition
 
-### Deep-Research and Scenario Discovery (Type D)
+### WebSearch and Scenario Discovery (Type D)
 
 For Type D queries involving supply chain mapping or scenario analysis:
 
 **Phase 1: Scenario Construction (Sequential Thinking)**
 Use mcp__sequential-thinking__sequentialthinking to construct 2-3 distinct scenarios. Each must include: triggering event, probability assessment (High >60% / Medium 30-60% / Low <30%), timeline, physical supply chain disruption mechanism, measurable invalidation criteria.
 
-**Phase 2: Deep Research Execution**
-Use the Deep-Research skill: research.py start "query" -> status.py check ID -> result.py get ID -> follow_up.py ask ID "drill-down"
+**Phase 2: Web Research Execution**
+Use WebSearch to research supply chain structure, bottleneck candidates, and industry dynamics. Use WebFetch for specific sources requiring deeper extraction.
 
 **Phase 3: Bottleneck Mapping**
 Apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Only 4+ out of 6 qualifies as investable.
