@@ -201,7 +201,7 @@ Each analysis step is either automated via script or requires agent-level LLM re
 ### Reference Files
 
 **Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/MarkMinervini/`
+**Persona dir**: `skills/MarketData/Personas/Minervini/`
 
 | File | When to Load |
 |------|-------------|

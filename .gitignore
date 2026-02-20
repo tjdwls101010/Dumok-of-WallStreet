@@ -16,3 +16,6 @@ node_modules/
 # Seongjin's personal directory
 .Seongjin
 CLAUDE.md
+
+# References directory (not tracked in git)
+References/
