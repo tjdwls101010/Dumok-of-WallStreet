@@ -147,6 +147,7 @@ GBM fair value, multi-factor models
 | `erp` | Equity Risk Premium (ERP) = Earnings Yield - US10Y for valuation danger detection | `macro/erp.py` |
 | `gbm` | Geometric Brownian Motion (GBM) Fair Value Model | `macro/gbm.py` |
 | `macro` | Macro model and fair value analysis for SidneyKim0 methodology | `macro/macro.py` |
+| `macro_inference` | Multi-parameter macro inference model: rolling OLS/ridge regression, residual Z-score, backtest, sensitivity analysis (SidneyKim0 signature tool) | `macro/macro_inference.py` |
 | `macro_utils` | Macro analysis utility functions for MarketData skill | `macro/macro_utils.py` |
 | `net_liquidity` | Fed Net Liquidity composite (Balance Sheet - TGA - RRP) for systemic liquidity tracking | `macro/net_liquidity.py` |
 | `vix_curve` | VIX Futures Curve analyzer via CBOE: VX1-VX9 term structure, contango/backwardation, regime classification (complacent/normal/anxious/panic) | `macro/vix_curve.py` |
