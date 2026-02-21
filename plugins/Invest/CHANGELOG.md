@@ -7,6 +7,7 @@
 
 ### Fixed
 - **Progressive disclosure compliance** — Removed 16 direct script references from persona files (`trade_management.md`, `stock_identification.md`, `market_environment.md`). Reduced script coupling in `TraderLion.md` command (individual script names → concept names). Collapsed Quick Reference from ~55 lines to ~15 lines, delegating methodology tables to persona files. All per `Command → SKILL.md → Persona → Scripts` layering principle.
+- **Methodology purity** — Removed time-dependent data from persona files: ZM benchmark example from `stock_identification.md`, hardcoded ticker symbols (TSLA/GOOGL/NVDA) from `market_environment.md` gauge section. Replaced with abstract selection criteria preserving the methodology without stale references.
 
 ### Changed
 - **`TraderLion.md` command** — 6 structural enhancements:

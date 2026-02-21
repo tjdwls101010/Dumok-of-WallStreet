@@ -101,7 +101,6 @@ See SKILL.md -> Technical, Screening
 **Detection Criteria**:
 - During a market correction, count the percentage of days the stock outperformed the market
 - **Threshold**: >60% RS days during a correction indicates strong institutional accumulation
-- Example benchmark: ZM outperformed on 61% of days during the 2020 market correction
 
 ### RS Edge Detection — Five Manifestations
 

@@ -77,13 +77,9 @@ Market gauges are key stocks that institutions are currently supporting and accu
 
 ### Gauge Stock Selection
 
-**Stalwarts** (permanent gauges due to institutional weighting):
-- TSLA — institutional favorite, heavy index weighting
-- GOOGL — institutional favorite, heavy index weighting
+**Stalwarts** (permanent gauges): Select 2-3 large-cap stocks with heavy index weighting and high institutional ownership. These serve as permanent gauges because their price action directly reflects institutional risk-on/risk-off behavior regardless of market cycle.
 
-**Cycle Leaders** (selected per market cycle based on current leadership):
-- NVDA — semiconductor leadership representative (2023-2024 example)
-- Additional stocks from the top-performing groups in the current leadership theme
+**Cycle Leaders** (rotational gauges): Select 1-2 stocks from the current cycle's dominant leadership theme. Rotate as market leadership shifts between themes. The strongest RS stock in the leading group is the primary candidate.
 
 ### Gauge Interpretation
 
