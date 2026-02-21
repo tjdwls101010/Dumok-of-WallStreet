@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "성진이의 클로드 세팅",
-    "version": "1.2.0"
+    "version": "1.3.0"
   },
   "plugins": [
     {
@@ -61,6 +61,18 @@
       "version": "1.0.0",
       "description": "Template plugin for scaffolding new Claude Code plugins",
       "category": "developer-tools"
+    },
+    {
+      "name": "obsidian",
+      "source": "./plugins/Obsidian",
+      "version": "1.0.0",
+      "description": "Obsidian vault authoring with Markdown, Canvas, and Bases file format skills",
+      "category": "productivity",
+      "skills": [
+        "./plugins/Obsidian/skills/Markdown/SKILL.md",
+        "./plugins/Obsidian/skills/Canvas/SKILL.md",
+        "./plugins/Obsidian/skills/Bases/SKILL.md"
+      ]
     }
   ]
 }
