@@ -302,3 +302,60 @@ The complete checklist of characteristics that high-potential growth stocks exhi
 - **10-12 characteristics**: Highest conviction — maximum position sizing (20%)
 
 See SKILL.md -> Technical, Screening
+
+---
+
+## Head-to-Head Comparison Framework
+
+When comparing two or more stocks (Type G query: "A vs B?"), use this structured 7-axis comparison to determine which candidate offers a superior risk-adjusted entry.
+
+### Comparison Axes
+
+| Axis | What to Evaluate | Scoring |
+|------|-----------|---------|
+| 1. Edge Count | Volume edge detection + RS ranking + earnings data | Count of edges present (0-6). More edges = stronger institutional conviction. |
+| 2. RS Score | RS percentile ranking | Percentile ranking (0-99). Higher = stronger relative performance vs market. |
+| 3. Winning Characteristics | See checklist above | Score out of 12. Higher = more complete growth stock profile. |
+| 4. Setup Maturity | VCP quality assessment + base count | VCP quality (high/moderate/low) + base number (1st > 2nd > 3rd). Earlier bases with higher quality VCP preferred. |
+| 5. Base Count & Risk | Base count analysis | 1st base = lowest risk, 4th+ = highest risk. Prefer stocks in earlier bases. |
+| 6. Volume Grade | Volume accumulation/distribution grading | A+ through E. Higher grade = stronger accumulation evidence. |
+| 7. Constructive Ratio | Closing range bar classification | Ratio of constructive bars over 20 days. >0.6 = healthy accumulation. |
+
+### Comparison Output Format
+
+Present as a side-by-side table:
+
+| Axis | {SYMBOL_A} | {SYMBOL_B} | Winner |
+|------|-----------|-----------|--------|
+| Edge Count | {count_a} ({list}) | {count_b} ({list}) | {winner} |
+| RS Score | {rs_a} | {rs_b} | {winner} |
+| Winning Chars | {wc_a}/12 | {wc_b}/12 | {winner} |
+| Setup Maturity | {setup_a} | {setup_b} | {winner} |
+| Base Count | #{base_a} ({risk_a}) | #{base_b} ({risk_b}) | {winner} |
+| Volume Grade | {vol_a} | {vol_b} | {winner} |
+| Constructive Ratio | {cr_a} | {cr_b} | {winner} |
+| **Overall** | **{wins_a}/7** | **{wins_b}/7** | **{overall}** |
+
+### Tiebreaker Rules
+
+When axis wins are tied:
+1. **Edge Count wins**: More edges = more institutional evidence. This is the primary tiebreaker.
+2. **RS Score wins**: Stronger relative strength during corrections predicts future leadership.
+3. **Setup Maturity wins**: Earlier base with better pattern quality offers more remaining upside.
+
+### Comparison Protocol
+
+1. Obtain SNIPE pipeline analysis for each symbol (see SKILL.md for execution details)
+2. Extract data for all 7 axes
+3. Build the comparison table
+4. Count axis wins per symbol
+5. Apply tiebreaker if needed
+6. State clear recommendation with rationale: "Based on {N}/7 axis wins, {SYMBOL} is the stronger S.N.I.P.E. candidate because [specific edge/RS/setup advantage]."
+
+### Limitations
+
+- **Theme alignment (TIGERS T)** and **N-Factor catalyst quality** require agent-level judgment and cannot be scored purely from scripts. State these assessments as supplementary context alongside the 7-axis comparison.
+- If both stocks are in AVOID/MONITOR signal territory, comparison is academic — neither should be traded. State this explicitly.
+- A stock winning 7/7 axes is rare. In practice, 4-5/7 wins with a clear edge count advantage is a strong differentiation.
+
+*Apply this framework independently to the current analysis target.*

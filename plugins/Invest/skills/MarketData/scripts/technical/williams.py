@@ -744,6 +744,136 @@ def _detect_specialists_trap(data, i):
 	return None
 
 
+def _detect_outside_day(h, l, c, ph, pl, data, i, date_str):
+	"""Detect Outside Day with Down Close (bullish reversal).
+
+	Returns pattern dict or None.
+	"""
+	if h > ph and l < pl and c < pl:
+		entry_level = round(h, 2)
+		status = _pattern_signal_status(data, i, entry_level, "above")
+		return {
+			"date": date_str,
+			"pattern": "outside_day_down_close",
+			"direction": "bullish",
+			"details": {
+				"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
+				"prev_high": round(ph, 2), "prev_low": round(pl, 2),
+			},
+			"entry_level": entry_level,
+			"signal_status": status["status"],
+			"trigger_date": status.get("trigger_date"),
+		}
+	return None
+
+
+def _detect_smash_day_naked(h, l, c, ph, pl, data, i, date_str):
+	"""Detect Smash Day Naked patterns (bullish and bearish).
+
+	Returns list of pattern dicts (0-2 items).
+	"""
+	results = []
+	# Bearish smash (close < prev low) -> bullish reversal signal
+	# Exclude bars already captured as outside day down close
+	if c < pl and not (h > ph and l < pl):
+		entry_level = round(h, 2)
+		status = _pattern_signal_status(data, i, entry_level, "above")
+		results.append({
+			"date": date_str,
+			"pattern": "smash_day_naked",
+			"direction": "bullish",
+			"details": {
+				"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
+				"prev_low": round(pl, 2),
+			},
+			"entry_level": entry_level,
+			"signal_status": status["status"],
+			"trigger_date": status.get("trigger_date"),
+		})
+	# Bullish smash (close > prev high) -> bearish reversal signal
+	if c > ph:
+		entry_level = round(l, 2)
+		status = _pattern_signal_status(data, i, entry_level, "below")
+		results.append({
+			"date": date_str,
+			"pattern": "smash_day_naked",
+			"direction": "bearish",
+			"details": {
+				"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
+				"prev_high": round(ph, 2),
+			},
+			"entry_level": entry_level,
+			"signal_status": status["status"],
+			"trigger_date": status.get("trigger_date"),
+		})
+	return results
+
+
+def _detect_smash_day_hidden(h, l, c, pc, day_range, data, i, date_str):
+	"""Detect Smash Day Hidden patterns (bullish and bearish).
+
+	Returns list of pattern dicts (0-2 items).
+	"""
+	results = []
+	if day_range <= 0:
+		return results
+	close_position = (c - l) / day_range  # 0=at low, 1=at high
+	# Hidden bullish: up close but close in lower 25% of range
+	if c > pc and close_position < 0.25:
+		entry_level = round(h, 2)
+		status = _pattern_signal_status(data, i, entry_level, "above")
+		results.append({
+			"date": date_str,
+			"pattern": "smash_day_hidden",
+			"direction": "bullish",
+			"details": {
+				"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
+				"close_position_pct": round(close_position * 100, 1),
+			},
+			"entry_level": entry_level,
+			"signal_status": status["status"],
+			"trigger_date": status.get("trigger_date"),
+		})
+	# Hidden bearish: down close but close in upper 75% of range
+	if c < pc and close_position > 0.75:
+		entry_level = round(l, 2)
+		status = _pattern_signal_status(data, i, entry_level, "below")
+		results.append({
+			"date": date_str,
+			"pattern": "smash_day_hidden",
+			"direction": "bearish",
+			"details": {
+				"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
+				"close_position_pct": round(close_position * 100, 1),
+			},
+			"entry_level": entry_level,
+			"signal_status": status["status"],
+			"trigger_date": status.get("trigger_date"),
+		})
+	return results
+
+
+def _detect_oops_gap(o, h, l, c, pl, date_str):
+	"""Detect Oops! Gap Reversal (bullish).
+
+	Returns pattern dict or None.
+	"""
+	if o < pl and h >= pl:
+		return {
+			"date": date_str,
+			"pattern": "oops_gap_reversal",
+			"direction": "bullish",
+			"details": {
+				"open": round(o, 2), "high": round(h, 2), "low": round(l, 2),
+				"close": round(c, 2), "prev_low": round(pl, 2),
+			},
+			"entry_level": round(pl, 2),
+			"signal_status": "triggered",
+			"trigger_date": date_str,
+		}
+	return None
+
+
 def _detect_patterns(data, lookback=60):
 	"""Detect Williams chart patterns in price data.
 
@@ -780,110 +910,23 @@ def _detect_patterns(data, lookback=60):
 		pc = float(closes.iloc[i - 1])
 		day_range = h - l
 
-		# --- Outside Day with Down Close (bullish) ---
-		if h > ph and l < pl and c < pl:
-			entry_level = round(h, 2)
-			status = _pattern_signal_status(data, i, entry_level, "above")
-			patterns.append({
-				"date": date_str,
-				"pattern": "outside_day_down_close",
-				"direction": "bullish",
-				"details": {
-					"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
-					"prev_high": round(ph, 2), "prev_low": round(pl, 2),
-				},
-				"entry_level": entry_level,
-				"signal_status": status["status"],
-				"trigger_date": status.get("trigger_date"),
-			})
+		# Outside Day with Down Close
+		result = _detect_outside_day(h, l, c, ph, pl, data, i, date_str)
+		if result:
+			patterns.append(result)
 
-		# --- Smash Day Naked ---
-		# Bearish smash (close < prev low) -> bullish reversal signal
-		if c < pl and not (h > ph and l < pl):
-			# Exclude bars already captured as outside day down close
-			entry_level = round(h, 2)
-			status = _pattern_signal_status(data, i, entry_level, "above")
-			patterns.append({
-				"date": date_str,
-				"pattern": "smash_day_naked",
-				"direction": "bullish",
-				"details": {
-					"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
-					"prev_low": round(pl, 2),
-				},
-				"entry_level": entry_level,
-				"signal_status": status["status"],
-				"trigger_date": status.get("trigger_date"),
-			})
-		# Bullish smash (close > prev high) -> bearish reversal signal
-		if c > ph:
-			entry_level = round(l, 2)
-			status = _pattern_signal_status(data, i, entry_level, "below")
-			patterns.append({
-				"date": date_str,
-				"pattern": "smash_day_naked",
-				"direction": "bearish",
-				"details": {
-					"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
-					"prev_high": round(ph, 2),
-				},
-				"entry_level": entry_level,
-				"signal_status": status["status"],
-				"trigger_date": status.get("trigger_date"),
-			})
+		# Smash Day Naked
+		patterns.extend(_detect_smash_day_naked(h, l, c, ph, pl, data, i, date_str))
 
-		# --- Smash Day Hidden ---
-		if day_range > 0:
-			close_position = (c - l) / day_range  # 0=at low, 1=at high
-			# Hidden bullish: up close but close in lower 25% of range
-			if c > pc and close_position < 0.25:
-				entry_level = round(h, 2)
-				status = _pattern_signal_status(data, i, entry_level, "above")
-				patterns.append({
-					"date": date_str,
-					"pattern": "smash_day_hidden",
-					"direction": "bullish",
-					"details": {
-						"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
-						"close_position_pct": round(close_position * 100, 1),
-					},
-					"entry_level": entry_level,
-					"signal_status": status["status"],
-					"trigger_date": status.get("trigger_date"),
-				})
-			# Hidden bearish: down close but close in upper 75% of range
-			if c < pc and close_position > 0.75:
-				entry_level = round(l, 2)
-				status = _pattern_signal_status(data, i, entry_level, "below")
-				patterns.append({
-					"date": date_str,
-					"pattern": "smash_day_hidden",
-					"direction": "bearish",
-					"details": {
-						"high": round(h, 2), "low": round(l, 2), "close": round(c, 2),
-						"close_position_pct": round(close_position * 100, 1),
-					},
-					"entry_level": entry_level,
-					"signal_status": status["status"],
-					"trigger_date": status.get("trigger_date"),
-				})
+		# Smash Day Hidden
+		patterns.extend(_detect_smash_day_hidden(h, l, c, pc, day_range, data, i, date_str))
 
-		# --- Oops! Gap Reversal (bullish) ---
-		if o < pl and h >= pl:
-			patterns.append({
-				"date": date_str,
-				"pattern": "oops_gap_reversal",
-				"direction": "bullish",
-				"details": {
-					"open": round(o, 2), "high": round(h, 2), "low": round(l, 2),
-					"close": round(c, 2), "prev_low": round(pl, 2),
-				},
-				"entry_level": round(pl, 2),
-				"signal_status": "triggered",
-				"trigger_date": date_str,
-			})
+		# Oops! Gap Reversal
+		result = _detect_oops_gap(o, h, l, c, pl, date_str)
+		if result:
+			patterns.append(result)
 
-		# --- Specialists' Trap ---
+		# Specialists' Trap
 		if i >= 8:
 			trap = _detect_specialists_trap(data, i)
 			if trap:

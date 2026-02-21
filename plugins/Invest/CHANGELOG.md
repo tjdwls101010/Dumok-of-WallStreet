@@ -1,8 +1,40 @@
 # Changelog
 
+## 2026-02-21 (v1.6.0)
+
+### Added
+- **`snipe_pipeline.py`** (`skills/MarketData/scripts/screening/snipe_pipeline.py`) — Full TraderLion S.N.I.P.E. pipeline script (~640 lines). SNIPE Composite Score (0-100) with 6 weighted components: Edge Detection (30), Stage/Trend (20), Growth (15), Setup Quality (15), Volume Confirmation (10), Winning Characteristics (10). 4 hard gates (Stage 3/4, TT<5/8, no institutional footprint, distribution+weak construction). 5 signal levels (AGGRESSIVE/STANDARD/REDUCED/MONITOR/AVOID). Edge-based position sizing (10%+2.5% per edge). TIGERS summary, earnings proximity detection, winning characteristics detail. Commands: `analyze` (single), `watchlist` (batch with provisional mode).
+
+### Fixed
+- **Progressive disclosure compliance** — Removed 16 direct script references from persona files (`trade_management.md`, `stock_identification.md`, `market_environment.md`). Reduced script coupling in `TraderLion.md` command (individual script names → concept names). Collapsed Quick Reference from ~55 lines to ~15 lines, delegating methodology tables to persona files. All per `Command → SKILL.md → Persona → Scripts` layering principle.
+
+### Changed
+- **`TraderLion.md` command** — 6 structural enhancements:
+  - Added **Type G (Stock Comparison)** query classification with 7-axis head-to-head comparison protocol
+  - Restructured **Analysis Protocol** from 8-step to 10-step with snipe_pipeline as primary entry point (step 3), hard-gate check (step 4), and mandatory volume confirmation (step 6: "no edge verdict without volume confirmation")
+  - Replaced **Short-Circuit Rules** with 3-tier system: Full Path / Reduced Path (with re-qualification conditions) / AVOID Path
+  - Added **Hard-Gate Interpretation** section mapping each blocker code to TraderLion methodology principles
+  - Added **Agent Orchestration Guide** defining main-agent vs sub-agent responsibilities with explicit "never delegate" list
+  - Added **Provisional Signal Handling** rules for watchlist batch results
+- **`trade_management.md`** — 4 new operational enforcement sections:
+  - **Post-Entry Behavior Classification**: Tennis Ball / Egg / Squat behavior classification with constructive bar ratio monitoring and 20MA sell rule integration
+  - **Disposition Effect Check Protocol**: Mandatory 6-signal audit on every Type E query, trigger counting (3+ = alert), adding-to-a-loser refusal rule
+  - **Earnings Event Protocol**: 5-day proximity activation, edge freshness check, position health assessment, 3-option framework (full exit / half position / hold with absolute stop)
+  - **Four Contingency Plans**: Initial stop, re-entry, profit-taking, disaster scenario — all mandatory before trade entry confirmation
+- **`stock_identification.md`** — Added **Head-to-Head Comparison Framework** (Type G support): 7-axis comparison table (edge count, RS, winning characteristics, setup maturity, base count, volume grade, constructive ratio) with tiebreaker rules and comparison protocol
+- **`market_environment.md`** — Added **Market Breadth Quantification**: NH/NL ratio formula with 5-tier interpretation, leadership breadth assessment, breadth divergence detection rule, integration with cycle score
+- **`SKILL.md`** — Added `snipe_pipeline` catalog entry in Screening section + fallback chain entry
+- **`plugin.json`** — Version bump 1.5.1 → 1.6.0
+- **`marketplace.json`** — Plugin version sync + metadata version bump to 1.6.0
+
 ## 2026-02-21
 
 ### Changed
+- **`williams.py`** — Extracted 4 pattern detection functions from monolithic `_detect_patterns()`: `_detect_outside_day()`, `_detect_smash_day_naked()`, `_detect_smash_day_hidden()`, `_detect_oops_gap()`. The orchestrator `_detect_patterns()` reduced from ~158 lines to ~50 lines of loop + dispatch logic. No external interface or output format changes.
+- **`methodology.md`** — Added "Script Output Interpretation Guide" section with `williams_r`, `volatility_breakout`, `swing_points`, and `range_analysis` interpretation subsections. All content extracted from Williams.db original text (Ch.1, Ch.3, Ch.4, Ch.5, Ch.8).
+- **`short_term_trading.md`** — Added "Script Output Interpretation Guide" section with `pattern_scan` interpretation subsection covering all 5 pattern types, signal status meanings, multi-pattern priority ranking, and TDW interaction rules. All content extracted from Williams.db original text (Ch.6, Ch.7).
+
+### Changed (earlier same day)
 - **`williams.py`** — Refactored inline calculation logic into reusable private helpers (`_fetch_data`, `_calculate_wr`, `_calculate_breakout_levels`, `_calculate_range_phase`). Added TDW/TDM lookup tables, `_detect_patterns` helper (5 Williams chart patterns), `cmd_pattern_scan` subcommand, and `cmd_trade_setup` composite subcommand (runs all 5 filters — TDW, TDM, bond trend, 20-day MA, patterns — with conviction scoring and position sizing). Updated module docstring with new commands/args/returns.
 - **`money_management.md`** — Removed non-methodology content (~95 lines): compressed Business of Speculation to 3-line list, replaced position sizing formula with trade_setup reference, collapsed Historical Money Management to 1 line, removed Blowup narrative (kept 5 rules), removed emotional counseling sections. Added trade_setup result interpretation guide (conviction-based risk selection, 4-loser simulation, position sizing verification).
 - **`market_analysis.md`** — Removed non-methodology content (~110 lines): removed 50-Year Wisdom, Losers vs Winners, Forecasting Is Futile, Hard Truths, compressed Market Cycle Awareness. Merged "Public vs Professionals" into Price Behavior Truth 3. Removed backtest numbers from bond section. Added trade_setup filter interpretation guide (bond scenarios, filter conflict resolution, conviction scenarios).

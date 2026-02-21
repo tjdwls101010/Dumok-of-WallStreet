@@ -223,6 +223,7 @@ Finviz stock screener
 | `finviz_presets` | Finviz screening preset definitions (includes Minervini SEPA presets) | `screening/finviz_presets.py` |
 | `sector_leaders` | Bottom-up sector leadership dashboard: leader count by industry group with performance enrichment | `screening/sector_leaders.py` |
 | `sepa_pipeline` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `screening/sepa_pipeline.py` |
+| `snipe_pipeline` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `screening/snipe_pipeline.py` |
 | `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |
 
 #### CFTC
@@ -379,6 +380,7 @@ When YFinance returns insufficient data for a specific ticker:
 
 | Primary Script | Fallback 1 | Fallback 2 |
 |---------------|-----------|-----------|
+| `snipe_pipeline.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
 | `sepa_pipeline.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
 | `finviz.py screen` | `sector_leaders.py scan --fallback etf` | `rs_ranking.py screen` (YFinance-based RS) |
 | `finviz.py groups` | `sector_leaders.py scan --fallback etf` | Manual ETF comparison |

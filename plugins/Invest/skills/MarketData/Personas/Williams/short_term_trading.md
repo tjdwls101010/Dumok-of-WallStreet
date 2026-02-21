@@ -445,3 +445,180 @@ Take trades only when multiple factors align. A minimum of 2-3 confirmations sho
 | Month-end Rally | Buy SPY/QQQ on first day of month (skip Jan, Mar) | Daily |
 
 *Apply this framework independently to the current analysis target.*
+
+---
+
+## Script Output Interpretation Guide
+
+### pattern_scan Result Interpretation Guide
+
+#### Governing Principle
+
+> "Patterns that represent extreme market emotions reliably set up trades for price swings in the opposite direction."
+
+What the public sees as bearish is most often bullish for short-term moves, and vice versa. Every pattern exploits the same mechanism: emotional overreaction creates a trap, immediate reversal generates momentum as trapped participants are forced to exit.
+
+> "Make certain you have something else backing the trade ... otherwise you are just using price to predict price. Your best trades will come from loading the trade with several qualifiers, not just a price structure."
+
+#### Pattern Type: `outside_day_down_close`
+
+**Definition**: Day's high > prior day's high AND day's low < prior day's low AND close < prior day's low.
+
+**Why it works**: Looks terribly bearish to the public. Textbooks call it a bearish reversal day. Williams found the opposite -- it is one of his favorite bullish patterns. The extreme range and failure to follow through signal emotional capitulation.
+
+**Entry rule**: Buy on the next day's open if it opens lower than the outside day's close. The lower open confirms selling pressure has exhausted itself.
+
+**TDW filter**: Take on any day EXCEPT Thursday.
+
+**Exit**: Dollar stop ($2,000 for S&P, $1,500 for Bonds) plus first profitable opening exit.
+
+**Performance data**:
+
+| Market | Period | Win % | Avg Profit | Notes |
+|---|---|---|---|---|
+| S&P 500 (all days) | 1982-1998 | 85% | $477 | Profit factor 2.62 |
+| S&P 500 (no Thursday) | 1982-1998 | 86% | $555 | Profit factor 3.07 |
+| T-Bonds (no Thursday) | 1990-1998 | 90% | $420 | Profit factor 3.77 |
+
+**Limitation**: "These outside day patterns do not occur as often as we would like!"
+
+*Apply this framework independently to the current analysis target.*
+
+#### Pattern Type: `smash_day_naked`
+
+**Buy Setup**: A day closes below the prior day's low (naked down close). The very next day, price rallies above the smash day's high.
+
+**Sell Setup**: A day closes above the prior day's high (naked up close). The very next day, price falls below the smash day's low.
+
+**Entry rule**: The trigger is immediate reversal THE VERY NEXT DAY. If the reversal does not happen immediately, the pattern is invalid.
+
+**Why it works**: The naked close lures the public into the breakout. When price immediately reverses, they are trapped. Their forced exit adds momentum to our trade direction.
+
+**Usage in trends vs. ranges**:
+
+| Context | How to Use | Rationale |
+|---|---|---|
+| Strong uptrend | Smash down day immediately reversed = re-entry buy signal | Confirms the trend is intact |
+| Strong downtrend | Smash up day immediately reversed = re-entry sell signal | Confirms the decline has further to run |
+| Trading range | Smash day reversed = false breakout of congestion | Suggests a breakout in the opposite direction is coming |
+
+**Distinguishing from noise**: Must be a genuine naked close -- closing BEYOND the prior day's range. The more days' lows/highs the smash day penetrates, the more convincing the setup. The reversal must occur on the VERY NEXT day.
+
+**Durability**: "These patterns continue to be among my favorite tools to enter a trade; they worked when I was a kid trading in the 1960s, and they still work in the year 2011."
+
+*Apply this framework independently to the current analysis target.*
+
+#### Pattern Type: `smash_day_hidden`
+
+**Buy Setup**: An UP-close day where the close is in the lower 25% of the day's range. Next day, if price rallies above the hidden smash day's high, buy.
+
+**Sell Setup**: A DOWN-close day where the close is in the upper 25% of the day's range. Next day, if price falls below the hidden smash day's low, sell.
+
+**How hidden differs from naked**: The naked smash day is obvious -- price closes beyond the prior day's range. The hidden smash day is disguised by its closing direction. A day that closed UP does not scream "sell" to anyone. But the close in the bottom 25% of the range despite being an up day reveals that buyers got smashed. Williams calls it "hidden" because the up close masks the failure.
+
+**Why hidden patterns trap more participants**: The up close hides the failure from casual observers. Chartists "come in looking for the kill" expecting follow-through, but if the next day reverses, "the chartists will only be killed themselves."
+
+**Close-position-in-range threshold**: Lower/upper 25% of the day's range.
+
+**Required confirmation**: Hidden smash patterns should be backed by TDW, TDM, market relationships (Bonds/Gold), overbought/oversold conditions, and trend.
+
+*Apply this framework independently to the current analysis target.*
+
+#### Pattern Type: `specialists_trap` (False Breakout)
+
+**Wyckoff connection**: Originates from Richard Wyckoff's 1930s stock trading course. Markets move price to draw the public in at the wrong time.
+
+**Sell trap (bearish signal)**:
+1. Up-trending market moves sideways in congestion for 5-10 days
+2. Price breaks out to the upside with a naked close above the range
+3. Within 1-3 days, price falls below the breakout day's true low → enter short
+
+**Buy trap (bullish signal)**:
+1. Down-trending market stabilizes sideways for 5-10 days
+2. Price breaks out to the downside with a naked close below all daily lows
+3. Within 1-3 days, price rallies above the breakdown day's true high → enter long
+
+**Why it works**: "All the sell stops below the market were triggered; the public started the breakdown and is now afraid to buy the trend reversal." The breakout served as a magnet for stops and breakout orders. Once consumed, the real move begins in the opposite direction.
+
+*Apply this framework independently to the current analysis target.*
+
+#### Pattern Type: `oops_gap_reversal`
+
+**Buy Signal**: Market opens below the prior day's low. Price rallies back to the prior day's low. Buy on a stop at that level.
+
+**Sell Signal**: Market opens above the prior day's high. Price falls back to the prior day's high. Sell on a stop at that level.
+
+**Performance data**:
+
+| Market | Direction | TDW Filter | Win % | Avg Profit |
+|---|---|---|---|---|
+| S&P 500 | Buy | Not Wed/Thu | 82% | $435 |
+| T-Bonds | Buy | Not Wed | 86% | $201 |
+| S&P 500 | Sell | Thursday only | 78% | $236 |
+| S&P 500 | Sell | Wed + 9-day overbought | 89% | $486 |
+
+**Electronic markets note (2011)**: "Sadly, it no longer works. The reason is simple: We no longer have pit trading sessions." However, the principle remains valid for genuine gap situations: Monday opens after weekend news, earnings-driven gaps in individual stocks.
+
+**Williams' reliability ranking**: "It is the single best pattern I have discovered: Enjoy it, treat it with care, and use it with wisdom."
+
+*Apply this framework independently to the current analysis target.*
+
+#### Signal Status Interpretation
+
+| Status | Meaning | Action |
+|---|---|---|
+| `active` | Setup condition identified but entry trigger has not yet fired | Monitor for the trigger on the next session. Place conditional orders at the entry level. No position yet. |
+| `triggered` | Entry condition has been met | The trade is live. Confirm TDW/TDM alignment and other filters before committing. |
+| `expired` | Reversal did not occur within the required window | No trade. The emotional trapping mechanism has dissipated. Do not chase. Wait for the next setup. |
+
+**Critical timing**: For smash days and outside days, the reversal must occur on "the very next day." For specialists' trap, the window extends to 1-3 days.
+
+#### Multi-Pattern Priority
+
+**Reliability ranking** (based on Williams' characterization and performance data):
+
+| Rank | Pattern | Williams' Characterization | Best Historical Win % |
+|---|---|---|---|
+| 1 | `oops_gap_reversal` | "The most reliable of all short-term patterns" | 89% (S&P sells, Wed + 9-day filter) |
+| 2 | `outside_day_down_close` | "One of my favorite short-term patterns" | 90% (Bonds, no Thursday) |
+| 3 | `smash_day_naked` | "Among my favorite tools to enter a trade" | Agent-level inference required |
+| 4 | `specialists_trap` | Wyckoff-derived, shown across multiple markets | Agent-level inference required |
+| 5 | `smash_day_hidden` | Works on "the same principle" as naked | Agent-level inference required |
+
+**Multiple patterns same direction** = higher conviction. "Load the trade with several qualifiers."
+**Multiple patterns opposite directions** = stand aside.
+
+**Oops! caveat for modern markets**: Given Williams' 2011 note, demote `oops_gap_reversal` in priority unless a genuine gap outside the prior range has occurred (e.g., Monday open, post-earnings).
+
+#### TDW Interaction with Patterns
+
+**For Buy Signals**:
+
+| Pattern | Days to AVOID | Best Days |
+|---|---|---|
+| `outside_day_down_close` | Thursday | All others, Mon/Tue especially |
+| `oops_gap_reversal` (S&P) | Wednesday, Thursday | Monday, Tuesday, Friday |
+| `oops_gap_reversal` (Bonds) | Wednesday | Monday, Tuesday, Thursday, Friday |
+| `smash_day_naked` | Agent-level inference required | Agent-level inference required |
+| `smash_day_hidden` | Agent-level inference required | Agent-level inference required |
+| `specialists_trap` | Agent-level inference required | Agent-level inference required |
+
+**For Sell Signals**:
+
+| Pattern | Days to AVOID | Best Days |
+|---|---|---|
+| `oops_gap_reversal` (Bonds) | All except Wednesday | Wednesday |
+| `oops_gap_reversal` (S&P) | All except Thursday | Thursday |
+
+**General TDW biases** (apply as background filter to ALL patterns):
+
+| Market | Best Buy Days | Worst Buy Days |
+|---|---|---|
+| S&P 500 | Monday, Friday | Thursday |
+| T-Bonds | Monday, Tuesday | Friday |
+
+Excluding unfavorable days consistently improves accuracy by 4-8 percentage points, reduces drawdown by 25-50%, and increases average profit per trade by 15-35%.
+
+**Application rule**: When `pattern_scan` returns a signal, check whether today's TDW is favorable for the signal's direction. If the TDW is on the "avoid" list, either skip the trade or reduce position size by one tier.
+
+*Apply this framework independently to the current analysis target.*

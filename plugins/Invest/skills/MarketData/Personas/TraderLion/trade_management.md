@@ -333,6 +333,189 @@ See SKILL.md -> Analysis, Statistics
 
 ---
 
+## Post-Entry Behavior Classification
+
+After a breakout entry, the stock's immediate behavior reveals institutional conviction. Classify the stock within the first 5-10 trading days using post-breakout monitoring data and closing range analysis.
+
+### Tennis Ball Behavior
+
+**Definition**: Stock pulls back briefly then bounces back sharply, like a tennis ball dropped on concrete.
+
+**Characteristics**:
+- Pullback to 10 SMA or 21 EMA holds firmly
+- Recovery occurs within 1-3 days
+- Recovery volume exceeds pullback volume
+- Closing range on recovery day >60%
+- Constructive bar ratio during pullback remains >0.5
+
+**Action**: Strongest post-breakout behavior. Hold full position. Consider adding on the bounce if position is undersized. Trail stop below the pullback low.
+
+### Egg Behavior
+
+**Definition**: Stock breaks and does not recover — like an egg dropped on the floor.
+
+**Characteristics**:
+- Breaks below 10 SMA and does not reclaim within 2 days
+- Pullback volume exceeds breakout volume (distribution)
+- Closing range consistently <40% on attempted bounces
+- Constructive bar ratio drops below 0.35
+- Stock undercuts breakout pivot
+
+**Action**: Failed breakout. Sell immediately if stop is hit. Do not rationalize holding. If stopped out, monitor for potential re-entry only if the stock forms a new constructive base.
+
+### Squat Behavior
+
+**Definition**: Stock consolidates sideways near the breakout level — neither advancing nor failing clearly.
+
+**Characteristics**:
+- Price trades in a tight range around the breakout pivot (±3%)
+- Volume dries up significantly (below average)
+- Closing range mixed (40-60%)
+- Constructive bar ratio 0.4-0.6
+- Stock holds above 21 EMA
+
+**Grading** (based on post-breakout squat behavior criteria):
+- **Constructive Squat**: Volume declining, tight range, holding above MAs — likely resolves upward
+- **Non-Constructive Squat**: Volume erratic, wide intraday swings, testing MAs — may resolve downward
+
+**Action**: Reduce position by 1/3 if squat persists beyond 10 days. Set a time stop: if no resolution within 15 trading days, sell half. Constructive squat — hold with tighter stop below 21 EMA. Non-constructive squat — sell 2/3 and trail remainder.
+
+### Constructive Bar Ratio Monitoring
+
+Track the ratio of constructive to non-constructive bars over rolling 10-day and 20-day periods using closing range analysis data.
+
+| Ratio | Interpretation | Action |
+|-------|---------------|--------|
+| >0.7 | Strong accumulation | Hold/add, trail with 10 SMA |
+| 0.5-0.7 | Healthy | Hold, standard stop management |
+| 0.35-0.5 | Deteriorating | Tighten stop to 21 EMA, consider reducing |
+| <0.35 | Distribution underway | Sell at least half, raise stop aggressively |
+
+**20MA Sell Rule Integration**: When post-breakout monitoring detects a 20MA sell signal (two closes below 20 SMA after extended advance), treat this as a mandatory partial sell regardless of other conditions.
+
+---
+
+## Disposition Effect Check Protocol
+
+The disposition effect — holding losers too long and selling winners too early — is the most common bias among growth traders. This protocol activates automatically on every Type E (sell/hold) query.
+
+### Mandatory 6-Signal Audit
+
+Before answering any "should I sell?" or "should I hold?" question, check ALL six sell signals against the position:
+
+| # | Sell Signal | Detection Method | Threshold |
+|---|-----------|-----------------|-----------|
+| 1 | Two closes below 21 EMA | Price data vs 21 EMA | 2 consecutive closes below |
+| 2 | High-volume reversal | Volume + closing range | Volume >1.5x avg AND CR <30% AND close below prior day's low |
+| 3 | Failed breakout | Price vs pivot | Price below breakout pivot within 5 days of entry |
+| 4 | Distribution cluster + weak construction | Volume distribution analysis + closing range data | Cluster warning AND constructive ratio <0.35 |
+| 5 | Cycle score collapse | Market cycle assessment | Cycle score drops to 0-1 from 4+ |
+| 6 | Maximum stop breached | Price vs stop level | Close below defined maximum stop |
+
+### Trigger Counting
+
+- **0-1 signals triggered**: Position is healthy. Continue holding per current sell rule stage.
+- **2 signals triggered**: Position under stress. Tighten stop to nearest MA. Consider reducing by 1/3.
+- **3+ signals triggered**: **Mandatory warning output** — the agent MUST display a disposition effect alert with the list of triggered signals and a specific action recommendation. "프로세스가 예측보다 우선한다" — the system is telling you to act.
+
+### Adding-to-a-Loser Refusal
+
+If the user requests adding to a position that is below cost basis AND has 2+ sell signals triggered, the agent MUST refuse the request. "사랑에 빠지지 마라" — adding to a losing position with active sell signals violates edge-based sizing discipline. The alternative is to wait for a new constructive base to form, then re-evaluate as a fresh entry. This refusal can only be overridden by the user explicitly acknowledging the risk.
+
+---
+
+## Earnings Event Protocol
+
+Activated when the next earnings report is within 5 trading days for any active position or new entry candidate.
+
+### Step 1: Edge Freshness Check
+
+Before the earnings event, verify that the edges supporting the position are still valid:
+
+- **Volume edges**: Was the HVE/HVIPO/HV1 within the last 60 trading days? If older, edge is stale.
+- **RS edge**: Is RS score still >=70? Has RS line broken its uptrend?
+- **N-Factor**: Is the catalyst narrative still intact? Any negative pre-announcements?
+
+If 2+ edges have gone stale, the position has lost its original thesis.
+
+### Step 2: Position Health Assessment
+
+| Factor | Healthy | Unhealthy |
+|--------|---------|-----------|
+| Profit cushion | >5% profit | Breakeven or loss |
+| Constructive ratio | >0.5 | <0.35 |
+| Trend template | >=6/8 passing | <5/8 passing |
+| Recent sell signals | 0-1 triggered | 2+ triggered |
+
+### Step 3: Three-Option Framework
+
+Based on edge freshness and position health, select one of three approaches:
+
+**Option A — Full Exit** (recommended when edges stale OR position unhealthy):
+- Sell entire position before earnings announcement
+- Rationale: "페이퍼컷으로 끝내라" — protect capital when thesis is weakening
+- Re-evaluate after earnings for potential fresh entry
+
+**Option B — Half Position** (recommended when edges mixed AND position moderately healthy):
+- Sell 50% before earnings
+- On remaining 50%: set absolute stop at -8% from current price (no discretion)
+- Post-earnings: if gap up with volume, hold/add back; if gap down, stop triggers
+
+**Option C — Hold with Absolute Stop** (recommended when edges fresh AND position healthy AND profit cushion >8%):
+- Hold full position
+- Set non-negotiable absolute stop at breakeven or at -5% from current price, whichever is higher
+- Post-earnings assessment within first 30 minutes of market open
+
+**Default Selection**: If uncertain, default to Option B. "실패를 시스템에 내장하라" — the system must survive worst-case earnings outcomes.
+
+---
+
+## Four Contingency Plans
+
+Every trade entry must include four pre-defined contingency plans. These are documented BEFORE execution, not improvised after.
+
+### Plan 1: Initial Stop (What If Immediately Wrong?)
+
+Define before every entry:
+- **Stop level**: Specific price (not a vague zone)
+- **Stop type**: Hard stop vs mental stop (hard stop for anyone who cannot monitor intraday)
+- **Max loss**: Dollar amount AND percentage of position AND percentage of portfolio
+- **Action on trigger**: Full exit. No averaging down. No "giving it room."
+
+Template: "If {symbol} closes below ${stop_price} ({stop_pct}% below entry), sell entire position for a ${loss_amount} loss ({portfolio_pct}% of portfolio)."
+
+### Plan 2: Re-Entry (What If Stopped Out But Setup Remains Valid?)
+
+Define conditions for re-entering after a stop-out:
+- **Waiting period**: Minimum 1 trading day after stop-out (no same-day re-entry)
+- **Re-entry conditions**: Stock must reclaim the level that triggered the stop AND show constructive price action (CR >60%, volume expansion)
+- **Size adjustment**: Re-entry at 50% of original position size. Only scale back to full size after the trade shows positive progress (2-3% profit)
+- **Maximum attempts**: 2 re-entries on the same setup. After 3 total attempts, move the stock to monitor-only status.
+
+### Plan 3: Profit-Taking (What If Right And Running?)
+
+Define staged profit realization before entry:
+- **First target**: Sell 1/3 at first target gain (Stage 1-2: 5%, Progressive: average gain of last 20 trades)
+- **Second target**: Sell 1/3 at second target gain OR when visually extended from key MA
+- **Final third**: Trail with trailing MA (21 EMA for swing, 50 SMA for position). Sell on two closes below.
+- **Windfall rule**: If stock gaps up >10% in a single day after already being extended, sell at least 1/3 into the strength immediately.
+
+### Plan 4: Disaster Scenario (What If Black Swan?)
+
+Pre-define response to extreme adverse events:
+- **Gap down >10%**: Sell at market open. Do not wait for recovery. Reassess after the session closes.
+- **Market-wide crash (QQQ drops >5% in a day)**: Sell all positions trading below their 21 EMA. Hold positions with >10% profit cushion above 21 EMA.
+- **Individual stock halt**: Set GTC limit sell order at -8% from last traded price. If stock reopens lower, sell at market.
+- **Brokerage/system failure**: Have backup brokerage account funded. Have broker phone number accessible for phone orders.
+
+Template: "Worst case for {symbol}: gap down to ${disaster_price}. Action: sell at market. Maximum portfolio impact: {max_impact_pct}%."
+
+### Contingency Plan Enforcement
+
+The agent MUST verify that all four plans exist before confirming any trade entry. If any plan is missing, output a warning: "실패를 시스템에 내장하라" — a trade without contingency plans is gambling, not trading. Require the user to define the missing plan(s) before execution.
+
+---
+
 ## Trading Rules Framework
 
 A complete rule set should address these seven sections:

@@ -301,3 +301,52 @@ Stocks that double and triple consistently share these signatures:
 7. **Relative Strength**: During market corrections, potential leaders go sideways or advance
 
 See SKILL.md -> Macro, Data Sources
+
+---
+
+## Market Breadth Quantification
+
+Breadth qualifiers in the cycle score ("expanding" / "narrowing" / "divergent") require quantitative measurement. Use the following framework to replace subjective breadth readings with measurable data.
+
+### New Highs / New Lows Ratio
+
+**Data Source**: Exchange-level 52-week new highs and new lows data
+
+**Formula**: NH/NL Ratio = New 52-Week Highs / (New 52-Week Highs + New 52-Week Lows)
+
+**Interpretation**:
+
+| NH/NL Ratio | Breadth Reading | Cycle Score Impact |
+|------------|----------------|-------------------|
+| >0.80 | Strong expansion | Breadth = +1 (expanding) |
+| 0.60-0.80 | Healthy | Breadth = +1 (expanding) |
+| 0.40-0.60 | Mixed | Breadth = +0 (neutral) |
+| 0.20-0.40 | Narrowing | Breadth = +0 (narrowing) |
+| <0.20 | Severe contraction | Breadth = +0 (contracting, potential bottoming signal if indexes hold) |
+
+### Leadership Breadth Assessment
+
+**Definition**: Count how many current cycle leaders are still above their 21 EMA and making new highs.
+
+**Measurement**:
+1. Identify the top 10 RS stocks from the current cycle's focus list
+2. Check how many are above 21 EMA: count / 10 = leadership breadth ratio
+3. Interpret:
+
+| Leadership Ratio | Reading | Cycle Score Impact |
+|-----------------|---------|-------------------|
+| >=0.7 | Leadership healthy | Leadership = +1 |
+| 0.4-0.69 | Leadership thinning | Leadership = +0 |
+| <0.4 | Leadership broken | Leadership = +0, flag cycle top risk |
+
+### Breadth Divergence Detection
+
+**Definition**: Indexes making new highs while breadth deteriorates — a classic late-cycle topping signal.
+
+**Detection Rule**: If QQQ is within 3% of 52-week high BUT NH/NL Ratio <0.40, flag breadth divergence. This is a late-cycle warning requiring reduced exposure for new positions and tightened stops on existing positions.
+
+### Integration with Cycle Score
+
+The two breadth components in the cycle score (expanding breadth +1, healthy leadership +1) should now be evaluated using the quantitative thresholds above rather than subjective judgment. This ensures consistency across different market assessments.
+
+See SKILL.md -> Screening
