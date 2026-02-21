@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "성진이의 클로드 세팅",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "plugins": [
     {
       "name": "invest",
       "source": "./plugins/Invest",
-      "version": "1.3.0",
-      "description": "Financial market data analysis with MarketData skill and analyst personas (Minervini, Serenity, SidneyKim0, TraderLion)",
+      "version": "1.4.0",
+      "description": "Financial market data analysis with MarketData skill and analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams)",
       "category": "finance",
       "skills": [
         "./plugins/Invest/skills/MarketData/SKILL.md"
@@ -23,7 +23,8 @@
         "./plugins/Invest/commands/Minervini.md",
         "./plugins/Invest/commands/Serenity.md",
         "./plugins/Invest/commands/SidneyKim0.md",
-        "./plugins/Invest/commands/TraderLion.md"
+        "./plugins/Invest/commands/TraderLion.md",
+        "./plugins/Invest/commands/Williams.md"
       ]
     },
     {

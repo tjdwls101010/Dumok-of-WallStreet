@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-02-21
+
+### Added
+- **Williams command** (`commands/Williams.md`) — Short-term volatility breakout trading specialist replicating Larry Williams' price/time framework and money management methodology. Applied to US stocks with ATR-based breakout entries, Trading Day of Week/Month filters, bond intermarket confirmation, and fixed-percentage position sizing (2-4% risk per trade).
+- **Williams persona files** (4 files in `skills/MarketData/Personas/Williams/`):
+  - `methodology.md` — Volatility breakout system (core entry formulas), market structure (swing points), TDW filter, trend filters (20-day MA + bond), large-range day capture, five trading tools
+  - `short_term_trading.md` — Chart patterns (outside day, smash day, specialists' trap, Oops!), Greatest Swing Value (GSV), Willspread inter-market indicator, TDM patterns, 3-bar channel, seasonal strategies, exit rules
+  - `money_management.md` — Position sizing formula, 2-4% risk framework, 4-consecutive-loser survival test, Kelly Formula critique, blowup phenomenon, emotional discipline, speculation mindset
+  - `market_analysis.md` — Bond-stock leading indicator relationship, COT analysis, price behavior truths, freight train theory, 50-year market wisdom, winner/loser traits, hard truths
+- **`williams.py`** (`skills/MarketData/scripts/technical/williams.py`) — Larry Williams short-term trading tools: Williams %R oscillator, volatility breakout signal generation, range expansion/contraction analysis, and mechanical swing point identification; williams_r, volatility_breakout, range_analysis, and swing_points subcommands
+
 ## 2026-02-20
 
 ### Added
