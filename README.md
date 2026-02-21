@@ -13,12 +13,13 @@ claude plugin add <repo-url>
 
 ## Plugins
 
-| Plugin | Category | Description |
-|--------|----------|-------------|
-| **Invest** | Finance | Financial market data analysis with analyst personas |
-| **Study** | Education | Study and knowledge management with PDF, presentation, NotebookLM |
-| **Moai** | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
-| **Template** | Developer Tools | Scaffolding template for new Claude Code plugins |
+| Plugin | Version | Category | Description |
+|--------|---------|----------|-------------|
+| **Invest** | 1.5.0 | Finance | Financial market data analysis with MarketData skill and analyst personas |
+| **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
+| **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
+| **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
+| **Template** | 1.0.0 | Developer Tools | Scaffolding template for new Claude Code plugins |
 
 ### Invest
 
@@ -29,6 +30,9 @@ Financial market data analysis plugin. Includes the MarketData skill and analyst
 | MarketData | Skill | Multi-source financial data collection via YFinance, FRED, SEC EDGAR, Finviz, CFTC, CBOE |
 | Minervini | Command | Technical analysis based on Mark Minervini's SEPA methodology |
 | Serenity | Command | Supply chain architecture and fundamental analysis |
+| SidneyKim0 | Command | Macro-statistical analysis with regime identification and cross-asset divergence |
+| TraderLion | Command | Momentum trading with S.N.I.P.E. workflow and volume-edge methodology |
+| Williams | Command | Short-term volatility breakout trading analysis with chart pattern detection |
 
 ### Study
 
@@ -37,7 +41,7 @@ Study and knowledge management plugin.
 | Component | Type | Description |
 |-----------|------|-------------|
 | Describe_Images | Skill | Image description and link conversion |
-| Nano-Banana | Skill | Slide/template generation |
+| Nano-Banana | Skill | Slide/template generation via Gemini Image Generation API |
 | NoteBookLM | Skill | Google NotebookLM integration |
 | Prepare_Book | Skill | Book preparation workflow |
 | Restructure | Skill | Content restructuring |
@@ -47,6 +51,16 @@ Study and knowledge management plugin.
 | Mermaid | Command | Mermaid diagram generation |
 | PPT | Command | Presentation generation |
 | Restructure | Command | Content restructuring |
+
+### Obsidian
+
+Obsidian vault authoring plugin with file format skills for Markdown, Canvas, and Bases.
+
+| Component | Type | Description |
+|-----------|------|-------------|
+| Markdown | Skill | Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties |
+| Canvas | Skill | JSON Canvas files with nodes, edges, groups, and connections |
+| Bases | Skill | Obsidian Bases with views, filters, formulas, and summaries |
 
 ### Moai
 
@@ -71,13 +85,16 @@ Seongjin's Claude/
 ├── plugins/
 │   ├── Invest/
 │   │   ├── .claude-plugin/plugin.json
-│   │   ├── commands/          # Minervini, Serenity
+│   │   ├── commands/          # Minervini, Serenity, SidneyKim0, TraderLion, Williams
 │   │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/, tools/
 │   ├── Study/
 │   │   ├── .claude-plugin/plugin.json
 │   │   ├── agents/            # Architector-Knowledge, Architector-Mermaid, Planner-PPT
 │   │   ├── commands/          # Book, Knowledge, Mermaid, PPT, Restructure
 │   │   └── skills/            # Describe_Images, Nano-Banana, NoteBookLM, Prepare_Book, Restructure, pdf
+│   ├── Obsidian/
+│   │   ├── .claude-plugin/plugin.json
+│   │   └── skills/            # Markdown, Canvas, Bases
 │   ├── Moai/
 │   │   ├── .claude-plugin/plugin.json
 │   │   └── agents/            # builder-agent, builder-plugin, builder-skill
