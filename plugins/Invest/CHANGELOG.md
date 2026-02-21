@@ -2,6 +2,12 @@
 
 ## 2026-02-21
 
+### Changed
+- **`williams.py`** — Refactored inline calculation logic into reusable private helpers (`_fetch_data`, `_calculate_wr`, `_calculate_breakout_levels`, `_calculate_range_phase`). Added TDW/TDM lookup tables, `_detect_patterns` helper (5 Williams chart patterns), `cmd_pattern_scan` subcommand, and `cmd_trade_setup` composite subcommand (runs all 5 filters — TDW, TDM, bond trend, 20-day MA, patterns — with conviction scoring and position sizing). Updated module docstring with new commands/args/returns.
+- **`money_management.md`** — Removed non-methodology content (~95 lines): compressed Business of Speculation to 3-line list, replaced position sizing formula with trade_setup reference, collapsed Historical Money Management to 1 line, removed Blowup narrative (kept 5 rules), removed emotional counseling sections. Added trade_setup result interpretation guide (conviction-based risk selection, 4-loser simulation, position sizing verification).
+- **`market_analysis.md`** — Removed non-methodology content (~110 lines): removed 50-Year Wisdom, Losers vs Winners, Forecasting Is Futile, Hard Truths, compressed Market Cycle Awareness. Merged "Public vs Professionals" into Price Behavior Truth 3. Removed backtest numbers from bond section. Added trade_setup filter interpretation guide (bond scenarios, filter conflict resolution, conviction scenarios).
+- **`Williams.md` command** — Restructured Analysis Protocol around trade_setup as primary entry point (8-step → 5-step). Reclassified TDW/TDM/bond/MA/pattern/conviction/sizing from agent-level to script-automated. Updated Short-Circuit Rules to reference trade_setup output fields. Added error handling for trade_setup and pattern_scan failures.
+
 ### Added
 - **Williams command** (`commands/Williams.md`) — Short-term volatility breakout trading specialist replicating Larry Williams' price/time framework and money management methodology. Applied to US stocks with ATR-based breakout entries, Trading Day of Week/Month filters, bond intermarket confirmation, and fixed-percentage position sizing (2-4% risk per trade).
 - **Williams persona files** (4 files in `skills/MarketData/Personas/Williams/`):

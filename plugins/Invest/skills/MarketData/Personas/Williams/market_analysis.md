@@ -17,14 +17,11 @@ Market analysis framework synthesizing 50 years of trading wisdom across multipl
 The single most powerful predictor of stock market rallies is the bond market. This is not speculation — it is validated across decades of data:
 
 - **Logic 101**: You cannot predict A with A. Using price oscillators and moving averages to predict price is circular reasoning. Instead, use independent data (bonds) to predict stocks
-- **Bond breakouts predict stock rallies**: When bonds break to new 14-day highs, buying the S&P 500 produces consistent profits
-  - 53% win rate, 2.20 avg win/loss ratio, $141,792 profit over 16 years (single contract)
-  - Channel breakouts in S&P alone produce miserable results; the same breakouts in bonds applied to S&P produce excellent results
-  - It doesn't matter which exact bond breakout length you use (12, 14, 17 day) — they all make money when applied as S&P entry signals
-
-- **Short-term application**: Bond channel breakouts with 1-2 day holds produce 82% accuracy with strong cumulative profits — suitable for shorter-term traders
+- **Bond breakouts predict stock rallies**: When bonds break to new highs, buying the S&P 500 produces consistent profits. Channel breakouts in S&P alone produce miserable results; the same breakouts in bonds applied to S&P produce excellent results
 
 **For US stocks**: Monitor Treasury yields and bond ETF price action (TLT, IEF) as a leading indicator. When bonds rally sharply (yields fall), stocks tend to follow. When bonds are weak, stock rally potential is diminished.
+
+The bond filter in trade_setup automates this: rising bonds = favorable for stock entries.
 
 ### Commitment of Traders (COT) Report
 
@@ -56,6 +53,8 @@ The COT report reveals what the three groups of market participants are actually
 - Conversely, more has been lost selling new highs and buying new lows
 - Lower-high breakouts (today's high < X-day high, then breaks above tomorrow) produce 58% wins at a 1-day breakout with excellent average profit
 - "The race may not always go to the biggest or fastest, but that is the way to bet"
+
+**Truth 3 — Open-to-close = professional action; close-to-open = public action.** When the two diverge, follow the professionals (open-to-close direction). This relationship has held since 1969.
 
 ### The Freight Train Theory
 
@@ -117,146 +116,6 @@ The COT report reveals what the three groups of market participants are actually
 
 ---
 
-## 50-Year Market Wisdom
-
-### Timeless Principles That Survive All Regimes
-
-Williams traded under 9 presidents and 6 Fed chairmen. These principles held through all of them:
-
-1. **Value always gets rewarded** — the reward may just be delayed
-2. **Monitoring accumulation and distribution** (COT) worked 100 years ago and will work 100 years in the future
-3. **The Fed increases money supply when times are bad and raises rates when times are good** — this is the one constant across all Fed chairmen
-4. **Long-term cycles override politics**: Bull and bear markets happen irrespective of political power, though political conditions magnify or mute the moves
-5. **Economic upheavals are guaranteed to recur** — and so is economic growth. Neither is permanent
-6. **Things get better over time**: "Things are better now than they were 15 years ago, and things were better 15 years ago than 15 years before that"
-7. **Never sell America short**: The future of America is still in front of us. The 2008 crash was a reminder of cyclicality, not the end of growth
-
-### The Public vs. The Professionals
-
-A measurable divergence exists between retail and institutional behavior:
-
-- **Public action**: Measured by the difference between last night's close and this morning's open (overnight emotional reaction)
-- **Professional action**: Measured by the difference between the open and close of the same day (deliberate intraday positioning)
-- This relationship has held consistently since 1969 across all markets, stocks and commodities
-- When the two diverge, follow the professionals (open-to-close direction)
-
-### What Losers Do vs. What Winners Do
-
-**Losers share these traits:**
-- Goal of turning $10K into $1M as quickly as possible
-- Constant internal "chatter" about trades — before, during, and after
-- Anxiety pushes them into trades; sitting on sidelines is unbearable
-- Little attention to money management: "This game is about being right, not money management"
-- Refuse to look at account equity/balance regularly
-- Doubt that anyone really makes a living trading
-- Switch markets, gurus, and newsletters frequently
-
-**Winners share these traits:**
-- Ask as many questions as they ask answers
-- All use some form of money management
-- All are technical traders with systematic approaches
-- Each remembers one big loss that they vowed would never happen again — so they ALWAYS use stops
-- Focus on very few "favorite" markets (one winner traded only Soybeans since 1956)
-- Totally believe they will make money and refuse to let bad things happen
-- Study extensively, do their own research
-- Amazed that more people don't do what they do
-
-### Forecasting Is Futile
-
-After 50 years, Williams has never seen anyone consistently predict the future:
-- Market predictions, psychic predictions, and political predictions all fail equally
-- Every few years someone holds a "hot hand" but never for long
-- No service has been in the top 5 performers every year; consistency is rare even among the best
-- The Gann/Elliott/arcane crowd averaged close to 100% loss per year over 3 years of monitored performance
-- **The solution**: You do NOT need to predict the future. You need a consistent advantage in the game. "No more. No less."
-
----
-
-## Hard Truths About Trading
-
-### What This Business Requires
-
-- **Extreme focus** sustained over long periods — sometimes impossible to maintain
-- **Intellectual understanding** of how markets work
-- **Emotional control** — intelligence and education alone are not enough
-- **Acceptance of imperfection** — you will never be right often enough, your positions will always be wrong-sized, and better entries/exits will always exist in hindsight
-- **Love of the process** — if you don't thoroughly enjoy trading, you should not do it. "All the money in the world is not worth making yourself a nervous wreck"
-
-### The Math Problem Nobody Talks About
-
-Even with 50% accuracy and equal win/loss amounts, you LOSE money over time:
-- Start with $1,000, lose 10% = $900
-- Gain 10% on $900 = $990 (NOT back to $1,000)
-- This asymmetry compounds relentlessly: equal wins and losses always produce a net loss
-- This is why money management — not prediction accuracy — determines survival
-
-### The Leverage Trap
-
-Forex and highly leveraged products are the most dangerous:
-- 500:1 leverage means a 2-3 tick stop (which will get triggered constantly)
-- Even the best traders rarely have trades that don't move 2-3 ticks against them
-- "I have more respect for the honesty of crack cocaine dealers than the Forex Funny Money crowd"
-
-### Bad Habits That Kill Trading Accounts
-
-**Known bad habits**: Not sleeping enough, not doing morning analysis, not maintaining health and relationships outside trading
-
-**Unknown bad habits** (worse because you think they're good):
-- **Wanting to sell strength / buy weakness**: Discount mentality leads to bankruptcy in trading. Strength is power — a market needs power to continue its trend
-- **Waiting for pullbacks instead of buying new highs**: The fear of buying a strong move causes you to miss the best trades
-- **Arguing with the market**: Trying to outsmart the trend by "knowing" it will reverse — the market doesn't care about your analysis
-- **Jumping the gun**: Entering before signals confirm because you want to prove superiority or be "first"
-
-**How to break bad habits:**
-1. Repeat the correct action until it becomes Pavlovian response
-2. Replace incorrect "knowledge" with correct data — understand WHY the habit is wrong through tested evidence
-
-### Realistic Expectations
-
-- You will have losing trades — always have, always will
-- Even after 50 years and millions in profits, Williams still has losing streaks and periods of discouragement
-- The trading services with the most trades are consistent LOSERS; those with moderate frequency (200-300 trades/year) do best
-- The most expensive advisory service lost money over 3 years; the cheapest ($45/year) was a net winner
-- Psychological approaches (Scientology, EST, rebirthing, meditation, etc.) did NOT help Williams trade better — "Not a whit"
-- What works: A winning system + patience. "Making money is about time, time is about patience"
-
-### The Survival Mindset
-
-- **Always use stops. Always.** — This is the only absolute rule. Check what "always" means in a dictionary
-- **Trade with real money, not play money** — If your mind-set is that this is play money, you will play with it. Money you cannot afford to lose commands attention
-- **Focus on controlling losses, not maximizing gains** — "This is more a business of damage control than price exploitation"
-- **Expect to be stung** — Like beekeeping, getting stung is part of collecting honey. "Part of growing up is learning to endure pain"
-- **The ability to come back from behind** is the single most important trait separating champions from everyone else
-
-### Who Should NOT Trade
-
-- People who need to be right / demand perfection
-- People with extreme emotional swings or taking medication for anxiety/depression
-- People who can't handle basic details and stay focused on tasks
-- People whose primary motivation is thrill/excitement rather than profit
-- People unwilling to study and put in the work: "Success is a product of endless instruction and doing, not natural instincts"
-
----
-
-## Market Cycle Awareness
-
-### Long-Term Cyclical Framework
-
-- Markets have huge upswings and huge downswings — always have, always will
-- No government or central bank can overcome long-term cyclical fluctuations
-- Economic upheavals will recur, and so will growth periods
-- Be aware of current political and economic conditions, but also be aware of long-term cyclical aspects
-- Political conditions magnify or mute cyclical moves but do not create them
-- "The sun also rises, and it shall rise again"
-
-### The Constant of Change
-
-- Markets, instruments, and conditions change constantly (Pork Bellies suspended, electronic platforms replace pit trading)
-- Change is overlaid against politics and corruption — wherever money and power exist, corrupt players exist
-- Adapt or die: "Survival is a function of adaptation"
-- Simple approaches that work across changing conditions are more valuable than complex ones optimized for specific past conditions
-- "The worst dog I ever had cost me the most" — overbreeding (over-optimizing) produces fragile systems
-
 ### Intermarket Signals for Stock Traders
 
 When analyzing US stocks, monitor:
@@ -265,5 +124,37 @@ When analyzing US stocks, monitor:
 3. **Opening vs. Closing price behavior** — Professional money shows in the open-to-close direction
 4. **Strength of close** — Closes in the upper 65% of range indicate continuation potential
 5. **New highs/lows** — Breakouts to new highs are buying opportunities, not sell signals
+
+Markets cycle between expansion and contraction regardless of politics or policy. No government can override long-term cycles. Adapt strategies to the current cycle phase rather than fighting it.
+
+---
+
+## trade_setup Filter Interpretation Guide
+
+### Bond Filter Scenarios
+
+| Bond Filter | Stock Action | Interpretation | Response |
+|---|---|---|---|
+| rising | rising | Full alignment — strongest setup | Enter with standard/aggressive sizing |
+| rising | falling | Divergence — bonds lead, stocks may follow | Reduce size but watch for reversal entry; bond leading indicator suggests recovery potential |
+| falling | rising | Warning signal — stock rally may be unsupported | Tighten stops; consider partial exit. When bonds weaken, stock rallies often fail within 5-10 days |
+| falling | falling | Full alignment bearish — cash preservation mode | No new longs. Wait for bond trend to reverse |
+
+**Priority rule**: When bond filter and MA20 filter conflict, bond filter takes precedence (leading vs lagging indicator).
+
+### Filter Conflict Resolution
+
+- **Bond rising + MA20 falling**: Early trend change. Bonds lead by days/weeks. Consider small entry with wider stop.
+- **Bond falling + MA20 rising**: Late cycle warning. MA20 is lagging — the trend may be ending. Favor tighter stops or reduced exposure.
+- **TDW unfavorable + 3+ other filters favorable**: Delay entry by 1 day if possible. TDW is a timing refinement, not a veto.
+- **TDM unfavorable + strong conviction otherwise**: TDM is a statistical tendency, not a hard rule. Proceed with slightly reduced size.
+
+### Conviction Scenarios in Practice
+
+- **5 filters aligned (very_high)**: Rare. When it occurs, this is the highest-probability entry Williams' system can produce. Use full 4% risk.
+- **4 filters aligned**: Common in trending markets. Standard aggressive entry. Check which filter is missing — if it's bond, be cautious.
+- **3 filters aligned (high)**: The most frequent tradeable setup. Use 3% risk. Identify which 2 filters are missing and monitor them.
+- **2 filters aligned (moderate)**: Only trade if one of the favorable filters is bond AND you have a clear pattern. Otherwise wait.
+- **0-1 filters aligned (low)**: No trade. Period. Use this time for watchlist building and analysis.
 
 *Apply this framework independently to the current analysis target.*

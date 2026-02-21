@@ -199,35 +199,45 @@ Priority when ambiguous: C > A > B > D > E > F > G (market environment always fi
 
 For every analysis, follow this sequence. Do NOT skip steps.
 
-1. **Market Environment Check**: Bond trend (TLT/IEF vs 5 days ago), 20-day MA direction on SPY/QQQ, TDW bias for today, TDM position. This constrains all subsequent analysis.
-2. **Query Classification**: Classify into Type A-G, identify required persona files.
-3. **Data Collection**: MarketData scripts first for all quantitative data. WebSearch only for qualitative context (earnings, news) that scripts cannot provide.
-4. **Volatility Assessment**: Run williams.py range_analysis and volatility_breakout. Determine if we're in expansion or contraction phase. Calculate next session's breakout levels.
-5. **Swing Structure**: Run williams.py swing_points. Determine short-term and intermediate trend. Identify support/resistance from swing highs/lows.
-6. **Williams %R Status**: Run williams.py williams_r. Identify overbought/oversold condition. After down closes, rally probability increases.
-7. **Filter Application**: Apply TDW filter (is today favorable?), TDM filter (is this trading day favorable?), bond trend filter, 20-day MA trend filter. Count how many filters align.
-8. **Position Sizing**: Calculate shares using (Account × Risk%) / Stop Distance. Verify 4-consecutive-loser survivability. Recommend risk percentage based on filter count.
+1. **Composite Setup**: Run `williams.py trade_setup TICKER` to get all 5 filters + conviction + breakout levels + Williams %R + range phase in one call. This is the primary entry point for all analyses. Add `--account N` if the user has specified a portfolio size.
+2. **Query Classification**: Classify into Type A-G. The trade_setup output already covers Types A, B, C, and D partially.
+3. **Short-Circuit Check**: If `alignment.conviction` is `"low"` (0-1 filters), recommend monitoring only. If bond filter is `"falling"` AND ma20 trend is `"falling"`, recommend cash preservation. Only proceed to detailed analysis if conviction >= moderate OR user explicitly requests it.
+4. **Additional Data** (if needed): Run individual scripts for deeper analysis:
+   - `swing_points` for market structure and support/resistance levels
+   - `pattern_scan --lookback 60` for broader pattern history beyond trade_setup's 20-day window
+   - `closing_range.py`, `volume_edge.py` for institutional activity confirmation
+   - WebSearch for qualitative context (earnings, news, COT data)
+5. **Synthesis and Recommendation**: Combine trade_setup conviction with any additional qualitative factors. Recommend entry level, stop, exit plan, and position size.
 
 ### Script-Automated vs. Agent-Level Inference
 
-**Script-automated** (run these via MarketData scripts):
-- Williams %R calculation, volatility breakout level generation, range analysis, swing point identification, closing range, volume analysis, RS ranking, stage analysis, trend template, indicators (SMA/EMA/Bollinger), oscillators (RSI/MACD), position sizing, screening
+**Script-automated** (run via williams.py or other MarketData scripts):
+- TDW bias calculation (weekday + previous close direction → score lookup via `trade_setup`)
+- TDM bias calculation (trading day of month → score lookup via `trade_setup`)
+- Bond trend filter (bond ETF close vs 5 days ago via `trade_setup`)
+- 20-day MA trend filter (rising/falling via `trade_setup`)
+- Chart pattern detection: outside day, smash day, Oops!, specialists' trap (via `trade_setup` or `pattern_scan`)
+- Multi-filter alignment count + conviction level (via `trade_setup`)
+- Position sizing with risk % (via `trade_setup --account`)
+- Williams %R calculation, volatility breakout levels, range analysis, swing points
+- Closing range, volume analysis, RS ranking, stage analysis, trend template, indicators, oscillators, screening
 
 **Agent-level inference** (LLM reasoning required):
-- TDW bias interpretation (synthesizing day-of-week with recent close direction)
-- Multi-filter alignment assessment (counting and weighing TDW + TDM + trend + bond + pattern)
-- Pattern recognition (outside day, smash day, specialists' trap identification from price data)
-- Intermarket relationship synthesis (bond-stock-gold dynamics)
-- Exit strategy selection (bailout vs time stop vs trailing stop based on market conditions)
-- Money management recommendation (selecting risk % based on filter count and market environment)
+- Overall synthesis (combining conviction score with qualitative factors like news, earnings, sector rotation)
+- Exit strategy selection (bailout vs time stop vs trailing stop based on market conditions and pattern type)
+- Multi-position portfolio risk assessment (aggregate exposure across concurrent positions)
+- Willspread / GSV interpretation (not yet scripted)
+- COT data interpretation and application to equity positioning
 
 ### Short-Circuit Rules
 
-- **Bond trend negative AND 20-day MA declining**: Recommend cash preservation. Only proceed if user explicitly requests analysis for watchlist building.
-- **TDW unfavorable (Thursday for longs)**: Flag as low-probability day. Recommend waiting for a better day unless multiple other filters are strongly aligned.
-- **0-1 filters aligned**: Low conviction. Monitor only. Do not proceed to entry sizing.
-- **3+ filters aligned AND expansion phase**: Full analysis with standard sizing (3% risk).
-- **4+ filters aligned AND oversold %R**: Maximum conviction with aggressive sizing (4% risk).
+Based on `trade_setup` output fields:
+
+- **`alignment.conviction` = `"low"`** (0-1 filters): Monitor only. Do not proceed to entry sizing. Report the unfavorable filters.
+- **`filters.bond.status` = `"falling"` AND `filters.ma20.trend` = `"falling"`**: Recommend cash preservation. Only proceed if user explicitly requests watchlist analysis.
+- **`alignment.conviction` = `"moderate"`** (2 filters): Proceed only if one favorable filter is bond. Otherwise recommend waiting.
+- **`alignment.conviction` = `"high"`** (3 filters): Full analysis with standard sizing (`risk_pct` = 3%).
+- **`alignment.conviction` = `"very_high"`** (4-5 filters): Full analysis with aggressive sizing (`risk_pct` = 4%). If Williams %R is also oversold, flag as maximum opportunity.
 
 ---
 
@@ -241,8 +251,8 @@ For every analysis, follow this sequence. Do NOT skip steps.
 | `SKILL.md` (skill root) | **Always load first.** Script catalog. |
 | `methodology.md` | Volatility breakout system, market structure (swing points), TDW filter, trend filters, the "real secret" (large-range days), five trading tools |
 | `short_term_trading.md` | Chart patterns (outside day, smash day, specialists' trap, Oops!), GSV breakout, Willspread, TDM patterns, 3-bar channel, seasonal strategies, exit rules |
-| `money_management.md` | Position sizing formula, 2-4% risk framework, 4-consecutive-loser test, blowup phenomenon, emotional discipline, speculation mindset |
-| `market_analysis.md` | Bond-stock relationship, COT analysis, price behavior truths, freight train theory, 50-year market wisdom, hard truths, winner/loser traits |
+| `money_management.md` | 2-4% risk framework, conviction-based risk selection guide, 4-loser simulation, position sizing output verification, emotional discipline (fear/greed), rules adherence |
+| `market_analysis.md` | Bond-stock leading indicator, COT analysis, price behavior truths, freight train theory, stop-loss principles, trade_setup filter interpretation guide (bond scenarios, conflict resolution, conviction scenarios) |
 
 ### Loading Strategy (Progressive Disclosure)
 
@@ -295,9 +305,12 @@ Use when:
 ## Error Handling
 
 If a MarketData script fails:
-- **williams.py failure**: Calculate volatility breakout levels manually from price data: ATR(3) = average of last 3 True Ranges, buy = close + multiplier × ATR(3)
+- **trade_setup failure**: Fall back to running individual williams.py subcommands separately (`williams_r`, `volatility_breakout`, `range_analysis`) plus manual filter assessment using TDW/TDM tables from Methodology Quick Reference above. Count filters manually.
+- **pattern_scan failure**: Fall back to manual pattern identification from price data. Check for outside days (H>prevH, L<prevL, C<prevL), smash days (C<prevL or C>prevH), and gap reversals (Open<prevL, High>=prevL) using recent price history.
+- **williams.py failure (any subcommand)**: Calculate volatility breakout levels manually from price data: ATR(3) = average of last 3 True Ranges, buy = close + multiplier × ATR(3)
 - **Range analysis failure**: Use `trend.py` for Bollinger Bands width as range proxy
 - **Swing points failure**: Manually identify swing points from price data using the nested structure rules
+- **Bond data unavailable in trade_setup**: The trade_setup output will show `bond.status = "unavailable"`. Proceed with 4 filters (total_filters effectively 4). Use WebSearch for current TLT/IEF price data as fallback.
 - **Volume analysis failure**: Use `volume_edge.py` or `closing_range.py` for institutional activity assessment
 - **Stage analysis failure**: Use `trend_template.py` for trend assessment; infer from MA relationships
 - **Any script failure**: State "data unavailable for [script]" explicitly; proceed with available data, flag analytical limitations
