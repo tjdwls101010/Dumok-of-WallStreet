@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-02-22 (v1.8.0)
+
+### Fixed
+- **`serenity_pipeline.py`** — Fixed ERP and Fear&Greed signal extraction paths in `_classify_macro_regime()`, `cmd_macro()`, and `cmd_analyze()`. ERP was using top-level `erp.get("erp_pct")` but `erp.py` returns `{"current": {"erp": float}}` → now uses `erp.get("current", {}).get("erp")`. Fear&Greed was using `fear_greed.get("value")` but `fear_greed.py` returns `{"current": {"score": float}}` → now uses `fear_greed.get("current", {}).get("score")`. Both signals were always `null` in prior versions.
+- **`serenity_pipeline.py`** — Improved macro decision_rules: now distinguishes between "data unavailable" (null) vs "below threshold" (actual value shown). ERP and Fear&Greed rules display actual values (e.g., "ERP at 2.15% — below healthy threshold (>3%)" instead of generic "ERP below healthy threshold").
+
+### Changed
+- **`serenity_pipeline.py`** — Token optimization (~17-22KB/ticker, ~35-45% reduction):
+  - Removed `shares_history` from L4 (~5-10KB/ticker) — `sbc_analyzer` already provides `shares_change_qoq_pct` and `dilution_flag`
+  - Removed `earnings_calendar` from L5 (~4KB/ticker) — was fetching market-wide calendar (no ticker arg), identical across all tickers; `earnings_dates` already provides ticker-specific dates
+  - Added `--start` (12-month lookback) to `insider_transactions` and post-processing via `_summarize_insider_transactions()`: buy/sell count+amount aggregation, `net_direction` classification, capped at 20 most recent transactions (~9KB/ticker savings)
+  - Compare: replaced `get-info` (100+ fields) with `get-info-fields` (5 fields: marketCap, currentPrice, fiftyTwoWeekLow, fiftyTwoWeekHigh, shortPercentOfFloat) (~4.8KB/ticker savings)
+  - Removed `earnings_calendar` from `cmd_evidence_chain` L6 scripts
+
+### Added
+- **`serenity_pipeline.py`** — L2 company CapEx auto-inclusion: `capex_tracker.py track --quarters 8` runs in L4 parallel batch, result moved to `L2_capex_flow.company_capex`. Supply chain cascade still requires agent context (`cascade_requires_context: true`).
+- **`serenity_pipeline.py`** — Revenue trajectory: quarterly income statement fetched via `financials.py get-income-stmt --freq quarterly`, post-processed by `_extract_revenue_trajectory()` to extract TotalRevenue for 8 quarters. Placed in L4 as `revenue_trajectory`.
+- **`serenity_pipeline.py`** — Compare metrics expanded from 5 to 9: added `market_cap`, `revenue_growth_yoy` (from earnings_acceleration), `short_interest_pct`, `52w_range_position`. Added `best_revenue_growth` and `best_52w_position` to relative_strengths.
+- **`serenity_pipeline.py`** — New helper functions: `_summarize_insider_transactions()` (buy/sell aggregation + net_direction + cap at 20), `_extract_revenue_trajectory()` (TotalRevenue extraction from income statement, 8 quarters).
+
 ## 2026-02-22 (v1.7.1)
 
 ### Fixed

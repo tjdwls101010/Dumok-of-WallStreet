@@ -5,17 +5,20 @@ and evidence chain verification.
 
 Orchestrates the complete Serenity analysis by running macro regime scripts,
 fundamental analysis tools, valuation models, and catalyst monitoring in
-parallel. Levels 1/4/5/6 are automated; Levels 2 (CapEx Flow) and 3
-(Bottleneck) require agent context for supply chain knowledge.
+parallel. Levels 1/4/5/6 are automated; Level 2 (CapEx Flow) includes
+company CapEx auto-extraction with supply chain cascade requiring agent
+context; Level 3 (Bottleneck) requires agent context for supply chain
+knowledge.
 
 Commands:
 	macro: Level 1 macro regime assessment (6 parallel macro scripts → regime
-		classification as risk_on/risk_off/transitional with drain counting)
+		classification as risk_on/risk_off/transitional with drain counting.
+		ERP extracted via erp.current.erp, Fear&Greed via fear_greed.current.score)
 	analyze: Full 6-Level analysis for a single ticker (L1 macro + L4
-		fundamentals with 13 scripts + L5 catalysts with 6 scripts + health
+		fundamentals with 12 scripts + L5 catalysts with 5 scripts + health
 		gates + valuation summary)
 	evidence_chain: 6-Link evidence chain data availability check
-	compare: Multi-ticker side-by-side comparison
+	compare: Multi-ticker side-by-side comparison (9 metrics)
 	screen: Sector-based bottleneck candidate screening
 
 Args:
@@ -41,7 +44,7 @@ Returns:
 	For macro:
 		dict with regime (str: risk_on/risk_off/transitional),
 		risk_level (str: low/moderate/elevated/high),
-		drain_count (int), decision_rules (list[str]),
+		drain_count (int), decision_rules (list[str] with actual values),
 		signals (dict with erp_pct, vix_spot, vix_regime, vix_structure,
 		net_liq_direction, net_liq_current, fear_greed,
 		fedwatch_next_meeting, fedwatch_probabilities)
@@ -51,14 +54,16 @@ Returns:
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
 		margin_collapse — each PASS or FLAG), valuation_summary.
 		L1_macro: regime classification + signals dict (no raw data).
+		L2_capex_flow: company_capex (8-quarter trend auto-included),
+		cascade_requires_context (agent-driven supply chain layers).
 		L4_fundamentals: info (24 essential fields), holders,
-		insider_transactions, earnings_acceleration, sbc_analyzer,
-		forward_pe, debt_structure, institutional_quality,
-		no_growth_valuation, margin_tracker, iv_context, shares_history.
-		L5_catalysts: earnings_dates, earnings_calendar,
-		earnings_surprise (post-ER reaction), analyst_recommendations,
-		analyst_price_targets, analyst_revisions.
-		L2/L3: requires_context (agent-driven). L6: requires_llm.
+		insider_transactions (summary + recent 20, 12-month lookback),
+		earnings_acceleration, sbc_analyzer, forward_pe, debt_structure,
+		institutional_quality, no_growth_valuation, margin_tracker,
+		iv_context, revenue_trajectory (8-quarter actual revenue).
+		L5_catalysts: earnings_dates, earnings_surprise (post-ER reaction),
+		analyst_recommendations, analyst_price_targets, analyst_revisions.
+		L2/L3: cascade_requires_context (agent-driven). L6: requires_llm.
 
 	For evidence_chain:
 		dict with ticker, chain_completeness (str "N/6"),
@@ -67,7 +72,9 @@ Returns:
 	For compare:
 		dict with tickers, comparative_table (forward_pe,
 		no_growth_upside_pct, margin_status, io_quality_score,
-		debt_quality_grade per ticker), health_gates, relative_strengths.
+		debt_quality_grade, market_cap, revenue_growth_yoy,
+		short_interest_pct, 52w_range_position per ticker),
+		health_gates, relative_strengths.
 
 	For screen:
 		dict with sector, candidates_screened (int),
@@ -78,7 +85,7 @@ Example:
 	{"regime": "risk_on", "risk_level": "moderate", "signals": {...}, ...}
 
 	>>> python serenity_pipeline.py analyze NBIS
-	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, "L4_fundamentals": {"info": {...}, "insider_transactions": {...}, ...}, "L5_catalysts": {"earnings_surprise": {...}, "analyst_recommendations": {...}, ...}}, "health_gates": {...}, ...}
+	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, "L2_capex_flow": {"company_capex": {...}, ...}, "L4_fundamentals": {"info": {...}, "insider_transactions": {"summary": {...}, "transactions": [...]}, "revenue_trajectory": {...}, ...}, "L5_catalysts": {"earnings_surprise": {...}, "analyst_recommendations": {...}, ...}}, "health_gates": {...}, ...}
 
 	>>> python serenity_pipeline.py analyze NBIS --skip-macro
 	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
@@ -87,7 +94,7 @@ Example:
 	{"ticker": "AXTI", "chain_completeness": "5/6", ...}
 
 	>>> python serenity_pipeline.py compare AXTI AEHR FORM
-	{"tickers": [...], "comparative_table": {...}, ...}
+	{"tickers": [...], "comparative_table": {"forward_pe": {...}, "market_cap": {...}, "revenue_growth_yoy": {...}, ...}, ...}
 
 	>>> python serenity_pipeline.py screen "Defense" --min-rs 60
 	{"sector": "Defense", "candidates_screened": 10, ...}
@@ -102,13 +109,18 @@ Use Cases:
 
 Notes:
 	- L1 macro and L4-L6 fundamentals auto-execute for any ticker
-	- L2 (CapEx Flow) and L3 (Bottleneck) return requires_context for agent-driven analysis
+	- L2 company CapEx auto-included (8-quarter trend); supply chain cascade requires agent context
+	- L3 (Bottleneck) returns requires_context for agent-driven analysis
 	- Health gates are extracted from L4 script outputs (debt, dilution, valuation, margin)
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Pipeline continues even if individual scripts fail (graceful degradation)
 	- screen subcommand depends on finviz.py and bottleneck_scorer.py
 	- L1 output contains only extracted signals (9 scalars), not raw macro script data
 	- L4 info uses get-info-fields with 24 essential fields (not full 100+ field info object)
+	- L4 insider_transactions: 12-month lookback, summarized (buy/sell aggregates + net_direction + recent 20)
+	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
+	- L5 earnings_calendar removed (was market-wide, not ticker-specific; earnings_dates covers ticker)
+	- compare uses get-info-fields (5 fields) instead of get-info (100+ fields)
 	- Yield curve limited to 5 observations, net liquidity to 10 observations
 """
 
@@ -234,6 +246,115 @@ def _build_valuation_summary(results):
 
 
 # ---------------------------------------------------------------------------
+# Post-Processing Helpers
+# ---------------------------------------------------------------------------
+
+def _summarize_insider_transactions(data):
+	"""Summarize insider transactions: aggregate buy/sell counts and amounts,
+	determine net direction, and keep only the most recent 20 transactions.
+
+	Args:
+		data: Raw insider transactions output (list or dict with transactions key)
+
+	Returns:
+		dict with summary (buy_count, sell_count, buy_amount, sell_amount,
+		net_direction) and transactions (most recent 20)
+	"""
+	transactions = data if isinstance(data, list) else data.get("transactions", [])
+	if not isinstance(transactions, list):
+		return data
+
+	buy_count = 0
+	sell_count = 0
+	buy_amount = 0.0
+	sell_amount = 0.0
+
+	for txn in transactions:
+		if not isinstance(txn, dict):
+			continue
+		txn_type = str(txn.get("type", "") or txn.get("transaction", "")).lower()
+		value = txn.get("value") or txn.get("amount") or 0
+		try:
+			value = float(value)
+		except (ValueError, TypeError):
+			value = 0.0
+
+		if "buy" in txn_type or "purchase" in txn_type:
+			buy_count += 1
+			buy_amount += value
+		elif "sale" in txn_type or "sell" in txn_type:
+			sell_count += 1
+			sell_amount += value
+
+	if buy_amount > sell_amount * 1.2:
+		net_direction = "net_buying"
+	elif sell_amount > buy_amount * 1.2:
+		net_direction = "net_selling"
+	else:
+		net_direction = "mixed"
+
+	return {
+		"summary": {
+			"total_transactions": len(transactions),
+			"buy_count": buy_count,
+			"sell_count": sell_count,
+			"buy_amount": round(buy_amount, 2),
+			"sell_amount": round(sell_amount, 2),
+			"net_direction": net_direction,
+		},
+		"transactions": transactions[:20],
+	}
+
+
+def _extract_revenue_trajectory(financials_data):
+	"""Extract quarterly revenue trajectory from income statement data.
+
+	Args:
+		financials_data: Raw income statement output from financials.py
+
+	Returns:
+		dict with revenue_by_quarter (list of {quarter, revenue} dicts, max 8)
+	"""
+	revenue_by_quarter = []
+
+	# financials.py returns data in various formats; handle common structures
+	if isinstance(financials_data, dict):
+		# Try "data" key first (common wrapper)
+		records = financials_data.get("data", financials_data)
+		if isinstance(records, dict):
+			# Column-oriented: {"TotalRevenue": {"2025-Q3": 203000000, ...}}
+			rev_data = records.get("TotalRevenue") or records.get("Total Revenue")
+			if isinstance(rev_data, dict):
+				for quarter, revenue in list(rev_data.items())[:8]:
+					revenue_by_quarter.append({
+						"quarter": str(quarter),
+						"revenue": revenue,
+					})
+			else:
+				# Row-oriented: {date: {field: value, ...}, ...}
+				for date_key, row in list(records.items())[:8]:
+					if isinstance(row, dict):
+						rev = row.get("TotalRevenue") or row.get("Total Revenue")
+						if rev is not None:
+							revenue_by_quarter.append({
+								"quarter": str(date_key),
+								"revenue": rev,
+							})
+	elif isinstance(financials_data, list):
+		for record in financials_data[:8]:
+			if isinstance(record, dict):
+				quarter = record.get("quarter") or record.get("date") or record.get("period")
+				rev = record.get("TotalRevenue") or record.get("Total Revenue") or record.get("revenue")
+				if quarter and rev is not None:
+					revenue_by_quarter.append({
+						"quarter": str(quarter),
+						"revenue": rev,
+					})
+
+	return {"revenue_by_quarter": revenue_by_quarter}
+
+
+# ---------------------------------------------------------------------------
 # Macro Regime Classification
 # ---------------------------------------------------------------------------
 
@@ -253,8 +374,9 @@ def _classify_macro_regime(macro_results):
 	# Signal extraction
 	erp_healthy = False
 	erp_danger = False
+	erp_val = None
 	if not erp.get("error"):
-		erp_val = erp.get("erp_pct") or erp.get("erp") or erp.get("equity_risk_premium")
+		erp_val = erp.get("current", {}).get("erp")
 		if erp_val is not None:
 			erp_healthy = erp_val > 3.0
 			erp_danger = erp_val < 1.5
@@ -273,8 +395,9 @@ def _classify_macro_regime(macro_results):
 		net_liq_positive = "positive" in trend or "rising" in trend or "expanding" in trend
 
 	fear_extreme = False
+	fg_val = None
 	if not fear_greed.get("error"):
-		fg_val = fear_greed.get("value") or fear_greed.get("score")
+		fg_val = fear_greed.get("current", {}).get("score")
 		if fg_val is not None:
 			try:
 				fear_extreme = float(fg_val) < 25
@@ -299,11 +422,15 @@ def _classify_macro_regime(macro_results):
 	drain_count = 0
 	decision_rules = []
 
-	if not erp_healthy and not erp.get("error"):
+	if erp.get("error"):
+		decision_rules.append("ERP unavailable (script error)")
+	elif erp_val is None:
+		decision_rules.append("ERP data unavailable")
+	elif not erp_healthy:
 		drain_count += 1
-		decision_rules.append("ERP below healthy threshold")
-	elif erp_healthy:
-		decision_rules.append("ERP healthy — equity risk premium adequate")
+		decision_rules.append(f"ERP at {erp_val:.2f}% — below healthy threshold (>3%)")
+	else:
+		decision_rules.append(f"ERP healthy at {erp_val:.2f}%")
 
 	if vix_backwardation:
 		drain_count += 1
@@ -317,11 +444,15 @@ def _classify_macro_regime(macro_results):
 	elif net_liq_positive:
 		decision_rules.append("Net liquidity expanding — supportive for risk assets")
 
-	if fear_extreme:
+	if fear_greed.get("error"):
+		decision_rules.append("Fear & Greed unavailable (script error)")
+	elif fg_val is None:
+		decision_rules.append("Fear & Greed data unavailable")
+	elif fear_extreme:
 		drain_count += 1
-		decision_rules.append("Fear & Greed at extreme fear levels")
-	elif not fear_greed.get("error"):
-		decision_rules.append("Sentiment within normal range")
+		decision_rules.append(f"Fear & Greed at {float(fg_val):.0f} — extreme fear levels (<25)")
+	else:
+		decision_rules.append(f"Sentiment at {float(fg_val):.0f} — within normal range")
 
 	if not fedwatch.get("error"):
 		decision_rules.append("Fed rate path data available for context")
@@ -396,8 +527,7 @@ def cmd_macro(args):
 		"drain_count": classification["drain_count"],
 		"decision_rules": classification["decision_rules"],
 		"signals": {
-			"erp_pct": results.get("erp", {}).get("erp_pct")
-				or results.get("erp", {}).get("erp"),
+			"erp_pct": results.get("erp", {}).get("current", {}).get("erp"),
 			"vix_spot": results.get("vix_curve", {}).get("vix_spot"),
 			"vix_regime": results.get("vix_curve", {}).get("regime"),
 			"vix_structure": results.get("vix_curve", {}).get("structure_type"),
@@ -405,8 +535,7 @@ def cmd_macro(args):
 				.get("net_liquidity", {}).get("direction"),
 			"net_liq_current": results.get("net_liquidity", {})
 				.get("net_liquidity", {}).get("current"),
-			"fear_greed": results.get("fear_greed", {}).get("value")
-				or results.get("fear_greed", {}).get("score"),
+			"fear_greed": results.get("fear_greed", {}).get("current", {}).get("score"),
 			"fedwatch_next_meeting": results.get("fedwatch", {}).get("next_meeting"),
 			"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
 		},
@@ -452,8 +581,7 @@ def cmd_analyze(args):
 			"drain_count": classification["drain_count"],
 			"decision_rules": classification["decision_rules"],
 			"signals": {
-				"erp_pct": macro_results.get("erp", {}).get("erp_pct")
-					or macro_results.get("erp", {}).get("erp"),
+				"erp_pct": macro_results.get("erp", {}).get("current", {}).get("erp"),
 				"vix_spot": macro_results.get("vix_curve", {}).get("vix_spot"),
 				"vix_regime": macro_results.get("vix_curve", {}).get("regime"),
 				"vix_structure": macro_results.get("vix_curve", {}).get("structure_type"),
@@ -461,15 +589,14 @@ def cmd_analyze(args):
 					.get("net_liquidity", {}).get("direction"),
 				"net_liq_current": macro_results.get("net_liquidity", {})
 					.get("net_liquidity", {}).get("current"),
-				"fear_greed": macro_results.get("fear_greed", {}).get("value")
-					or macro_results.get("fear_greed", {}).get("score"),
+				"fear_greed": macro_results.get("fear_greed", {}).get("current", {}).get("score"),
 				"fedwatch_next_meeting": macro_results.get("fedwatch", {}).get("next_meeting"),
 				"fedwatch_probabilities": macro_results.get("fedwatch", {}).get("probabilities"),
 			},
 		}
 
 	# --- Level 4: Position Construction (Fundamentals) ---
-	shares_start = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
+	insider_start = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
 	l4_scripts = {
 		"info": ("data_sources/info.py", ["get-info-fields", ticker,
 			"sector", "industry", "marketCap", "enterpriseValue",
@@ -482,7 +609,8 @@ def cmd_analyze(args):
 			"heldPercentInsiders", "heldPercentInstitutions"]),
 		"holders": ("data_sources/holders.py", ["get-institutional-holders", ticker]),
 		"insider_transactions": ("data_sources/holders.py", [
-			"get-insider-transactions", ticker, "--exclude-grants"]),
+			"get-insider-transactions", ticker, "--exclude-grants",
+			"--start", insider_start]),
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
@@ -491,14 +619,14 @@ def cmd_analyze(args):
 		"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
 		"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 		"iv_context": ("analysis/iv_context.py", ["analyze", ticker]),
-		"shares_history": ("data_sources/info.py", [
-			"get-shares-full", ticker, "--start", shares_start]),
+		"capex_trend": ("analysis/capex_tracker.py", ["track", ticker, "--quarters", "8"]),
+		"quarterly_financials": ("data_sources/financials.py", [
+			"get-income-stmt", ticker, "--freq", "quarterly"]),
 	}
 
 	# --- Level 5: Catalyst Monitoring ---
 	l5_scripts = {
 		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker]),
-		"earnings_calendar": ("data_sources/calendars.py", ["get-earnings-calendar"]),
 		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
 		"analyst_recommendations": ("analysis/analysis.py", ["get-recommendations-summary", ticker]),
 		"analyst_price_targets": ("analysis/analysis.py", ["get-analyst-price-targets", ticker]),
@@ -521,6 +649,19 @@ def cmd_analyze(args):
 	l4_results = {k: all_results[k] for k in l4_scripts}
 	l5_results = {k: all_results[k] for k in l5_scripts}
 
+	# Post-process: insider transactions summary
+	insider_raw = l4_results.get("insider_transactions")
+	if insider_raw and not (isinstance(insider_raw, dict) and insider_raw.get("error")):
+		l4_results["insider_transactions"] = _summarize_insider_transactions(insider_raw)
+
+	# Post-process: extract revenue trajectory from quarterly financials
+	financials_raw = l4_results.pop("quarterly_financials", None)
+	if financials_raw and not (isinstance(financials_raw, dict) and financials_raw.get("error")):
+		l4_results["revenue_trajectory"] = _extract_revenue_trajectory(financials_raw)
+
+	# Post-process: move capex_trend from L4 to L2
+	capex_data = l4_results.pop("capex_trend", None)
+
 	# Health gates (extracted from L4)
 	health_gates = _extract_health_gates(l4_results)
 
@@ -532,8 +673,9 @@ def cmd_analyze(args):
 		"levels": {
 			"L1_macro": l1_result if l1_result else {"skipped": True},
 			"L2_capex_flow": {
-				"requires_context": True,
-				"note": "Agent determines supply chain CapEx layers. Use capex_tracker.py cascade with appropriate --layers.",
+				"company_capex": capex_data,
+				"cascade_requires_context": True,
+				"note": "Company CapEx auto-included. Supply chain cascade requires agent context.",
 			},
 			"L3_bottleneck": {
 				"requires_context": True,
@@ -591,7 +733,6 @@ def cmd_evidence_chain(args):
 	# L6: Catalyst
 	l6_scripts = {
 		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker]),
-		"earnings_calendar": ("data_sources/calendars.py", ["get-earnings-calendar"]),
 	}
 
 	# Run all in parallel
@@ -671,12 +812,15 @@ def cmd_compare(args):
 	per_ticker_scripts = {}
 	for ticker in tickers:
 		per_ticker_scripts[ticker] = {
-			"info": ("data_sources/info.py", ["get-info", ticker]),
+			"info": ("data_sources/info.py", ["get-info-fields", ticker,
+				"marketCap", "currentPrice", "fiftyTwoWeekLow",
+				"fiftyTwoWeekHigh", "shortPercentOfFloat"]),
 			"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
 			"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
 			"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 			"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
 			"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
+			"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		}
 
 	# Run all scripts across all tickers in parallel
@@ -704,6 +848,10 @@ def cmd_compare(args):
 		"margin_status": {},
 		"io_quality_score": {},
 		"debt_quality_grade": {},
+		"market_cap": {},
+		"revenue_growth_yoy": {},
+		"short_interest_pct": {},
+		"52w_range_position": {},
 	}
 
 	health_gates_all = {}
@@ -740,6 +888,38 @@ def cmd_compare(args):
 		comparative_table["debt_quality_grade"][ticker] = (
 			ds.get("debt_quality_grade") if not ds.get("error") else None
 		)
+
+		# Market cap
+		info = r.get("info", {})
+		comparative_table["market_cap"][ticker] = (
+			info.get("marketCap") if not info.get("error") else None
+		)
+
+		# Revenue growth YoY (from earnings_acceleration)
+		ea = r.get("earnings_acceleration", {})
+		rev_growth = None
+		if not ea.get("error"):
+			quarters = ea.get("quarters", [])
+			if quarters:
+				latest = quarters[0] if isinstance(quarters, list) else None
+				if latest and isinstance(latest, dict):
+					rev_growth = latest.get("revenue_growth_yoy")
+		comparative_table["revenue_growth_yoy"][ticker] = rev_growth
+
+		# Short interest
+		comparative_table["short_interest_pct"][ticker] = (
+			info.get("shortPercentOfFloat") if not info.get("error") else None
+		)
+
+		# 52-week range position
+		pos_52w = None
+		if not info.get("error"):
+			low = info.get("fiftyTwoWeekLow")
+			high = info.get("fiftyTwoWeekHigh")
+			current = info.get("currentPrice")
+			if all(v is not None for v in [low, high, current]) and high != low:
+				pos_52w = round((current - low) / (high - low) * 100, 1)
+		comparative_table["52w_range_position"][ticker] = pos_52w
 
 		# Health gates per ticker
 		health_gates_all[ticker] = _extract_health_gates(r)
@@ -818,6 +998,26 @@ def _determine_relative_strengths(tickers, table):
 		strengths["best_balance_sheet"] = max(grade_vals, key=grade_vals.get)
 	else:
 		strengths["best_balance_sheet"] = None
+
+	# Best revenue growth = highest YoY revenue growth
+	rev_vals = {
+		t: v for t, v in table.get("revenue_growth_yoy", {}).items()
+		if v is not None and isinstance(v, (int, float))
+	}
+	if rev_vals:
+		strengths["best_revenue_growth"] = max(rev_vals, key=rev_vals.get)
+	else:
+		strengths["best_revenue_growth"] = None
+
+	# Best 52-week position = highest position (closest to 52w high)
+	pos_vals = {
+		t: v for t, v in table.get("52w_range_position", {}).items()
+		if v is not None and isinstance(v, (int, float))
+	}
+	if pos_vals:
+		strengths["best_52w_position"] = max(pos_vals, key=pos_vals.get)
+	else:
+		strengths["best_52w_position"] = None
 
 	return strengths
 
