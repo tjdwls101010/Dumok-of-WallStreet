@@ -231,7 +231,7 @@ SCRIPTS=skills/MarketData/scripts
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
 
-[HARD] Before executing any MarketData scripts, MUST perform batch discovery via extract_docstring.py first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
+[HARD] Before executing any MarketData scripts, MUST perform batch discovery via `extract_docstring.py` first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
 
 [HARD] Never pipe script output through head or tail. Always use full output.
 

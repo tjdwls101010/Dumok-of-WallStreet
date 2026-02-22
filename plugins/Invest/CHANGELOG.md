@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-02-22 (v1.7.0)
+
+### Added
+- **`serenity_pipeline.py`** (`skills/MarketData/scripts/screening/serenity_pipeline.py`) — Full Serenity 6-Level analytical hierarchy pipeline. 5 subcommands: `macro` (Level 1 macro regime assessment with 6 parallel scripts, regime classification as risk_on/risk_off/transitional, --extended for DXY+BDI), `analyze` (full 6-Level analysis with L1/L4/L5 auto-execution and L2/L3 requires_context for agent-driven supply chain analysis, 4 health gates: Bear-Bull Paradox/Active Dilution/No-Growth Fail/Margin Collapse), `evidence_chain` (6-link data availability check with chain_completeness scoring), `compare` (multi-ticker side-by-side comparison table with relative_strengths), `screen` (sector-based bottleneck candidate screening via finviz + bottleneck_scorer). Sector-agnostic: works for any industry.
+- **`bottleneck_scorer.py`** (`skills/MarketData/scripts/analysis/bottleneck_scorer.py`) — Sector-agnostic financial validation of supply chain bottleneck candidates. 3 subcommands: `validate` (4 health gates — Bear-Bull Paradox, Active Dilution, No-Growth Floor, Margin Collapse — plus asymmetry score 0-100), `batch` (multi-ticker validation sorted by asymmetry score), `rank` (priority ranking using Supply Dominance formula).
+- **`capex_tracker.py`** (`skills/MarketData/scripts/analysis/capex_tracker.py`) — Sector-agnostic CapEx tracker across supply chain layers. 3 subcommands: `track` (QoQ/YoY CapEx tracking with direction classification), `cascade` (supply chain layer-wise CapEx health with user-defined layers), `compare` (side-by-side CapEx comparison).
+
+### Changed
+- **`Serenity.md` command** — Progressive disclosure refactor: removed 11 direct `.py` script references (serenity_pipeline x8, bottleneck_scorer x2, capex_tracker x1, info.py x1) from pipeline routing, Step 2b, and Type D Phase 4. Replaced with functional descriptions that match SKILL.md catalog vocabulary for agent discovery. Added Health-Gate Interpretation section (output interpretation context — the one place the pipeline is named, matching Minervini pattern). Added Script-Automated vs Agent-Level Inference section listing 6-Level concepts. Net `.py` references: 14 → 3 (extract_docstring.py only). No behavioral change — same pipeline subcommands discovered via SKILL.md instead of hardcoded references.
+- **`methodology.md`** — Removed Conviction and Rating System (moved to Command for cross-cutting access on all query types). Cleaned MarketData-First section: added prefix clarifying Command enforcement, added WebSearch Autonomous Usage Principle, added Industry-specific data row to source guide. Replaced duplicate 2-Phase Workflow with Domain-Specific Data Source Guide.
+- **`valuation_fundamentals.md`** — Converted 4 script references to purpose/data/interpretation format: No-Growth Stress Test automation, Margin Trajectory analysis, SBC/Real FCF test, SBC Filter. Removed all `.py` filename references from persona file.
+
 ## 2026-02-21 (v1.6.0)
 
 ### Added

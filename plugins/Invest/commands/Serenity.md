@@ -127,12 +127,22 @@ This is nonnegotiable regardless of query type.
 For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 
 1. **Query Classification**: Classify into Type A-F, load corresponding persona files. For composite queries, chain sequentially. For Type B with earnings trigger ("실적", "earnings"), additionally load "Earnings as Supply Chain Thesis Validation" from `valuation_fundamentals.md`. For Type B, Step 2b (Bottleneck Relevance Assessment) may trigger additional loading of `supply_chain_bottleneck.md` based on company characteristics discovered during data collection.
-2. **Data Collection -- Tool Hierarchy (MANDATORY)**:
+2. **Data Collection -- Pipeline Routing + Tool Hierarchy (MANDATORY)**:
+	**Pipeline-First**: The Serenity pipeline is the primary data collection entry point. Route by query type:
+	- **Type A (Macro)**: Macro regime assessment — Fed policy, liquidity, VIX term structure, ERP. Use extended mode for DXY and BDI when currency or shipping dynamics are relevant.
+	- **Type B (Stock)**: Full 6-Level analysis — automates L1 (macro), L4 (fundamentals/valuation), and L5 (catalyst monitoring). L2 (CapEx flow) and L3 (Bottleneck mapping) require agent-driven context — supply chain layer definition and WebSearch respectively.
+	- **Type C (Discovery, with ticker)**: Multi-ticker side-by-side comparison for head-to-head ranking.
+	- **Type C (Discovery, no ticker)**: Sector-based bottleneck candidate screening, then full analysis on top candidates.
+	- **Type D (Supply Chain)**: Evidence chain data completeness check — verify 6-link chain after bottleneck identification.
+	- **Type E (Position)**: Full analysis for L4 fundamentals, then apply position construction from `methodology.md`.
+	- **Type F (Portfolio)**: Multi-ticker comparison across portfolio candidates.
+
+	**Tool Hierarchy (when not using pipeline)**:
 	- **MarketData scripts = PRIMARY** for ALL quantitative financial data. ALWAYS run BEFORE WebSearch.
 	- **WebSearch = SECONDARY** for qualitative/discovery: supply chain mapping, bottleneck news, geopolitical issues, industry reports.
 	- **WebFetch = TERTIARY** for detailed documents: earnings transcripts, SEC filings, industry reports.
 	- **Post-Earnings Reaction Check**: Check post-earnings 5-day returns for each quarter. If any recent quarter shows post-ER 5d return <= -10% or >= +20%, treat that earnings event as a critical context point in the analysis. Explain what drove the extreme reaction. Script data is PRIMARY; supplement with news data only if additional context is needed.
-	**Step 2b -- Bottleneck Relevance Assessment (Type B only)**: After collecting company data via `info.py get-info` in Step 2, assess whether the company has supply chain bottleneck relevance by reading the `industry` and `businessSummary` fields. Load `supply_chain_bottleneck.md` if the company meets ANY of: (A) manufactures, mines, or supplies physical materials, components, or substrates used in other companies' products, (B) occupies a concentrated or sole-source position in its supply chain, or (C) is exposed to geopolitical supply chain dynamics such as export controls or critical mineral policies. If none apply, proceed without loading. Err toward loading -- the cost of missing a bottleneck framework on a relevant company far exceeds the ~5K token cost of an unnecessary load.
+	**Step 2b -- Bottleneck Relevance Assessment (Type B only)**: After collecting company data in Step 2, assess whether the company has supply chain bottleneck relevance by reading the `industry` and `businessSummary` fields from the ticker information output. Load `supply_chain_bottleneck.md` if the company meets ANY of: (A) manufactures, mines, or supplies physical materials, components, or substrates used in other companies' products, (B) occupies a concentrated or sole-source position in its supply chain, or (C) is exposed to geopolitical supply chain dynamics such as export controls or critical mineral policies. If none apply, proceed without loading. Err toward loading -- the cost of missing a bottleneck framework on a relevant company far exceeds the ~5K token cost of an unnecessary load.
 3. **Supply Chain Mapping**: Trace supply chain position -- customers, suppliers, bottleneck location.
 4. **Float/SI/Dilution Analysis (MANDATORY)**: Collect holder data, SBC analysis. Do NOT skip. Check `dilution_flag`: if "active_dilution" (shares Q/Q change > 2%), check SEC filings for recent S-3/S-3ASR filings confirming ATM program. Script data (shares outstanding change) is PRIMARY; SEC filing is SECONDARY confirmation.
 5. **Institutional Flow Analysis (MANDATORY)**: Collect 13F data, holder composition, insider activity. Rate IO quality on 1-10 scale.
@@ -146,6 +156,44 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 - 5-6: Hedge fund long positions (Tiger Global, Coatue, D1)
 - 3-4: Quant/market maker dominant (Jane Street, Citadel Securities, Two Sigma)
 - 1-2: No institutional support or toxic holder composition
+
+### Conviction and Rating System
+
+#### Rating Tiers
+
+**Fire Sale**: Reserved for extreme drawdowns on highest-conviction names. Signals maximum accumulation. Used sparingly.
+
+**Strong Buy**: Requires ALL of: forward revenue growth 50%+ Y/Y with visibility, confirmed contracts from creditworthy counterparties, balance sheet strength, market cap below forward revenue trajectory, identifiable bottleneck position.
+
+**Buy**: Requires MOST of: solid fundamentals with identifiable catalyst, reasonable valuation relative to forward growth, acceptable balance sheet, clear supply chain role.
+
+**Hold**: Thesis intact but near fair value short-term. "Overvalued current term, undervalued long term potential."
+
+**Sell/Avoid**: Triggers on ANY of: valuation disconnected from fundamentals, toxic debt structure, dilution without productive deployment, broken thesis.
+
+**Strong Sell**: Pre-revenue with multi-billion market caps, serial diluters, pure speculation.
+
+#### What Makes a "Screaming Buy"
+- Forward P/E below 15x for a company growing 50%+ Y/Y
+- Market cap below no-growth intrinsic value
+- Cash + asset backing covers significant portion of market cap
+- Confirmed revenue from creditworthy counterparties
+- Expanding margins
+
+#### Price-Dependent Rating Adjustment
+Ratings are NOT static labels. Every rating must include price transition points calculated from forward P/E analysis and no-growth stress test output:
+- **Strong Buy ceiling**: Price at which PEG ratio exceeds 1.0 (growth no longer justifies premium). Calculate: Forward EPS x Growth Rate = max justified P/E, then multiply by EPS.
+- **Buy ceiling**: Price at which no-growth upside falls below 20%. Use no-growth intrinsic value x 0.83.
+- **Hold zone**: Price range around sector-average fair value where upside/downside is balanced.
+- **Format requirement**: Every rating MUST include price context: "Strong Buy at $X (becomes Buy above $Y, becomes Hold above $Z)."
+- This ensures ratings automatically adjust as price moves, preventing stale "Strong Buy" labels on stocks that have already appreciated past fair value.
+
+#### Conviction Evolution Rules
+- Conviction increases when: new contracts confirmed, supply chain position strengthened, margins expand beyond estimates, institutional ownership quality improves
+- Conviction decreases when: SBC analysis nullifies FCF thesis, government policy changes addressable market, production vs prototype confusion identified
+- Full reversal when: fundamental analysis demands it (e.g., Strong Buy to Avoid after SBC deep-dive)
+- "I always give exact positions ahead of time, not retroactively"
+- "I will be wrong many more times in the future. Hopefully I will be right enough to outweigh when I'm wrong"
 
 ### WebSearch and Scenario Discovery (Type D)
 
@@ -161,10 +209,27 @@ Use WebSearch to research supply chain structure, bottleneck candidates, and ind
 Apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Only 4+ out of 6 qualifies as investable.
 
 **Phase 4: Quantitative Validation (MarketData)**
-Run full quantitative validation on discovered tickers (select scripts from `SKILL.md` based on analytical need). Bear-Bull Paradox stress test.
+Validate each candidate against health gates (Bear-Bull Paradox, dilution, no-growth floor, margin collapse). Use batch validation for multi-candidate comparison. For additional depth, run full 6-Level analysis on top candidates.
 
 **Phase 5: Final Rating**
 Scenario probability weighting, historical analogy matching, conviction assignment.
+
+### Health-Gate Interpretation
+
+When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
+
+- Lead with the flagged gates before any valuation or rating discussion. A stock flagging on health gates cannot receive Strong Buy regardless of bottleneck score.
+- Health-gate flags: Bear-Bull Paradox (debt structure undermines growth thesis), Active Dilution (shares Q/Q change > 2%), No-Growth Fail (market cap exceeds zero-growth intrinsic value), Margin Collapse (gross or operating margin declining Q/Q and Y/Y).
+- A single flag reduces maximum rating by one tier. Two or more flags cap the rating at Hold.
+- Explain to the user WHY each gate flagged using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
+- Flags are informational, not absolute blockers — a company in early-stage CapEx deployment may legitimately flag on dilution if the capital is productively deployed. The agent must contextualize.
+
+### Script-Automated vs Agent-Level Inference
+
+Each analysis step is either automated via script or requires agent-level LLM reasoning:
+
+- **Script-automated**: L1 Macro Regime Assessment, L4 Fundamental Validation (financials, valuation, debt structure, SBC, margin tracking, institutional quality), L5 Catalyst Monitoring (earnings acceleration, analyst estimates), Health Gates (Bear-Bull Paradox, dilution, no-growth floor, margin collapse), Evidence Chain Data Completeness, Sector Screening, Multi-Ticker Comparison, Bottleneck Financial Validation (asymmetry scoring, batch ranking), CapEx Tracking (QoQ/YoY direction, cascade health)
+- **Agent-level inference**: L2 CapEx Flow Mapping (supply chain layer definition, cascade interpretation), L3 Bottleneck Identification (6-Criteria scoring via WebSearch, geographic concentration), L6 Taxonomy Classification (Evolution/Disruption/Bottleneck), Supply Chain Position Mapping, Forward Revenue Projection, Rating Assignment with Price-Dependent Adjustments, Bottleneck Relevance Assessment (Step 2b), Scenario Construction (Type D Phase 1)
 
 ### Reference Files
 
@@ -174,7 +239,7 @@ Scenario probability weighting, historical analogy matching, conviction assignme
 | File | When to Load |
 |------|-------------|
 | `SKILL.md` (skill root) | **Always load first.** Script catalog with all available commands. |
-| `methodology.md` | 6-Level hierarchy, position construction, conviction system, MarketData-first principle |
+| `methodology.md` | 6-Level hierarchy, position construction, MarketData-first principle, evidence chain template |
 | `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, thematic frameworks, historical case studies |
 | `valuation_fundamentals.md` | SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening |
 | `macro_catalyst.md` | Fed policy, geopolitical risk, CapEx flow tracking, seasonal patterns, liquidity analysis |

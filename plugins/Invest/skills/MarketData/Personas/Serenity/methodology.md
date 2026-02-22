@@ -91,15 +91,13 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 ## MarketData-First Data Principle
 
-### 2-Phase Workflow
+The MarketData-First principle is enforced by the Command's Tool Hierarchy. The table below is a domain-specific data source selection guide for Serenity analysis.
 
-**Phase 1: Quantitative Foundation (MarketData scripts)**
-Run MarketData scripts BEFORE WebSearch for ALL quantitative data. Scripts provide: price, earnings, financials, ownership, estimates, screening, macro data. This is the PRIMARY data source.
+### WebSearch Autonomous Usage Principle
 
-**Phase 2: Qualitative Intelligence (WebSearch/Deep-Research)**
-Use WebSearch for supply chain intelligence, bottleneck news, geopolitical analysis, industry context, earnings commentary, contract/deal news. Use Deep-Research for comprehensive supply chain mapping spanning multiple industries.
+Data not collectible via scripts (industry-specific data, government policies, commodity prices, demand signals, etc.) should be immediately sourced via WebSearch. Do not wait for script failures -- proactively decide based on analytical purpose.
 
-### When to Use Which
+### Domain-Specific Data Source Guide
 
 | Data Need | Source | Examples |
 |-----------|--------|----------|
@@ -110,6 +108,7 @@ Use WebSearch for supply chain intelligence, bottleneck news, geopolitical analy
 | Supply chain mapping | WebSearch/Deep-Research | Industry reports, SEC filings |
 | Bottleneck discovery | WebSearch/Deep-Research | Export controls, capacity constraints |
 | Geopolitical analysis | WebSearch | Trade wars, tariffs, sanctions |
+| Industry-specific data | WebSearch | Commodity prices (SMM, LME), government procurement, demand forecasts |
 | Options IV/Greeks context | MarketData scripts | IV context analysis, options data |
 | VIX term structure | MarketData scripts | VIX term structure analysis |
 
@@ -150,36 +149,7 @@ Use WebSearch for supply chain intelligence, bottleneck news, geopolitical analy
 
 ---
 
-## Conviction and Rating System
-
-### Rating Tiers
-
-**Fire Sale**: Reserved for extreme drawdowns on highest-conviction names. Signals maximum accumulation. Used sparingly.
-
-**Strong Buy**: Requires ALL of: forward revenue growth 50%+ Y/Y with visibility, confirmed contracts from creditworthy counterparties, balance sheet strength, market cap below forward revenue trajectory, identifiable bottleneck position.
-
-**Buy**: Requires MOST of: solid fundamentals with identifiable catalyst, reasonable valuation relative to forward growth, acceptable balance sheet, clear supply chain role.
-
-**Hold**: Thesis intact but near fair value short-term. "Overvalued current term, undervalued long term potential."
-
-**Sell/Avoid**: Triggers on ANY of: valuation disconnected from fundamentals, toxic debt structure, dilution without productive deployment, broken thesis.
-
-**Strong Sell**: Pre-revenue with multi-billion market caps, serial diluters, pure speculation.
-
-### What Makes a "Screaming Buy"
-- Forward P/E below 15x for a company growing 50%+ Y/Y
-- Market cap below no-growth intrinsic value
-- Cash + asset backing covers significant portion of market cap
-- Confirmed revenue from creditworthy counterparties
-- Expanding margins
-
-### Price-Dependent Rating Adjustment
-Ratings are NOT static labels. Every rating must include price transition points calculated from forward P/E analysis and no-growth stress test output:
-- **Strong Buy ceiling**: Price at which PEG ratio exceeds 1.0 (growth no longer justifies premium). Calculate: Forward EPS x Growth Rate = max justified P/E, then multiply by EPS.
-- **Buy ceiling**: Price at which no-growth upside falls below 20%. Use no-growth intrinsic value x 0.83.
-- **Hold zone**: Price range around sector-average fair value where upside/downside is balanced.
-- **Format requirement**: Every rating MUST include price context: "Strong Buy at $X (becomes Buy above $Y, becomes Hold above $Z)."
-- This ensures ratings automatically adjust as price moves, preventing stale "Strong Buy" labels on stocks that have already appreciated past fair value.
+Conviction tiers and rating assignment are defined in the Command's Conviction and Rating System section.
 
 ---
 
@@ -191,13 +161,6 @@ Ratings are NOT static labels. Every rating must include price transition points
 3. If still holding: state with reduced conviction and changed rationale
 4. If exiting: explain the fundamental change that triggered the exit
 5. Extract a lesson and share it publicly
-
-### Conviction Evolution Rules
-- Conviction increases when: new contracts confirmed, supply chain position strengthened, margins expand beyond estimates, institutional ownership quality improves
-- Conviction decreases when: SBC analysis nullifies FCF thesis, government policy changes addressable market, production vs prototype confusion identified
-- Full reversal when: fundamental analysis demands it (e.g., SNAP Strong Buy to Avoid after SBC deep-dive)
-- "I always give exact positions ahead of time, not retroactively"
-- "I will be wrong many more times in the future. Hopefully I will be right enough to outweigh when I'm wrong"
 
 ### Domain Boundary Acknowledgment
 When analyzing outside core expertise (AI infrastructure, semiconductors, data centers):

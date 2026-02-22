@@ -24,8 +24,10 @@ The signature Serenity valuation tool. It answers: "What is this stock worth if 
 4. Compare total no-growth value to current market cap
 5. If no-growth value > market cap, the stock has a built-in margin of safety
 
-### Script Reference
-Use no-growth valuation analysis to automate the baseline calculation.
+### Automation
+- **Purpose**: Calculate floor value assuming current revenue and margins as permanent run-rate
+- **Data**: Most recent annual revenue, operating margin, conservative multiple (sector average)
+- **Interpretation**: If no-growth value > market cap, inherent margin of safety exists. Larger gap = higher conviction
 
 ### Application Examples (brief)
 *Historical Application:*
@@ -113,14 +115,21 @@ Normalize economics on a per-megawatt basis to compare companies with different 
 When inventory grows faster than sales, it signals either demand weakness or channel stuffing. Verify inventory figures against actual business operations (e.g., VLN's $82M inventory was a data artifact from a ticker collision).
 
 ### Margin Trajectory
-Expanding margins signal operating leverage and pricing power. Compressing margins signal competitive pressure or cost inflation. Use margin tracking analysis to monitor gross, operating, and net margin trajectories over time. Trajectory matters more than current level.
+Expanding margins signal operating leverage and pricing power. Compressing margins signal competitive pressure or cost inflation.
+- **Purpose**: Track gross/operating/net margin trajectories quarterly to assess operating leverage realization
+- **Data**: Recent 4-8 quarters of margin data, QoQ/YoY change rates
+- **Interpretation**: EXPANDING = pricing power confirmed, COMPRESSION = competitive pressure or cost inflation signal. Direction matters more than current level
 
 ### FCF Confirmation: The "Real" FCF Test
 Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantial.
 
 **Formula**: Real FCF = Reported FCF - SBC
 
-Use SBC analysis to calculate Real FCF. *Historical Application:* This became a standard filter after the SNAP lesson: $1B+ annual SBC made reported FCF of $206M illusory (real FCF was -$51M). *Apply this Real FCF test independently to the current analysis target.* Any FCF-based investment thesis must survive the SBC adjustment.
+- **Purpose**: Subtract SBC from reported FCF to verify genuine cash generation. Any FCF-based thesis must survive SBC adjustment
+- **Data**: Annual SBC amount, SBC/revenue ratio, reported FCF, shares outstanding Q/Q change
+- **Interpretation**: SBC > 30% of revenue = toxic. Negative Real FCF means reported FCF is illusory. Shares Q/Q increase > 2% = active dilution signal
+
+*Historical Application:* This became a standard filter after the SNAP lesson: $1B+ annual SBC made reported FCF of $206M illusory (real FCF was -$51M). *Apply this Real FCF test independently to the current analysis target.*
 
 ### Operating Leverage Assessment
 When actual price hikes exceed street estimates, the excess flows directly to the bottom line. Identify situations where:
@@ -159,7 +168,9 @@ Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 ## Float and Dilution Dynamics
 
 ### SBC Filter
-Run SBC analysis on every position to quantify annual dilution from stock-based compensation. SBC exceeding 10% of market cap annually is a red flag.
+- **Purpose**: Quantify annual dilution from SBC for every position
+- **Data**: Annual SBC amount, SBC as % of market cap, per-share dilution effect
+- **Interpretation**: SBC > 10% of market cap annually = red flag. Below 5% = healthy, 10-30% = warning, 30%+ = toxic
 
 ### IPO Lockup Analysis
 Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates into entry timing. Large insider stakes becoming freely tradable can temporarily depress prices, creating entry opportunities on strong-thesis names.

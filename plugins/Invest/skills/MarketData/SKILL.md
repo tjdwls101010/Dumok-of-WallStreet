@@ -127,6 +127,8 @@ Statistical analysis, fundamental analysis, and valuation tools
 | `iv_context` | IV Rank/Percentile via CBOE: current IV30, annual high/low, IV Rank, HV30 comparison, cheap/fair/elevated/expensive classification | `analysis/iv_context.py` |
 | `leaps_scanner` | LEAPS finder via CBOE options chain: optimal long-dated calls by target delta with breakeven and annualized cost | `analysis/leaps_scanner.py` |
 | `csp_yield` | Cash-Secured Put yield calculator via CBOE: annualized yield, breakeven, downside cushion for put selling strategy | `analysis/csp_yield.py` |
+| `capex_tracker` | Sector-agnostic CapEx tracker: quarterly track (QoQ/YoY direction), cascade (supply chain layer-wise health with user-defined layers), compare (side-by-side) | `analysis/capex_tracker.py` |
+| `bottleneck_scorer` | Bottleneck financial validation: validate (4 health gates + asymmetry score), batch (multi-ticker sorted), rank (Supply Dominance formula priority ranking) | `analysis/bottleneck_scorer.py` |
 
 #### Backtest
 
@@ -224,6 +226,7 @@ Finviz stock screener
 | `sector_leaders` | Bottom-up sector leadership dashboard: leader count by industry group with performance enrichment | `screening/sector_leaders.py` |
 | `sepa_pipeline` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `screening/sepa_pipeline.py` |
 | `snipe_pipeline` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `screening/snipe_pipeline.py` |
+| `serenity_pipeline` | Full Serenity 6-Level pipeline: macro (regime assessment), analyze (L1/L4/L5 auto + L2/L3 context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table), screen (sector bottleneck screening). Sector-agnostic | `screening/serenity_pipeline.py` |
 | `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |
 
 #### CFTC
@@ -380,6 +383,9 @@ When YFinance returns insufficient data for a specific ticker:
 
 | Primary Script | Fallback 1 | Fallback 2 |
 |---------------|-----------|-----------|
+| `serenity_pipeline.py analyze` | Run L4 scripts individually (info, financials, holders, sbc_analyzer, forward_pe, debt_structure, institutional_quality, no_growth_valuation, margin_tracker, iv_context) | `bottleneck_scorer.py validate` for health gates only |
+| `serenity_pipeline.py screen` | `finviz.py sector-screen` + manual `bottleneck_scorer.py validate` per ticker | WebSearch for sector candidates + manual validation |
+| `capex_tracker.py cascade` | Run `capex_tracker.py track` per layer individually | `financials.py get-cash-flow --freq quarterly` + manual CapEx extraction |
 | `snipe_pipeline.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
 | `sepa_pipeline.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
 | `finviz.py screen` | `sector_leaders.py scan --fallback etf` | `rs_ranking.py screen` (YFinance-based RS) |
