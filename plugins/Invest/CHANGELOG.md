@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-02-22 (v1.7.1)
+
+### Fixed
+- **`serenity_pipeline.py`** — Fixed net liquidity signal bug in `_classify_macro_regime()`: field path was `net_liq.get("trend")` but actual output structure is `net_liq.get("net_liquidity", {}).get("direction")`. Result: `net_liq_positive` was always False, net liquidity signal never reflected in macro regime classification.
+
+### Changed
+- **`serenity_pipeline.py`** — Output size optimization (~5.1MB → ~50-100KB, ~98% reduction):
+  - Yield curve: added `--limit 5` to `rates.py yield-curve` call (was fetching 25 years of daily data, ~3-4MB)
+  - Net liquidity: added `--limit 10` to `net_liquidity.py` call (was fetching 52 days of history, only trend needed)
+  - Macro raw data: replaced `"data": macro_results` with `"signals"` dict extracting 9 scalar values (erp_pct, vix_spot, vix_regime, vix_structure, net_liq_direction, net_liq_current, fear_greed, fedwatch_next_meeting, fedwatch_probabilities)
+  - Removed raw financial statements (income_stmt, cash_flow, balance_sheet) from L4 — individual analysis scripts already extract needed metrics independently
+  - Replaced `info.py get-info` (100+ fields) with `get-info-fields` (24 essential fields for analysis)
+- **`serenity_pipeline.py`** — Added missing methodology data to pipeline:
+  - L4: `insider_transactions` (holders.py get-insider-transactions --exclude-grants) for insider activity tracking
+  - L4: `shares_history` (info.py get-shares-full, 2-year window) for dilution tracking
+  - L5: `earnings_surprise` (earnings_acceleration.py surprise) for post-ER reaction data
+  - L5: `analyst_recommendations` (analysis.py get-recommendations-summary) for consensus direction
+  - L5: `analyst_price_targets` (analysis.py get-analyst-price-targets) for valuation context
+  - L5: `analyst_revisions` (earnings_acceleration.py revisions) for estimate revision tracking
+
 ## 2026-02-22 (v1.7.0)
 
 ### Added

@@ -9,8 +9,11 @@ parallel. Levels 1/4/5/6 are automated; Levels 2 (CapEx Flow) and 3
 (Bottleneck) require agent context for supply chain knowledge.
 
 Commands:
-	macro: Level 1 macro regime assessment
-	analyze: Full 6-Level analysis for a single ticker
+	macro: Level 1 macro regime assessment (6 parallel macro scripts → regime
+		classification as risk_on/risk_off/transitional with drain counting)
+	analyze: Full 6-Level analysis for a single ticker (L1 macro + L4
+		fundamentals with 13 scripts + L5 catalysts with 6 scripts + health
+		gates + valuation summary)
 	evidence_chain: 6-Link evidence chain data availability check
 	compare: Multi-ticker side-by-side comparison
 	screen: Sector-based bottleneck candidate screening
@@ -35,15 +38,50 @@ Args:
 		--max-mcap (str): Maximum market cap filter (default: "10B")
 
 Returns:
-	dict: Structure varies by command. See individual subcommand docs.
-	Common fields include levels, health_gates, valuation_summary.
+	For macro:
+		dict with regime (str: risk_on/risk_off/transitional),
+		risk_level (str: low/moderate/elevated/high),
+		drain_count (int), decision_rules (list[str]),
+		signals (dict with erp_pct, vix_spot, vix_regime, vix_structure,
+		net_liq_direction, net_liq_current, fear_greed,
+		fedwatch_next_meeting, fedwatch_probabilities)
+
+	For analyze:
+		dict with ticker, levels (L1_macro through L6_taxonomy),
+		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
+		margin_collapse — each PASS or FLAG), valuation_summary.
+		L1_macro: regime classification + signals dict (no raw data).
+		L4_fundamentals: info (24 essential fields), holders,
+		insider_transactions, earnings_acceleration, sbc_analyzer,
+		forward_pe, debt_structure, institutional_quality,
+		no_growth_valuation, margin_tracker, iv_context, shares_history.
+		L5_catalysts: earnings_dates, earnings_calendar,
+		earnings_surprise (post-ER reaction), analyst_recommendations,
+		analyst_price_targets, analyst_revisions.
+		L2/L3: requires_context (agent-driven). L6: requires_llm.
+
+	For evidence_chain:
+		dict with ticker, chain_completeness (str "N/6"),
+		links (L1-L6 status), missing_links (list).
+
+	For compare:
+		dict with tickers, comparative_table (forward_pe,
+		no_growth_upside_pct, margin_status, io_quality_score,
+		debt_quality_grade per ticker), health_gates, relative_strengths.
+
+	For screen:
+		dict with sector, candidates_screened (int),
+		results (list sorted by asymmetry_score desc).
 
 Example:
 	>>> python serenity_pipeline.py macro --extended
-	{"regime": "risk_on", "risk_level": "moderate", ...}
+	{"regime": "risk_on", "risk_level": "moderate", "signals": {...}, ...}
 
 	>>> python serenity_pipeline.py analyze NBIS
-	{"ticker": "NBIS", "levels": {...}, "health_gates": {...}, ...}
+	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, "L4_fundamentals": {"info": {...}, "insider_transactions": {...}, ...}, "L5_catalysts": {"earnings_surprise": {...}, "analyst_recommendations": {...}, ...}}, "health_gates": {...}, ...}
+
+	>>> python serenity_pipeline.py analyze NBIS --skip-macro
+	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
 
 	>>> python serenity_pipeline.py evidence_chain AXTI
 	{"ticker": "AXTI", "chain_completeness": "5/6", ...}
@@ -69,6 +107,9 @@ Notes:
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Pipeline continues even if individual scripts fail (graceful degradation)
 	- screen subcommand depends on finviz.py and bottleneck_scorer.py
+	- L1 output contains only extracted signals (9 scalars), not raw macro script data
+	- L4 info uses get-info-fields with 24 essential fields (not full 100+ field info object)
+	- Yield curve limited to 5 observations, net liquidity to 10 observations
 """
 
 import argparse
@@ -77,6 +118,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from utils import output_json, safe_run
@@ -226,7 +268,8 @@ def _classify_macro_regime(macro_results):
 
 	net_liq_positive = False
 	if not net_liq.get("error"):
-		trend = str(net_liq.get("trend", "")).lower()
+		net_liq_data = net_liq.get("net_liquidity", {})
+		trend = str(net_liq_data.get("direction", "")).lower()
 		net_liq_positive = "positive" in trend or "rising" in trend or "expanding" in trend
 
 	fear_extreme = False
@@ -325,10 +368,10 @@ def cmd_macro(args):
 	Classifies regime as risk_on, risk_off, or transitional.
 	"""
 	scripts = {
-		"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity"]),
+		"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
 		"vix_curve": ("macro/vix_curve.py", ["analyze"]),
 		"fedwatch": ("data_advanced/fed/fedwatch.py", []),
-		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve"]),
+		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 		"erp": ("macro/erp.py", ["erp"]),
 		"fear_greed": ("analysis/sentiment/fear_greed.py", []),
 	}
@@ -352,7 +395,21 @@ def cmd_macro(args):
 		"risk_level": classification["risk_level"],
 		"drain_count": classification["drain_count"],
 		"decision_rules": classification["decision_rules"],
-		"data": results,
+		"signals": {
+			"erp_pct": results.get("erp", {}).get("erp_pct")
+				or results.get("erp", {}).get("erp"),
+			"vix_spot": results.get("vix_curve", {}).get("vix_spot"),
+			"vix_regime": results.get("vix_curve", {}).get("regime"),
+			"vix_structure": results.get("vix_curve", {}).get("structure_type"),
+			"net_liq_direction": results.get("net_liquidity", {})
+				.get("net_liquidity", {}).get("direction"),
+			"net_liq_current": results.get("net_liquidity", {})
+				.get("net_liquidity", {}).get("current"),
+			"fear_greed": results.get("fear_greed", {}).get("value")
+				or results.get("fear_greed", {}).get("score"),
+			"fedwatch_next_meeting": results.get("fedwatch", {}).get("next_meeting"),
+			"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
+		},
 	}
 
 	output_json(output)
@@ -373,10 +430,10 @@ def cmd_analyze(args):
 	l1_result = None
 	if not args.skip_macro:
 		macro_scripts = {
-			"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity"]),
+			"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
 			"vix_curve": ("macro/vix_curve.py", ["analyze"]),
 			"fedwatch": ("data_advanced/fed/fedwatch.py", []),
-			"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve"]),
+			"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 			"erp": ("macro/erp.py", ["erp"]),
 			"fear_greed": ("analysis/sentiment/fear_greed.py", []),
 		}
@@ -394,16 +451,38 @@ def cmd_analyze(args):
 			"risk_level": classification["risk_level"],
 			"drain_count": classification["drain_count"],
 			"decision_rules": classification["decision_rules"],
-			"data": macro_results,
+			"signals": {
+				"erp_pct": macro_results.get("erp", {}).get("erp_pct")
+					or macro_results.get("erp", {}).get("erp"),
+				"vix_spot": macro_results.get("vix_curve", {}).get("vix_spot"),
+				"vix_regime": macro_results.get("vix_curve", {}).get("regime"),
+				"vix_structure": macro_results.get("vix_curve", {}).get("structure_type"),
+				"net_liq_direction": macro_results.get("net_liquidity", {})
+					.get("net_liquidity", {}).get("direction"),
+				"net_liq_current": macro_results.get("net_liquidity", {})
+					.get("net_liquidity", {}).get("current"),
+				"fear_greed": macro_results.get("fear_greed", {}).get("value")
+					or macro_results.get("fear_greed", {}).get("score"),
+				"fedwatch_next_meeting": macro_results.get("fedwatch", {}).get("next_meeting"),
+				"fedwatch_probabilities": macro_results.get("fedwatch", {}).get("probabilities"),
+			},
 		}
 
 	# --- Level 4: Position Construction (Fundamentals) ---
+	shares_start = (datetime.now() - timedelta(days=730)).strftime("%Y-%m-%d")
 	l4_scripts = {
-		"info": ("data_sources/info.py", ["get-info", ticker]),
-		"income_stmt": ("data_sources/financials.py", ["get-income-stmt", ticker]),
-		"cash_flow": ("data_sources/financials.py", ["get-cash-flow", ticker]),
-		"balance_sheet": ("data_sources/financials.py", ["get-balance-sheet", ticker]),
+		"info": ("data_sources/info.py", ["get-info-fields", ticker,
+			"sector", "industry", "marketCap", "enterpriseValue",
+			"fullTimeEmployees", "longBusinessSummary", "financialCurrency",
+			"fiftyTwoWeekLow", "fiftyTwoWeekHigh", "beta",
+			"currentPrice", "forwardPE", "priceToSalesTrailing12Months",
+			"sharesOutstanding", "floatShares", "shortPercentOfFloat",
+			"previousClose", "fiftyDayAverage", "twoHundredDayAverage",
+			"grossMargins", "operatingMargins",
+			"heldPercentInsiders", "heldPercentInstitutions"]),
 		"holders": ("data_sources/holders.py", ["get-institutional-holders", ticker]),
+		"insider_transactions": ("data_sources/holders.py", [
+			"get-insider-transactions", ticker, "--exclude-grants"]),
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
@@ -412,12 +491,18 @@ def cmd_analyze(args):
 		"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
 		"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 		"iv_context": ("analysis/iv_context.py", ["analyze", ticker]),
+		"shares_history": ("data_sources/info.py", [
+			"get-shares-full", ticker, "--start", shares_start]),
 	}
 
 	# --- Level 5: Catalyst Monitoring ---
 	l5_scripts = {
 		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker]),
 		"earnings_calendar": ("data_sources/calendars.py", ["get-earnings-calendar"]),
+		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
+		"analyst_recommendations": ("analysis/analysis.py", ["get-recommendations-summary", ticker]),
+		"analyst_price_targets": ("analysis/analysis.py", ["get-analyst-price-targets", ticker]),
+		"analyst_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
 	}
 
 	# Run L4 and L5 in parallel
