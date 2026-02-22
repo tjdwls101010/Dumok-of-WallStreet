@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-02-22 (v1.8.1)
+
+### Fixed
+- **`serenity_pipeline.py`** — Fixed `revenue_growth_yoy` = null bug in `cmd_compare()`: was extracting from `earnings_acceleration` code33 output (which has no `quarters` key or `revenue_growth_yoy` field), now correctly sources from `forward_pe` (analyst consensus revenue growth estimate). No additional API calls needed — `forward_pe` was already executed per-ticker.
+
+### Changed
+- **`serenity_pipeline.py`** — Removed `earnings_acceleration` from `cmd_compare()` script list. After the `revenue_growth_yoy` fix, no compare metric or health gate uses it. Saves 1 subprocess + API call per ticker.
+- **`serenity_pipeline.py`** — Output size optimization in `cmd_analyze()` (~5-9KB/ticker reduction):
+  - `earnings_dates`: capped at 8 most recent via `_cap_earnings_dates()` post-processing (yfinance ignores `--limit`, was 20+ entries)
+  - `earnings_acceleration`: compressed via `_compress_earnings_acceleration()` to 8 essential fields (status flags + 3 most recent growth rates)
+  - `holders`: summarized via `_summarize_holders()` to top 5 holders (name, pctHeld, shares) + total count
+- **`serenity_pipeline.py`** — Updated module docstring: `revenue_growth_yoy` source, compressed L4 field descriptions, new Notes entries for all output optimizations.
+- **`Serenity.md`** — Added Cross-Subcommand Optimization guidance (use `--skip-macro`, expected L4 re-execution, compare-first workflow).
+- **`Serenity.md`** — Consolidated Data Source Routing section: replaced verbose paragraphs with `methodology.md` reference + bulleted query-type directives.
+- **`supply_chain_bottleneck.md`** — Consolidated Scenario-Driven Discovery Protocol Steps 3-5: replaced re-explanations of 5-Layer Template and 6-Criteria Scoring with references to definitions earlier in the same file (~22 lines saved).
+- **`supply_chain_bottleneck.md`** — Moved Historical Case Studies to end-of-file Appendix with HARD GUARDRAIL against defaulting to historical tickers on new queries.
+
+### Added
+- **`serenity_pipeline.py`** — New helper functions: `_cap_earnings_dates()` (trims dict-of-dicts to 8 most recent, workaround for yfinance ignoring limit), `_compress_earnings_acceleration()` (retains status flags + 3 recent growth rates), `_summarize_holders()` (top 5 holders with key fields + total count).
+
 ## 2026-02-22 (v1.8.0)
 
 ### Fixed

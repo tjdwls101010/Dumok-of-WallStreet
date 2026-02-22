@@ -179,27 +179,6 @@ When raw material prices hit all-time highs weekly (e.g., Indium during InP subs
 
 ---
 
-## Historical Case Studies
-
-> **Guardrail**: The following cases demonstrate HOW the methodology was applied historically. When analyzing new queries, always execute the Discovery Workflow (see Scenario-Driven Discovery Protocol below and Top-Down Theme Discovery Workflow in `methodology.md`) FIRST, then use these cases only as structural templates for how to present findings. Never default to these tickers as starting points for new analysis.
-
-### AXTI / InP (Optical Interconnect Bottleneck)
-*Historical Application:* Traced optical interconnect chain backward to substrates. InP identified as binding constraint when China-Japan export controls disrupted Sumitomo, creating effective monopoly for AXTI (~40% global share). Cost insignificance: hyperscaler would pay 100x substrate price rather than delay $20B TPU deployment. Scored 5/6. *Apply this discovery pattern -- tracing a supply chain backward from end-product to find the binding constraint -- independently to the current analysis target.*
-
-### MU / Memory (Supercycle + Legacy Void)
-*Historical Application:* AI demand breaking traditional boom/bust cycle. Major producers pivoting to HBM abandoned legacy DRAM/NAND, creating "Legacy Void" pricing power. Street estimated 33-38% NAND hikes; actual 100%. Forward P/Es at single digits despite 100%+ Y/Y growth -- Walmart benchmark confirmed mispricing. *Apply this pattern -- identifying when major players abandon a market segment, creating pricing power for remaining suppliers -- independently to the current analysis target.*
-
-### NBIS / Neocloud (Full-Stack Infrastructure)
-*Historical Application:* Full-Stack neocloud (own orchestration software, 60-75% gross margin). Tracked through Enthusiasm -> Consolidation -> "Prove It" phases. Confirmed multi-billion Mag7 contracts as execution validation. Per-MW unit economics normalized for comparison. *Apply this pattern -- classifying companies by vertical integration and tracking sector phase progression -- independently to the current analysis target.*
-
-### CPSH / AlSiC (Thermal Management Bottleneck)
-*Historical Application:* GPU wattage increases made thermal solutions a binding constraint. BOM analysis identified AlSiC as critical material. CPSH = primary Western supplier at chokepoint with concentrated supply and multi-year capacity lead times. *Apply this pattern -- using BOM analysis to find critical but overlooked materials -- independently to the current analysis target.*
-
-### LPTH / Germanium (Defense Material Bottleneck)
-*Historical Application:* Scenario-driven: China germanium export ban created Western supply gap. LPTH's "Black Diamond" lenses = sole Western source for multi-spectral IR optics. Scored 6/6. Cross-chain validation in both germanium/defense AND photonics chains -- strongest conviction signal. *Apply this pattern -- tracing export control impacts to find sole Western alternatives -- independently to the current analysis target.*
-
----
-
 ## Scenario-Driven Discovery Protocol
 
 This protocol is the step-by-step process for independently discovering bottleneck opportunities from any new event or query. It operationalizes the Top-Down Theme Discovery Workflow from `methodology.md` for scenario-specific analysis.
@@ -210,11 +189,11 @@ This protocol is the step-by-step process for independently discovering bottlene
 
 **Step 2: Impact Mapping.** Trace which industries and supply chains are directly affected by the classified event. Use web research and deep research to identify: which end-products depend on the disrupted supply, which geographic regions are impacted, and which companies have publicly disclosed exposure. Cast a wide net at this stage -- do not prematurely narrow to familiar sectors.
 
-**Step 3: Supply Chain Decomposition.** For each affected industry, apply the 5-Layer Supply Chain Mapping Template (Layer 0 through Layer 4) defined at the top of this document. At each layer, identify: key inputs and their sources, number of suppliers, processes and outputs, geographic concentration, and lead times. The goal is a complete map from end-product to raw materials for the affected chains.
+**Step 3: Supply Chain Decomposition.** For each affected industry, apply the 5-Layer Supply Chain Mapping Template (defined above in this document). At each layer, identify key inputs, suppliers, processes, geographic concentration, and lead times.
 
-**Step 4: Concentration Point Detection.** At each layer of the decomposed supply chains, identify where supply is concentrated. Look for: few providers (monopoly or tight oligopoly), single-geography production, specialized technology with no substitutes, long capacity expansion timelines. Use financial data collection and institutional holder analysis capabilities to validate company-level data at each concentration point.
+**Step 4: Concentration Point Detection.** At each layer, identify supply concentration using the per-layer questions from the 5-Layer template above. Validate with financial data collection capabilities.
 
-**Step 5: Bottleneck Scoring.** Apply the 6-Criteria Bottleneck Scoring Framework (defined above) to each concentration point identified in Step 4. Only concentration points scoring 4+ out of 6 qualify as investable bottlenecks. Document the score and evidence for each criterion.
+**Step 5: Bottleneck Scoring.** Apply the 6-Criteria Bottleneck Scoring Framework (defined above). Only concentration points scoring 4+ out of 6 qualify as investable. Document the score and evidence for each criterion.
 
 **Step 6: Validation.** Cross-check surviving bottleneck candidates with fundamental analysis: debt structure analysis, dilution assessment, earnings quality, No-Growth Stress Test, and Bear-Bull Paradox filter. Companies with toxic balance sheets are eliminated regardless of bottleneck score. Construct the 6-link Evidence Chain from `methodology.md` for each validated candidate.
 
@@ -279,3 +258,24 @@ Use well-reported chains to validate less transparent ones: leading foundry earn
 
 ### When to Update a Map
 Update when: a major player enters or exits a layer, export controls change material availability, new technology creates a substitute, capacity expansions resolve a constraint, or pricing data indicates bottleneck migration.
+
+---
+
+## Appendix: Historical Case Studies (Reference Only)
+
+> **HARD GUARDRAIL**: These cases are structural templates showing HOW the methodology was applied. They are NOT starting points for new analysis. For every new query, the Discovery Workflow MUST be executed independently and completed BEFORE any historical case is referenced. Defaulting to these tickers on a new query is an anti-pattern.
+
+### AXTI / InP (Optical Interconnect Bottleneck)
+*Historical Application:* Traced optical interconnect chain backward to substrates. InP identified as binding constraint when China-Japan export controls disrupted Sumitomo, creating effective monopoly for AXTI (~40% global share). Cost insignificance: hyperscaler would pay 100x substrate price rather than delay $20B TPU deployment. Scored 5/6. *Apply this discovery pattern -- tracing a supply chain backward from end-product to find the binding constraint -- independently to the current analysis target.*
+
+### MU / Memory (Supercycle + Legacy Void)
+*Historical Application:* AI demand breaking traditional boom/bust cycle. Major producers pivoting to HBM abandoned legacy DRAM/NAND, creating "Legacy Void" pricing power. Street estimated 33-38% NAND hikes; actual 100%. Forward P/Es at single digits despite 100%+ Y/Y growth -- Walmart benchmark confirmed mispricing. *Apply this pattern -- identifying when major players abandon a market segment, creating pricing power for remaining suppliers -- independently to the current analysis target.*
+
+### NBIS / Neocloud (Full-Stack Infrastructure)
+*Historical Application:* Full-Stack neocloud (own orchestration software, 60-75% gross margin). Tracked through Enthusiasm -> Consolidation -> "Prove It" phases. Confirmed multi-billion Mag7 contracts as execution validation. Per-MW unit economics normalized for comparison. *Apply this pattern -- classifying companies by vertical integration and tracking sector phase progression -- independently to the current analysis target.*
+
+### CPSH / AlSiC (Thermal Management Bottleneck)
+*Historical Application:* GPU wattage increases made thermal solutions a binding constraint. BOM analysis identified AlSiC as critical material. CPSH = primary Western supplier at chokepoint with concentrated supply and multi-year capacity lead times. *Apply this pattern -- using BOM analysis to find critical but overlooked materials -- independently to the current analysis target.*
+
+### LPTH / Germanium (Defense Material Bottleneck)
+*Historical Application:* Scenario-driven: China germanium export ban created Western supply gap. LPTH's "Black Diamond" lenses = sole Western source for multi-spectral IR optics. Scored 6/6. Cross-chain validation in both germanium/defense AND photonics chains -- strongest conviction signal. *Apply this pattern -- tracing export control impacts to find sole Western alternatives -- independently to the current analysis target.*

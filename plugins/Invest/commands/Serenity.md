@@ -93,13 +93,16 @@ Chain types sequentially when a query spans multiple intents:
 
 ### Data Source Routing
 
-**MarketData-first types (A, B, E)**: Run relevant MarketData scripts immediately. WebSearch only if scripts return insufficient data or for very recent events.
+Data source selection follows the Domain-Specific Data Source Guide in `methodology.md`.
+Query-type routing:
 
-**Research-first types (D)**: WebSearch for supply chain structure, bottleneck identification. Then MarketData scripts for quantitative validation.
-
-**Mixed types (C, F)**: If sector/theme specified, research-first (identify bottlenecks). If general screening, MarketData-first (finviz, sector_leaders, trend_template).
-
-**Discovery without specific sector (C, no ticker/sector)**: Execute Top-Down Discovery Workflow from `methodology.md` (Phase 1-5). Start with macro scripts, then sector rotation, then supply chain stress identification, then bottleneck screening, then full validation.
+- **MarketData-first (A, B, E)**: Run relevant MarketData scripts immediately.
+  WebSearch only if scripts return insufficient data or for very recent events.
+- **Research-first (D)**: WebSearch for supply chain structure and bottleneck
+  identification. Then MarketData scripts for quantitative validation.
+- **Mixed (C, F)**: If sector/theme specified, research-first (identify bottlenecks).
+  If general screening, MarketData-first (finviz, sector_leaders, trend_template).
+- **No-ticker Discovery (C)**: Execute Top-Down Discovery Workflow from `methodology.md`.
 
 ### Minimum Output Rule
 
@@ -136,6 +139,11 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	- **Type D (Supply Chain)**: Evidence chain data completeness check — verify 6-link chain after bottleneck identification.
 	- **Type E (Position)**: Full analysis for L4 fundamentals, then apply position construction from `methodology.md`.
 	- **Type F (Portfolio)**: Multi-ticker comparison across portfolio candidates.
+
+	**Cross-Subcommand Optimization**: When chaining `compare` then `analyze` for overlapping tickers:
+	- Use `--skip-macro` for `analyze` since macro data does not change between calls
+	- L4 fundamental scripts are re-executed in `analyze` (expected — `compare` collects fewer fields than `analyze`)
+	- Present compare results first as an overview, then run `analyze` only on top candidates for deep-dive
 
 	**Tool Hierarchy (when not using pipeline)**:
 	- **MarketData scripts = PRIMARY** for ALL quantitative financial data. ALWAYS run BEFORE WebSearch.

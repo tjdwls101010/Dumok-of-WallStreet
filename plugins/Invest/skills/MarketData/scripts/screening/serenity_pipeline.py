@@ -56,12 +56,15 @@ Returns:
 		L1_macro: regime classification + signals dict (no raw data).
 		L2_capex_flow: company_capex (8-quarter trend auto-included),
 		cascade_requires_context (agent-driven supply chain layers).
-		L4_fundamentals: info (24 essential fields), holders,
+		L4_fundamentals: info (24 essential fields),
+		holders (top 5 summary with total count),
 		insider_transactions (summary + recent 20, 12-month lookback),
-		earnings_acceleration, sbc_analyzer, forward_pe, debt_structure,
+		earnings_acceleration (compressed: status flags + 3 recent growth rates),
+		sbc_analyzer, forward_pe, debt_structure,
 		institutional_quality, no_growth_valuation, margin_tracker,
 		iv_context, revenue_trajectory (8-quarter actual revenue).
-		L5_catalysts: earnings_dates, earnings_surprise (post-ER reaction),
+		L5_catalysts: earnings_dates (capped at 8 most recent),
+		earnings_surprise (post-ER reaction),
 		analyst_recommendations, analyst_price_targets, analyst_revisions.
 		L2/L3: cascade_requires_context (agent-driven). L6: requires_llm.
 
@@ -121,6 +124,10 @@ Notes:
 	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
 	- L5 earnings_calendar removed (was market-wide, not ticker-specific; earnings_dates covers ticker)
 	- compare uses get-info-fields (5 fields) instead of get-info (100+ fields)
+	- compare uses forward_pe (analyst consensus) for revenue_growth_yoy
+	- L4 holders summarized to top 5 with key fields + total count
+	- L4 earnings_acceleration compressed to status flags + 3 most recent growth rates
+	- L5 earnings_dates capped at 8 most recent (2 years quarterly)
 	- Yield curve limited to 5 observations, net liquidity to 10 observations
 """
 
@@ -352,6 +359,92 @@ def _extract_revenue_trajectory(financials_data):
 					})
 
 	return {"revenue_by_quarter": revenue_by_quarter}
+
+
+def _cap_earnings_dates(data, limit=8):
+	"""Cap earnings_dates to the most recent N entries.
+
+	yfinance get_earnings_dates may ignore the limit parameter,
+	so this trims each column dict to the first `limit` entries
+	(most recent dates first).
+
+	Args:
+		data: Raw earnings_dates output (dict-of-dicts from actions.py)
+		limit: Maximum number of entries to keep (default 8)
+
+	Returns:
+		dict with each column trimmed to `limit` entries
+	"""
+	if not isinstance(data, dict) or data.get("error"):
+		return data
+	trimmed = {}
+	for col, values in data.items():
+		if isinstance(values, dict):
+			trimmed[col] = dict(list(values.items())[:limit])
+		else:
+			trimmed[col] = values
+	return trimmed
+
+
+def _compress_earnings_acceleration(data):
+	"""Compress earnings_acceleration output to essential metrics.
+
+	Retains pass/fail status flags and trims growth rate arrays
+	to most recent 3 values.
+
+	Args:
+		data: Raw earnings_acceleration code33 output dict
+
+	Returns:
+		dict with symbol, code33_status, acceleration booleans,
+		trimmed growth rates (3 most recent), and data_quality
+	"""
+	if not isinstance(data, dict) or data.get("error"):
+		return data
+	return {
+		"symbol": data.get("symbol"),
+		"code33_status": data.get("code33_status"),
+		"eps_accelerating": data.get("eps_accelerating"),
+		"sales_accelerating": data.get("sales_accelerating"),
+		"margin_expanding": data.get("margin_expanding"),
+		"eps_growth_rates": data.get("eps_growth_rates", [])[:3],
+		"sales_growth_rates": data.get("sales_growth_rates", [])[:3],
+		"data_quality": data.get("data_quality"),
+	}
+
+
+def _summarize_holders(data):
+	"""Summarize institutional holders to top 5 with key fields only.
+
+	Retains holder name, shares, and pctHeld. Drops date, value, and
+	pctChange columns for token efficiency.
+
+	Args:
+		data: Raw institutional holders output (dict-of-lists format from holders.py)
+
+	Returns:
+		dict with top_holders (list of 5 dicts) and total_reported count
+	"""
+	if not isinstance(data, dict) or data.get("error"):
+		return data
+
+	holders_list = []
+	holder_names = data.get("Holder", {})
+	pct_held = data.get("pctHeld", {})
+	shares = data.get("Shares", {})
+
+	if holder_names:
+		for idx in sorted(holder_names.keys(), key=lambda x: int(x))[:5]:
+			holders_list.append({
+				"holder": holder_names.get(idx),
+				"pctHeld": pct_held.get(idx),
+				"shares": shares.get(idx),
+			})
+
+	return {
+		"top_holders": holders_list,
+		"total_reported": len(holder_names),
+	}
 
 
 # ---------------------------------------------------------------------------
@@ -626,7 +719,7 @@ def cmd_analyze(args):
 
 	# --- Level 5: Catalyst Monitoring ---
 	l5_scripts = {
-		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker]),
+		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker, "--limit", "8"]),
 		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
 		"analyst_recommendations": ("analysis/analysis.py", ["get-recommendations-summary", ticker]),
 		"analyst_price_targets": ("analysis/analysis.py", ["get-analyst-price-targets", ticker]),
@@ -658,6 +751,21 @@ def cmd_analyze(args):
 	financials_raw = l4_results.pop("quarterly_financials", None)
 	if financials_raw and not (isinstance(financials_raw, dict) and financials_raw.get("error")):
 		l4_results["revenue_trajectory"] = _extract_revenue_trajectory(financials_raw)
+
+	# Post-process: compress earnings_acceleration
+	ea_raw = l4_results.get("earnings_acceleration")
+	if ea_raw and not (isinstance(ea_raw, dict) and ea_raw.get("error")):
+		l4_results["earnings_acceleration"] = _compress_earnings_acceleration(ea_raw)
+
+	# Post-process: summarize holders
+	holders_raw = l4_results.get("holders")
+	if holders_raw and not (isinstance(holders_raw, dict) and holders_raw.get("error")):
+		l4_results["holders"] = _summarize_holders(holders_raw)
+
+	# Post-process: cap earnings_dates to 8 most recent
+	ed_raw = l5_results.get("earnings_dates")
+	if ed_raw and not (isinstance(ed_raw, dict) and ed_raw.get("error")):
+		l5_results["earnings_dates"] = _cap_earnings_dates(ed_raw)
 
 	# Post-process: move capex_trend from L4 to L2
 	capex_data = l4_results.pop("capex_trend", None)
@@ -820,7 +928,6 @@ def cmd_compare(args):
 			"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 			"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
 			"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
-			"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		}
 
 	# Run all scripts across all tickers in parallel
@@ -895,16 +1002,10 @@ def cmd_compare(args):
 			info.get("marketCap") if not info.get("error") else None
 		)
 
-		# Revenue growth YoY (from earnings_acceleration)
-		ea = r.get("earnings_acceleration", {})
-		rev_growth = None
-		if not ea.get("error"):
-			quarters = ea.get("quarters", [])
-			if quarters:
-				latest = quarters[0] if isinstance(quarters, list) else None
-				if latest and isinstance(latest, dict):
-					rev_growth = latest.get("revenue_growth_yoy")
-		comparative_table["revenue_growth_yoy"][ticker] = rev_growth
+		# Revenue growth YoY (from forward_pe analyst consensus)
+		comparative_table["revenue_growth_yoy"][ticker] = (
+			fpe.get("revenue_growth_yoy") if not fpe.get("error") else None
+		)
 
 		# Short interest
 		comparative_table["short_interest_pct"][ticker] = (
