@@ -198,4 +198,11 @@ def youtube_transcript(
 
 
 if __name__ == "__main__":
-    mcp.run()
+    import os
+
+    transport = os.getenv("MCP_TRANSPORT", "stdio")
+    if transport == "http":
+        port = int(os.getenv("PORT", "8080"))
+        mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    else:
+        mcp.run()
