@@ -18,7 +18,6 @@ claude plugin add <repo-url>
 | **Invest** | 1.8.1 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
-| **Youtube** | 1.2.0 | Media | YouTube video search and transcript summarization with Gemini AI |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
 | **Template** | 1.0.0 | Developer Tools | Scaffolding template for new Claude Code plugins |
 
@@ -73,14 +72,6 @@ MoAI builder toolkit for creating Claude Code agents, plugins, and skills with s
 | builder-plugin | Agent | Plugin creation specialist |
 | builder-skill | Agent | Skill creation specialist |
 
-### Youtube
-
-YouTube video search and transcript summarization plugin.
-
-| Component | Type | Description |
-|-----------|------|-------------|
-| Youtube | Skill | Video search with AI-powered transcript summarization via Gemini |
-
 ### Template
 
 Template plugin for scaffolding new Claude Code plugins.
@@ -104,9 +95,6 @@ Seongjin's Claude/
 │   ├── Obsidian/
 │   │   ├── .claude-plugin/plugin.json
 │   │   └── skills/            # Markdown, Canvas, Bases
-│   ├── Youtube/
-│   │   ├── .claude-plugin/plugin.json
-│   │   └── skills/Youtube/    # SKILL.md, scripts/
 │   ├── Moai/
 │   │   ├── .claude-plugin/plugin.json
 │   │   └── agents/            # builder-agent, builder-plugin, builder-skill
