@@ -18,7 +18,7 @@ claude plugin add <repo-url>
 | **Invest** | 1.8.1 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
-| **Youtube** | 1.1.1 | Research | YouTube video search and transcript summarization with Gemini AI. Includes MCP server for Claude Desktop. |
+| **Youtube** | 1.1.1 | Media | YouTube video search and transcript summarization with Gemini AI |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
 | **Template** | 1.0.0 | Developer Tools | Scaffolding template for new Claude Code plugins |
 
@@ -75,13 +75,11 @@ MoAI builder toolkit for creating Claude Code agents, plugins, and skills with s
 
 ### Youtube
 
-YouTube video search and transcript summarization plugin. Includes MCP server for Claude Desktop.
+YouTube video search and transcript summarization plugin.
 
 | Component | Type | Description |
 |-----------|------|-------------|
 | Youtube | Skill | Video search with AI-powered transcript summarization via Gemini |
-| youtube_search | MCP Tool | Search YouTube with metadata + Gemini summary (Claude Desktop) |
-| youtube_transcript | MCP Tool | Full transcript retrieval for deep analysis (Claude Desktop) |
 
 ### Template
 
@@ -114,16 +112,6 @@ Seongjin's Claude/
 │   │   └── agents/            # builder-agent, builder-plugin, builder-skill
 │   └── Template/
 │       └── .claude-plugin/plugin.json
-├── mcps/
-│   └── Youtube/
-│       ├── server.py              # FastMCP server (youtube_search, youtube_transcript)
-│       ├── _api_youtube.py        # YouTube Data API wrapper
-│       ├── _api_transcript.py     # Transcript extraction wrapper
-│       ├── _api_gemini.py         # Gemini summarization wrapper
-│       ├── _utils.py              # Utilities
-│       ├── prompt_summary.md      # Gemini prompt template
-│       ├── requirements.txt       # Python dependencies
-│       └── .venv/                 # Virtual environment
 └── README.md
 ```
 
