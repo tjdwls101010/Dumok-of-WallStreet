@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "성진이의 클로드 세팅",
-    "version": "1.8.1"
+    "version": "1.8.2"
   },
   "plugins": [
     {
@@ -73,6 +73,16 @@
         "./plugins/Obsidian/skills/Markdown/SKILL.md",
         "./plugins/Obsidian/skills/Canvas/SKILL.md",
         "./plugins/Obsidian/skills/Bases/SKILL.md"
+      ]
+    },
+    {
+      "name": "youtube",
+      "source": "./plugins/Youtube",
+      "version": "1.0.0",
+      "description": "YouTube video search and transcript summarization with Gemini AI",
+      "category": "research",
+      "skills": [
+        "./plugins/Youtube/skills/Youtube/SKILL.md"
       ]
     }
   ]

@@ -1,0 +1,11 @@
+{
+  "name": "youtube",
+  "version": "1.0.0",
+  "description": "YouTube video search and transcript summarization with Gemini AI",
+  "author": {
+    "name": "Seongjin"
+  },
+  "keywords": ["youtube", "video", "search", "transcript", "summary", "gemini"],
+  "commands": "./commands",
+  "skills": "./skills"
+}
