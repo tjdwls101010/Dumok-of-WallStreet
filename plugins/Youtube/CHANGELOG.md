@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.2.0] - 2026-02-23
+
+### Fixed
+- Transcript extraction failing on all videos due to thread-unsafe global singleton (`_ytt_api`). Now creates a fresh `YouTubeTranscriptApi()` instance per call.
+- All `except Exception: pass` replaced with specific exception types (`TranscriptsDisabled`, `AgeRestricted`, `RequestBlocked`, `NoTranscriptFound`, etc.) with `print_error()` logging
+- Gemini thinking config: replaced `thinking_budget=1024` (Gemini 2.5 parameter) with `thinking_level="low"` for Gemini 3 Flash compatibility
+
+### Added
+- Optional proxy support via `PROXY_HTTP_URL`/`PROXY_HTTPS_URL` environment variables using library's built-in `GenericProxyConfig`
+
 ## [1.1.1] - 2026-02-23
 
 ### Fixed

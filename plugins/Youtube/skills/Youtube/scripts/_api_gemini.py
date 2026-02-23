@@ -49,7 +49,7 @@ def summarize_transcript(
             model="gemini-3-flash-preview",
             contents=user_prompt,
             config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=1024),
+                thinking_config=types.ThinkingConfig(thinking_level="low"),
                 temperature=0.3,
             ),
         )
