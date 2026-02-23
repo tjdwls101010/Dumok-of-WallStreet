@@ -74,19 +74,6 @@
         "./plugins/Obsidian/skills/Canvas/SKILL.md",
         "./plugins/Obsidian/skills/Bases/SKILL.md"
       ]
-    },
-    {
-      "name": "youtube",
-      "source": "./plugins/Youtube",
-      "version": "1.1.1",
-      "description": "YouTube video search and transcript summarization with Gemini AI. Includes MCP server for Claude Desktop.",
-      "category": "research",
-      "skills": [
-        "./plugins/Youtube/skills/Youtube/SKILL.md"
-      ],
-      "mcps": [
-        "./mcps/Youtube/server.py"
-      ]
     }
   ]
 }
