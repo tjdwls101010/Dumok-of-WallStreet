@@ -44,6 +44,8 @@ def _process_video(video: dict, gemini_key: str, language: str | None) -> dict:
             transcript=transcript,
             video_title=video["title"],
             video_description=video["description"],
+            video_id=video_id,
+            video_duration=video.get("duration", ""),
         )
         video["summary"] = summary
     except Exception as e:
@@ -180,12 +182,39 @@ def youtube_transcript(
     transcript = get_transcript(video_id, language=language)
 
     if transcript is None:
-        output = {
-            "video_id": video_id,
-            "title": title,
-            "language": language or "N/A",
-            "error": "No transcript available for this video.",
-        }
+        # Fallback: use Gemini YouTube URL understanding for a detailed summary
+        _, gemini_key = load_env()
+        from _api_gemini import _summarize_via_youtube_url
+
+        gemini_client = None
+        try:
+            from google import genai
+
+            gemini_client = genai.Client(api_key=gemini_key)
+        except Exception:
+            pass
+
+        gemini_summary = None
+        if gemini_client:
+            gemini_summary = _summarize_via_youtube_url(
+                gemini_client, video_id, title
+            )
+
+        if gemini_summary:
+            output = {
+                "video_id": video_id,
+                "title": title,
+                "language": language or "N/A",
+                "note": "Transcript API unavailable; AI-generated summary provided instead.",
+                "transcript": gemini_summary,
+            }
+        else:
+            output = {
+                "video_id": video_id,
+                "title": title,
+                "language": language or "N/A",
+                "error": "No transcript available for this video.",
+            }
     else:
         output = {
             "video_id": video_id,

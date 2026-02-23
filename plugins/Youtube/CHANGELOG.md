@@ -3,9 +3,11 @@
 ## [1.1.1] - 2026-02-23
 
 ### Fixed
-- MCP server transcript retrieval failing on Cloud Run (YouTube blocks cloud IPs for Innertube API)
-- Added direct YouTube page parsing fallback: fetches page HTML → extracts `ytInitialPlayerResponse` → parses caption track URLs → downloads subtitles in JSON format
-- Improved error logging across all transcript extraction methods (replaced silent `except: pass` with descriptive messages)
+- MCP server transcript/summary failing on Cloud Run (YouTube blocks all cloud IPs for Innertube API)
+- Added Gemini YouTube URL understanding as fallback: when transcript API is blocked, Gemini directly analyzes the video via its URL (works for videos under ~35 minutes)
+- Videos over 35 minutes gracefully fall back to description-based summary
+- `youtube_transcript` tool now returns AI-generated summary when transcript API is unavailable
+- Improved error logging in transcript extraction (replaced silent `except: pass`)
 
 ## [1.1.0] - 2026-02-23
 
