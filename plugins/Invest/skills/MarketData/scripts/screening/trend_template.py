@@ -70,7 +70,7 @@ Notes:
 See Also:
 	- stage_analysis.py: Detailed Stage 1-4 classification
 	- rs_ranking.py: Full RS ranking calculation and screening
-	- sepa_pipeline.py: Complete SEPA analysis pipeline
+	- minervini.py: Complete SEPA analysis pipeline
 """
 
 import argparse

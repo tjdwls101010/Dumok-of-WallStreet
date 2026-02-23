@@ -45,6 +45,16 @@ Need RSI? → SKILL.md Technical section → find oscillators.py → python tool
 
 ## Function Catalog
 
+### Pipelines
+
+Persona-specific analysis orchestrators — run these FIRST for comprehensive data
+
+| Function | Description | Script |
+|----------|-------------|--------|
+| `minervini` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `pipelines/minervini.py` |
+| `traderlion` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `pipelines/traderlion.py` |
+| `serenity` | Full Serenity 6-Level pipeline: macro (regime assessment), analyze (L1/L4/L5 auto + L2/L3 context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table), screen (sector bottleneck screening). Sector-agnostic | `pipelines/serenity.py` |
+
 ### Core Analysis
 
 #### Statistics
@@ -217,16 +227,13 @@ Company information
 
 #### Screening
 
-Finviz stock screener
+Finviz stock screener and Minervini Trend Template
 
 | Function | Description | Script |
 |----------|-------------|--------|
 | `finviz` | Finviz stock screening, sector/industry group analysis, and market breadth (new 52W highs/lows by exchange) | `screening/finviz.py` |
 | `finviz_presets` | Finviz screening preset definitions (includes Minervini SEPA presets) | `screening/finviz_presets.py` |
 | `sector_leaders` | Bottom-up sector leadership dashboard: leader count by industry group with performance enrichment | `screening/sector_leaders.py` |
-| `sepa_pipeline` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `screening/sepa_pipeline.py` |
-| `snipe_pipeline` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `screening/snipe_pipeline.py` |
-| `serenity_pipeline` | Full Serenity 6-Level pipeline: macro (regime assessment), analyze (L1/L4/L5 auto + L2/L3 context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table), screen (sector bottleneck screening). Sector-agnostic | `screening/serenity_pipeline.py` |
 | `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |
 
 #### CFTC
@@ -383,11 +390,11 @@ When YFinance returns insufficient data for a specific ticker:
 
 | Primary Script | Fallback 1 | Fallback 2 |
 |---------------|-----------|-----------|
-| `serenity_pipeline.py analyze` | Run L4 scripts individually (info, financials, holders, sbc_analyzer, forward_pe, debt_structure, institutional_quality, no_growth_valuation, margin_tracker, iv_context) | `bottleneck_scorer.py validate` for health gates only |
-| `serenity_pipeline.py screen` | `finviz.py sector-screen` + manual `bottleneck_scorer.py validate` per ticker | WebSearch for sector candidates + manual validation |
+| `serenity.py analyze` | Run L4 scripts individually (info, financials, holders, sbc_analyzer, forward_pe, debt_structure, institutional_quality, no_growth_valuation, margin_tracker, iv_context) | `bottleneck_scorer.py validate` for health gates only |
+| `serenity.py screen` | `finviz.py sector-screen` + manual `bottleneck_scorer.py validate` per ticker | WebSearch for sector candidates + manual validation |
 | `capex_tracker.py cascade` | Run `capex_tracker.py track` per layer individually | `financials.py get-cash-flow --freq quarterly` + manual CapEx extraction |
-| `snipe_pipeline.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
-| `sepa_pipeline.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
+| `traderlion.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
+| `minervini.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
 | `finviz.py screen` | `sector_leaders.py scan --fallback etf` | `rs_ranking.py screen` (YFinance-based RS) |
 | `finviz.py groups` | `sector_leaders.py scan --fallback etf` | Manual ETF comparison |
 | `earnings_acceleration.py code33` | `earnings_acceleration.py acceleration` | `financials.py get-income-stmt --freq quarterly` |

@@ -100,7 +100,7 @@ Notes:
 See Also:
 	- trend_template.py: Uses RS >= 70 as criterion 8
 	- stage_analysis.py: RS improving is a Stage 1->2 transition signal
-	- sepa_pipeline.py: RS ranking integrated in full SEPA pipeline
+	- minervini.py: RS ranking integrated in full SEPA pipeline
 """
 
 import argparse
@@ -196,7 +196,7 @@ def compute_rs_score(symbol, benchmark="SPY", period="1y"):
 	"""Public API: compute RS score (0-99) for use by other modules.
 
 	Centralized RS engine using 4-quadrant weighted multi-period scoring.
-	Called by trend_template.py criterion 8 and sepa_pipeline.py RS component.
+	Called by trend_template.py criterion 8 and minervini.py RS component.
 
 	Args:
 		symbol: Ticker symbol (e.g., "NVDA")

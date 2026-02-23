@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SEPA Pipeline: full Minervini SEPA analysis integrating all individual scripts.
+"""Minervini Pipeline: full SEPA analysis integrating all individual scripts.
 
 Orchestrates the complete Specific Entry Point Analysis by running Trend Template,
 Stage Analysis, RS Ranking, Earnings Acceleration, VCP Detection, Base Counting,
@@ -51,7 +51,7 @@ Returns:
 	}
 
 Example:
-	>>> python sepa_pipeline.py analyze NVDA --account-size 100000
+	>>> python minervini.py analyze NVDA --account-size 100000
 	{
 		"symbol": "NVDA",
 		"sepa_composite_score": 85.0,

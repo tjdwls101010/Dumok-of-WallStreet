@@ -124,7 +124,7 @@ Notes:
 See Also:
 	- trend_template.py: Trend Template check (price-based qualification)
 	- stage_analysis.py: Stage classification (technical context)
-	- sepa_pipeline.py: Full SEPA pipeline integrating all checks
+	- minervini.py: Full SEPA pipeline integrating all checks
 """
 
 import argparse

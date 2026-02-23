@@ -15,7 +15,7 @@ claude plugin add <repo-url>
 
 | Plugin | Version | Category | Description |
 |--------|---------|----------|-------------|
-| **Invest** | 1.8.1 | Finance | Financial market data analysis with MarketData skill and analyst personas |
+| **Invest** | 1.8.2 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
@@ -86,7 +86,7 @@ Seongjin's Claude/
 │   ├── Invest/
 │   │   ├── .claude-plugin/plugin.json
 │   │   ├── commands/          # Minervini, Serenity, SidneyKim0, TraderLion, Williams
-│   │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/, tools/
+│   │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/ (screening/, pipelines/), tools/
 │   ├── Study/
 │   │   ├── .claude-plugin/plugin.json
 │   │   ├── agents/            # Architector-Knowledge, Architector-Mermaid, Planner-PPT

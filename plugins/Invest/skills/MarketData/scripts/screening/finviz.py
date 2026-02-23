@@ -80,7 +80,7 @@ Notes:
 See Also:
 	- finviz_presets.py: PRESETS dict with all screening preset definitions
 	- sector_leaders.py: Bottom-up sector leadership dashboard using these presets
-	- sepa_pipeline.py: Full SEPA analysis for individual stocks
+	- minervini.py: Full SEPA analysis for individual stocks
 """
 
 import argparse

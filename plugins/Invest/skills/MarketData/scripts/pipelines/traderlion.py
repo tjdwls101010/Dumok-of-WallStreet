@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SNIPE Pipeline: full TraderLion S.N.I.P.E. analysis integrating volume edges, stage/trend,
+"""TraderLion Pipeline: full S.N.I.P.E. analysis integrating volume edges, stage/trend,
 growth, setup quality, and volume confirmation.
 
 Orchestrates the complete S.N.I.P.E. (Search-Narrow-Identify-Plan-Execute) analysis by running
@@ -63,7 +63,7 @@ Returns:
 	}
 
 Example:
-	>>> python snipe_pipeline.py analyze NVDA --account-size 100000
+	>>> python traderlion.py analyze NVDA --account-size 100000
 	{
 		"symbol": "NVDA",
 		"snipe_composite_score": 82.5,

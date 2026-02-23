@@ -77,7 +77,7 @@ Notes:
 See Also:
 	- finviz.py: Underlying Finviz screening and group analysis
 	- finviz_presets.py: PRESETS dict with minervini_leaders definition
-	- sepa_pipeline.py: Full SEPA analysis for individual stocks found in dashboard
+	- minervini.py: Full SEPA analysis for individual stocks found in dashboard
 	- sector_leadership.md: Workflow guide for interpreting dashboard results
 """
 

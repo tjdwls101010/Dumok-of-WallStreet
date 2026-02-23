@@ -147,7 +147,7 @@ For every analysis, follow this sequence. Do NOT skip steps.
 
 1. **Market Cycle Assessment**: Always complete first. Classify cycle stage (Downcycle/Bottoming/Upcycle/Topping). Compute cycle score. This constrains all subsequent analysis.
 2. **Query Classification**: Classify into Type A-G, identify required persona files.
-3. **SNIPE Pipeline Execution**: For individual stock analysis, run SNIPE pipeline analysis to get composite score, hard-gate status, edge count, and signal in one step. For watchlist, run SNIPE pipeline in watchlist mode. Pipeline output feeds steps 4-9.
+3. **TraderLion Pipeline Execution (S.N.I.P.E.)**: For individual stock analysis, run SNIPE pipeline analysis to get composite score, hard-gate status, edge count, and signal in one step. For watchlist, run SNIPE pipeline in watchlist mode. Pipeline output feeds steps 4-9.
 4. **Hard-Gate Check**: If `hard_gate_result.blocked == true`, stop entry-path analysis immediately. Output blockers with TraderLion principle explanations. Proceed only to monitor/watchlist recommendations.
 5. **Edge Detection**: Run volume edge detection and RS analysis if not already from pipeline. Count edges present. Identify N-Factor catalysts if applicable.
 6. **Volume Confirmation**: [HARD] No edge verdict without volume confirmation. Check volume analysis for accumulation/distribution grade AND closing range analysis for constructive bar ratio. Both must confirm before declaring edges actionable.

@@ -84,22 +84,22 @@ Returns:
 		results (list sorted by asymmetry_score desc).
 
 Example:
-	>>> python serenity_pipeline.py macro --extended
+	>>> python serenity.py macro --extended
 	{"regime": "risk_on", "risk_level": "moderate", "signals": {...}, ...}
 
-	>>> python serenity_pipeline.py analyze NBIS
+	>>> python serenity.py analyze NBIS
 	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, "L2_capex_flow": {"company_capex": {...}, ...}, "L4_fundamentals": {"info": {...}, "insider_transactions": {"summary": {...}, "transactions": [...]}, "revenue_trajectory": {...}, ...}, "L5_catalysts": {"earnings_surprise": {...}, "analyst_recommendations": {...}, ...}}, "health_gates": {...}, ...}
 
-	>>> python serenity_pipeline.py analyze NBIS --skip-macro
+	>>> python serenity.py analyze NBIS --skip-macro
 	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
 
-	>>> python serenity_pipeline.py evidence_chain AXTI
+	>>> python serenity.py evidence_chain AXTI
 	{"ticker": "AXTI", "chain_completeness": "5/6", ...}
 
-	>>> python serenity_pipeline.py compare AXTI AEHR FORM
+	>>> python serenity.py compare AXTI AEHR FORM
 	{"tickers": [...], "comparative_table": {"forward_pe": {...}, "market_cap": {...}, "revenue_growth_yoy": {...}, ...}, ...}
 
-	>>> python serenity_pipeline.py screen "Defense" --min-rs 60
+	>>> python serenity.py screen "Defense" --min-rs 60
 	{"sector": "Defense", "candidates_screened": 10, ...}
 
 Use Cases:

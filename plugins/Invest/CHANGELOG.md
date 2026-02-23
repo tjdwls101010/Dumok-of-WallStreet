@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-02-23 (v1.8.2)
+
+### Changed
+- **Pipeline scripts** — Moved from `screening/` to new `pipelines/` directory for semantic clarity
+  - `screening/sepa_pipeline.py` → `pipelines/minervini.py`
+  - `screening/snipe_pipeline.py` → `pipelines/traderlion.py`
+  - `screening/serenity_pipeline.py` → `pipelines/serenity.py`
+- **`SKILL.md`** — New "Pipelines" category added above Screening; function names updated
+- **`Minervini.md`** — Pipeline path added to Analysis Protocol Step 2
+- **`TraderLion.md`** — Pipeline references updated to new path
+- **`Serenity.md`** — Pipeline references updated to new path
+
 ## 2026-02-22 (v1.8.1)
 
 ### Fixed
