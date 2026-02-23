@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0] - 2026-02-23
+
+### Added
+- YouTube MCP Server (`mcps/Youtube/`) for Claude Desktop App integration
+- FastMCP-based `youtube_search` tool: search + metadata + Gemini AI summary
+- FastMCP-based `youtube_transcript` tool: full transcript retrieval
+- Virtual environment setup with `requirements.txt`
+- Claude Desktop configuration in `claude_desktop_config.json`
+
 ## [1.0.0] - 2026-02-23
 
 ### Added

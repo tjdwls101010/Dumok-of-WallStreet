@@ -7,7 +7,7 @@
   },
   "metadata": {
     "description": "성진이의 클로드 세팅",
-    "version": "1.8.2"
+    "version": "1.8.3"
   },
   "plugins": [
     {
@@ -78,11 +78,14 @@
     {
       "name": "youtube",
       "source": "./plugins/Youtube",
-      "version": "1.0.0",
-      "description": "YouTube video search and transcript summarization with Gemini AI",
+      "version": "1.1.0",
+      "description": "YouTube video search and transcript summarization with Gemini AI. Includes MCP server for Claude Desktop.",
       "category": "research",
       "skills": [
         "./plugins/Youtube/skills/Youtube/SKILL.md"
+      ],
+      "mcps": [
+        "./mcps/Youtube/server.py"
       ]
     }
   ]
