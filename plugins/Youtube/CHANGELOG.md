@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1] - 2026-02-23
+
+### Fixed
+- MCP server transcript retrieval failing on Cloud Run (YouTube blocks cloud IPs for Innertube API)
+- Added direct YouTube page parsing fallback: fetches page HTML → extracts `ytInitialPlayerResponse` → parses caption track URLs → downloads subtitles in JSON format
+- Improved error logging across all transcript extraction methods (replaced silent `except: pass` with descriptive messages)
+
 ## [1.1.0] - 2026-02-23
 
 ### Added

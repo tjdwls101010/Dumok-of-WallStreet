@@ -18,7 +18,7 @@ claude plugin add <repo-url>
 | **Invest** | 1.8.1 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
-| **Youtube** | 1.1.0 | Research | YouTube video search and transcript summarization with Gemini AI. Includes MCP server for Claude Desktop. |
+| **Youtube** | 1.1.1 | Research | YouTube video search and transcript summarization with Gemini AI. Includes MCP server for Claude Desktop. |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
 | **Template** | 1.0.0 | Developer Tools | Scaffolding template for new Claude Code plugins |
 
