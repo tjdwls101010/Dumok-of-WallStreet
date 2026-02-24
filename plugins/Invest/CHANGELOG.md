@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-02-24 (v1.8.3)
+
+### Fixed
+- **`info.py`** — `get-info-fields` now uses 3-tier fallback for key fields: (1) `ticker.get_info()`, (2) `ticker.fast_info` for marketCap/currentPrice/52w range, (3) `ticker.history(period="5d")` last Close for currentPrice. Eliminates null values for ADRs and some large-caps (e.g., AVGO, TSM) that yfinance `get_info()` sometimes fails to populate.
+
+### Changed
+- **`serenity.py`** — `compare` expanded from 9 to 11 metrics: added `sbc_flag` (from sbc_analyzer) and `consecutive_beats` (from earnings_surprise). Two new relative_strengths: `best_sbc_health` and `best_earnings_momentum`. Updated docstring to reflect 11 metrics.
+- **`Serenity.md`** — Progressive Disclosure cleanup: removed inline VENV/SCRIPTS paths and extract_docstring.py call syntax from Script Execution section; replaced with `SKILL.md` reference. Replaced Script Failure Fallback Protocol with one-line reference to `SKILL.md` "Error Handling & Fallback Guide". Retained two `[HARD]` behavioral rules.
+- **`SKILL.md`** — Added VENV/SCRIPTS environment variable definitions to "How to Use" section. Expanded `serenity` pipeline description: added L1/L2/L3/L6 level annotations and "11 metrics" for compare.
+
 ## 2026-02-23 (v1.8.2)
 
 ### Changed

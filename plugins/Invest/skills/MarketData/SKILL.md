@@ -53,7 +53,7 @@ Persona-specific analysis orchestrators — run these FIRST for comprehensive da
 |----------|-------------|--------|
 | `minervini` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `pipelines/minervini.py` |
 | `traderlion` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `pipelines/traderlion.py` |
-| `serenity` | Full Serenity 6-Level pipeline: macro (regime assessment), analyze (L1/L4/L5 auto + L2/L3 context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table), screen (sector bottleneck screening). Sector-agnostic | `pipelines/serenity.py` |
+| `serenity` | Full Serenity 6-Level pipeline: macro (L1 regime assessment), analyze (L1/L4/L5 auto + L2/L3 agent-context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table, 11 metrics), screen (sector bottleneck screening). L2 CapEx Flow and L3 Bottleneck require agent-driven context and WebSearch. L6 Taxonomy requires LLM classification.** Sector-agnostic | `pipelines/serenity.py` |
 
 ### Core Analysis
 
@@ -278,6 +278,12 @@ Filings, insider trades, 13F, FTD
 | `institutions` | SEC 13F filing lookup by company CIK (investment managers only, not stock ownership) | `data_advanced/sec/institutions.py` |
 
 ## How to Use
+
+**Environment variables** (for all script execution):
+```bash
+VENV=skills/MarketData/scripts/.venv/bin/python
+SCRIPTS=skills/MarketData/scripts
+```
 
 **Step 1**: Find the script you need in the catalog above.
 

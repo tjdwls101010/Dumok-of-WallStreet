@@ -269,23 +269,13 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 
 ### Script Execution
 
-```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
-```
+For script execution methods, environment setup, and Safety Protocol, refer to `SKILL.md`.
 
-All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
-
-For function details, use: `python skills/MarketData/tools/extract_docstring.py scripts/{path}`
+For script failure handling, refer to `SKILL.md` "Error Handling & Fallback Guide".
 
 [HARD] Before executing any MarketData scripts, MUST perform batch discovery via extract_docstring.py first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
 
 [HARD] Never pipe script output through head or tail. Always use full output.
-
-**Script Failure Fallback Protocol**:
-- Single script failure: Find alternatives in `SKILL.md` catalog (same category)
-- Category-level failure: Fall back to WebSearch/WebFetch for equivalent data
-- All scripts fail: State "MarketData scripts unavailable" with explicit data limitation disclaimer
 
 ## Response Format
 

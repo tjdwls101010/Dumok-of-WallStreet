@@ -18,7 +18,7 @@ Commands:
 		fundamentals with 12 scripts + L5 catalysts with 5 scripts + health
 		gates + valuation summary)
 	evidence_chain: 6-Link evidence chain data availability check
-	compare: Multi-ticker side-by-side comparison (9 metrics)
+	compare: Multi-ticker side-by-side comparison (11 metrics)
 	screen: Sector-based bottleneck candidate screening
 
 Args:
@@ -76,7 +76,8 @@ Returns:
 		dict with tickers, comparative_table (forward_pe,
 		no_growth_upside_pct, margin_status, io_quality_score,
 		debt_quality_grade, market_cap, revenue_growth_yoy,
-		short_interest_pct, 52w_range_position per ticker),
+		short_interest_pct, 52w_range_position, sbc_flag,
+		consecutive_beats per ticker),
 		health_gates, relative_strengths.
 
 	For screen:
@@ -124,6 +125,7 @@ Notes:
 	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
 	- L5 earnings_calendar removed (was market-wide, not ticker-specific; earnings_dates covers ticker)
 	- compare uses get-info-fields (5 fields) instead of get-info (100+ fields)
+	- compare includes sbc_analyzer (SBC health flag) and earnings_surprise (consecutive beats) for filtering
 	- compare uses forward_pe (analyst consensus) for revenue_growth_yoy
 	- L4 holders summarized to top 5 with key fields + total count
 	- L4 earnings_acceleration compressed to status flags + 3 most recent growth rates
@@ -928,6 +930,8 @@ def cmd_compare(args):
 			"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 			"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
 			"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
+			"sbc_analyzer": ("analysis/sbc_analyzer.py", ["analyze", ticker]),
+			"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
 		}
 
 	# Run all scripts across all tickers in parallel
@@ -959,6 +963,8 @@ def cmd_compare(args):
 		"revenue_growth_yoy": {},
 		"short_interest_pct": {},
 		"52w_range_position": {},
+		"sbc_flag": {},
+		"consecutive_beats": {},
 	}
 
 	health_gates_all = {}
@@ -1021,6 +1027,18 @@ def cmd_compare(args):
 			if all(v is not None for v in [low, high, current]) and high != low:
 				pos_52w = round((current - low) / (high - low) * 100, 1)
 		comparative_table["52w_range_position"][ticker] = pos_52w
+
+		# SBC flag
+		sbc = r.get("sbc_analyzer", {})
+		comparative_table["sbc_flag"][ticker] = (
+			sbc.get("flag") if not sbc.get("error") else None
+		)
+
+		# Consecutive earnings beats
+		es = r.get("earnings_surprise", {})
+		comparative_table["consecutive_beats"][ticker] = (
+			es.get("consecutive_beats") if not es.get("error") else None
+		)
 
 		# Health gates per ticker
 		health_gates_all[ticker] = _extract_health_gates(r)
@@ -1119,6 +1137,28 @@ def _determine_relative_strengths(tickers, table):
 		strengths["best_52w_position"] = max(pos_vals, key=pos_vals.get)
 	else:
 		strengths["best_52w_position"] = None
+
+	# Best SBC health = healthy > warning > toxic
+	sbc_priority = {"healthy": 3, "warning": 2, "toxic": 1}
+	sbc_vals = {}
+	for t in tickers:
+		flag = table.get("sbc_flag", {}).get(t)
+		if flag is not None:
+			sbc_vals[t] = sbc_priority.get(str(flag).lower(), 0)
+	if sbc_vals:
+		strengths["best_sbc_health"] = max(sbc_vals, key=sbc_vals.get)
+	else:
+		strengths["best_sbc_health"] = None
+
+	# Best earnings momentum = most consecutive beats
+	beat_vals = {
+		t: v for t, v in table.get("consecutive_beats", {}).items()
+		if v is not None and isinstance(v, (int, float))
+	}
+	if beat_vals:
+		strengths["best_earnings_momentum"] = max(beat_vals, key=beat_vals.get)
+	else:
+		strengths["best_earnings_momentum"] = None
 
 	return strengths
 

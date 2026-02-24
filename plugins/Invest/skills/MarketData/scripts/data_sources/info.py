@@ -103,6 +103,11 @@ Notes:
 	- Yahoo Finance API rate limits: ~2000 requests/hour
 	- get-info returns 100+ fields (extensive company data)
 	- get-fast-info is faster but returns fewer fields
+	- get-info-fields uses 3-tier fallback for key fields:
+	  1. ticker.get_info() (primary)
+	  2. ticker.fast_info (marketCap, currentPrice, 52w range)
+	  3. ticker.history(period="5d") last Close (currentPrice only)
+	  This eliminates null values for ADRs and some large-caps (e.g., AVGO, TSM)
 	- ISIN codes may not be available for all securities
 	- Shares outstanding data updated quarterly
 	- SEC filings only available for US-listed companies
@@ -152,6 +157,35 @@ def cmd_get_info_fields(args):
 	ticker = yf.Ticker(args.symbol)
 	info = ticker.get_info()
 	filtered = {k: info[k] for k in args.fields if k in info}
+
+	# Fallback: supplement null/missing key fields via fast_info
+	fast_info_map = {
+		"marketCap": "market_cap",
+		"currentPrice": "last_price",
+		"fiftyTwoWeekLow": "year_low",
+		"fiftyTwoWeekHigh": "year_high",
+	}
+	missing = [f for f in args.fields if f in fast_info_map and (f not in filtered or filtered[f] is None)]
+	if missing:
+		try:
+			fi = ticker.get_fast_info()
+			for field in missing:
+				attr = fast_info_map[field]
+				val = getattr(fi, attr, None)
+				if val is not None:
+					filtered[field] = val
+		except Exception:
+			pass
+
+	# Fallback: if currentPrice still missing, use last close from history
+	if "currentPrice" in args.fields and (filtered.get("currentPrice") is None):
+		try:
+			hist = ticker.history(period="5d")
+			if not hist.empty:
+				filtered["currentPrice"] = float(hist["Close"].iloc[-1])
+		except Exception:
+			pass
+
 	output_json(filtered)
 
 
