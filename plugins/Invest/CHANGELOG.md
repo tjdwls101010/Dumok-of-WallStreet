@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-02-25 — Plugin Architecture Documentation
+
+### Added
+- **`README.md`** — 플러그인 설계 철학, 아키텍처 계층 구조, 구성요소 가이드, 핵심 설계 원칙(7가지), 안티패턴, 새 전문가 추가 가이드, 수정 가이드를 문서화. Progressive Disclosure, Single Source of Truth, Pipeline-First, Context 효율성 등 각 원칙의 도입 이유와 해결하려는 문제를 함께 기술.
+
 ## 2026-02-25 (v1.9.0) — Pipeline Facade Refactoring
 
 ### Added
