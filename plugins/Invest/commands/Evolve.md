@@ -74,19 +74,23 @@ Phase 1: Schema Discovery (Main Agent)
 ├── Measure row count, content length
 └── Determine processing strategy by data type
 
-Phase 2: Chunked Methodology Extraction (Sub-agents, foreground, parallel)
+Phase 2: Chunked Methodology Extraction (Agent Team, max 5 teammates)
+├── TeamCreate("evolve-extract") → create team
+├── TaskCreate per chunk → define extraction tasks
+├── Task(team_name="evolve-extract") per chunk → spawn teammates (max 5)
 ├── Book-style DB (chapters table):
-│   └── 1 sub-agent per 2-3 chapters
+│   └── 1 teammate per 2-3 chapters
 │       → "Extract frameworks, criteria, thresholds, decision rules, principles, taboos"
 ├── Tweet-style DB (tweets table):
-│   └── 1 sub-agent per 150-200 tweet batch
+│   └── 1 teammate per 150-200 tweet batch
 │       → "Extract recurring patterns, signature expressions, analysis frameworks, risk rules"
-└── Video-style DB (videos + community tables):
-    └── 1 sub-agent per 10-15 videos
-        → "Extract quantitative frameworks, thresholds, regime classifications, analysis methods"
+├── Video-style DB (videos + community tables):
+│   └── 1 teammate per 10-15 videos
+│       → "Extract quantitative frameworks, thresholds, regime classifications, analysis methods"
+└── TeamDelete after all tasks completed
 
 Phase 3: Methodology Synthesis (Main Agent + Sequential Thinking)
-├── Synthesize sub-agent outputs (much more compressed than originals)
+├── Synthesize teammate outputs (much more compressed than originals)
 ├── Identify core methodology elements
 ├── Analyze differentiation from existing experts
 └── Draft expert architecture
@@ -95,8 +99,8 @@ Phase 3: Methodology Synthesis (Main Agent + Sequential Thinking)
 ### Implementation Phase (.db Processing in Plan Output)
 
 The plan must specify for each implementation step **which .db data to read and how**:
-- "Write persona file X.md → sub-agent reads .db chapters 1-5, extracts [specific methodology]"
-- "Write persona file Y.md → sub-agent reads .db chapters 6-10, extracts [specific methodology]"
+- "Write persona file X.md → teammate reads .db chapters 1-5, extracts [specific methodology]"
+- "Write persona file Y.md → teammate reads .db chapters 6-10, extracts [specific methodology]"
 
 ## Critical Review Protocol
 
@@ -132,17 +136,18 @@ Before finalizing the plan, use `sequential-thinking` to answer these questions:
 - Final plan synthesis
 - User alignment via `AskUserQuestion()`
 
-### Sub-agent (Foreground) Responsibilities
+### Teammate Responsibilities
 - .db content chunk processing (Type A)
 - Codebase exploration (Explore type)
 - Cross-file pattern analysis
 - Independent research tasks
 
 ### Rules
-- [HARD] Sub-agents MUST run in foreground (background prohibited — prevents write restrictions)
-- Provide each sub-agent with sufficient context (overall workflow context, design principle summary, etc.)
-- Maximum 3 concurrent sub-agents
-- Main agent must validate all sub-agent outputs
+- [HARD] Use Agent Team (TeamCreate + Task with team_name) for parallel independent tasks
+- [HARD] Maximum 5 concurrent teammates per team
+- Provide each teammate with sufficient context (overall workflow context, design principle summary, etc.)
+- Main agent must validate all teammate outputs before synthesis
+- TeamDelete after all team tasks are completed
 
 ## Plan Quality Gates
 
