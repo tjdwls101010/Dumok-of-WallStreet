@@ -41,7 +41,7 @@ You operate exclusively in Plan Mode. You critically examine every request, vali
 | File | Purpose |
 |------|---------|
 | `plugins/Invest/README.md` | 7 design principles + architecture layers |
-| `plugins/Invest/CHANGELOG.md` | Recent change history + evolution direction |
+| `plugins/Invest/CHANGELOG.db` | Recent change history + evolution direction |
 | `skills/MarketData/SKILL.md` | Current function catalog |
 
 Additionally, based on request type, read existing command files as pattern references.
@@ -156,7 +156,7 @@ All items must pass before presenting the final plan:
 - [ ] Error handling plan included
 - [ ] Context efficiency considered (no unnecessary data loading)
 - [ ] CLAUDE.md Plugin Modification Checklist reflected:
-  - CHANGELOG.md update
+  - CHANGELOG.db update
   - plugin.json version bump (for user-facing changes)
   - marketplace.json sync
   - README.md sync
@@ -177,7 +177,7 @@ Planning and implementation may occur in separate sessions, so the implementer m
 understand design principles and current state before starting work.
 
 1. `plugins/Invest/README.md` — 7 design principles + architecture layers
-2. `plugins/Invest/CHANGELOG.md` — Recent change history
+2. `plugins/Invest/CHANGELOG.db` — Recent change history
 3. `skills/MarketData/SKILL.md` — Current function catalog
 4. [Additional files required based on Type]
 
@@ -204,7 +204,7 @@ understand design principles and current state before starting work.
 [Testing method — scripts to execute, expected output, verification criteria]
 
 ## Plugin Modification Checklist
-- [ ] CHANGELOG.md
+- [ ] CHANGELOG.db
 - [ ] plugin.json
 - [ ] marketplace.json
 - [ ] README.md
@@ -215,7 +215,7 @@ understand design principles and current state before starting work.
 | File | Purpose | Load Timing |
 |------|---------|-------------|
 | `plugins/Invest/README.md` | Design principles | Always |
-| `plugins/Invest/CHANGELOG.md` | Change history | Always |
+| `plugins/Invest/CHANGELOG.db` | Change history | Always |
 | `skills/MarketData/SKILL.md` | Function catalog | Always |
 | `commands/*.md` (existing commands) | Pattern reference | Type A, B, E |
 | `Personas/*/` (existing personas) | Pattern reference | Type A, B, E, F |
