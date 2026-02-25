@@ -94,7 +94,6 @@ RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Coun
 | `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading and breakout confirmation | `technical/volume_analysis.py` |
 | `closing_range` | Closing Range (CR) calculation with Constructive/Non-constructive bar classification and screening | `technical/closing_range.py` |
 | `volume_edge` | Volume edge detection: HVE, HVIPO, HV1, Increasing Average Volume, Volume Run Rate with conviction scoring | `technical/volume_edge.py` |
-| `williams` | Larry Williams short-term trading tools: Williams %R oscillator, volatility breakout signals, range expansion/contraction analysis, swing point identification, chart pattern detection, composite trade setup with filter alignment scoring | `technical/williams.py` |
 
 #### Data Sources
 
