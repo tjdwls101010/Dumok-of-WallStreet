@@ -15,7 +15,7 @@ claude plugin add <repo-url>
 
 | Plugin | Version | Category | Description |
 |--------|---------|----------|-------------|
-| **Invest** | 2.0.1 | Finance | Financial market data analysis with MarketData skill and analyst personas |
+| **Invest** | 2.1.0 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |
@@ -28,6 +28,7 @@ Financial market data analysis plugin. Includes the MarketData skill and analyst
 | Component | Type | Description |
 |-----------|------|-------------|
 | MarketData | Skill | Multi-source financial data collection via YFinance, FRED, SEC EDGAR, Finviz, CFTC, CBOE |
+| Evolve | Command | Meta-engineering tool for adding new experts and improving existing ones (Plan Mode) |
 | Minervini | Command | Technical analysis based on Mark Minervini's SEPA methodology |
 | Serenity | Command | Supply chain architecture and fundamental analysis |
 | SidneyKim0 | Command | Macro-statistical analysis with regime identification and cross-asset divergence |
@@ -85,7 +86,7 @@ Seongjin's Claude/
 ├── plugins/
 │   ├── Invest/
 │   │   ├── .claude-plugin/plugin.json
-│   │   ├── commands/          # Minervini, Serenity, SidneyKim0, TraderLion, Williams
+│   │   ├── commands/          # Evolve, Minervini, Serenity, SidneyKim0, TraderLion, Williams
 │   │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/ (screening/, pipelines/), tools/
 │   ├── Study/
 │   │   ├── .claude-plugin/plugin.json

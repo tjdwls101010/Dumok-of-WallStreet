@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-02-25 (v2.1.0) — Evolve Meta-Engineering Command
+
+### Added
+- **`commands/Evolve.md`** — Meta-engineering command for adding new experts and improving existing ones. Plan Mode exclusive. Features: 6-type request classification (A: new expert, B: methodology enhancement, C: bug fix, D: script modification, E: consistency review, F: dogfooding), .db source material chunked processing protocol with sub-agent orchestration, Critical Review Protocol (6-question validation against 7 design principles via sequential-thinking), Plan Quality Gates checklist, and standardized Korean plan output template. Three-tier language policy: command file in English, plans in Korean, implementation artifacts in English.
+
 ## 2026-02-25 (v2.0.1) — SidneyKim0 Pipeline Bug Fix
 
 ### Fixed

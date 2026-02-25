@@ -1,375 +1,375 @@
 # Invest Plugin
 
-유명 투자 전문가의 방법론과 페르소나를 100% 복제하여, 해당 전문가의 관점에서 시장을 분석하는 플러그인.
+A plugin designed to 100% replicate the methodologies and personas of renowned investment experts, analyzing the market from their unique perspectives.
 
-2026년 2월 25일 기준, 현재 5명의 전문가를 지원한다: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), **Williams** (Volatility Breakout).
+As of February 25, 2026, it currently supports 5 experts: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), and **Williams** (Volatility Breakout).
 
 ---
 
-## 1. 설계 철학
+## 1. Design Philosophy
 
-이 플러그인은 단순한 주식 분석 도구가 아니라, 각 전문가의 **사고방식과 의사결정 프레임워크**를 그대로 재현하는 것을 목표로 한다. 이를 위해 다음 4가지 핵심 원칙을 따른다.
+This plugin is not just a simple stock analysis tool; it aims to perfectly recreate the **mindset and decision-making framework** of each expert. To achieve this, it follows four core principles:
 
 ### Progressive Disclosure
 
-필요한 정보만 필요한 시점에 계층적으로 로드한다.
+Hierarchically loads only the necessary information at the exact moment it is needed.
 
-~112개 모듈의 전체 docstring을 한번에 로드하면 context window가 낭비된다. 대신 SKILL.md(Level 1 카탈로그)에서 모듈 이름과 한 줄 설명만 확인한 뒤, 실제로 필요한 모듈만 `extract_docstring.py`(Level 2)로 서브커맨드·인자·반환 구조를 확인한다. 이 2단계 탐색으로 context를 절약하면서도 정확한 정보에 접근한다.
+Loading the entire docstrings of ~112 modules at once wastes the context window. Instead, the agent first checks the module names and one-line descriptions in `SKILL.md` (Level 1 Catalog), and then uses `extract_docstring.py` (Level 2) to check the subcommands, arguments, and return structures only for the modules it actually needs. This two-step discovery process saves context while ensuring access to accurate information.
 
-### Single Source of Truth (문서 동기화 부담 제거)
+### Single Source of Truth (Eliminating Document Synchronization Burden)
 
-코드의 구체적 사용법(서브커맨드, 인자, 반환 구조)은 해당 코드의 **docstring이 유일한 진실의 원천**이다. 커맨드·페르소나 문서에는 구체적 코드명이나 서브커맨드명을 명시하지 않는다.
+The specific usage of the code (subcommands, arguments, return structures) has the **docstring of that code as its single source of truth**. Specific code names or subcommand names are not explicitly stated in the command or persona documents.
 
-코드를 수정할 때 같은 파일의 docstring을 업데이트하는 것은 자연스럽지만, 별도 파일인 커맨드·페르소나까지 동기화하는 것은 부담이 크고 누락이 발생하기 쉽다. `extract_docstring.py`가 이 간극을 해소하여, 에이전트가 항상 최신 코드 정보에 접근할 수 있도록 한다.
+While it is natural to update the docstring in the same file when modifying code, synchronizing it with separate command and persona files is burdensome and prone to omissions. `extract_docstring.py` bridges this gap, ensuring the agent always has access to the latest code information.
 
 ### Pipeline-First
 
-전용 파이프라인을 통한 일관된 분석을 우선하고, 개별 모듈은 보충용으로 사용한다.
+Prioritizes consistent analysis through dedicated pipelines, using individual modules only for supplementary purposes.
 
-파이프라인 없이 에이전트가 ~112개 모듈 중 자율 선택하면, 같은 작업에 다른 코드를 사용하거나 유사 코드를 여러 번 호출하여 동일 데이터가 중복 로딩된다. 파이프라인이 미리 정의된 모듈 조합을 병렬 실행하여 일관성과 효율성을 보장한다.
+If the agent autonomously selects from ~112 modules without a pipeline, it might use different codes for the same task or call similar codes multiple times, leading to redundant loading of the same data. Pipelines guarantee consistency and efficiency by executing predefined combinations of modules in parallel.
 
-### Context 효율성
+### Context Efficiency
 
-파이프라인이 내부적으로 충분한 데이터를 로드하되, 응답에는 인사이트 밀도가 낮은 방대한 원시 데이터(수년치 daily price history, 전체 기관 보유자 목록 등)를 포함하지 않는다.
+Pipelines load sufficient data internally but do not include massive raw data with low insight density (e.g., years of daily price history, full lists of institutional holders) in the response.
 
-단, 이것은 "데이터를 적게 가져오라"가 아니다. **"200k context window를 넘지 않도록 불필요한 원시 데이터를 제외하되, 스코어·시그널과 그 판단 근거(evidence)는 모두 포함"**하는 원칙이다. Claude의 context window는 유한한 자원이므로, 원시 데이터가 context를 점유하면 에이전트의 분석 품질이 저하된다.
+However, this does not mean "fetch less data." The principle is: **"Exclude unnecessary raw data to avoid exceeding the 200k context window, but include all scores, signals, and the evidence supporting those judgments."** Claude's context window is a finite resource; if raw data occupies the context, the quality of the agent's analysis degrades.
 
 ---
 
-## 2. 아키텍처 계층 구조
+## 2. Architectural Hierarchy
 
 ```
-Command (.md) — 에이전트 페르소나 + 실행 프로토콜
+Command (.md) — Agent Persona + Execution Protocol
   ↓ loads
-SKILL.md — 함수 카탈로그 (Level 1 Discovery)
+SKILL.md — Function Catalog (Level 1 Discovery)
   ↓ references
-Persona Files — 방법론 상세 문서 (선택적 로드)
+Persona Files — Detailed Methodology Documents (Selectively Loaded)
   ↓ executes
-Pipeline Scripts — Facade 오케스트레이터 (페르소나별 전용)
+Pipeline Scripts — Facade Orchestrators (Dedicated per Persona)
   ↓ calls
-Module Scripts — 원자적 분석 함수 (~112개)
+Module Scripts — Atomic Analysis Functions (~112)
 ```
 
-**로드 시점과 조건:**
+**Load Timing and Conditions:**
 
-| 계층 | 로드 시점 | 조건 |
-|------|-----------|------|
-| Command | 사용자가 커맨드 호출 시 | 항상 |
-| SKILL.md | Command가 분석 실행 전 | 항상 |
-| Persona Files | 심층 방법론이 필요할 때 | Query Classification에 따라 선택적 |
-| Pipeline Scripts | 분석 실행 시 | 항상 (Pipeline-First 원칙) |
-| Module Scripts | 파이프라인이 오케스트레이션 | 파이프라인 내부에서 자동, 또는 보충 분석 시 개별 호출 |
+| Hierarchy | Load Timing | Condition |
+|-----------|-------------|-----------|
+| Command | When the user invokes the command | Always |
+| SKILL.md | Before the Command executes analysis | Always |
+| Persona Files | When in-depth methodology is needed | Selectively, based on Query Classification |
+| Pipeline Scripts | When executing analysis | Always (Pipeline-First Principle) |
+| Module Scripts | Orchestrated by the pipeline | Automatically within the pipeline, or called individually for supplementary analysis |
 
 ---
 
-## 3. 구성요소 가이드
+## 3. Component Guide
 
 ### 3.1 Command (.md)
 
-**위치**: `commands/`
-**역할**: 에이전트의 정체성, 분석 프로토콜, 쿼리 분류 체계를 정의한다. "무엇을 분석하고 어떻게 해석하라"를 정의하되, "어떤 코드를 어떻게 호출하라"는 정의하지 않는다.
+**Location**: `commands/`
+**Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how."
 
-**필수 섹션:**
+**Required Sections:**
 
-| 섹션 | 역할 |
-|------|------|
+| Section | Role |
+|---------|------|
 | YAML frontmatter | name, description, skills, tools, model, color |
-| Identity | 전문가의 핵심 철학과 포지셔닝 |
-| Voice | 자연어 캐치프레이즈 (한국어 번역 포함) |
-| Core Principles | 방법론의 기초 원칙 (6-9개) |
-| Prohibitions | 절대 하지 않는 행동 (가드레일) |
-| Methodology Quick Reference | 핵심 공식·기준 인라인 요약 |
-| Query Classification | 사용자 의도별 워크플로우 (Type A-G) |
-| Analysis Protocol | 파이프라인 우선 사용 명시 |
-| Reference Files | 페르소나 파일 목록 |
-| Error Handling | 데이터 소스 실패 시 대응 |
-| Response Format | 출력 구조 정의 |
+| Identity | The expert's core philosophy and positioning |
+| Voice | Natural language catchphrases (including Korean translations) |
+| Core Principles | Foundational principles of the methodology (6-9 items) |
+| Prohibitions | Actions to absolutely avoid (Guardrails) |
+| Methodology Quick Reference | Inline summary of core formulas and criteria |
+| Query Classification | Workflows by user intent (Type A-G) |
+| Analysis Protocol | Mandating Pipeline-First usage |
+| Reference Files | List of persona files |
+| Error Handling | Response to data source failures |
+| Response Format | Definition of output structure |
 
-**유의사항:**
-- **인라인 방법론 요약 포함**: Methodology Quick Reference에 핵심 기준(예: Minervini의 Trend Template 8개 조건)을 직접 포함한다. 페르소나 파일 로드 실패 시 fallback으로 사용.
-- **Query Classification**: 각 유형별(Type A ~ G) 분석 워크플로우를 정의하여, 사용자 질문 의도에 따라 적절한 분석 경로를 결정.
-- **구체적 코드명·서브커맨드명을 명시하지 않음**: Single Source of Truth 원칙에 따라, `extract_docstring.py`로 발견한다.
+**Notes:**
+- **Include Inline Methodology Summary**: Directly include core criteria (e.g., Minervini's 8 Trend Template conditions) in the Methodology Quick Reference. Used as a fallback if persona files fail to load.
+- **Query Classification**: Define analysis workflows for each type (Type A ~ G) to determine the appropriate analysis path based on the user's question intent.
+- **Do Not Specify Concrete Code/Subcommand Names**: Following the Single Source of Truth principle, discover them using `extract_docstring.py`.
 
 ### 3.2 SKILL.md
 
-**위치**: `skills/MarketData/SKILL.md`
-**역할**: 전체 스크립트의 Level 1 카탈로그. Progressive Disclosure의 진입점이다.
+**Location**: `skills/MarketData/SKILL.md`
+**Role**: The Level 1 catalog for all scripts. The entry point for Progressive Disclosure.
 
-**필수 구조:**
+**Required Structure:**
 
-| 섹션 | 역할 |
-|------|------|
-| Environment Bootstrap | venv 설정 프로토콜 |
-| Progressive Disclosure Architecture | 2단계 탐색 설명 |
-| Function Catalog | 카테고리별 모듈 테이블 (Pipelines, Core Analysis, Data & Screening, Advanced Data Sources) |
+| Section | Role |
+|---------|------|
+| Environment Bootstrap | venv setup protocol |
+| Progressive Disclosure Architecture | Explanation of the 2-step discovery |
+| Function Catalog | Module tables by category (Pipelines, Core Analysis, Data & Screening, Advanced Data Sources) |
 | Script Execution Safety Protocol | Mandatory Batch Discovery Rule, Safety Guardrails |
-| How to Use | 3단계 워크플로우 + 환경변수 |
-| Error Handling & Fallback Guide | 3단계 fallback 체인 |
+| How to Use | 3-step workflow + Environment variables |
+| Error Handling & Fallback Guide | 3-step fallback chain |
 
-**유의사항:**
-- 새 모듈·파이프라인 추가 시 반드시 카탈로그에 등록한다.
-- 서브커맨드 이름은 기재하지 않는다 — Level 2인 `extract_docstring.py`로 발견.
-- Safety Protocol 규칙은 수정 금지.
+**Notes:**
+- Always register new modules/pipelines in the catalog.
+- Do not list subcommand names — discover them via Level 2 (`extract_docstring.py`).
+- Do not modify the Safety Protocol rules.
 
 ### 3.3 Persona Files
 
-**위치**: `skills/MarketData/Personas/{Name}/`
-**역할**: 전문가의 구체적 방법론, 해석 프레임워크, 의사결정 기준을 제공한다. Command와 마찬가지로 "어떻게 해석하라"를 정의하되, 구체적 코드 구현에 종속되지 않는다.
+**Location**: `skills/MarketData/Personas/{Name}/`
+**Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Like the Command, it defines "how to interpret," but is not dependent on specific code implementations.
 
-**핵심 원칙**: 전문가의 **방법론(지식, 노하우, 의사결정 프레임워크)**을 추출하여 현재·미래 분석에 활용하는 것이 목적이다. 전문가의 과거 분석 기록을 아카이빙하여 서치하는 것이 아니다. 저서·리포트에서 **전이 가능한 방법론**을 추출해야 한다.
+**Core Principle**: The goal is to extract the expert's **methodology (knowledge, know-how, decision-making framework)** and apply it to current and future analysis. It is not for archiving and searching the expert's past analysis records. You must extract **transferable methodologies** from their books and reports.
 
-**과거 사례의 올바른 활용**: few-shot 차원에서 "어떤 종목에 대해 어떤 판단을 해서 어떤 결정을 내렸는지" 과거 사례를 포함하는 것은 허용한다. 단, 방법론의 **의사결정 과정**을 보여주는 맥락에서만 사용하고, 특정 종목 결론 자체가 향후 분석에 anchoring bias를 일으키지 않도록 유의한다.
+**Proper Use of Past Cases**: Including past cases to show "what judgments were made on which stocks and what decisions were reached" is allowed for few-shot purposes. However, use them only in the context of demonstrating the **decision-making process** of the methodology, and ensure that the specific stock conclusions themselves do not cause anchoring bias in future analysis.
 
-**필수 구조**: 방법론별 1개 파일로 분리. 예시 (Minervini):
+**Required Structure**: Separate into one file per methodology. Example (Minervini):
 
-| 파일 | 내용 |
-|------|------|
-| `sepa_methodology.md` | SEPA 5요소, 4단계 랭킹, 확률 수렴 |
-| `sector_leadership.md` | Bottom-up 접근, 52W 신고가, 리더 기반 타이밍 |
-| `earnings_insights.md` | Cockroach effect, 실적 품질, 서프라이즈 이력 |
-| `risk_and_trade_management.md` | 포지션 사이징, 스톱로스, 기대값 관리 |
+| File | Content |
+|------|---------|
+| `sepa_methodology.md` | 5 Elements of SEPA, 4-Stage Ranking, Probability Convergence |
+| `sector_leadership.md` | Bottom-up approach, 52W Highs, Leader-based timing |
+| `earnings_insights.md` | Cockroach effect, Earnings quality, Surprise history |
+| `risk_and_trade_management.md` | Position sizing, Stop-loss, Expected value management |
 
-**유의사항:**
-- Command의 Query Classification과 매핑되어야 한다.
-- 원서·리포트에서 방법론(HOW)을 추출한다. 과거 사례는 few-shot 예시로만 활용하되, 의사결정 과정에 초점. 특정 종목 결론의 anchoring bias를 방지한다.
-- 과도한 일반화를 지양한다 — 해당 전문가만의 고유한 관점을 보존.
-- 구체적 스크립트명·서브커맨드명 기재를 지양한다 (코드 변경 시 동기화 부담 발생).
+**Notes:**
+- Must map to the Command's Query Classification.
+- Extract the methodology (HOW) from original books and reports. Use past cases only as few-shot examples, focusing on the decision-making process. Prevent anchoring bias from specific stock conclusions.
+- Avoid over-generalization — preserve the unique perspective of the specific expert.
+- Avoid specifying concrete script names or subcommand names (creates synchronization burden when code changes).
 
 ### 3.4 Pipeline Scripts
 
-**위치**: `scripts/pipelines/`
-**역할**: Facade 패턴 — 여러 모듈을 병렬 실행하여 해당 페르소나의 방법론에 맞는 종합 분석을 제공한다.
+**Location**: `scripts/pipelines/`
+**Role**: Facade pattern — executes multiple modules in parallel to provide a comprehensive analysis tailored to the persona's methodology.
 
-**현재 파이프라인:**
+**Current Pipelines:**
 
-| 파이프라인 | 페르소나 | 서브커맨드 수 |
-|-----------|---------|-------------|
-| `minervini.py` | Minervini (SEPA) | 6개 |
-| `traderlion.py` | TraderLion (S.N.I.P.E.) | 6개 |
-| `serenity.py` | Serenity (6-Level) | 6개 |
-| `sidneykim0.py` | SidneyKim0 (Macro-Statistical) | 6개 |
+| Pipeline | Persona | Number of Subcommands |
+|----------|---------|-----------------------|
+| `minervini.py` | Minervini (SEPA) | 6 |
+| `traderlion.py` | TraderLion (S.N.I.P.E.) | 6 |
+| `serenity.py` | Serenity (6-Level) | 6 |
+| `sidneykim0.py` | SidneyKim0 (Macro-Statistical) | 6 |
 
-**필수 요소:**
+**Required Elements:**
 
-- **서브커맨드**: 해당 전문가의 방법론에서 자연스럽게 도출한다. 공통 최소 요건을 강제하지 않으며, 각 페르소나의 분석 워크플로우에 맞게 설계.
-- **Hard Gate / Soft Gate 시스템**: 특정 조건 미충족 시 시그널 차단(Hard) 또는 감점(Soft).
-- **Composite Scoring + Signal 생성**: 가중 합산 → 시그널(STRONG_BUY, BUY, HOLD 등).
-- **ThreadPoolExecutor 병렬 실행**: 독립적인 모듈을 동시 실행하여 응답 시간 단축.
-- **Graceful Degradation**: 부분 실패 시에도 나머지로 분석 계속. `missing_components` 표시.
-- **응답 압축 후처리**: 원시 데이터 → 인사이트로 변환하여 context 효율성 확보.
+- **Subcommands**: Naturally derived from the expert's methodology. No common minimum requirements are enforced; designed to fit each persona's analysis workflow.
+- **Hard Gate / Soft Gate System**: Blocks signals (Hard) or deducts points (Soft) if specific conditions are not met.
+- **Composite Scoring + Signal Generation**: Weighted summation → Signal (STRONG_BUY, BUY, HOLD, etc.).
+- **ThreadPoolExecutor Parallel Execution**: Reduces response time by executing independent modules concurrently.
+- **Graceful Degradation**: Continues analysis with the rest even if partial failures occur. Indicates `missing_components`.
+- **Response Compression Post-processing**: Converts raw data into insights to ensure context efficiency.
 
-**[HARD] 모듈 인터페이스 사전 검증 (Pipeline Development Rule):**
+**[HARD] Pre-verification of Module Interfaces (Pipeline Development Rule):**
 
-파이프라인 코드를 작성·수정할 때, 호출할 모든 모듈에 대해 `extract_docstring.py`로 실제 인터페이스를 전수 확인한 후 코드를 작성한다. 확인해야 할 항목:
+When writing or modifying pipeline code, you must exhaustively verify the actual interfaces of all modules to be called using `extract_docstring.py` before writing the code. Items to check:
 
-1. **서브커맨드 이름**: 모듈이 실제로 제공하는 서브커맨드 (예: `erp`, `get-current`, `yield-equity` 등)
-2. **인자 형식**: positional vs named, 기본값, 타입 (예: `["SPY"]` vs `["--symbol", "SPY"]`)
-3. **반환 구조**: 출력 JSON의 키 이름과 중첩 구조 (예: `{"current": {"erp": float}}` vs `{"erp": float}`)
-4. **실행 방식**: 독립 스크립트(`python script.py`) vs 패키지 모듈(`python -m package`)
+1. **Subcommand Names**: The subcommands actually provided by the module (e.g., `erp`, `get-current`, `yield-equity`, etc.).
+2. **Argument Formats**: positional vs. named, default values, types (e.g., `["SPY"]` vs. `["--symbol", "SPY"]`).
+3. **Return Structures**: Key names and nested structures of the output JSON (e.g., `{"current": {"erp": float}}` vs. `{"erp": float}`).
+4. **Execution Method**: Standalone script (`python script.py`) vs. package module (`python -m package`).
 
-모듈의 인터페이스를 확인하지 않고 추측으로 호출 코드를 작성하는 것을 **금지**한다. 서브커맨드명, 인자 형식, 출력 키 이름 중 하나라도 틀리면 해당 모듈 호출이 실패하고 `missing_components`에 빠지므로, 사전 검증은 파이프라인 품질의 필수 전제 조건이다.
+Writing calling code based on guesswork without verifying the module's interface is **strictly prohibited**. If even one of the subcommand names, argument formats, or output key names is incorrect, the module call will fail and fall into `missing_components`. Therefore, pre-verification is an essential prerequisite for pipeline quality.
 
-**유의사항:**
-- 모든 커맨드에는 반드시 전용 파이프라인이 존재해야 한다.
-- 내부적으로 데이터를 충분히 로드하되, 응답에 인사이트 밀도가 낮은 방대한 원시 데이터(수년치 price history 등)는 포함하지 않는다.
-- 스코어·시그널뿐 아니라 각 판단의 근거(evidence)도 충분히 포함해야 한다.
-- 원칙: "데이터를 적게"가 아닌 **"불필요한 원시 데이터 제외 + 판단 근거는 포함"**.
+**Notes:**
+- Every command must have a dedicated pipeline.
+- Load sufficient data internally, but do not include massive raw data with low insight density (e.g., years of price history) in the response.
+- Must include sufficient evidence for each judgment, not just scores and signals.
+- Principle: Not "less data," but **"exclude unnecessary raw data + include evidence for judgments."**
 
 ### 3.5 Module Scripts
 
-**위치**: `scripts/` (pipelines 제외)
-**역할**: 단일 분석 관심사에 집중하는 원자적 함수. 약 112개.
+**Location**: `scripts/` (excluding pipelines)
+**Role**: Atomic functions focusing on a single analysis concern. Approximately 112 modules.
 
-**필수 구조:**
-- 모듈 docstring (`extract_docstring.py` 호환, `docstring_guidelines.md` 규격)
-- `@safe_run` 데코레이터 — 모든 예외를 JSON 에러 형식으로 변환
-- JSON 출력 — `utils.output_json()` 사용
+**Required Structure:**
+- Module docstring (compatible with `extract_docstring.py`, adhering to `docstring_guidelines.md` specifications)
+- `@safe_run` decorator — converts all exceptions into JSON error formats
+- JSON output — use `utils.output_json()`
 
-**유의사항:**
-- **하나의 분석 관심사만 담당 (SRP)**: 모듈 간 기능 중복 없이 명확한 경계를 유지한다. 파이프라인에서 여러 모듈을 조합 호출하므로, 각 모듈이 서로 명확히 구분되어야 유지보수가 용이하다. 새 모듈 작성 시 기존 모듈과의 기능 중복 여부를 반드시 확인한다.
-- **페르소나 중립적으로 작성**: 여러 파이프라인에서 재사용 가능하도록, 특정 페르소나의 해석 로직을 하드코딩하지 않는다.
-- **docstring 집중 원칙**: `extract_docstring.py`는 `ast.get_docstring()`으로 파일 최상단의 모듈 레벨 docstring만 추출한다. 에이전트가 알아야 할 모든 정보(서브커맨드, 인자, 반환 구조, 사용 예시)를 반드시 파일 최상단의 단일 `""" """` 안에 집중시켜야 한다. 함수별 docstring이나 코드 내 주석은 `extract_docstring.py`로 발견되지 않는다.
+**Notes:**
+- **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap between modules. Since pipelines combine and call multiple modules, each module must be clearly distinct for easy maintenance. When writing a new module, always check for functional overlap with existing modules.
+- **Write Persona-Neutrally**: Do not hardcode the interpretation logic of a specific persona so that it can be reused across multiple pipelines.
+- **Docstring Concentration Principle**: `extract_docstring.py` extracts only the module-level docstring at the very top of the file using `ast.get_docstring()`. All information the agent needs to know (subcommands, arguments, return structures, usage examples) must be concentrated within a single `""" """` block at the very top of the file. Function-specific docstrings or inline comments will not be discovered by `extract_docstring.py`.
 
 ### 3.6 Docstring & extract_docstring.py
 
-**위치**: `tools/extract_docstring.py`
-**역할**: Level 2 Discovery — 모듈의 서브커맨드, 인자, 반환 구조를 안전하게 발견한다.
+**Location**: `tools/extract_docstring.py`
+**Role**: Level 2 Discovery — safely discovers the subcommands, arguments, and return structures of modules.
 
-이것이 **Single Source of Truth의 핵심 메커니즘**이다. 커맨드·페르소나 파일에 코드 사용법을 명시하지 않는 대신, 에이전트가 항상 코드 자체에서 최신 정보를 얻도록 하는 다리 역할을 한다.
+This is the **core mechanism of the Single Source of Truth**. Instead of specifying code usage in command or persona files, it acts as a bridge allowing the agent to always get the latest information directly from the code itself.
 
-**존재 이유**: 코드 수정 시 같은 파일 상단의 docstring 업데이트는 자연스럽지만, 별도 파일(커맨드·페르소나)까지 동기화하는 것은 부담이 크다. 이를 해소하기 위해 에이전트가 docstring에서 직접 최신 정보를 추출한다.
+**Reason for Existence**: When modifying code, updating the docstring at the top of the same file is natural, but synchronizing it with separate files (commands/personas) is a heavy burden. To resolve this, the agent extracts the latest information directly from the docstring.
 
-**유의사항:**
-- Python 파일을 직접 Read하지 않고 반드시 `extract_docstring.py`를 사용한다.
-- 호출당 최대 5개 스크립트.
-- `docstring_guidelines.md` 규격을 준수한다.
+**Notes:**
+- Do not read Python files directly; always use `extract_docstring.py`.
+- Maximum of 5 scripts per call.
+- Adhere to the `docstring_guidelines.md` specifications.
 
 ---
 
-## 4. 핵심 설계 원칙
+## 4. Core Design Principles
 
-각 원칙의 의미, 목적, 도입 이유를 함께 기술한다.
+Describe the meaning, purpose, and reason for introducing each principle.
 
-### 4.1 Single Source of Truth (문서 동기화 부담 제거)
+### 4.1 Single Source of Truth (Eliminating Document Synchronization Burden)
 
-**원칙**: 코드의 구체적 사용법은 docstring이 유일한 진실의 원천. 커맨드·페르소나에는 코드명·서브커맨드명을 명시하지 않는다. `extract_docstring.py`로 에이전트가 항상 최신 코드 정보에 접근.
+**Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify code names or subcommand names in commands or personas. The agent always accesses the latest code information via `extract_docstring.py`.
 
-**도입 이유**: 코드 수정 시 같은 파일의 docstring 업데이트는 자연스럽지만, 별도 파일(커맨드·페르소나)까지 동기화하는 것은 부담이 크고 누락이 발생하기 쉬웠다. 이 원칙으로 코드 변경 시 여러 파일 간 동기화 부담을 원천 제거.
+**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing it with separate files (commands/personas) was burdensome and prone to omissions. This principle fundamentally eliminates the synchronization burden across multiple files when code changes.
 
-### 4.2 페르소나 순수성
+### 4.2 Persona Purity
 
-**원칙**: 각 커맨드는 자신의 전용 파이프라인을 우선 사용. 타 페르소나의 파이프라인 호출 금지. 모듈은 공유 가능하나, 결과 해석은 반드시 해당 페르소나의 맥락에서.
+**Principle**: Each command prioritizes the use of its dedicated pipeline. Calling pipelines of other personas is prohibited. Modules can be shared, but the interpretation of results must always be within the context of the respective persona.
 
-**도입 이유**: 이전에 에이전트가 자율적으로 모듈을 선택하면, Serenity 분석에서 Minervini의 SEPA/VCP를 Minervini 관점으로 해석하는 등 페르소나 간 경계가 무너지는 문제가 발생했다. 파이프라인이 각 페르소나 고유의 모듈 조합·가중치·게이트를 강제하여 해결.
+**Reason for Introduction**: Previously, when the agent autonomously selected modules, boundaries between personas collapsed (e.g., interpreting Minervini's SEPA/VCP from a Minervini perspective during a Serenity analysis). Pipelines solve this by enforcing module combinations, weights, and gates unique to each persona.
 
 ### 4.3 Pipeline-First
 
-**원칙**: 파이프라인을 반드시 먼저 실행하여 종합 데이터를 취합. 이후 부족한 데이터만 개별 모듈로 보충.
+**Principle**: Always execute the pipeline first to gather comprehensive data. Then, supplement only the missing data with individual modules.
 
-**도입 이유**: 파이프라인 없이 에이전트가 ~112개 모듈 중 자율 선택 시, 같은 작업에 다른 코드를 사용하거나 유사 코드를 여러 번 호출하여 동일 데이터가 중복 로딩되고 context가 낭비되었다. 분석 결과의 일관성도 보장되지 않았다. 파이프라인이 미리 정의된 모듈 조합을 병렬 실행하여 해결.
+**Reason for Introduction**: Without pipelines, when the agent autonomously selected from ~112 modules, it used different codes for the same task or called similar codes multiple times, leading to redundant data loading and wasted context. The consistency of analysis results was also not guaranteed. Pipelines solve this by executing predefined combinations of modules in parallel.
 
-### 4.4 Context 효율성
+### 4.4 Context Efficiency
 
-**원칙**: 파이프라인이 내부적으로 충분한 데이터를 로드하되, 응답에 인사이트 밀도가 낮은 방대한 원시 데이터(수년치 daily price history 등)를 포함하지 않는다. 단, 각 판단의 근거(evidence)는 충분히 포함. "데이터를 적게"가 아닌 "불필요한 원시 데이터를 제외하되, 스코어·시그널 + 판단 근거는 모두 포함"이 원칙.
+**Principle**: Pipelines load sufficient data internally but do not include massive raw data with low insight density (e.g., years of daily price history) in the response. However, sufficient evidence for each judgment must be included. The principle is not "less data," but "exclude unnecessary raw data, but include all scores, signals, and evidence for judgments."
 
-**도입 이유**: Claude의 context window(200k)는 유한한 자원. 원시 데이터가 context를 점유하면 에이전트의 분석 품질이 저하되었다. 파이프라인이 내부에서 원시 데이터를 처리하고 파생 지표와 판단 근거만 반환하여 context를 효율적으로 활용.
+**Reason for Introduction**: Claude's context window (200k) is a finite resource. When raw data occupied the context, the quality of the agent's analysis degraded. Pipelines solve this by processing raw data internally and returning only derived metrics and evidence for judgments, utilizing the context efficiently.
 
 ### 4.5 Progressive Disclosure
 
-**원칙**: SKILL.md(Level 1 카탈로그) → `extract_docstring.py`(Level 2 상세) → 실행. 서브커맨드를 추측하지 않는다.
+**Principle**: `SKILL.md` (Level 1 Catalog) → `extract_docstring.py` (Level 2 Details) → Execution. Do not guess subcommands.
 
-**도입 이유**: ~112개 모듈의 전체 docstring을 한번에 로드하면 context 낭비. 필요한 모듈만 필요한 시점에 상세 정보를 얻는 2단계 탐색으로 해결.
+**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. Solved by a 2-step discovery process that retrieves detailed information only for the necessary modules at the necessary time.
 
 ### 4.6 Graceful Degradation
 
-**원칙**: 파이프라인의 개별 컴포넌트 실패 시에도 나머지로 분석 계속. `missing_components` 표시.
+**Principle**: Continue analysis with the remaining components even if individual components of the pipeline fail. Indicate `missing_components`.
 
-**도입 이유**: 외부 데이터 소스(yfinance, FRED 등) 의존으로 개별 모듈 실패가 불가피하다. 하나의 실패로 전체 분석이 중단되면 사용성이 크게 저하됨.
+**Reason for Introduction**: Individual module failures are inevitable due to reliance on external data sources (yfinance, FRED, etc.). If a single failure halts the entire analysis, usability severely degrades.
 
-### 4.7 모듈 중립성
+### 4.7 Module Neutrality
 
-**원칙**: 개별 모듈은 특정 페르소나에 종속되지 않는다. 페르소나의 정체성은 파이프라인의 조합·가중치·게이트 설계와 커맨드·페르소나 문서의 해석 맥락으로 결정된다.
+**Principle**: Individual modules are not dependent on a specific persona. The identity of a persona is determined by the combination, weights, and gate design of the pipeline, and the interpretation context of the command and persona documents.
 
-**도입 이유**: 모듈에 특정 페르소나의 해석 로직이 하드코딩되면 다른 파이프라인에서 재사용할 수 없고, 모듈 수가 불필요하게 증가한다. 해석은 상위 계층(커맨드·파이프라인)이 담당하고, 모듈은 중립적 도구로 유지.
-
----
-
-## 5. 안티패턴
-
-각 안티패턴에 왜 문제인지 이유를 함께 기술한다.
-
-- **파이프라인 없이 모듈을 무작위로 조합하여 분석** — 동일 데이터가 중복 로딩되어 context 낭비, 분석 결과의 일관성 없음, 페르소나 방법론이 아닌 임의의 분석 흐름이 형성됨
-
-- **타 페르소나의 파이프라인 호출** — 페르소나 간 방법론이 혼재되어 순수성 오염. 예: Serenity 분석에서 Minervini 파이프라인의 SEPA 스코어를 그대로 사용하면 Serenity 고유의 해석 맥락이 사라짐
-
-- **인사이트 밀도가 낮은 방대한 원시 데이터를 응답에 포함** (수년치 price history, 전체 holder 목록 등) — 200k context window를 점유하여 에이전트의 분석 품질 저하. 단, 판단 근거(evidence)는 충분히 포함해야 함
-
-- **`extract_docstring.py` 대신 Python 파일 직접 Read** — 수백~수천 줄의 코드가 context를 점유. `extract_docstring.py`는 ast 기반으로 docstring만 효율적으로 추출
-
-- **서브커맨드 이름을 추측하여 실행** — 잘못된 서브커맨드로 에러 발생. Progressive Disclosure(Level 2)를 통해 정확한 서브커맨드를 먼저 확인해야 함
-
-- **파이프라인 코드에서 모듈 호출을 인터페이스 확인 없이 작성** — 서브커맨드명(`current` vs `erp` vs `get-current`), 인자 형식(`["calculate", "SPY"]` vs `["SPY"]`), 출력 키(`zscore` vs `z_score`, `current_price` vs `current_value`), 중첩 구조(`data.get("erp")` vs `data.get("current", {}).get("erp")`) 중 하나라도 틀리면 해당 모듈 호출이 실패하여 `missing_components`에 빠지거나 null 값이 반환된다. 파이프라인 코드 작성 전 `extract_docstring.py`로 호출할 모든 모듈의 인터페이스를 전수 확인해야 함
-
-- **모듈 스크립트에 특정 페르소나의 해석 로직을 하드코딩** — 다른 파이프라인에서 재사용 불가, 모듈 수 불필요 증가. 해석은 상위 계층(커맨드·파이프라인)이 담당
-
-- **커맨드·페르소나 파일에 구체적 코드명, 서브커맨드명 명시** — 코드 수정 시 여러 파일 간 동기화 부담 발생. Single Source of Truth 위반
-
-- **모듈의 사용법을 파일 최상단 docstring 외의 위치에 분산** (함수별 docstring, 코드 내 주석 등) — `extract_docstring.py`가 `ast.get_docstring()`으로 모듈 레벨 docstring만 추출하므로 발견 불가
-
-- **파이프라인 출력을 head/tail로 잘라서 사용** — 부분 데이터로 인한 잘못된 판단 가능. 파이프라인 출력은 이미 context 효율을 고려하여 설계됨
-
-- **모듈의 JSON 출력 구조를 파이프라인 확인 없이 변경** — 해당 모듈을 호출하는 모든 파이프라인의 파싱 로직이 깨질 수 있음. 가장 파급 효과가 큰 변경
+**Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
 
 ---
 
-## 6. 새 전문가 추가 가이드
+## 5. Anti-patterns
 
-### 체크리스트
+Describe each anti-pattern along with the reason why it is a problem.
 
-#### 1단계: 원서·리포트 분석
+- **Analyzing by randomly combining modules without a pipeline** — Redundant loading of the same data wastes context, lacks consistency in analysis results, and forms an arbitrary analysis flow rather than the persona's methodology.
 
-해당 전문가의 **전이 가능한 방법론**(의사결정 프레임워크, 고유한 관점, 지식과 노하우)을 추출한다. 과거 분석 사례나 특정 종목 기록이 아닌, 현재·미래에 적용 가능한 방법론에 집중.
+- **Calling pipelines of other personas** — Methodologies between personas become mixed, polluting purity. Example: Using Minervini's SEPA score directly in a Serenity analysis eliminates Serenity's unique interpretation context.
 
-#### 2단계: Persona Files 작성
+- **Including massive raw data with low insight density in the response** (years of price history, full lists of holders, etc.) — Occupies the 200k context window, degrading the agent's analysis quality. However, sufficient evidence for judgments must be included.
 
-`skills/MarketData/Personas/{Name}/` 하위에 방법론별 파일 분리.
+- **Reading Python files directly instead of using `extract_docstring.py`** — Hundreds to thousands of lines of code occupy the context. `extract_docstring.py` efficiently extracts only the docstring based on AST.
 
-| 파일 | 내용 |
-|------|------|
-| `methodology.md` | 핵심 프레임워크, 분석 워크플로우, 의사결정 기준 |
-| `{domain_1}.md` | 방법론 도메인별 상세 (예: 리스크 관리, 섹터 분석) |
-| `{domain_2}.md` | 방법론 도메인별 상세 |
-| `{domain_3}.md` | 방법론 도메인별 상세 |
+- **Executing by guessing subcommand names** — Causes errors due to incorrect subcommands. You must first verify the exact subcommand through Progressive Disclosure (Level 2).
 
-기존 페르소나(예: `Personas/Minervini/`)를 구조적 템플릿으로 참조하되, 내용은 해당 전문가의 방법론으로 채운다.
+- **Writing module calls in pipeline code without verifying interfaces** — If even one of the subcommand names (`current` vs. `erp` vs. `get-current`), argument formats (`["calculate", "SPY"]` vs. `["SPY"]`), output keys (`zscore` vs. `z_score`, `current_price` vs. `current_value`), or nested structures (`data.get("erp")` vs. `data.get("current", {}).get("erp")`) is incorrect, the module call will fail, falling into `missing_components` or returning null values. You must exhaustively verify the interfaces of all modules to be called using `extract_docstring.py` before writing pipeline code.
 
-#### 3단계: 모듈 갭 분석 및 작성
+- **Hardcoding the interpretation logic of a specific persona into module scripts** — Prevents reuse in other pipelines and unnecessarily increases the number of modules. Interpretation is handled by higher layers (commands/pipelines).
 
-2단계에서 정리한 방법론을 구현하는 데 필요한 분석 기능을 나열하고, 기존 ~112개 모듈로 커버 가능한지 확인한다.
+- **Specifying concrete code names or subcommand names in command/persona files** — Creates a synchronization burden across multiple files when code changes. Violates the Single Source of Truth.
 
-- **기존 모듈로 충분한 경우**: 바로 4단계로 진행.
-- **새 분석 기능이 필요한 경우**: 기존 모듈의 SRP 범위에 속하면 서브커맨드를 추가하고, 새로운 관심사이면 새 모듈을 작성한다. 이때 모듈 중립성 원칙에 따라 페르소나에 종속되지 않도록 설계하여, 향후 다른 파이프라인에서도 재사용 가능하게 한다.
-- 새 모듈 작성 시: `@safe_run` 데코레이터, JSON 출력(`utils.output_json()`), 파일 최상단 모듈 docstring(`docstring_guidelines.md` 규격) 필수. SKILL.md 카탈로그에도 등록.
+- **Scattering module usage instructions outside the top-level docstring** (function-specific docstrings, inline comments, etc.) — Cannot be discovered because `extract_docstring.py` extracts only the module-level docstring using `ast.get_docstring()`.
 
-#### 4단계: Pipeline Script 작성
+- **Using pipeline outputs by cutting them with head/tail** — Can lead to incorrect judgments due to partial data. Pipeline outputs are already designed with context efficiency in mind.
 
-`scripts/pipelines/{name}.py` — 해당 방법론에 맞는 모듈 조합, 가중치, 게이트를 설계한다.
+- **Changing the JSON output structure of a module without checking pipelines** — Can break the parsing logic of all pipelines that call the module. This is the change with the largest ripple effect.
 
-**[HARD] 사전 단계 — 모듈 인터페이스 전수 확인:**
+---
 
-코드 작성 전, 파이프라인에서 호출할 모든 모듈에 대해 `extract_docstring.py`로 실제 인터페이스를 확인한다. 확인 항목: 서브커맨드명, 인자 형식(positional/named), 반환 JSON 구조(키 이름, 중첩 깊이). 이 단계를 생략하면 잘못된 호출로 대부분의 모듈이 `missing_components`에 빠지는 결과를 초래한다.
+## 6. Guide to Adding a New Expert
 
-필수 요소:
-- 서브커맨드 설계 (해당 전문가의 분석 워크플로우에서 도출)
-- Hard Gate / Soft Gate 시스템
-- Composite Scoring + Signal 생성
-- ThreadPoolExecutor 병렬 실행
+### Checklist
+
+#### Step 1: Analyze Original Books and Reports
+
+Extract the expert's **transferable methodology** (decision-making framework, unique perspective, knowledge, and know-how). Focus on methodologies applicable to the present and future, not past analysis cases or specific stock records.
+
+#### Step 2: Write Persona Files
+
+Separate files by methodology under `skills/MarketData/Personas/{Name}/`.
+
+| File | Content |
+|------|---------|
+| `methodology.md` | Core framework, analysis workflow, decision-making criteria |
+| `{domain_1}.md` | Methodology domain details (e.g., risk management, sector analysis) |
+| `{domain_2}.md` | Methodology domain details |
+| `{domain_3}.md` | Methodology domain details |
+
+Refer to existing personas (e.g., `Personas/Minervini/`) as structural templates, but fill the content with the new expert's methodology.
+
+#### Step 3: Module Gap Analysis and Creation
+
+List the analysis functions required to implement the methodology organized in Step 2, and check if they can be covered by the existing ~112 modules.
+
+- **If existing modules are sufficient**: Proceed directly to Step 4.
+- **If new analysis functions are needed**: If it falls within the SRP scope of an existing module, add a subcommand. If it is a new concern, create a new module. Design it to be independent of any persona according to the module neutrality principle, allowing reuse in other pipelines in the future.
+- When creating a new module: `@safe_run` decorator, JSON output (`utils.output_json()`), and a top-level module docstring (`docstring_guidelines.md` specifications) are mandatory. Also, register it in the `SKILL.md` catalog.
+
+#### Step 4: Write Pipeline Script
+
+`scripts/pipelines/{name}.py` — Design the module combinations, weights, and gates appropriate for the methodology.
+
+**[HARD] Preliminary Step — Exhaustive Verification of Module Interfaces:**
+
+Before writing code, verify the actual interfaces of all modules to be called in the pipeline using `extract_docstring.py`. Items to check: subcommand names, argument formats (positional/named), and return JSON structures (key names, nesting depth). Skipping this step will result in incorrect calls, causing most modules to fall into `missing_components`.
+
+Required Elements:
+- Subcommand design (derived from the expert's analysis workflow)
+- Hard Gate / Soft Gate System
+- Composite Scoring + Signal Generation
+- ThreadPoolExecutor Parallel Execution
 - Graceful Degradation
-- 응답 압축 후처리
-- 파일 최상단 모듈 docstring (`docstring_guidelines.md` 규격)
+- Response Compression Post-processing
+- Top-level module docstring (`docstring_guidelines.md` specifications)
 
-#### 5단계: Command .md 작성
+#### Step 5: Write Command .md
 
-`commands/{Name}.md` — 기존 커맨드 파일을 구조적 템플릿으로 참조.
+`commands/{Name}.md` — Refer to existing command files as structural templates.
 
-필수 섹션: YAML frontmatter, Identity, Voice, Core Principles, Prohibitions, Methodology Quick Reference, Query Classification, Analysis Protocol, Reference Files, Error Handling, Response Format.
+Required Sections: YAML frontmatter, Identity, Voice, Core Principles, Prohibitions, Methodology Quick Reference, Query Classification, Analysis Protocol, Reference Files, Error Handling, Response Format.
 
-#### 6단계: SKILL.md 업데이트
+#### Step 6: Update SKILL.md
 
-Function Catalog의 Pipelines 섹션에 새 파이프라인 등록.
+Register the new pipeline in the Pipelines section of the Function Catalog.
 
-#### 7단계: Plugin Modification Checklist
+#### Step 7: Plugin Modification Checklist
 
-CHANGELOG.md, plugin.json, marketplace.json, root README.md 업데이트.
+Update `CHANGELOG.md`, `plugin.json`, `marketplace.json`, and the root `README.md`.
 
 ---
 
-## 7. 수정 가이드
+## 7. Modification Guide
 
-기존 구성요소 수정 시 주의사항.
+Precautions when modifying existing components.
 
-### 커맨드 수정
+### Modifying Commands
 
-Query Classification 변경 시 Persona 파일과의 매핑을 확인한다. 새 Query Type 추가 시 해당 워크플로우를 처리할 Persona 파일 또는 파이프라인 서브커맨드가 존재하는지 확인.
+When changing Query Classification, verify the mapping with Persona files. When adding a new Query Type, ensure that a Persona file or pipeline subcommand exists to handle that workflow.
 
-### 파이프라인 수정
+### Modifying Pipelines
 
-서브커맨드 추가·변경 시 파일 최상단 docstring 업데이트 필수. `extract_docstring.py`로 발견되는 정보가 유일한 인터페이스 문서이므로, docstring이 실제 구현과 일치하지 않으면 에이전트가 잘못된 호출을 하게 된다.
+When adding or changing subcommands, updating the top-level docstring is mandatory. Since the information discovered by `extract_docstring.py` is the only interface documentation, if the docstring does not match the actual implementation, the agent will make incorrect calls.
 
-새 모듈을 호출하거나 기존 호출을 변경할 때, 반드시 `extract_docstring.py`로 해당 모듈의 현재 인터페이스(서브커맨드명, 인자, 반환 구조)를 확인한 후 코드를 수정한다. 모듈의 출력 구조가 변경되었을 수 있으므로 기존 파싱 코드의 필드명·중첩 경로도 함께 검증한다.
+When calling a new module or changing an existing call, you must verify the current interface (subcommand name, arguments, return structure) of the module using `extract_docstring.py` before modifying the code. Since the module's output structure might have changed, also validate the field names and nested paths in the existing parsing code.
 
-### 모듈의 JSON 출력 구조 변경 (가장 위험한 변경)
+### Changing the JSON Output Structure of a Module (Most Dangerous Change)
 
-출력 키 이름이나 구조가 바뀌면 해당 모듈을 호출하는 **모든 파이프라인**이 영향을 받는다. 변경 전 해당 모듈을 사용하는 파이프라인을 반드시 확인하고, 파이프라인 쪽 파싱 로직도 함께 수정한다.
+If the output key names or structure change, **all pipelines** calling that module are affected. Before making the change, you must identify the pipelines using the module and modify their parsing logic accordingly.
 
-### 모듈 수정 (일반)
+### Modifying Modules (General)
 
-여러 파이프라인에서 사용될 수 있으므로 하위 호환성을 유지한다. 기존 출력 키를 삭제하기보다 새 키를 추가하는 방향을 우선 고려.
+Since they can be used in multiple pipelines, maintain backward compatibility. Prioritize adding new keys over deleting existing output keys.
 
-### 새 모듈 생성 vs 기존 모듈 서브커맨드 추가
+### Creating a New Module vs. Adding a Subcommand to an Existing Module
 
-새 분석 기능이 기존 모듈의 단일 책임(SRP)에 속하면 서브커맨드로 추가하고, 새로운 관심사이면 새 모듈을 생성한다. 모듈이 무분별하게 늘어나거나, 하나의 모듈이 비대해지는 것을 방지.
+If a new analysis function falls within the Single Responsibility Principle (SRP) of an existing module, add it as a subcommand. If it is a new concern, create a new module. Prevent modules from proliferating indiscriminately or a single module from becoming bloated.
 
-### SKILL.md 수정
+### Modifying SKILL.md
 
-모듈 추가·제거·이름 변경 시 카탈로그를 동기화한다.
+Synchronize the catalog when adding, removing, or renaming modules.
