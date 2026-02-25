@@ -77,7 +77,7 @@ When the 4Q has established new highs but December closes weakly, and the rate e
 - Commodity prices still firm; "everything rally" in EM
 
 **Phase 2 (1997 H2 - 1998)**: Asian financial crisis trigger.
-- Thai baht crisis → contagion to Korea, Indonesia, Malaysia
+- Thai baht crisis → contagion across EM
 - EM equities collapsed (40-60% drawdowns)
 - USD surged as EM devalued
 - US absorbed global liquidity; domestic consumption drove continued US strength
@@ -87,22 +87,22 @@ When the 4Q has established new highs but December closes weakly, and the rate e
 **Key Structural Mechanism**:
 The yield differential between US and EM compressed too much during the EM rally phase. When the carry trade unwound, dollar funding was withdrawn. Countries with high USD-denominated debt faced solvency crises. EM entered multi-year underperformance relative to DM.
 
-**Pattern Match Conditions for This Analog**:
+**Pattern Match Conditions**:
 - EM dramatically outperforming DM for an extended period (5+ months)
 - Yield spread (US vs. EM) near historical boundary levels
 - FX volatility in EM starting to rise
 - Gold remaining firm while EM commodity prices peak
 
 **Key Lesson for US Markets**:
-When EM outperformance is driven by yield differential compression rather than fundamental improvement, the reversion is structural. US becomes the liquidity safe haven. After the crisis resolution, US equities recover first and fastest. Position: Long US large-cap quality post-EM crisis; Short EM equities on any rally during crisis phase.
+When EM outperformance is driven by yield differential compression rather than fundamental improvement, the reversion is structural. US becomes the liquidity safe haven. After the crisis resolution, US equities recover first and fastest.
 
 ---
 
 ### 1998 October — Dotcom Pre-Bubble (Partial Inversion Analog)
 
 **Macro Context**:
-- CAPE at 35-36 (identical to current 2025 levels)
-- S&P 500 dividend yield at 1.28% (identical to current)
+- CAPE at 35-36 (identical to 2025 levels)
+- S&P 500 dividend yield at 1.28% (identical to 2025)
 - Yield curve in partial inversion: US10Y-2Y positive, US10Y-3M negative (identical pattern observed only in 1998 Oct and March 2025)
 - Russia default + LTCM crisis → Fed cut 75bp in rapid succession
 - This liquidity injection fueled the final parabolic phase of the dotcom bubble
@@ -116,7 +116,7 @@ When EM outperformance is driven by yield differential compression rather than f
 - Market leadership concentrated in a narrow, high-multiple sector
 
 **Key Lesson for US Markets**:
-This analog does NOT predict immediate crash — it predicts a final speculative extension driven by emergency liquidity injection. The current period (2025) matches many features, but differs in: (1) debt/GDP ratio is 2.3x higher than 1998, (2) active fiscal policy is constrained by TGA dynamics, (3) no geopolitical shock has yet triggered the Fed rescue.
+This analog does NOT predict immediate crash — it predicts a final speculative extension driven by emergency liquidity injection. The current period matches many features, but differs in: (1) debt/GDP ratio is 2.3x higher than 1998, (2) active fiscal policy is constrained by TGA dynamics, (3) no geopolitical shock has yet triggered the Fed rescue.
 
 The 1998 analog suggests: if a macro shock (credit event, EM crisis) forces the Fed to cut rates even with elevated inflation, a blow-off rally in growth equities becomes possible before the structural correction.
 
@@ -126,18 +126,26 @@ The 1998 analog suggests: if a macro shock (credit event, EM crisis) forces the 
 
 **Macro Context**:
 - Yield curve bear steepening (10Y-2Y spread widening while both rose)
-- USD/EM FX anomaly: yield spread compressed but FX didn't respond as expected (USD didn't weaken proportionally)
+- USD/EM FX anomaly: yield spread compressed but FX didn't respond as expected
 - Credit spreads began widening in H2 2007 while equities held near highs
 - Housing credit stress visible in credit market months before equity top
 
-**Pattern Match Conditions for This Analog**:
+**Pattern Match Conditions**:
 - Long-end rates rising faster than short-end (bear steepening)
 - Credit spreads beginning to widen while equities hold
 - EM-DM yield spread at boundary levels while EM FX weakening
-- "장단기 금리차가 벌어지는데도, 환율이 안 빠지다가 오히려 스프레드가 줄었는데 환율이 상방으로 고개 드는" — yield spread widening but FX moving opposite to expected
+- Gold and equities both at elevated levels simultaneously ("금주식 동시 버블")
+
+**2007 Resolution Sequence**:
+1. Gold and stocks made simultaneous highs (2007 mid-year)
+2. Credit spreads widened first (HY before IG)
+3. Equity market held for months after credit signal
+4. Eventually equities followed credit down
+5. Gold initially fell with equities, then recovered as safe haven
+6. The lag between credit signal and equity top was ~6 months
 
 **Key Lesson for US Markets**:
-The 2007 analog is the most dangerous of the set because the equity market maintained its highs for months after the credit market began signaling stress. By the time equity investors recognized the regime change, drawdown was severe. Key tell: credit spreads widening while equity options market remains complacent (low VIX, low put/call).
+The 2007 analog is the most dangerous because the equity market maintained its highs for months after credit began signaling stress. Key tell: credit spreads widening while equity options market remains complacent (low VIX, low put/call).
 
 ---
 
@@ -164,7 +172,6 @@ The 2007 analog is the most dangerous of the set because the equity market maint
 - Gold at multi-year highs, other precious metals also rallying
 - Q4 long-term rates pivoting higher (bear steepening)
 - Commodity prices at extended levels
-- "역대급 귀금속 랠리" + "4분기 상방으로 피봇한 장기금리" + "EM의 미장대비 역사적 아웃퍼폼"
 
 **The Resolution Pattern**:
 - Phase 1: Non-gold commodities collapse first
@@ -172,15 +179,47 @@ The 2007 analog is the most dangerous of the set because the equity market maint
 - Phase 3: Gold remains elevated as the sole commodity store of value
 - Phase 4: US equities dip but recover on US liquidity absorption
 - Phase 5: EM enters multi-year underperformance; US dollar multi-year uptrend
-- "유동성은 모두 미국으로 흡수 & EM은 5년 박스권 진입"
 
 **Key Lesson for US Markets**:
-When positioned anticipating the 2011 analog, the strategy is:
+When positioned anticipating the 2011 analog:
 1. Short or reduce EM exposure during the outperformance phase
 2. Long USD (wait for the pivot)
-3. After the EM crisis trigger, rotate aggressively into US large-cap (especially financials and quality)
+3. After the EM crisis trigger, rotate aggressively into US large-cap
 4. Maintain gold exposure longer than non-precious commodities
 5. EM underperformance vs. US persists for years, not months
+
+**Gold Lag Signal**: After gold peaks and begins declining, equities may have 3-12 months before the broader correction materializes. Gold declining while equities hold is a *leading* signal of the final leg before the correction.
+
+---
+
+### 2013 / 2023 — Bear Steepener Historical Precedent
+
+**Context**: Periods when the yield curve bear-steepened (long rates rising faster) without an immediate crisis.
+
+**2013**: "Taper Tantrum" — Fed signaled QE tapering, long rates spiked, but the economy was stable enough to absorb higher rates. S&P 500 continued higher after initial volatility.
+
+**2023 Oct**: US10Y hit 5% — Dimon "sell" call at the peak. Market corrected briefly, then recovered as rate peak was confirmed.
+
+**Pattern Match Conditions**:
+- Bear steepening without credit crisis
+- Economy still growing (not in recession)
+- Market participants questioning whether rates will break the economy
+
+**Key Lesson**: Bear steepening without credit crisis = volatility but not necessarily crash. The 5% US10Y level has been a historical rejection zone — rates reach it but cannot sustain above it. Hawkish extreme statements (Dimon "8% possible") at rate peaks are contrarian buy signals for bonds.
+
+---
+
+### 2018-2019 — Protective Rate Cut → Inflation Chain
+
+**Context**: Fed raised rates through 2018 Q4, causing a sharp equity correction (-20%). Fed then pivoted to "insurance cuts" (3 cuts in 2019) despite no recession.
+
+**The Chain**:
+1. Aggressive tightening → equity correction → Fed pivot
+2. Insurance cuts without recession = liquidity injection into a still-growing economy
+3. Excess liquidity contributed to asset price inflation (2019-2020)
+4. COVID stimulus layered on top → inflation breakout in 2021-2022
+
+**Key Lesson**: Protective rate cuts without a genuine recession create future inflation. If the Fed cuts in 2025-2026 in response to market stress rather than economic recession, the same chain may repeat. The cut itself becomes the next problem.
 
 ---
 
@@ -200,6 +239,16 @@ When positioned anticipating the 2011 analog, the strategy is:
 
 ---
 
+### 2023 Summer Goldilocks vs. 2024 Reverse Goldilocks
+
+**2023 Summer "Goldilocks"**: Economy growing + inflation falling + rates stable = perfect environment for risk assets. S&P 500 rallied ~15% in 4 months.
+
+**2024 "Reverse Goldilocks"**: Economy still growing BUT inflation re-accelerating + rates rising again. The same strong economy that supports earnings is also supporting inflation, which prevents rate cuts.
+
+**Transition Signal**: Cleveland Fed CPI nowcast running above consensus + PMI rising + wage growth stable = the Goldilocks window is closing. Position for the transition before the market confirms it.
+
+---
+
 ## Analog Validation and Invalidation
 
 ### Validation Signals
@@ -213,6 +262,13 @@ Abandon an analog when:
 1. A key macro condition diverges from the historical period (e.g., Fed does the opposite of what happened in the analog)
 2. The "weak link" assets (EM, HY) fail to crack despite the conditions predicting they should
 3. A new structural factor emerges with no historical precedent (e.g., unprecedented fiscal policy tool)
+
+### "Dead Cat Bounce" vs. Structural Reversal Classification
+After a major decline, distinguish between a dead cat bounce and a structural reversal by checking:
+1. **Volume profile**: Reversal has expanding volume on up-days; dead cat has declining volume
+2. **Credit confirmation**: HY spreads tightening = structural; HY spreads flat = dead cat
+3. **Breadth**: Advancing stocks broadly increasing = structural; narrow leadership = dead cat
+4. **Rate response**: If the rally coincides with rate decline = structural; if rates are still rising = dead cat
 
 ### "이번엔 다르다" (This Time is Different) Bias vs. Genuine Structural Difference
 
@@ -228,7 +284,7 @@ The discipline:
 
 When the market matches multiple analogs simultaneously, construct weighted scenarios:
 
-**Example: 2025-2026 Assessment (from videos)**
+**Example: 2025-2026 Assessment (from methodology)**
 - Analog 1: 1993 (probability: lower) — Fed restraint, sideways market, no crisis trigger
 - Analog 2: 1997 (probability: higher) — EM outperform peak → structural EM crisis → US absorbs liquidity
 - Analog 3: 1998 Oct (partial) — partial curve inversion precedes final speculative push
@@ -245,3 +301,14 @@ Probability weighting:
 - Long-term: position for dollar strength and US dominance (1997 outcome)
 
 > "저는 개인적으로 93년보다 97년에 더 가깝다고 생각하는 입장입니다" — base case is the 1997 analog, not the softer 1993 analog
+
+---
+
+## US Credit Downgrade Response Pattern
+
+Historical precedent: S&P US credit downgrade (2011) and Fitch downgrade (2023).
+- Initial reaction: Sharp equity selloff, VIX spike
+- Resolution: Both times the market recovered within weeks
+- Mechanism: US Treasuries still function as global reserve asset despite the downgrade; "약한 고리" EM assets sell off harder than US because the downgrade triggers global risk-off but the dollar strengthens anyway
+
+**Key insight**: A US credit downgrade is paradoxically positive for the dollar in the short term because it triggers global risk-off that drives capital into dollar assets.

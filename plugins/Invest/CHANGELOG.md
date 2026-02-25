@@ -1,5 +1,91 @@
 # Changelog
 
+## 2026-02-25 (v2.0.1) — SidneyKim0 Pipeline Bug Fix
+
+### Fixed
+- **`pipelines/sidneykim0.py`** — Fixed all 17 module calls using wrong subcommand names/arguments:
+  - `macro/erp.py`: `["current"]` → `["erp"]`, output path `erp.get("erp")` → `_safe_get(erp, "current", "erp")`
+  - `macro/net_liquidity.py`: `["current"]` → `["net-liquidity"]`, output path `get("direction")` → `_safe_get(d, "net_liquidity", "direction")`
+  - `valuation/cape.py`: `["current"]` → `["get-current"]`, output field `cape_ratio` → `cape`
+  - `analysis/sentiment/fear_greed.py`: `["current"]` → `[]`, output path `get("score")` → `_safe_get(d, "current", "score")`
+  - `analysis/putcall_ratio.py`: `["current"]` → `["SPY"]`, output field `ratio` → `put_call_ratio`
+  - `data_sources/dxy.py`: `["current"]` → `[]`, output field `current_price` → `current_value`, `zscore` → `_safe_get(d, "statistics", "z_score")`
+  - `data_sources/bdi.py`: `["current"]` → `[]`, same field fixes as DXY
+  - `statistics/zscore.py`: `["calculate", SYMBOL]` → `[SYMBOL]`, output field `zscore` → `z_score`
+  - `statistics/percentile.py`: `["calculate", SYMBOL]` → `[SYMBOL]`, output field `percentile` → `percentile_rank`
+  - `valuation/cape_historical.py`: `["current"]` → `["get-current"]`
+  - `valuation/dividend_yield.py`: `["current"]` → `["sp500-yield"]`
+  - `data_advanced/fred/rates.py`: `["get-rates"]`/`["get-yield-curve"]` → single `["yield-curve", "--maturities", "2y,10y,30y", "--limit", "5"]`
+  - `data_advanced/fed/fedwatch.py`: `["current"]` → `[]`
+  - `technical/pattern/multi_dtw.py`: `["match", ...]` → `["multi-dtw", ...]`, `--top-n 10` → `--top-n 5`, output `matches` → `top_similar_patterns`, `correlation` → `similarity_score`, `start_date` → `window_start`
+  - `technical/pattern/fanchart.py`: `["project", ...]` → `["fanchart", ...]`, `--forward` → `--forward-days`, output path via `_safe_get(d, "fan_chart", "Nd")`
+  - `data_advanced/fred/rates.py`: output field `rates_data.get("us2y")` → `_safe_get(rates_data, "data", "DGS2")[-1]` (FRED series key)
+
+### Changed
+- **`pipelines/sidneykim0.py`** — Divergence subcommand redesigned: replaced arbitrary pair format (`detect SYMBOL1 SYMBOL2`) with 3 typed subcommands (`yield-equity`, `safe-haven`, `sector-commodity`). Added supplementary z-score context (VIX, gold, DXY). Removed `--pairs` CLI argument.
+- **`pipelines/sidneykim0.py`** — Deep-dive: removed duplicate module calls (`erp history`, `net_liquidity history` — both included in primary subcommand output). Rates deep-dive now extracts us10y from erp.py instead of rates.py.
+- **`pipelines/sidneykim0.py`** — Pattern module invocation: added `-m:` prefix convention for package modules (`technical.pattern`) that require module-level execution. Added PYTHONPATH propagation for module invocation. Bumped script timeout from 90s → 300s for multi-feature DTW computation.
+
+### Added
+- **`technical/pattern/__main__.py`** — Package entry point enabling `python -m technical.pattern` invocation for multi-dtw and fanchart subcommands.
+
+## 2026-02-25 (v2.0.0) — SidneyKim0 Expert Completion
+
+### Added
+- **`pipelines/sidneykim0.py`** — New macro-statistical pipeline with 6 subcommands:
+  - `regime`: Macro regime classification (4 regimes + grey zone) with confidence scoring, sub-regime detection, and hard gate system
+  - `divergence`: Cross-asset divergence/convergence scan with Z-score quantification and regime implication
+  - `analog`: Historical analog matching via multi-DTW pattern similarity with fan chart forward projection
+  - `deep-dive`: Deep-dive analysis on specific indicators (rates, dollar, gold, liquidity, vix, erp, cape, credit)
+  - `scenario`: Integrated scenario construction combining regime + divergence + analog into probability-weighted scenarios
+  - `dashboard`: Lightweight macro dashboard for quick pre-market assessment
+- **`SKILL.md`** — Registered `sidneykim0` pipeline in Function Catalog Pipelines section
+
+### Changed
+- **`SidneyKim0.md`** (command) — Complete overhaul:
+  - Added Pipeline-First Analysis Protocol with pipeline subcommand routing
+  - Added Prohibitions section (9 rules including pipeline exclusivity)
+  - Enhanced Methodology Quick Reference with sub-regime identification, barbell regime, HOPE cycle, and 5 additional quantitative thresholds
+  - Added Hard Gate / Signal Logic section for pipeline output interpretation
+  - Added Script-Automated vs Agent-Level Inference categorization
+  - Restructured Analysis Protocol to integrate pipeline-first workflow
+- **`methodology.md`** (persona) — Enhanced with:
+  - Sub-regime classification ("Good is Good" / "Bad is Good" / "Bad is Bad, Broken")
+  - Barbell Regime detection (structural instability signal)
+  - HOPE Cycle macro transmission sequence
+  - Regime Transition Detection Rules (4-step diagnostic)
+  - "Law of Large Numbers" trading rule
+  - US Fiscal Sustainability Framework
+  - Neutral rate (r*) structural assessment
+- **`quantitative_models.md`** (persona) — Added 3 new models:
+  - Model 8: CAPE Linear Regression Upper Bound
+  - Model 9: Cleveland Fed CPI Nowcast
+  - Model 10: Gold/Silver Ratio as Risk-Off Barometer
+  - Enhanced Model 3 (RSI) with cycle exhaustion rules and multi-asset monthly RSI compound signal
+  - Enhanced Model 4 (Correlation) with Gold-Nasdaq simultaneous rise pattern
+  - Enhanced Model 5 (Yield Spread) with rate-dollar decoupling sovereign credibility signal
+- **`cross_asset_analysis.md`** (persona) — Enhanced with:
+  - Gold/Silver ratio framework (leading risk-off indicator)
+  - Rate-index divergence and rate-dollar decoupling signals
+  - T-Bond credibility break triple signal
+  - WTI backwardation/contango as economic cycle indicator
+  - DXY-adjusted commodity price signal
+  - Safe-haven easing confirmation protocol (4-step validation)
+  - HY spread + safe-haven simultaneous elevation warning
+  - Private credit NAV-price divergence (leading indicator)
+  - Bitcoin dominance as risk appetite indicator
+  - Strong Dollar + Strong Oil inflationary regime signal
+  - Gold vs. Bond performance gap as safe-haven regime classifier
+  - Sector rotation breadth analysis and DXY sustainability threshold
+- **`historical_analogies.md`** (persona) — Added 3 new analogs:
+  - 2013/2023 Bear Steepener Historical Precedent (5% rejection zone)
+  - 2018-2019 Protective Rate Cut → Inflation Chain
+  - 2023 Summer Goldilocks vs. 2024 Reverse Goldilocks
+  - Gold Lag Signal (2011 analog)
+  - US Credit Downgrade Response Pattern
+  - Dead Cat Bounce vs. Structural Reversal classification (4-step diagnostic)
+  - Enhanced 2007 analog with gold-stock simultaneous bubble resolution sequence
+
 ## 2026-02-25 — Plugin Architecture Documentation
 
 ### Added

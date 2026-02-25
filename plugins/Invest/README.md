@@ -147,6 +147,7 @@ Module Scripts — 원자적 분석 함수 (~112개)
 | `minervini.py` | Minervini (SEPA) | 6개 |
 | `traderlion.py` | TraderLion (S.N.I.P.E.) | 6개 |
 | `serenity.py` | Serenity (6-Level) | 6개 |
+| `sidneykim0.py` | SidneyKim0 (Macro-Statistical) | 6개 |
 
 **필수 요소:**
 
@@ -156,6 +157,17 @@ Module Scripts — 원자적 분석 함수 (~112개)
 - **ThreadPoolExecutor 병렬 실행**: 독립적인 모듈을 동시 실행하여 응답 시간 단축.
 - **Graceful Degradation**: 부분 실패 시에도 나머지로 분석 계속. `missing_components` 표시.
 - **응답 압축 후처리**: 원시 데이터 → 인사이트로 변환하여 context 효율성 확보.
+
+**[HARD] 모듈 인터페이스 사전 검증 (Pipeline Development Rule):**
+
+파이프라인 코드를 작성·수정할 때, 호출할 모든 모듈에 대해 `extract_docstring.py`로 실제 인터페이스를 전수 확인한 후 코드를 작성한다. 확인해야 할 항목:
+
+1. **서브커맨드 이름**: 모듈이 실제로 제공하는 서브커맨드 (예: `erp`, `get-current`, `yield-equity` 등)
+2. **인자 형식**: positional vs named, 기본값, 타입 (예: `["SPY"]` vs `["--symbol", "SPY"]`)
+3. **반환 구조**: 출력 JSON의 키 이름과 중첩 구조 (예: `{"current": {"erp": float}}` vs `{"erp": float}`)
+4. **실행 방식**: 독립 스크립트(`python script.py`) vs 패키지 모듈(`python -m package`)
+
+모듈의 인터페이스를 확인하지 않고 추측으로 호출 코드를 작성하는 것을 **금지**한다. 서브커맨드명, 인자 형식, 출력 키 이름 중 하나라도 틀리면 해당 모듈 호출이 실패하고 `missing_components`에 빠지므로, 사전 검증은 파이프라인 품질의 필수 전제 조건이다.
 
 **유의사항:**
 - 모든 커맨드에는 반드시 전용 파이프라인이 존재해야 한다.
@@ -256,6 +268,8 @@ Module Scripts — 원자적 분석 함수 (~112개)
 
 - **서브커맨드 이름을 추측하여 실행** — 잘못된 서브커맨드로 에러 발생. Progressive Disclosure(Level 2)를 통해 정확한 서브커맨드를 먼저 확인해야 함
 
+- **파이프라인 코드에서 모듈 호출을 인터페이스 확인 없이 작성** — 서브커맨드명(`current` vs `erp` vs `get-current`), 인자 형식(`["calculate", "SPY"]` vs `["SPY"]`), 출력 키(`zscore` vs `z_score`, `current_price` vs `current_value`), 중첩 구조(`data.get("erp")` vs `data.get("current", {}).get("erp")`) 중 하나라도 틀리면 해당 모듈 호출이 실패하여 `missing_components`에 빠지거나 null 값이 반환된다. 파이프라인 코드 작성 전 `extract_docstring.py`로 호출할 모든 모듈의 인터페이스를 전수 확인해야 함
+
 - **모듈 스크립트에 특정 페르소나의 해석 로직을 하드코딩** — 다른 파이프라인에서 재사용 불가, 모듈 수 불필요 증가. 해석은 상위 계층(커맨드·파이프라인)이 담당
 
 - **커맨드·페르소나 파일에 구체적 코드명, 서브커맨드명 명시** — 코드 수정 시 여러 파일 간 동기화 부담 발생. Single Source of Truth 위반
@@ -301,6 +315,10 @@ Module Scripts — 원자적 분석 함수 (~112개)
 
 `scripts/pipelines/{name}.py` — 해당 방법론에 맞는 모듈 조합, 가중치, 게이트를 설계한다.
 
+**[HARD] 사전 단계 — 모듈 인터페이스 전수 확인:**
+
+코드 작성 전, 파이프라인에서 호출할 모든 모듈에 대해 `extract_docstring.py`로 실제 인터페이스를 확인한다. 확인 항목: 서브커맨드명, 인자 형식(positional/named), 반환 JSON 구조(키 이름, 중첩 깊이). 이 단계를 생략하면 잘못된 호출로 대부분의 모듈이 `missing_components`에 빠지는 결과를 초래한다.
+
 필수 요소:
 - 서브커맨드 설계 (해당 전문가의 분석 워크플로우에서 도출)
 - Hard Gate / Soft Gate 시스템
@@ -337,6 +355,8 @@ Query Classification 변경 시 Persona 파일과의 매핑을 확인한다. 새
 ### 파이프라인 수정
 
 서브커맨드 추가·변경 시 파일 최상단 docstring 업데이트 필수. `extract_docstring.py`로 발견되는 정보가 유일한 인터페이스 문서이므로, docstring이 실제 구현과 일치하지 않으면 에이전트가 잘못된 호출을 하게 된다.
+
+새 모듈을 호출하거나 기존 호출을 변경할 때, 반드시 `extract_docstring.py`로 해당 모듈의 현재 인터페이스(서브커맨드명, 인자, 반환 구조)를 확인한 후 코드를 수정한다. 모듈의 출력 구조가 변경되었을 수 있으므로 기존 파싱 코드의 필드명·중첩 경로도 함께 검증한다.
 
 ### 모듈의 JSON 출력 구조 변경 (가장 위험한 변경)
 

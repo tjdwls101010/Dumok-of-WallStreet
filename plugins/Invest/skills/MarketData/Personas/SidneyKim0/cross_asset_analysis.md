@@ -27,7 +27,9 @@ When the normal relationships break down, a regime transition is likely underway
 - **Gold rising AND USD rising simultaneously**: Safe-haven stress, not normal risk-on. Indicates capital seeking safety in multiple reserve assets simultaneously. Historical precursor to broader risk-off.
 - **Equities up AND credit spreads widening**: Equity rally is not confirmed by credit; typically precedes equity reversal.
 - **EM rallying strongly while DM rates rise**: EM is burning future returns forward. Historically precedes sharp EM correction once the yield differential becomes unsustainable.
-- **"장기금리 상승 & 원화 하락을 시장 호재로 인식하다 악재로 바뀐 것"**: The regime flip moment — when rate rise stops being "good news" and becomes "bad news."
+- **Rate-Index Divergence**: When US10Y rises significantly (15+ BP) but equities close flat/mild negative while HY sectors (SOX, Nasdaq) continue rising — the bond market is pricing risk that equities haven't yet reflected. Leading bearish signal.
+- **Rate-Dollar Decoupling**: When US10Y rises 15+ BP but DXY falls simultaneously — sovereign credibility signal. Yield rise is driven by risk premium (term premium), not growth. Different implications than a normal rate rise: weaker for risk assets, but dollar weakness may NOT support EM equities in the usual sense.
+- **T-Bond credibility break**: T-bonds dumped + gold surging + dollar surging simultaneously = the market is questioning US sovereign credit. This triple signal has historically preceded major risk-off events.
 
 ---
 
@@ -40,6 +42,7 @@ When the normal relationships break down, a regime transition is likely underway
 - Equity impact: Negative for long-duration equities (tech, growth); positive for financials
 - Macro signal: Market pricing in inflation risk or fiscal sustainability concern
 - EM impact: Significant negative — EM funding costs rise, USD strengthens
+- Combined with USD strength: global liquidity flows to US (양털깎기 cycle begins)
 
 **Bull Steepening** (short rates fall faster than long rates):
 - Drivers: Fed cutting, recession fears with long rates anchored by flight to quality
@@ -60,17 +63,14 @@ When the normal relationships break down, a regime transition is likely underway
 - 1998 context: Preceded the final phase of dotcom bubble expansion (+200% from -33% drawdown)
 - Signal: Short-end pricing cuts while long-end resists — market expecting Fed rescue
 
-### Key Spread Metrics to Track Daily
+### Key Spread Metrics
 - **US10Y-2Y** (10Y2Y): Primary curve shape indicator
-- **US10Y-3M** (10Y3M): Short-end policy expectation
+- **US10Y-3M** (10Y3M): Short-end policy expectation; persistent inversion more reliable recession predictor than 10Y2Y
 - **US10Y absolute level**: ERP and valuation anchor
-- **Cross-country spreads**: US10Y vs. JPY 10Y, KR 10Y, EUR 10Y — liquidity flow signals
+- **Cross-country spreads**: US10Y vs. JPY 10Y, EUR 10Y — liquidity flow signals
 
-### Bear Steepening Significance
-Bear steepening is the most dangerous regime for EM and growth equities:
-- "베어 스티프닝" = bear steepening = both rates rising with long rates faster
-- When the 10Y-2Y spread widens while both rates rise: fiscal sustainability is being questioned
-- Combined with USD strength: global liquidity flows to US (양털깎기 cycle begins)
+### Rate High-Plateau Regime
+When rates stabilize at a high level (e.g., US10Y 4.3-4.7%) without crisis, equities can rally on the *stability* of rates even though the *level* is headwind. This "high-plateau" regime is equity-supportive in the short-term but ultimately terminal — the high rate level compresses ERP over time and eventually triggers the correction. The duration of the plateau determines whether it's a 1993-style slow grind or a 2007-style sudden break.
 
 ---
 
@@ -86,16 +86,21 @@ DXY is the global liquidity transmission mechanism. Dollar strength is not just 
 | Rising (strong USD) | Global dollar liquidity tightening; EM stress |
 | Falling (weak USD) | Global liquidity easing; EM and commodity rally |
 | Rising while US rates falling | Safe-haven demand (flight to quality) |
-| Falling while US rates rising | EM driven by carry trade unwinding |
+| Falling while US rates rising | Sovereign credibility issue (risk premium rising) |
+
+### DXY Level Thresholds
+- **DXY 99-100**: EM trigger level. Below this, safe-haven easing confirmed; EM rally has room. Above this, dollar strength constrains EM and commodities.
+- **DXY structural ceiling**: When DXY is strong but rate differentials suggest it should weaken, the ceiling is formed by macro contradiction — the dollar cannot sustain strength against its own fundamental headwinds. Identify this ceiling via the DXY-10Y spread divergence signal.
 
 ### USD-EM Relationship (Yield Differential Framework)
 The key mechanism: yield spread between US and EM determines capital flow direction.
 
 - When US yield > EM yield: Capital flows to US (both for return AND safety)
 - When US yield < EM yield: Carry trade into EM temporarily
-- "미국 금리가 더 높으면 미국 안전자산으로, 더 낮으면 미국 주식으로" — in both scenarios, capital gravitates toward the US
+- The divergence phase (EM outperforms despite US yield advantage) eventually resolves violently toward the historical norm
 
-The divergence phase (EM outperforms despite US yield advantage) eventually resolves violently toward the historical norm.
+### Strong Dollar + Strong Oil Regime
+When both DXY and WTI are rising simultaneously, this is an inflationary regime signal — the dollar is rising for safe-haven reasons while oil is rising for supply/demand reasons. This combination is maximally negative for EM and growth equities because both input costs (energy) and funding costs (dollar) are rising.
 
 ---
 
@@ -108,17 +113,33 @@ Gold is simultaneously a safe-haven asset and an inflation hedge. Its behavior r
 - Gold rises while equities fall
 - Gold rises while commodities fall
 - Gold rises and dollar ALSO rises (dual safe-haven demand)
-- Post-2011 analog: "금을 제외한 비철들이 폭락하며, 금은 다시 safe haven으로 전환"
 
 **Gold as Risk Asset** (risk-on regime):
 - Gold rises with equities and commodities
 - Gold rises while dollar weakens
 - This is the "everything rally" pattern
 
-**Gold Signal Priority**:
+### Gold Signal Priority
 1. When gold decouples from its historical drivers (should fall with dollar but doesn't), investigate why
 2. When gold makes new highs while silver and other precious metals stagnate, it's pure safe-haven bid
-3. "위험자산-금의 디커플링" = risk asset vs. gold decoupling = regime transition signal
+3. Gold monthly RSI reaching 90+: historically a cycle-top signal across multiple asset classes. Post-gold-RSI-90 forward returns are historically negative over 3-6 months.
+
+### Gold/Silver Ratio Framework
+The Gold/Silver ratio (XAU/XAG) is one of the most powerful risk-off leading indicators:
+
+- **Ratio surging 30%+ in short period**: Broad deleveraging underway; equities next to fall
+- **Ratio at historical extremes**: Silver short has positive expectancy
+- **After extreme spike**: If Gold holds while Silver rebounds → equities tend to bounce. If Gold itself declines after the spike → deeper crash follows.
+- The ratio has reached historical extremes at the onset of: 2011 EM peak, COVID crash, Lehman 2008
+
+### Gold-Nasdaq Simultaneous Rise
+When Gold and Nasdaq both rise to new highs simultaneously, this is an unstable configuration — one is a risk-on asset, the other risk-off. Historically:
+- If Gold continues rising while Nasdaq reverses → risk-off wins
+- If Nasdaq holds while Gold corrects → risk-on continues
+- The divergence resolution provides a high-alpha signal
+
+### Gold vs. Bond Performance Gap
+When Gold dramatically outperforms Treasuries as a safe haven, it signals the market doubts sovereign bond safety. This is a qualitatively different signal than normal risk-off (where both gold and bonds rally). Track the Gold/TLT ratio for this signal.
 
 ### Historical Gold-Liquidity Cycle Pattern
 From the 2011 analog:
@@ -128,7 +149,6 @@ From the 2011 analog:
 4. EM equities collapse
 5. Gold remains elevated while risk assets correct
 6. Eventually US absorbs all global liquidity; gold normalizes
-7. "1년 동안 원자재 중 고점을 유지하는 것은 오로지 금뿐"
 
 ---
 
@@ -140,11 +160,13 @@ Fed Net Liquidity = Fed Balance Sheet − Treasury General Account (TGA) − Rev
 ```
 
 ### Components
-**Fed Balance Sheet**: Total assets (Treasuries + MBS + lending facilities). Growing = QE; shrinking = QT.
+**Fed Balance Sheet**: Total assets. Growing = QE; shrinking = QT.
 
-**TGA (Treasury General Account)**: US Treasury cash balance at the Fed. When TGA declines, cash flows into the banking system (liquidity positive). When TGA increases (Treasury issuing debt), liquidity is drained.
+**TGA (Treasury General Account)**: US Treasury cash balance at the Fed. When TGA declines, cash flows into the banking system (liquidity positive). When TGA increases, liquidity is drained.
 
-**RRP (Reverse Repo Facility)**: Overnight lending to money market funds. High RRP = excess liquidity parked at the Fed, not circulating. Declining RRP = liquidity re-entering the system.
+**RRP (Reverse Repo Facility)**: High RRP = excess liquidity parked at the Fed. Declining RRP = liquidity re-entering the system. RRP at floor level means the liquidity buffer is exhausted — further QT directly drains bank reserves.
+
+**Reserve Balance (지준금)**: Bank reserves held at the Fed. When reserves fall below a threshold, interbank stress begins. Track reserve balance as a gauge of whether QT is still safe or approaching breaking point.
 
 ### Interpretation
 | Net Liquidity Change | Market Implication |
@@ -153,9 +175,13 @@ Fed Net Liquidity = Fed Balance Sheet − Treasury General Account (TGA) − Rev
 | Falling (QT + TGA build + RRP rising) | Liquidity contracting; risk assets negative |
 | QT ongoing but RRP declining | Liquidity neutral (RRP acts as buffer) |
 | TGA rapidly declining near debt ceiling | Short-term liquidity surge — temporary tailwind |
+| RRP near zero + QT continuing | Dangerous — reserves draining directly; watch for interbank stress |
 
-### Script Reference
-See `SKILL.md` → Macro category for Fed net liquidity tracking tools.
+### QT Completeness Test
+Monitor whether QT is still "safe" by checking:
+1. RRP level — while RRP is declining, QT is draining excess reserves (safe)
+2. Reserve balance — when reserves approach the estimated "ample" threshold, QT stress begins
+3. Fed balance sheet trajectory vs. pre-announced plan — deviations signal stress awareness
 
 ---
 
@@ -165,12 +191,12 @@ See `SKILL.md` → Macro category for Fed net liquidity tracking tools.
 Credit spreads (HY spread over Treasuries) are a leading indicator for equity risk:
 - Spreads widening while equities hold = warning signal; credit sees stress before equity
 - Spreads tightening while equities flat = potential catch-up rally incoming
-- "HY 섹터의 주춤" = HY underperformance = early 역금융장세 signal
 
-### Key Observation Points
+### Key Observations
 - HY vs. IG spread differential: When HY underperforms IG disproportionately, credit market is pricing systemic risk
-- Investment-grade credit as equity hedge: IG bonds and equities tend to be more correlated than HY and equities
 - Put/Call ratio below 0.6 combined with HY spread widening = extreme sentiment divergence (credit more cautious than equity options market)
+- **HY spread + safe-haven simultaneous elevation**: When both HY spreads and safe-haven demand (gold, long bonds) are elevated simultaneously, this is a structural warning — the market is both reaching for yield and hedging against collapse. Historically precedes sharp correction.
+- **Private credit NAV-price divergence**: When private credit vehicles (BDC ETFs, CLO funds) trade at significant discounts to NAV while HY spreads are still tight, the private market is pricing risk that the public market hasn't acknowledged. Leading indicator.
 
 ---
 
@@ -182,17 +208,25 @@ BDI tracks real shipping rates for bulk dry goods — a real-time proxy for glob
 - **BDI falling sharply** (600+ point drop): Real global trade demand weakening; macro slowdown signal before it appears in official data
 - **BDI rising while manufacturing PMIs fall**: Transport demand driven by front-loading (e.g., tariff-front-running), not genuine demand recovery — false positive signal
 
-### Commodity Price Indices
-- **GSCI +3% MoM**: Broad commodity inflation signal
-- **LME index +2% MoM**: Industrial metals — growth expectations embedded in prices
-- **CRB index +1.5% MoM**: Composite commodity inflation
-- These indices moving up simultaneously with DXY weakening = classic "everything rally" risk-on signal
+### WTI Backwardation/Contango as Cycle Indicator
+- **WTI in backwardation** (near-term > deferred): Physical demand exceeds supply; economic activity strong. Bullish for energy equities.
+- **WTI shifting to contango** (deferred > near-term): Physical demand weakening; storage building. Bearish for energy, and a leading indicator for broader economic slowdown.
+- The shift from backwardation to contango is a cycle-turning indicator for the real economy.
+
+### DXY-Adjusted Commodity Price Signal
+Raw commodity price changes are misleading without DXY adjustment. A commodity rising 5% while DXY falls 3% has only gained ~2% in real terms. Always adjust commodity moves for dollar changes before interpreting the signal. When commodities rise in DXY-adjusted terms, the demand signal is genuine.
 
 ### Semiconductor Spot Prices
 DRAM and NAND spot prices function as a real-time semiconductor demand tracker:
 - **Spot prices making new highs**: Demand exceeding supply; semiconductor cycle healthy
 - **Spot prices peaking and turning**: Leading indicator for revenue trajectory of semiconductor companies
 - Context matters: HBM-driven strength masks weakness in legacy DRAM spot prices
+
+### Commodity Price Indices
+- **GSCI +3% MoM**: Broad commodity inflation signal
+- **LME index +2% MoM**: Industrial metals — growth expectations embedded in prices
+- **CRB index +1.5% MoM**: Composite commodity inflation
+- These indices moving up simultaneously with DXY weakening = classic "everything rally" risk-on signal
 
 ---
 
@@ -206,6 +240,7 @@ A divergence occurs when assets that should move together (based on historical c
 2. **EM outperforms while US yield advantage widening**: EM borrowing from future returns
 3. **Gold rises while dollar also rises**: Dual safe-haven demand — flight from the system
 4. **Nasdaq rallies while semiconductors underperform**: Sector leadership breakdown within tech
+5. **Global policy divergence**: When central banks diverge sharply in policy direction, the dollar regime is extended until policy re-converges
 
 ### Convergence Framework
 When divergent assets eventually reconnect with their historical relationship, the correction is often sharp.
@@ -215,8 +250,13 @@ When divergent assets eventually reconnect with their historical relationship, t
 - The historical average time for resolution
 - Which direction the resolution typically occurs (does the laggard catch up, or does the leader fall back?)
 
-### Script Reference
-See `SKILL.md` → Divergence, Convergence, and Statistics categories for cross-asset divergence detection and correlation analysis tools.
+### Safe-Haven Easing Confirmation Protocol
+Before entering a HY long position after a risk-off period, confirm safe-haven easing:
+1. Gold price stabilizing or declining (no longer rising as safe haven)
+2. DXY declining below 99-100 level (safe-haven USD bid fading)
+3. VIX term structure returning to contango (no longer in backwardation)
+4. HY spreads tightening (credit confirming the risk-on shift)
+All four must confirm before the risk-on rotation is validated.
 
 ---
 
@@ -234,9 +274,13 @@ See `SKILL.md` → Divergence, Convergence, and Statistics categories for cross-
 ### Materials Sector as Macro Signal
 Materials sector PE relative to its own 10-year historical average is a commodity expectations barometer:
 
-- **PE near or below historical mean**: Commodity market not yet pricing an inflationary cycle; potential early entry
-- **PE 1-2σ above historical mean**: Commodity expectations beginning to be priced into equities; monitor, not alarm
+- **PE near or below historical mean**: Commodity market not yet pricing an inflationary cycle
+- **PE 1-2σ above historical mean**: Commodity expectations beginning to be priced into equities
 - **PE 2σ+ above historical mean**: Forward commodity prices already embedded in multiples; late-cycle commodity positioning signal
-- **PE 3σ+ above historical mean**: Extreme; commodity bull case is fully priced. This is a sell signal for Materials, not a buy signal — the market has already priced the thesis
+- **PE 3σ+ above historical mean**: Extreme; commodity bull case is fully priced. Sell signal for Materials
 
-**Methodology rule**: Track Materials PE Z-score vs. 10-year mean. When it reaches the 2σ+ zone, shift from accumulating commodity exposure to monitoring for rotation signals. At 3σ+, assume the commodity tailwind is already discounted and position accordingly.
+### Sector Rotation Breadth Analysis
+Monitor the breadth of sector participation (McClellan Oscillator, advancing/declining stocks ratio). When market index is making new highs but breadth is narrowing (fewer sectors participating), the rally is concentrated and vulnerable. DXY level above the sustainability threshold (~104+) constrains the breadth of sectors that can participate in a rally.
+
+### Bitcoin Dominance as Risk Appetite Indicator
+Bitcoin dominance (BTC market cap / total crypto market cap) rising while altcoins fall = risk appetite within the speculative asset class is narrowing. This mirrors the "quality over speculation" dynamic in equity markets and confirms the 양털깎기 regime.
