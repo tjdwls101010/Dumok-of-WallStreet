@@ -2,7 +2,7 @@
 
 유명 투자 전문가의 방법론과 페르소나를 100% 복제하여, 해당 전문가의 관점에서 시장을 분석하는 플러그인.
 
-현재 5명의 전문가를 지원한다: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), **Williams** (Volatility Breakout).
+2026년 2월 25일 기준, 현재 5명의 전문가를 지원한다: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), **Williams** (Volatility Breakout).
 
 ---
 
