@@ -16,6 +16,7 @@ cd skills/MarketData/scripts
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
+> In Cowork sessions, the scripts directory is read-only. Create the venv in the session working directory instead and point `$VENV` to it.
 
 ## Environment Bootstrap Protocol
 
@@ -27,6 +28,12 @@ Before running any script, verify the following:
    python3 -m venv .venv
    .venv/bin/pip install -r requirements.txt
    ```
+
+### Cowork Environment
+The plugin cache directory in Cowork is **read-only** — venv creation will fail in the scripts directory.
+Create the venv in the session working directory instead (e.g., `/sessions/{session-id}/.venv`),
+install requirements from the original scripts path, and set `$VENV` to the new venv's python path.
+Scripts remain executable from their original read-only location — no copying needed.
 
 ## Progressive Disclosure Architecture
 
@@ -286,6 +293,7 @@ Filings, insider trades, 13F, FTD
 VENV=skills/MarketData/scripts/.venv/bin/python
 SCRIPTS=skills/MarketData/scripts
 ```
+> In Cowork (read-only filesystem), `$VENV` should point to the venv created in the writable session directory.
 
 **Step 1**: Find the script you need in the catalog above.
 
@@ -373,6 +381,7 @@ If a script fails with `ModuleNotFoundError` or import errors:
 1. Activate the virtual environment: `cd skills/MarketData/scripts && python -m venv .venv && .venv/bin/pip install -r requirements.txt`
 2. For individual packages: `.venv/bin/pip install <package-name>`
 3. Common missing packages: `finvizfinance`, `fredapi`, `sec-api`
+4. **Read-only filesystem (Cowork)**: If venv creation fails with permission errors, create the venv in the session working directory and install requirements from the original scripts path.
 
 ### Finviz 403 / Rate Limit Errors
 
