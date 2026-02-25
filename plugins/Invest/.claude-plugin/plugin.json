@@ -1,6 +1,6 @@
 {
   "name": "invest",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Financial market data analysis plugin with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), and Evolve meta-engineering tool",
   "author": {
     "name": "Seongjin"

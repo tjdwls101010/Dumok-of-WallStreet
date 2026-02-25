@@ -55,6 +55,7 @@ Persona-specific analysis orchestrators (Facade) — prefer these as the primary
 | `traderlion` | Full S.N.I.P.E. pipeline: SNIPE composite score (0-100) with 4 hard gates, edge-based position sizing, volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, provisional watchlist mode, market cycle assessment, sector screening, multi-ticker comparison, and position recheck | `pipelines/traderlion.py` |
 | `serenity` | Full Serenity 6-Level pipeline: macro regime assessment, fundamental validation (4 health gates), evidence chain verification, multi-ticker comparison (12 metrics including asymmetry score), sector bottleneck screening, and CapEx cascade tracking. L2 CapEx Flow and L3 Bottleneck require agent-driven context. L6 Taxonomy requires LLM classification. Sector-agnostic | `pipelines/serenity.py` |
 | `sidneykim0` | Macro-statistical pipeline: regime classification with confidence scoring, cross-asset divergence scan, historical analog matching with fan chart, deep-dive indicator analysis (rates/dollar/gold/liquidity/vix/erp/cape/credit), integrated scenario construction, and lightweight dashboard summary. No individual ticker required — analyzes the macro environment as a whole | `pipelines/sidneykim0.py` |
+| `williams` | Full Williams short-term volatility breakout pipeline: trade-setup composite filter (TDW+TDM+bond+MA+pattern → conviction scoring with position sizing), single-ticker deep analysis, multi-ticker pattern scanning, market context (bond trend+COT+TDW/TDM calendar), batch watchlist evaluation, and quick dashboard | `pipelines/williams.py` |
 
 ### Core Analysis
 
@@ -94,6 +95,7 @@ RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Coun
 | `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading and breakout confirmation | `technical/volume_analysis.py` |
 | `closing_range` | Closing Range (CR) calculation with Constructive/Non-constructive bar classification and screening | `technical/closing_range.py` |
 | `volume_edge` | Volume edge detection: HVE, HVIPO, HV1, Increasing Average Volume, Volume Run Rate with conviction scoring | `technical/volume_edge.py` |
+| `williams` | Larry Williams short-term trading tools: Williams %R, volatility breakout levels, range analysis, swing point identification, pattern scanning (Outside Day/Smash Day/Hidden Smash Day/Specialists' Trap/Oops!), and composite trade setup filter with TDW/TDM/bond confirmation | `technical/williams.py` |
 
 #### Data Sources
 
@@ -401,6 +403,7 @@ When YFinance returns insufficient data for a specific ticker:
 | `capex_tracker.py cascade` | Run `capex_tracker.py track` per layer individually | `financials.py get-cash-flow --freq quarterly` + manual CapEx extraction |
 | `traderlion.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
 | `minervini.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
+| `williams.py trade-setup` | Run individual williams.py subcommands separately (trade-setup, pattern-scan, williams-r, volatility-breakout, range-analysis) | Manual analysis from price data + TDW/TDM lookup |
 | `finviz.py screen` | `sector_leaders.py scan --fallback etf` | `rs_ranking.py screen` (YFinance-based RS) |
 | `finviz.py groups` | `sector_leaders.py scan --fallback etf` | Manual ETF comparison |
 | `earnings_acceleration.py code33` | `earnings_acceleration.py acceleration` | `financials.py get-income-stmt --freq quarterly` |

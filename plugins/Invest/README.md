@@ -148,6 +148,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 | `traderlion.py` | TraderLion (S.N.I.P.E.) | 6 |
 | `serenity.py` | Serenity (6-Level) | 6 |
 | `sidneykim0.py` | SidneyKim0 (Macro-Statistical) | 6 |
+| `williams.py` | Williams (Volatility Breakout) | 6 |
 
 **Required Elements:**
 
