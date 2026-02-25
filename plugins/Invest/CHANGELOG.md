@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-02-25 (v1.9.0) — Pipeline Facade Refactoring
+
+### Added
+- **`minervini.py`** — 4 new pipeline subcommands (Facade pattern):
+  - `market-leaders`: Market environment assessment via sector leadership dashboard, market breadth, and batch TT checks on top leaders (classifies healthy vs broken leaders)
+  - `screen`: Sector-based SEPA candidate screening using Finviz sector-screen + watchlist-level analysis (TT, Stage, RS, Earnings, Volume) with composite scoring
+  - `compare`: Multi-ticker full SEPA comparison with head-to-head ranking, side-by-side comparison table, and top candidate recommendation
+  - `recheck`: Position management recheck for held positions (TT status, Stage, post-breakout behavior, volume condition, earnings proximity, consolidated risk update)
+- **`traderlion.py`** — 4 new pipeline subcommands (Facade pattern):
+  - `market-cycle`: Market cycle assessment via QQQ 21 EMA status, gauge stock MA alignment, and market breadth. Produces composite cycle score (0-8) with cycle stage classification and exposure guidance
+  - `screen`: Sector-based S.N.I.P.E. candidate screening using Finviz + watchlist-level SNIPE analysis with edge detection
+  - `compare`: Multi-ticker full S.N.I.P.E. comparison with 7-axis ranking (edge count, RS, winning characteristics, setup maturity, base count, volume grade, constructive ratio)
+  - `recheck`: Position management recheck (TT, Stage, post-breakout, closing range, volume edge freshness, earnings proximity, position grade data)
+- **`serenity.py`** — 1 new pipeline subcommand:
+  - `capex-cascade`: Supply chain CapEx cascade tracking across multiple tickers with 8Q trend per ticker, cascade health summary (upstream→downstream consistency), and hyperscaler signal detection
+
+### Changed
+- **`serenity.py`** — `compare` expanded from 11 to 12 metrics: added `asymmetry_score` via `bottleneck_scorer.py validate` per ticker. New relative_strength: `best_asymmetry`. Bottleneck health gate flags integrated into per-ticker health gates.
+- **`Minervini.md`** — Abstracted pipeline references: replaced specific script invocations with pipeline-first guidance. Added `extract_docstring.py` discovery instruction for subcommand lookup.
+- **`TraderLion.md`** — Abstracted pipeline references: replaced SNIPE pipeline naming with TraderLion pipeline. Pipeline-first soft guide added.
+- **`Serenity.md`** — Abstracted pipeline references: pipeline-first soft guide with `extract_docstring.py` discovery. Script-automated section consolidated to pipeline entry point.
+- **`SKILL.md`** — Pipeline section updated: descriptions reflect expanded Facade scope (market environment, screening, comparison, position management) without listing specific subcommands. Added pipeline-first guidance with `extract_docstring.py` discovery note.
+
 ## 2026-02-24 (v1.8.3)
 
 ### Fixed

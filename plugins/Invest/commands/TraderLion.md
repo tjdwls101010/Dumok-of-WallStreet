@@ -147,7 +147,7 @@ For every analysis, follow this sequence. Do NOT skip steps.
 
 1. **Market Cycle Assessment**: Always complete first. Classify cycle stage (Downcycle/Bottoming/Upcycle/Topping). Compute cycle score. This constrains all subsequent analysis.
 2. **Query Classification**: Classify into Type A-G, identify required persona files.
-3. **TraderLion Pipeline Execution (S.N.I.P.E.)**: For individual stock analysis, run SNIPE pipeline analysis to get composite score, hard-gate status, edge count, and signal in one step. For watchlist, run SNIPE pipeline in watchlist mode. Pipeline output feeds steps 4-9.
+3. **TraderLion Pipeline Execution (S.N.I.P.E.)**: Collect S.N.I.P.E. data through the TraderLion pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Pipeline output feeds steps 4-9.
 4. **Hard-Gate Check**: If `hard_gate_result.blocked == true`, stop entry-path analysis immediately. Output blockers with TraderLion principle explanations. Proceed only to monitor/watchlist recommendations.
 5. **Edge Detection**: Run volume edge detection and RS analysis if not already from pipeline. Count edges present. Identify N-Factor catalysts if applicable.
 6. **Volume Confirmation**: [HARD] No edge verdict without volume confirmation. Check volume analysis for accumulation/distribution grade AND closing range analysis for constructive bar ratio. Both must confirm before declaring edges actionable.
@@ -159,7 +159,7 @@ For every analysis, follow this sequence. Do NOT skip steps.
 ### Script-Automated vs. Agent-Level Inference
 
 **Script-automated** (run these via MarketData scripts):
-- SNIPE Pipeline (composite score, hard gates, edge count, signal, position sizing — primary entry point), Closing Range, Volume Edge Detection, Volume Analysis, RS Ranking, Stage Analysis, Trend Template, VCP Detection, Base Counting, Indicators, Oscillators, Post-Breakout Monitoring, Screening
+- TraderLion Pipeline (composite score, hard gates, edge count, signal, position sizing — primary entry point for all query types), Closing Range, Volume Edge Detection, Volume Analysis, RS Ranking, Stage Analysis, Trend Template, VCP Detection, Base Counting, Indicators, Oscillators, Post-Breakout Monitoring, Screening
 
 **Agent-level inference** (LLM reasoning required):
 - Market cycle stage classification (synthesizing QQQ MA status + breadth + gauge stocks)
@@ -187,7 +187,7 @@ For every analysis, follow this sequence. Do NOT skip steps.
 
 ### Hard-Gate Interpretation
 
-When SNIPE pipeline returns `hard_gate_result.blocked == true`:
+When the TraderLion pipeline returns `hard_gate_result.blocked == true`:
 
 1. **Output blockers first** — list each blocker code with plain-language explanation using TraderLion principles
 2. **Ignore composite score** — a blocked stock's score is informational only; it cannot generate an AGGRESSIVE or STANDARD signal
@@ -207,7 +207,7 @@ When SNIPE pipeline returns `hard_gate_result.blocked == true`:
 - Final trade decision and recommendation text
 
 **Sub-Agent / Script delegation** (use Bash tool or Task tool):
-- SNIPE pipeline execution (analyze / watchlist)
+- TraderLion pipeline execution (available subcommands via SKILL.md)
 - WebSearch for N-Factor catalyst research
 - Gauge stock MA status checks
 - Earnings date proximity lookup
@@ -217,11 +217,11 @@ When SNIPE pipeline returns `hard_gate_result.blocked == true`:
 
 ### Provisional Signal Handling
 
-When SNIPE pipeline watchlist returns results with `analysis_mode: "provisional"`:
+When the TraderLion pipeline watchlist returns results with `analysis_mode: "provisional"`:
 
 1. **AGGRESSIVE is capped to STANDARD** in provisional mode — acknowledge this explicitly
 2. **List missing_components** — state which analyses were skipped (VCP, base count, closing range)
-3. **Recommend full analysis** for any provisional STANDARD signal — "이 종목은 provisional 결과입니다. SNIPE pipeline full 분석 필요."
+3. **Recommend full analysis** for any provisional STANDARD signal — "This is a provisional result. Full analysis required."
 4. **Sort and present** watchlist results by snipe_score descending with signal color coding
 
 ---

@@ -18,8 +18,9 @@ Commands:
 		fundamentals with 12 scripts + L5 catalysts with 5 scripts + health
 		gates + valuation summary)
 	evidence_chain: 6-Link evidence chain data availability check
-	compare: Multi-ticker side-by-side comparison (11 metrics)
+	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
 	screen: Sector-based bottleneck candidate screening
+	capex-cascade: Supply chain CapEx cascade tracking across multiple tickers
 
 Args:
 	For macro:
@@ -39,6 +40,9 @@ Args:
 		sector (str): Sector name for Finviz screening
 		--min-rs (int): Minimum relative strength score (default: 50)
 		--max-mcap (str): Maximum market cap filter (default: "10B")
+
+	For capex-cascade:
+		tickers (list): 2+ stock ticker symbols for CapEx cascade tracking
 
 Returns:
 	For macro:
@@ -77,12 +81,19 @@ Returns:
 		no_growth_upside_pct, margin_status, io_quality_score,
 		debt_quality_grade, market_cap, revenue_growth_yoy,
 		short_interest_pct, 52w_range_position, sbc_flag,
-		consecutive_beats per ticker),
+		consecutive_beats, asymmetry_score per ticker),
 		health_gates, relative_strengths.
 
 	For screen:
 		dict with sector, candidates_screened (int),
 		results (list sorted by asymmetry_score desc).
+
+	For capex-cascade:
+		dict with tickers, capex_trends (per-ticker 8Q CapEx with
+		QoQ/YoY direction and acceleration), cascade_summary (overall
+		cascade health and upstream→downstream consistency),
+		hyperscaler_signal (aggregate hyperscaler CapEx direction if
+		applicable).
 
 Example:
 	>>> python serenity.py macro --extended
@@ -127,6 +138,8 @@ Notes:
 	- compare uses get-info-fields (5 fields) instead of get-info (100+ fields)
 	- compare includes sbc_analyzer (SBC health flag) and earnings_surprise (consecutive beats) for filtering
 	- compare uses forward_pe (analyst consensus) for revenue_growth_yoy
+	- compare includes asymmetry_score via bottleneck_scorer.py validate per ticker (12 metrics total)
+	- capex-cascade tracks 8Q CapEx via capex_tracker.py track per ticker, with cascade health summary
 	- L4 holders summarized to top 5 with key fields + total count
 	- L4 earnings_acceleration compressed to status flags + 3 most recent growth rates
 	- L5 earnings_dates capped at 8 most recent (2 years quarterly)
@@ -911,10 +924,11 @@ def cmd_evidence_chain(args):
 
 @safe_run
 def cmd_compare(args):
-	"""Multi-Ticker Comparison.
+	"""Multi-Ticker Comparison (12 metrics including asymmetry_score).
 
 	Runs L4 and L5 analysis scripts for each ticker in parallel,
 	then builds a comparative table with relative strength rankings.
+	Includes bottleneck_scorer validation for asymmetry scoring.
 	"""
 	tickers = [t.upper() for t in args.tickers]
 
@@ -932,6 +946,7 @@ def cmd_compare(args):
 			"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
 			"sbc_analyzer": ("analysis/sbc_analyzer.py", ["analyze", ticker]),
 			"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
+			"bottleneck_scorer": ("analysis/bottleneck_scorer.py", ["validate", ticker]),
 		}
 
 	# Run all scripts across all tickers in parallel
@@ -965,6 +980,7 @@ def cmd_compare(args):
 		"52w_range_position": {},
 		"sbc_flag": {},
 		"consecutive_beats": {},
+		"asymmetry_score": {},
 	}
 
 	health_gates_all = {}
@@ -1040,8 +1056,21 @@ def cmd_compare(args):
 			es.get("consecutive_beats") if not es.get("error") else None
 		)
 
-		# Health gates per ticker
-		health_gates_all[ticker] = _extract_health_gates(r)
+		# Asymmetry score (from bottleneck_scorer)
+		bs = r.get("bottleneck_scorer", {})
+		comparative_table["asymmetry_score"][ticker] = (
+			bs.get("asymmetry_score") if not bs.get("error") else None
+		)
+
+		# Health gates per ticker (integrate bottleneck flags)
+		hg = _extract_health_gates(r)
+		# Add bottleneck-related flags from bottleneck_scorer if available
+		if not bs.get("error"):
+			bs_gates = bs.get("health_gates", {})
+			for gate_name, gate_val in bs_gates.items():
+				if gate_val == "FLAG" and gate_name in hg:
+					hg[gate_name] = "FLAG"
+		health_gates_all[ticker] = hg
 
 	# Determine relative strengths
 	relative_strengths = _determine_relative_strengths(tickers, comparative_table)
@@ -1160,6 +1189,16 @@ def _determine_relative_strengths(tickers, table):
 	else:
 		strengths["best_earnings_momentum"] = None
 
+	# Best asymmetry = highest bottleneck asymmetry score
+	asym_vals = {
+		t: v for t, v in table.get("asymmetry_score", {}).items()
+		if v is not None and isinstance(v, (int, float))
+	}
+	if asym_vals:
+		strengths["best_asymmetry"] = max(asym_vals, key=asym_vals.get)
+	else:
+		strengths["best_asymmetry"] = None
+
 	return strengths
 
 
@@ -1269,6 +1308,127 @@ def cmd_screen(args):
 	output_json(output)
 
 
+@safe_run
+def cmd_capex_cascade(args):
+	"""Supply chain CapEx cascade tracking across multiple tickers.
+
+	Tracks 8-quarter CapEx trends for each ticker in parallel, then
+	summarizes cascade health (upstream→downstream direction consistency)
+	and hyperscaler signal (if applicable).
+
+	Args:
+		tickers (list): 2+ stock ticker symbols
+
+	Returns:
+		dict: {
+			"tickers": list[str],
+			"capex_trends": dict (per-ticker 8Q CapEx with direction),
+			"cascade_summary": dict (overall cascade health),
+			"hyperscaler_signal": dict or None (aggregate hyperscaler direction)
+		}
+	"""
+	tickers = [t.upper() for t in args.tickers]
+
+	# Run capex_tracker.py track for each ticker in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
+		futures = {
+			ticker: executor.submit(
+				_run_script,
+				"analysis/capex_tracker.py",
+				["track", ticker, "--quarters", "8"],
+			)
+			for ticker in tickers
+		}
+		capex_results = {ticker: future.result() for ticker, future in futures.items()}
+
+	# Build capex_trends per ticker
+	# capex_tracker.py track returns: {"command":"track", "symbols":[{"symbol":"X", "quarters":[...], "direction":"...", "latest_capex":...}]}
+	capex_trends = {}
+	directions = []
+	for ticker in tickers:
+		result = capex_results[ticker]
+		if not result.get("error"):
+			# Extract from nested symbols array
+			symbols_data = result.get("symbols", [])
+			sym_data = symbols_data[0] if symbols_data else {}
+			direction = sym_data.get("direction", "unknown")
+			# Get latest QoQ/YoY from the most recent quarter
+			quarters = sym_data.get("quarters", [])
+			latest_q = quarters[0] if quarters else {}
+			capex_trends[ticker] = {
+				"direction": direction,
+				"qoq_change": latest_q.get("qoq_change_pct"),
+				"yoy_change": latest_q.get("yoy_change_pct"),
+				"latest_capex": sym_data.get("latest_capex"),
+				"avg_capex": sym_data.get("avg_capex"),
+				"quarters_count": len(quarters),
+			}
+			directions.append(direction)
+		else:
+			capex_trends[ticker] = {"error": result["error"]}
+
+	# Cascade summary: check direction consistency
+	valid_directions = [d for d in directions if d and d != "unknown"]
+	if valid_directions:
+		increasing = sum(1 for d in valid_directions if d.lower() in ("increasing", "up", "accelerating"))
+		decreasing = sum(1 for d in valid_directions if d.lower() in ("decreasing", "down", "decelerating"))
+		total = len(valid_directions)
+
+		if increasing == total:
+			cascade_health = "strong_expansion"
+			consistency = "aligned_up"
+		elif decreasing == total:
+			cascade_health = "contraction"
+			consistency = "aligned_down"
+		elif increasing > decreasing:
+			cascade_health = "mixed_expansion"
+			consistency = "mostly_up"
+		elif decreasing > increasing:
+			cascade_health = "mixed_contraction"
+			consistency = "mostly_down"
+		else:
+			cascade_health = "mixed"
+			consistency = "divergent"
+	else:
+		cascade_health = "insufficient_data"
+		consistency = "unknown"
+
+	cascade_summary = {
+		"cascade_health": cascade_health,
+		"direction_consistency": consistency,
+		"tickers_increasing": sum(1 for d in valid_directions if d.lower() in ("increasing", "up", "accelerating")),
+		"tickers_decreasing": sum(1 for d in valid_directions if d.lower() in ("decreasing", "down", "decelerating")),
+		"tickers_total": len(tickers),
+		"tickers_with_data": len(valid_directions),
+	}
+
+	# Hyperscaler signal: check if any of the known hyperscalers are in the list
+	hyperscalers = {"AMZN", "GOOG", "GOOGL", "MSFT", "META"}
+	hs_in_list = [t for t in tickers if t in hyperscalers]
+	hyperscaler_signal = None
+	if hs_in_list:
+		hs_directions = []
+		for t in hs_in_list:
+			trend = capex_trends.get(t, {})
+			if not trend.get("error"):
+				hs_directions.append(trend.get("direction", "unknown"))
+		if hs_directions:
+			hs_increasing = sum(1 for d in hs_directions if d and d.lower() in ("increasing", "up", "accelerating"))
+			hyperscaler_signal = {
+				"hyperscalers_tracked": hs_in_list,
+				"direction": "increasing" if hs_increasing > len(hs_directions) / 2 else "decreasing" if hs_increasing == 0 else "mixed",
+				"increasing_count": hs_increasing,
+				"total_count": len(hs_directions),
+			}
+
+	output_json({
+		"tickers": tickers,
+		"capex_trends": capex_trends,
+		"cascade_summary": cascade_summary,
+		"hyperscaler_signal": hyperscaler_signal,
+	})
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -1333,6 +1493,15 @@ def main():
 		help="Maximum market cap filter (default: 10B)",
 	)
 	sp_screen.set_defaults(func=cmd_screen)
+
+	# capex-cascade
+	sp_capex = sub.add_parser(
+		"capex-cascade", help="Supply chain CapEx cascade tracking"
+	)
+	sp_capex.add_argument(
+		"tickers", nargs="+", help="2 or more stock ticker symbols"
+	)
+	sp_capex.set_defaults(func=cmd_capex_cascade)
 
 	args = parser.parse_args()
 	args.func(args)

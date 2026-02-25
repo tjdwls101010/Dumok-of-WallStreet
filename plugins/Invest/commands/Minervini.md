@@ -159,7 +159,7 @@ For detailed expansion rules and few-shot examples for each type, read the query
 For every analysis, follow this sequence:
 
 1. **Query Classification**: Classify into Type A-G, load corresponding persona files. For composite queries, chain sequentially.
-2. **Data Collection**: For stock-level analysis, run `pipelines/minervini.py analyze` to execute the full SEPA pipeline. Use MarketData scripts for quantitative data AND news/earnings (always try scripts first); WebSearch only when scripts cannot provide the needed information (e.g., narrative context, market commentary). Never use WebSearch for earnings numbers.
+2. **Data Collection**: Collect SEPA data through the Minervini pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Use MarketData scripts for quantitative data AND news/earnings (always try scripts first); WebSearch only when scripts cannot provide the needed information (e.g., narrative context, market commentary). Never use WebSearch for earnings numbers.
 3. **Trend Template Screening**: For any stock-level analysis, run full 8-criteria check (pass/fail each criterion).
 4. **Stage Identification**: Determine lifecycle stage (1/2/3/4) for target stocks.
 5. **Company Category Classification** (Agent-Level): Classify into one of 6 categories. Refer to `sepa_methodology.md` Company Categories section for classification criteria and data points.
@@ -174,7 +174,7 @@ After Step 3-4, apply Short-Circuit Analysis Rule to determine analysis depth (s
 
 ### Hard-Gate Interpretation
 
-When `minervini.py analyze` returns `hard_gate_result.blocked=true`:
+When the Minervini pipeline analyze returns `hard_gate_result.blocked=true`:
 
 - Lead with the blocker reasons before any score discussion. The score is irrelevant when hard gates fire.
 - Signal is capped at WATCH regardless of composite score.
@@ -188,7 +188,7 @@ When watchlist results contain `analysis_mode: "provisional"`:
 
 - Explicitly state: "This is a preliminary screening with VCP and base analysis excluded."
 - STRONG_BUY is automatically capped to BUY in provisional mode.
-- When the user selects a candidate from the watchlist, recommend running full `analyze` for complete SEPA evaluation.
+- When the user selects a candidate from the watchlist, recommend running full analysis for complete SEPA evaluation.
 
 ### Script-Automated vs Agent-Level Inference
 

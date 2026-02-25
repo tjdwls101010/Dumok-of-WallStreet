@@ -131,14 +131,14 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 
 1. **Query Classification**: Classify into Type A-F, load corresponding persona files. For composite queries, chain sequentially. For Type B with earnings trigger ("실적", "earnings"), additionally load "Earnings as Supply Chain Thesis Validation" from `valuation_fundamentals.md`. For Type B, Step 2b (Bottleneck Relevance Assessment) may trigger additional loading of `supply_chain_bottleneck.md` based on company characteristics discovered during data collection.
 2. **Data Collection -- Pipeline Routing + Tool Hierarchy (MANDATORY)**:
-	**Pipeline-First**: The Serenity pipeline is the primary data collection entry point. Route by query type:
-	- **Type A (Macro)**: Macro regime assessment — Fed policy, liquidity, VIX term structure, ERP. Use extended mode for DXY and BDI when currency or shipping dynamics are relevant.
-	- **Type B (Stock)**: Full 6-Level analysis — automates L1 (macro), L4 (fundamentals/valuation), and L5 (catalyst monitoring). L2 (CapEx flow) and L3 (Bottleneck mapping) require agent-driven context — supply chain layer definition and WebSearch respectively.
-	- **Type C (Discovery, with ticker)**: Multi-ticker side-by-side comparison for head-to-head ranking.
-	- **Type C (Discovery, no ticker)**: Sector-based bottleneck candidate screening, then full analysis on top candidates.
-	- **Type D (Supply Chain)**: Evidence chain data completeness check — verify 6-link chain after bottleneck identification.
-	- **Type E (Position)**: Full analysis for L4 fundamentals, then apply position construction from `methodology.md`.
-	- **Type F (Portfolio)**: Multi-ticker comparison across portfolio candidates.
+	**Pipeline-First**: Collect data through the Serenity pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Route by query type:
+	- **Type A (Macro)**: Macro regime assessment — Fed policy, liquidity, VIX term structure, ERP
+	- **Type B (Stock)**: Full 6-Level analysis — L1/L4/L5 auto-executed, L2/L3 require agent context
+	- **Type C (Discovery, with ticker)**: Multi-ticker side-by-side comparison
+	- **Type C (Discovery, no ticker)**: Sector-based bottleneck candidate screening, then full analysis on top candidates
+	- **Type D (Supply Chain)**: Evidence chain completeness check + CapEx cascade tracking
+	- **Type E (Position)**: Full analysis, then apply position construction from `methodology.md`
+	- **Type F (Portfolio)**: Multi-ticker comparison across portfolio candidates
 
 	**Cross-Subcommand Optimization**: When chaining `compare` then `analyze` for overlapping tickers:
 	- Use `--skip-macro` for `analyze` since macro data does not change between calls
@@ -236,7 +236,7 @@ When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
 
 Each analysis step is either automated via script or requires agent-level LLM reasoning:
 
-- **Script-automated**: L1 Macro Regime Assessment, L4 Fundamental Validation (financials, valuation, debt structure, SBC, margin tracking, institutional quality), L5 Catalyst Monitoring (earnings acceleration, analyst estimates), Health Gates (Bear-Bull Paradox, dilution, no-growth floor, margin collapse), Evidence Chain Data Completeness, Sector Screening, Multi-Ticker Comparison, Bottleneck Financial Validation (asymmetry scoring, batch ranking), CapEx Tracking (QoQ/YoY direction, cascade health)
+- **Script-automated**: Serenity Pipeline (primary entry point for all query types — L1 macro, L4 fundamentals, L5 catalysts, health gates, evidence chain, comparison, screening, CapEx cascade), Bottleneck Financial Validation (asymmetry scoring, batch ranking)
 - **Agent-level inference**: L2 CapEx Flow Mapping (supply chain layer definition, cascade interpretation), L3 Bottleneck Identification (6-Criteria scoring via WebSearch, geographic concentration), L6 Taxonomy Classification (Evolution/Disruption/Bottleneck), Supply Chain Position Mapping, Forward Revenue Projection, Rating Assignment with Price-Dependent Adjustments, Bottleneck Relevance Assessment (Step 2b), Scenario Construction (Type D Phase 1)
 
 ### Reference Files

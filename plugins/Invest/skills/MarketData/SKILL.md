@@ -47,13 +47,13 @@ Need RSI? → SKILL.md Technical section → find oscillators.py → python tool
 
 ### Pipelines
 
-Persona-specific analysis orchestrators — run these FIRST for comprehensive data
+Persona-specific analysis orchestrators (Facade) — prefer these as the primary data interface for each persona. Each pipeline covers single-ticker analysis, batch watchlist, market environment assessment, sector screening, multi-ticker comparison, and position management. Discover available subcommands via `extract_docstring.py`.
 
 | Function | Description | Script |
 |----------|-------------|--------|
-| `minervini` | Full SEPA pipeline with hard-gate safety layer, signal reason codes, provisional watchlist mode, composite scoring, earnings proximity detection, and company category hint | `pipelines/minervini.py` |
-| `traderlion` | Full TraderLion S.N.I.P.E. pipeline with 4 hard gates, edge-based position sizing, SNIPE composite score (0-100), volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, and provisional watchlist mode | `pipelines/traderlion.py` |
-| `serenity` | Full Serenity 6-Level pipeline: macro (L1 regime assessment), analyze (L1/L4/L5 auto + L2/L3 agent-context-required, 4 health gates), evidence_chain (6-link completeness), compare (multi-ticker table, 11 metrics), screen (sector bottleneck screening). L2 CapEx Flow and L3 Bottleneck require agent-driven context and WebSearch. L6 Taxonomy requires LLM classification.** Sector-agnostic | `pipelines/serenity.py` |
+| `minervini` | Full SEPA pipeline: composite scoring with hard-gate safety, signal reason codes, provisional watchlist mode, earnings proximity detection, company category hint, market environment assessment, sector screening, multi-ticker comparison, and position recheck | `pipelines/minervini.py` |
+| `traderlion` | Full S.N.I.P.E. pipeline: SNIPE composite score (0-100) with 4 hard gates, edge-based position sizing, volume edge integration, constructive bar ratio, winning characteristics, TIGERS summary, provisional watchlist mode, market cycle assessment, sector screening, multi-ticker comparison, and position recheck | `pipelines/traderlion.py` |
+| `serenity` | Full Serenity 6-Level pipeline: macro regime assessment, fundamental validation (4 health gates), evidence chain verification, multi-ticker comparison (12 metrics including asymmetry score), sector bottleneck screening, and CapEx cascade tracking. L2 CapEx Flow and L3 Bottleneck require agent-driven context. L6 Taxonomy requires LLM classification. Sector-agnostic | `pipelines/serenity.py` |
 
 ### Core Analysis
 

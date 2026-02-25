@@ -163,6 +163,9 @@ def cmd_sma(args):
 	output_json(result)
 
 
+import argparse
+
+
 @safe_run
 def cmd_ema(args):
 	"""Calculate Exponential Moving Averages."""
@@ -245,3 +248,40 @@ def cmd_bollinger(args):
 		else "within_bands",
 	}
 	output_json(result)
+
+
+def main():
+	parser = argparse.ArgumentParser(description="Trend-following indicators: SMA, EMA, Bollinger Bands")
+	sub = parser.add_subparsers(dest="command", required=True)
+
+	# SMA
+	sp_sma = sub.add_parser("sma", help="Simple Moving Averages")
+	sp_sma.add_argument("symbol", help="Ticker symbol")
+	sp_sma.add_argument("--period", default="1y", help="Data period (default: 1y)")
+	sp_sma.add_argument("--interval", default="1d", help="Data interval (default: 1d)")
+	sp_sma.add_argument("--periods", default="20,50,200", help="Comma-separated MA periods (default: 20,50,200)")
+	sp_sma.set_defaults(func=cmd_sma)
+
+	# EMA
+	sp_ema = sub.add_parser("ema", help="Exponential Moving Averages")
+	sp_ema.add_argument("symbol", help="Ticker symbol")
+	sp_ema.add_argument("--period", default="1y", help="Data period (default: 1y)")
+	sp_ema.add_argument("--interval", default="1d", help="Data interval (default: 1d)")
+	sp_ema.add_argument("--periods", default="9,21,50", help="Comma-separated MA periods (default: 9,21,50)")
+	sp_ema.set_defaults(func=cmd_ema)
+
+	# Bollinger Bands
+	sp_bb = sub.add_parser("bollinger", help="Bollinger Bands")
+	sp_bb.add_argument("symbol", help="Ticker symbol")
+	sp_bb.add_argument("--period", default="1y", help="Data period (default: 1y)")
+	sp_bb.add_argument("--interval", default="1d", help="Data interval (default: 1d)")
+	sp_bb.add_argument("--bb-period", type=int, default=20, help="BB calculation period (default: 20)")
+	sp_bb.add_argument("--std-dev", type=float, default=2.0, help="Standard deviation multiplier (default: 2.0)")
+	sp_bb.set_defaults(func=cmd_bollinger)
+
+	args = parser.parse_args()
+	args.func(args)
+
+
+if __name__ == "__main__":
+	main()

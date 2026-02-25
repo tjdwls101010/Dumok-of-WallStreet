@@ -10,6 +10,10 @@ Produces a SNIPE Composite Score and actionable signal.
 Commands:
 	analyze: Full S.N.I.P.E. analysis for a single ticker
 	watchlist: Batch S.N.I.P.E. analysis for multiple tickers
+	market-cycle: Market cycle assessment (QQQ trend, gauge stocks, breadth, cycle score)
+	screen: Sector-based S.N.I.P.E. candidate screening
+	compare: Multi-ticker full S.N.I.P.E. comparison with 7-axis ranking
+	recheck: Position management recheck (TT, Stage, post-breakout, edges, earnings)
 
 Args:
 	For analyze:
@@ -20,47 +24,101 @@ Args:
 		symbols (list): List of ticker symbols
 		--account-size (float): Account size for position sizing (default: 100000)
 
+	For market-cycle:
+		(no arguments)
+
+	For screen:
+		--sector (str): Sector name for screening (optional)
+
+	For compare:
+		symbols (list): 2+ ticker symbols to compare
+		--account-size (float): Account size (default: 100000)
+
+	For recheck:
+		symbol (str): Ticker symbol
+		--entry-price (float): Original entry price (optional)
+		--entry-date (str): Entry date YYYY-MM-DD (optional)
+
 Returns:
-	dict: {
-		"symbol": str,
-		"snipe_composite_score": float,
-		"signal": str,
-		"signal_reason_codes": [str],
-		"hard_gate_result": {
-			"blocked": bool,
-			"blockers": [str],
-			"soft_penalties": [{"code": str, "penalty": int}],
-			"total_soft_penalty": int
-		},
-		"analysis_mode": "full" | "provisional",
-		"edge_detection": {
-			"edge_count": int,
-			"edges_present": [str],
-			"hv_edge_count": int
-		},
-		"trend_template": dict,
-		"stage_analysis": dict,
-		"rs_ranking": dict,
-		"earnings": dict,
-		"vcp": dict,
-		"base_count": dict,
-		"volume": dict,
-		"volume_edge": dict,
-		"closing_range": dict,
-		"position_sizing": dict,
-		"earnings_proximity": {
-			"is_near": bool,
-			"days_until": int or None,
-			"next_date": str or None
-		},
-		"winning_characteristics": {
-			"score": int,
-			"max": 12,
-			"items": [{"name": str, "present": bool}]
-		},
-		"tigers_summary": dict,
-		"recommendation_text": str
-	}
+	For analyze:
+		dict: {
+			"symbol": str,
+			"snipe_composite_score": float,
+			"signal": str,
+			"signal_reason_codes": [str],
+			"hard_gate_result": {
+				"blocked": bool,
+				"blockers": [str],
+				"soft_penalties": [{"code": str, "penalty": int}],
+				"total_soft_penalty": int
+			},
+			"analysis_mode": "full" | "provisional",
+			"edge_detection": {
+				"edge_count": int,
+				"edges_present": [str],
+				"hv_edge_count": int
+			},
+			"trend_template": dict,
+			"stage_analysis": dict,
+			"rs_ranking": dict,
+			"earnings": dict,
+			"vcp": dict,
+			"base_count": dict,
+			"volume": dict,
+			"volume_edge": dict,
+			"closing_range": dict,
+			"position_sizing": dict,
+			"earnings_proximity": {
+				"is_near": bool,
+				"days_until": int or None,
+				"next_date": str or None
+			},
+			"winning_characteristics": {
+				"score": int,
+				"max": 12,
+				"items": [{"name": str, "present": bool}]
+			},
+			"tigers_summary": dict,
+			"recommendation_text": str
+		}
+
+	For market-cycle:
+		dict: {
+			"qqq_status": dict,
+			"gauge_stocks": list[dict],
+			"breadth": dict,
+			"cycle_score": int (0-8),
+			"cycle_stage": str,
+			"exposure_guidance": str
+		}
+
+	For screen:
+		dict: {
+			"funnel_stage": str,
+			"candidates": list[dict],
+			"filters_applied": list[str]
+		}
+
+	For compare:
+		dict: {
+			"tickers": list[str],
+			"seven_axis_table": dict,
+			"individual_results": dict,
+			"axis_winners": dict,
+			"recommendation": dict
+		}
+
+	For recheck:
+		dict: {
+			"symbol": str,
+			"current_stage": int or str,
+			"trend_template": dict,
+			"post_breakout": dict,
+			"closing_range": dict,
+			"volume_edge_status": dict,
+			"earnings_proximity": dict,
+			"position_grade_data": dict
+		}
 
 Example:
 	>>> python traderlion.py analyze NVDA --account-size 100000
@@ -1131,6 +1189,468 @@ def cmd_watchlist(args):
 	})
 
 
+@safe_run
+def cmd_market_cycle(args):
+	"""Market cycle assessment: QQQ trend, gauge stocks, breadth, and cycle scoring.
+
+	Evaluates market cycle stage by checking QQQ 21 EMA status, gauge stock
+	MA alignment, and market breadth indicators. Produces a composite cycle
+	score (0-8) with exposure guidance.
+
+	Returns:
+		dict: {
+			"qqq_status": dict (21 EMA position, MA alignment),
+			"gauge_stocks": list[dict] (each gauge stock's MA status),
+			"breadth": dict (market breadth data),
+			"cycle_score": int (0-8 composite),
+			"cycle_stage": str (Downcycle/Bottoming/Upcycle/Topping),
+			"exposure_guidance": str (aggressive/normal/reduced/cash)
+		}
+	"""
+	gauge_symbols = ["TSLA", "GOOGL", "AAPL", "MSFT", "META"]
+
+	# Run all scripts in parallel: SMA for 50/200, EMA for 21 (QQQ), SMA for gauge stocks
+	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+		qqq_sma_future = executor.submit(_run_script, "technical/trend.py", ["sma", "QQQ", "--periods", "50,200"])
+		qqq_ema_future = executor.submit(_run_script, "technical/trend.py", ["ema", "QQQ", "--periods", "21"])
+		breadth_future = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
+		qqq_rs_future = executor.submit(_run_script, "technical/rs_ranking.py", ["score", "QQQ"])
+		gauge_futures = {
+			sym: executor.submit(_run_script, "technical/trend.py", ["sma", sym, "--periods", "50,200"])
+			for sym in gauge_symbols
+		}
+
+		qqq_sma = qqq_sma_future.result()
+		qqq_ema = qqq_ema_future.result()
+		breadth = breadth_future.result()
+		qqq_rs = qqq_rs_future.result()
+		gauge_results = {sym: fut.result() for sym, fut in gauge_futures.items()}
+
+	# Helper: extract MA value from trend.py output (nested under "sma"/"ema" dicts)
+	def _get_ma(data, ma_type, period):
+		"""Extract MA value from trend.py output. ma_type='sma' or 'ema', period=int."""
+		ma_dict = data.get(ma_type, {})
+		key = f"{ma_type.upper()}{period}"
+		return ma_dict.get(key, {}).get("value", 0)
+
+	# Build qqq_status
+	qqq_price = qqq_sma.get("current_price", 0) if not qqq_sma.get("error") else 0
+	qqq_status = {
+		"symbol": "QQQ",
+		"above_21ema": qqq_price > _get_ma(qqq_ema, "ema", 21) if not qqq_ema.get("error") and qqq_price else None,
+		"above_50sma": qqq_price > _get_ma(qqq_sma, "sma", 50) if not qqq_sma.get("error") and qqq_price else None,
+		"above_200sma": qqq_price > _get_ma(qqq_sma, "sma", 200) if not qqq_sma.get("error") and qqq_price else None,
+		"rs_score": qqq_rs.get("rs_score") if not qqq_rs.get("error") else None,
+		"raw_sma": qqq_sma,
+		"raw_ema": qqq_ema,
+	}
+
+	# Build gauge_stocks list
+	gauge_stocks = []
+	for sym, result in gauge_results.items():
+		if not result.get("error"):
+			price = result.get("current_price", 0)
+			gauge_stocks.append({
+				"symbol": sym,
+				"above_50sma": price > _get_ma(result, "sma", 50) if price else False,
+				"above_200sma": price > _get_ma(result, "sma", 200) if price else False,
+			})
+		else:
+			gauge_stocks.append({"symbol": sym, "error": result.get("error")})
+
+	# Calculate cycle_score (0-8)
+	score = 0
+	# QQQ above 21 EMA (+2)
+	if qqq_status.get("above_21ema"):
+		score += 2
+	# QQQ above 50 SMA (+1)
+	if qqq_status.get("above_50sma"):
+		score += 1
+	# QQQ above 200 SMA (+1)
+	if qqq_status.get("above_200sma"):
+		score += 1
+	# Gauge stocks above 50 SMA majority (+2)
+	gauge_above = sum(1 for g in gauge_stocks if g.get("above_50sma"))
+	if gauge_above >= 3:
+		score += 2
+	elif gauge_above >= 2:
+		score += 1
+	# Breadth positive (+2)
+	if not breadth.get("error"):
+		# market-breadth returns {total: {new_highs, new_lows, ratio}, ...}
+		total = breadth.get("total", {})
+		nh = total.get("new_highs", breadth.get("new_highs", 0)) or 0
+		nl = total.get("new_lows", breadth.get("new_lows", 0)) or 0
+		if nh > 0 and nl > 0 and nh / nl > 2:
+			score += 2
+		elif nh > nl:
+			score += 1
+
+	# Derive cycle_stage and exposure_guidance
+	if score >= 6:
+		cycle_stage, exposure = "Upcycle", "aggressive"
+	elif score >= 4:
+		cycle_stage, exposure = "Upcycle", "normal"
+	elif score >= 2:
+		cycle_stage, exposure = "Bottoming", "reduced"
+	else:
+		cycle_stage, exposure = "Downcycle", "cash"
+
+	output_json({
+		"qqq_status": qqq_status,
+		"gauge_stocks": gauge_stocks,
+		"breadth": breadth,
+		"cycle_score": score,
+		"cycle_stage": cycle_stage,
+		"exposure_guidance": exposure,
+	})
+
+
+@safe_run
+def cmd_screen(args):
+	"""Sector-based S.N.I.P.E. candidate screening with edge detection.
+
+	Screens a sector for candidates using Finviz, then runs watchlist-level
+	SNIPE analysis (TT, Stage, RS, Earnings, Volume, Volume Edge) on each
+	candidate to produce a filtered and scored list.
+
+	Args:
+		--sector (str): Sector name for screening (optional)
+
+	Returns:
+		dict: {
+			"funnel_stage": str ("narrow"),
+			"candidates": list[dict] (SNIPE-filtered with scores and edges),
+			"filters_applied": list[str]
+		}
+	"""
+	# Step 1: Run finviz sector screen
+	finviz_args = ["sector-screen", args.sector] if args.sector else ["sector-screen"]
+	finviz_result = _run_script("screening/finviz.py", finviz_args)
+
+	# Step 2: Extract symbols (up to 20)
+	symbols = []
+	if not finviz_result.get("error"):
+		raw_symbols = finviz_result.get("symbols", finviz_result.get("tickers", []))
+		if isinstance(raw_symbols, list):
+			symbols = [s.upper() for s in raw_symbols[:20] if isinstance(s, str)]
+		# Also try extracting from results list
+		if not symbols:
+			results_list = finviz_result.get("results", [])
+			if isinstance(results_list, list):
+				for item in results_list[:20]:
+					if isinstance(item, dict) and item.get("ticker"):
+						symbols.append(item["ticker"].upper())
+					elif isinstance(item, str):
+						symbols.append(item.upper())
+
+	filters_applied = []
+	if args.sector:
+		filters_applied.append(f"sector:{args.sector}")
+
+	candidates = []
+	for symbol in symbols:
+		# Step 3: Run analysis scripts sequentially per symbol (batch mode)
+		tt = _run_script("screening/trend_template.py", ["check", symbol])
+		stage = _run_script("technical/stage_analysis.py", ["classify", symbol])
+		rs = _run_script("technical/rs_ranking.py", ["score", symbol])
+		earnings = _run_script("data_sources/earnings_acceleration.py", ["code33", symbol])
+		volume = _run_script("technical/volume_analysis.py", ["analyze", symbol])
+		vol_edge = _run_script("technical/volume_edge.py", ["detect", symbol])
+
+		# Count edges
+		edge_info = _count_edges(vol_edge, rs, earnings)
+
+		# Calculate lightweight snipe_score (skipped: vcp, base, closing_range)
+		snipe_score = _calc_snipe_score(
+			vol_edge, tt, stage, rs, earnings,
+			{"error": "skipped"}, {"error": "skipped"}, volume,
+			{"error": "skipped"}, edge_info
+		)
+
+		# Determine signal
+		hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, {"error": "skipped"})
+		if hard_gate_result["total_soft_penalty"] != 0:
+			snipe_score = max(0, round(snipe_score + hard_gate_result["total_soft_penalty"], 1))
+		signal = _determine_signal(snipe_score, hard_gate_result["blocked"])
+
+		candidates.append({
+			"symbol": symbol,
+			"snipe_score": snipe_score,
+			"signal": signal,
+			"edge_count": edge_info["edge_count"],
+			"edges_present": edge_info["edges_present"],
+			"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
+			"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
+			"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
+			"volume_grade": volume.get("accumulation_distribution_rating", "N/A") if not volume.get("error") else "N/A",
+		})
+
+	# Sort by snipe_score descending
+	candidates.sort(key=lambda x: x.get("snipe_score", 0), reverse=True)
+
+	output_json({
+		"funnel_stage": "narrow",
+		"candidates": candidates,
+		"filters_applied": filters_applied,
+	})
+
+
+@safe_run
+def cmd_compare(args):
+	"""Multi-ticker full S.N.I.P.E. comparison with 7-axis ranking.
+
+	Runs full analyze-level analysis for each ticker in parallel, then produces
+	a 7-axis comparison table and overall ranking.
+
+	Args:
+		symbols (list): 2+ ticker symbols to compare
+
+	Returns:
+		dict: {
+			"tickers": list[str],
+			"seven_axis_table": dict (ticker -> 7-axis metrics),
+			"individual_results": dict (ticker -> full analyze output),
+			"axis_winners": dict (axis -> winning ticker),
+			"recommendation": dict (overall winner with reasoning)
+		}
+	"""
+	symbols = [s.upper() for s in args.symbols]
+
+	# Define the 10-script analysis for each symbol
+	def _analyze_single(symbol):
+		scripts = {
+			"tt": ("screening/trend_template.py", ["check", symbol]),
+			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
+			"vcp_result": ("technical/vcp.py", ["detect", symbol]),
+			"base": ("technical/base_count.py", ["count", symbol]),
+			"volume": ("technical/volume_analysis.py", ["analyze", symbol]),
+			"volume_edge": ("technical/volume_edge.py", ["detect", symbol]),
+			"closing_range": ("technical/closing_range.py", ["analyze", symbol]),
+			"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]),
+		}
+
+		with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+			futures = {name: executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
+			results = {name: future.result() for name, future in futures.items()}
+
+		tt = results["tt"]
+		stage = results["stage"]
+		rs = results["rs"]
+		earnings = results["earnings"]
+		vcp_result = results["vcp_result"]
+		base = results["base"]
+		volume = results["volume"]
+		vol_edge = results["volume_edge"]
+		cr = results["closing_range"]
+		earnings_dates = results["earnings_dates"]
+
+		edge_info = _count_edges(vol_edge, rs, earnings)
+		snipe_score = _calc_snipe_score(vol_edge, tt, stage, rs, earnings, vcp_result, base, volume, cr, edge_info)
+		hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, cr)
+
+		if hard_gate_result["total_soft_penalty"] != 0:
+			snipe_score = max(0, round(snipe_score + hard_gate_result["total_soft_penalty"], 1))
+
+		signal = _determine_signal(snipe_score, hard_gate_result["blocked"])
+
+		signal_reason_codes = _build_signal_reason_codes(
+			signal, tt, stage, rs, earnings, vcp_result, volume, vol_edge, cr, base, edge_info, hard_gate_result
+		)
+
+		is_near, days_until, next_date = _check_earnings_proximity(earnings_dates)
+		if is_near:
+			signal_reason_codes.append(f"EARNINGS_PROXIMITY_{days_until}D")
+
+		wc_count = _count_winning_characteristics(vol_edge, rs, earnings, vcp_result, tt, stage, cr)
+		wc_items = _build_winning_characteristics_detail(vol_edge, rs, earnings, vcp_result, tt, stage, cr)
+
+		entry_price = tt.get("current_price") or stage.get("current_price") or 0
+		pos_sizing = _calc_edge_based_sizing(edge_info["edge_count"], signal, args.account_size, entry_price)
+
+		recommendation_text = _generate_recommendation(
+			symbol, signal, snipe_score, edge_info, tt, stage, rs, vcp_result, volume, vol_edge
+		)
+
+		tigers = _build_tigers_summary(tt, stage, rs, earnings, vcp_result, vol_edge)
+
+		return {
+			"symbol": symbol,
+			"snipe_composite_score": snipe_score,
+			"signal": signal,
+			"signal_reason_codes": signal_reason_codes,
+			"hard_gate_result": hard_gate_result,
+			"analysis_mode": "full",
+			"edge_detection": edge_info,
+			"trend_template": tt,
+			"stage_analysis": stage,
+			"rs_ranking": rs,
+			"earnings": earnings,
+			"vcp": vcp_result,
+			"base_count": base,
+			"volume": volume,
+			"volume_edge": vol_edge,
+			"closing_range": cr,
+			"position_sizing": pos_sizing,
+			"earnings_proximity": {
+				"is_near": is_near,
+				"days_until": days_until,
+				"next_date": next_date,
+			},
+			"winning_characteristics": {
+				"score": wc_count,
+				"max": 12,
+				"items": wc_items,
+			},
+			"tigers_summary": tigers,
+			"recommendation_text": recommendation_text,
+		}
+
+	# Run full analysis for all tickers in parallel
+	individual_results = {}
+	with concurrent.futures.ThreadPoolExecutor(max_workers=len(symbols)) as executor:
+		futures = {sym: executor.submit(_analyze_single, sym) for sym in symbols}
+		for sym, fut in futures.items():
+			individual_results[sym] = fut.result()
+
+	# Build seven_axis_table
+	seven_axis_table = {}
+	for symbol, data in individual_results.items():
+		seven_axis_table[symbol] = {
+			"edge_count": data["edge_detection"]["edge_count"],
+			"rs_score": data["rs_ranking"].get("rs_score", 0) if not data["rs_ranking"].get("error") else 0,
+			"winning_chars": data["winning_characteristics"]["score"],
+			"setup_maturity": data["vcp"].get("pattern_quality", "none") if not data["vcp"].get("error") else "none",
+			"base_count": data["base_count"].get("current_base_number", 0) if not data["base_count"].get("error") else 0,
+			"volume_grade": data["volume"].get("accumulation_distribution_rating", "N/A") if not data["volume"].get("error") else "N/A",
+			"constructive_ratio": data["closing_range"].get("constructive_ratio", 0) if not data["closing_range"].get("error") else 0,
+		}
+
+	# Build axis_winners
+	axes = ["edge_count", "rs_score", "winning_chars", "base_count", "constructive_ratio"]
+	axis_winners = {}
+	for axis in axes:
+		if axis == "base_count":
+			# lower base number is better, but 0 is worst
+			valid = {s: v[axis] for s, v in seven_axis_table.items() if v[axis] > 0}
+			if valid:
+				axis_winners[axis] = min(valid, key=valid.get)
+		elif axis == "volume_grade":
+			grade_order = {"A+": 6, "A": 5, "B+": 4, "B": 3, "C": 2, "D": 1, "E": 0, "N/A": -1}
+			axis_winners[axis] = max(seven_axis_table, key=lambda s: grade_order.get(seven_axis_table[s][axis], -1))
+		elif axis == "setup_maturity":
+			quality_order = {"high": 3, "moderate": 2, "low": 1, "none": 0}
+			axis_winners[axis] = max(seven_axis_table, key=lambda s: quality_order.get(seven_axis_table[s][axis], 0))
+		else:
+			axis_winners[axis] = max(seven_axis_table, key=lambda s: seven_axis_table[s].get(axis, 0))
+
+	# Also evaluate volume_grade and setup_maturity axes (they are in seven_axis_table but not in the axes list above)
+	grade_order = {"A+": 6, "A": 5, "B+": 4, "B": 3, "C": 2, "D": 1, "E": 0, "N/A": -1}
+	axis_winners["volume_grade"] = max(seven_axis_table, key=lambda s: grade_order.get(seven_axis_table[s]["volume_grade"], -1))
+	quality_order = {"high": 3, "moderate": 2, "low": 1, "none": 0}
+	axis_winners["setup_maturity"] = max(seven_axis_table, key=lambda s: quality_order.get(seven_axis_table[s]["setup_maturity"], 0))
+
+	# Count wins per ticker and build recommendation
+	win_counts = {}
+	for axis, winner in axis_winners.items():
+		win_counts[winner] = win_counts.get(winner, 0) + 1
+	top_ticker = max(win_counts, key=win_counts.get) if win_counts else symbols[0]
+	recommendation = {
+		"top_candidate": top_ticker,
+		"axis_wins": win_counts.get(top_ticker, 0),
+		"total_axes": len(axis_winners),
+		"snipe_score": individual_results[top_ticker]["snipe_composite_score"],
+		"signal": individual_results[top_ticker]["signal"],
+	}
+
+	output_json({
+		"tickers": symbols,
+		"seven_axis_table": seven_axis_table,
+		"individual_results": individual_results,
+		"axis_winners": axis_winners,
+		"recommendation": recommendation,
+	})
+
+
+@safe_run
+def cmd_recheck(args):
+	"""Position management recheck for existing holdings.
+
+	Checks current TT status, Stage, post-breakout behavior, closing range,
+	volume edge freshness, and earnings proximity for a held position.
+
+	Args:
+		symbol (str): Ticker symbol
+		--entry-price (float): Original entry price (optional)
+		--entry-date (str): Entry date YYYY-MM-DD (optional)
+
+	Returns:
+		dict: {
+			"symbol": str,
+			"current_stage": int or str,
+			"trend_template": dict,
+			"post_breakout": dict (behavior classification and sell signals),
+			"closing_range": dict (constructive ratio change),
+			"volume_edge_status": dict (current edge status),
+			"earnings_proximity": dict,
+			"position_grade_data": dict (data for sell rule assessment)
+		}
+	"""
+	symbol = args.symbol.upper()
+
+	# Build post_breakout args
+	pb_args = ["monitor", symbol]
+	if args.entry_price:
+		pb_args.extend(["--entry-price", str(args.entry_price)])
+	if args.entry_date:
+		pb_args.extend(["--entry-date", args.entry_date])
+
+	# Run all scripts in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+		tt_future = executor.submit(_run_script, "screening/trend_template.py", ["check", symbol])
+		stage_future = executor.submit(_run_script, "technical/stage_analysis.py", ["classify", symbol])
+		pb_future = executor.submit(_run_script, "technical/post_breakout.py", pb_args)
+		cr_future = executor.submit(_run_script, "technical/closing_range.py", ["analyze", symbol])
+		ve_future = executor.submit(_run_script, "technical/volume_edge.py", ["detect", symbol])
+		ed_future = executor.submit(_run_script, "data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"])
+
+		tt = tt_future.result()
+		stage = stage_future.result()
+		post_breakout = pb_future.result()
+		closing_range = cr_future.result()
+		volume_edge = ve_future.result()
+		earnings_dates = ed_future.result()
+
+	# Check earnings proximity
+	is_near, days_until, next_date = _check_earnings_proximity(earnings_dates)
+
+	# Build position_grade_data
+	position_grade_data = {
+		"tt_pass": tt.get("overall_pass", False) if not tt.get("error") else False,
+		"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
+		"constructive_ratio": closing_range.get("constructive_ratio") if not closing_range.get("error") else None,
+		"has_volume_edge": any([
+			volume_edge.get("hve", {}).get("detected"),
+			volume_edge.get("hvipo", {}).get("detected"),
+			volume_edge.get("hv1", {}).get("detected"),
+		]) if not volume_edge.get("error") else False,
+		"earnings_near": is_near,
+	}
+
+	output_json({
+		"symbol": symbol,
+		"current_stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
+		"trend_template": tt,
+		"post_breakout": post_breakout,
+		"closing_range": closing_range,
+		"volume_edge_status": volume_edge,
+		"earnings_proximity": {"is_near": is_near, "days_until": days_until, "next_date": next_date},
+		"position_grade_data": position_grade_data,
+	})
+
+
 def main():
 	parser = argparse.ArgumentParser(description="SNIPE Pipeline: Full TraderLion S.N.I.P.E. Analysis")
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -1146,6 +1666,28 @@ def main():
 	sp.add_argument("symbols", nargs="+", help="Ticker symbols")
 	sp.add_argument("--account-size", type=float, default=100000, help="Account size (default: 100000)")
 	sp.set_defaults(func=cmd_watchlist)
+
+	# market-cycle
+	sp = sub.add_parser("market-cycle", help="Market cycle assessment")
+	sp.set_defaults(func=cmd_market_cycle)
+
+	# screen
+	sp = sub.add_parser("screen", help="Sector-based S.N.I.P.E. screening")
+	sp.add_argument("--sector", default=None, help="Sector name")
+	sp.set_defaults(func=cmd_screen)
+
+	# compare
+	sp = sub.add_parser("compare", help="Multi-ticker S.N.I.P.E. comparison")
+	sp.add_argument("symbols", nargs="+", help="Ticker symbols to compare")
+	sp.add_argument("--account-size", type=float, default=100000, help="Account size (default: 100000)")
+	sp.set_defaults(func=cmd_compare)
+
+	# recheck
+	sp = sub.add_parser("recheck", help="Position management recheck")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument("--entry-price", type=float, default=None, help="Entry price")
+	sp.add_argument("--entry-date", default=None, help="Entry date (YYYY-MM-DD)")
+	sp.set_defaults(func=cmd_recheck)
 
 	args = parser.parse_args()
 	args.func(args)
