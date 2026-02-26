@@ -9,7 +9,7 @@ and actionable signal.
 Commands:
 	analyze: Full SEPA analysis for a single ticker
 	watchlist: Batch SEPA analysis for multiple tickers
-	market-leaders: Market environment assessment (sector leaders, breadth, TT batch)
+	market-leaders: Market environment assessment (sector leaders, sector performance, breadth, TT batch)
 	screen: Sector-based SEPA candidate screening (finviz + watchlist-level analysis)
 	compare: Multi-ticker full SEPA comparison with head-to-head ranking
 	recheck: Position management recheck (TT, Stage, post-breakout, volume, earnings)
@@ -75,6 +75,7 @@ Returns:
 	For market-leaders:
 		dict: {
 			"sector_rankings": dict,
+			"sector_performance": dict or null (sector performance ranking from finviz groups),
 			"top_leaders": list,
 			"broken_leaders": list,
 			"breadth_indicators": dict,
@@ -911,15 +912,16 @@ def cmd_watchlist(args):
 
 @safe_run
 def cmd_market_leaders(args):
-	"""Market environment assessment: sector leadership, breadth, and leader health.
+	"""Market environment assessment: sector leadership, breadth, performance, and leader health.
 
-	Runs sector leadership dashboard, market breadth analysis, and Trend Template
-	checks on top leaders to assess market environment strength and identify
-	broken leaders transitioning out of Stage 2.
+	Runs sector leadership dashboard, market breadth analysis, sector performance
+	ranking, and Trend Template checks on top leaders to assess market environment
+	strength and identify broken leaders transitioning out of Stage 2.
 
 	Returns:
 		dict: {
 			"sector_rankings": dict (sector dashboard with leader counts and strength),
+			"sector_performance": dict or null (sector performance ranking from finviz groups),
 			"top_leaders": list (top leader stocks with TT/Stage/RS data),
 			"broken_leaders": list (former leaders failing TT or in Stage 3/4),
 			"breadth_indicators": dict (full market breadth data),
@@ -939,12 +941,14 @@ def cmd_market_leaders(args):
 			}
 		}
 	"""
-	# Run sector dashboard and breadth in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+	# Run sector dashboard, breadth, and sector performance in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
 		future_sectors = executor.submit(_run_script, "screening/sector_leaders.py", ["scan"])
 		future_breadth = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
+		future_sector_perf = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "sector", "--metric", "performance"])
 		sector_rankings = future_sectors.result()
 		breadth = future_breadth.result()
+		sector_perf = future_sector_perf.result()
 
 	# Extract top leader symbols (up to 10) from sector scan dashboard
 	leader_symbols = []
@@ -1012,6 +1016,7 @@ def cmd_market_leaders(args):
 
 	output_json({
 		"sector_rankings": sector_rankings,
+		"sector_performance": sector_perf if not sector_perf.get("error") else None,
 		"top_leaders": top_leaders,
 		"broken_leaders": broken_leaders,
 		"breadth_indicators": breadth,
