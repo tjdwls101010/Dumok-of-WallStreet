@@ -58,6 +58,9 @@ Returns:
 			"vcp": dict,
 			"base_count": dict,
 			"volume": dict,
+			"forward_pe": dict or null (forward P/E valuation from forward_pe.py),
+			"earnings_surprise": dict or null (surprise history from earnings_acceleration.py surprise),
+			"margins": dict or null (margin trajectory from margin_tracker.py track),
 			"position_sizing": dict,
 			"earnings_proximity": {
 				"is_near": bool,
@@ -148,7 +151,7 @@ Notes:
 	- Pipeline continues even if individual components fail (graceful degradation)
 	- New scripts (pocket_pivot, tight_closes, low_cheat) skipped in watchlist batch mode
 	- Agent can override pipeline signal based on market context
-	- Scripts execute in parallel via ThreadPoolExecutor for ~50-70% speedup
+	- analyze/compare run 14 scripts in parallel via ThreadPoolExecutor (core SEPA + forward_pe, earnings_surprise, margins)
 	- Each script runs in independent subprocess (no shared state)
 	- Watchlist mode remains sequential per-ticker (batch parallelization would overload)
 	- SG-4: 200MA extension graduated levels: >80% ELEVATED (informational), >100% EXTREME (penalty -3)
@@ -167,6 +170,8 @@ See Also:
 	- pocket_pivot.py: Pocket pivot detection for alternative entry signals
 	- tight_closes.py: Tight close cluster detection for supply dryup confirmation
 	- low_cheat.py: Low cheat setup detection for reduced-risk entry
+	- forward_pe.py: Forward P/E valuation with benchmark comparison
+	- margin_tracker.py: Margin trajectory tracking and expansion/compression flagging
 """
 
 import argparse
@@ -671,9 +676,12 @@ def cmd_analyze(args):
 		"tight_closes": ("technical/tight_closes.py", ["daily", symbol]),
 		"low_cheat": ("technical/low_cheat.py", ["detect", symbol]),
 		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]),
+		"forward_pe": ("analysis/forward_pe.py", ["calculate", symbol]),
+		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", symbol]),
+		"margins": ("analysis/margin_tracker.py", ["track", symbol]),
 	}
 
-	with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=14) as executor:
 		futures = {name: executor.submit(_run_script, path, args) for name, (path, args) in scripts.items()}
 		results = {name: future.result() for name, future in futures.items()}
 
@@ -687,6 +695,9 @@ def cmd_analyze(args):
 	pocket_pivot = results["pocket_pivot"]
 	tight_closes = results["tight_closes"]
 	low_cheat = results["low_cheat"]
+	forward_pe = results["forward_pe"]
+	earnings_surprise = results["earnings_surprise"]
+	margins = results["margins"]
 
 	# Calculate composite score
 	composite = _calc_composite_score(tt, stage, rs, earnings, vcp_result, base, volume)
@@ -806,6 +817,9 @@ def cmd_analyze(args):
 			"pocket_pivot": pocket_pivot,
 			"tight_closes": tight_closes,
 			"low_cheat": low_cheat,
+			"forward_pe": forward_pe if not forward_pe.get("error") else None,
+			"earnings_surprise": earnings_surprise if not earnings_surprise.get("error") else None,
+			"margins": margins if not margins.get("error") else None,
 			"position_sizing": pos_sizing,
 			"earnings_proximity": {
 				"is_near": is_near,
@@ -1100,7 +1114,7 @@ def cmd_compare(args):
 	"""
 	tickers = [s.upper() for s in args.symbols]
 
-	# Define the full set of scripts per ticker (same 11 as cmd_analyze)
+	# Define the full set of scripts per ticker (same 14 as cmd_analyze)
 	def _analyze_single(symbol):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
@@ -1114,9 +1128,12 @@ def cmd_compare(args):
 			"tight_closes": ("technical/tight_closes.py", ["daily", symbol]),
 			"low_cheat": ("technical/low_cheat.py", ["detect", symbol]),
 			"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]),
+			"forward_pe": ("analysis/forward_pe.py", ["calculate", symbol]),
+			"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", symbol]),
+			"margins": ("analysis/margin_tracker.py", ["track", symbol]),
 		}
 
-		with concurrent.futures.ThreadPoolExecutor(max_workers=11) as executor:
+		with concurrent.futures.ThreadPoolExecutor(max_workers=14) as executor:
 			futures = {name: executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
 			results = {name: future.result() for name, future in futures.items()}
 
@@ -1130,6 +1147,9 @@ def cmd_compare(args):
 		pocket_pivot = results["pocket_pivot"]
 		tight_closes = results["tight_closes"]
 		low_cheat = results["low_cheat"]
+		forward_pe = results["forward_pe"]
+		earnings_surprise = results["earnings_surprise"]
+		margins_result = results["margins"]
 
 		# Composite score
 		composite = _calc_composite_score(tt, stage, rs, earnings, vcp_result, base, volume)
@@ -1187,13 +1207,17 @@ def cmd_compare(args):
 			"pocket_pivot": pocket_pivot,
 			"tight_closes": tight_closes,
 			"low_cheat": low_cheat,
+			"forward_pe": forward_pe if not forward_pe.get("error") else None,
+			"earnings_surprise": earnings_surprise if not earnings_surprise.get("error") else None,
+			"margins": margins_result if not margins_result.get("error") else None,
 			"earnings_proximity": {"is_near": is_near, "days_until": days_until, "next_date": next_date},
 			"category_hint": category_hint,
 		}
 
-	# Run full analysis for each ticker in parallel
+	# Run full analysis for each ticker in parallel (cap at 5 to avoid API rate limits)
+	# 5 tickers × 14 scripts = 70 concurrent subprocesses — within stable range
 	individual_results = {}
-	with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(tickers))) as executor:
 		futures = {sym: executor.submit(_analyze_single, sym) for sym in tickers}
 		for sym, future in futures.items():
 			individual_results[sym] = future.result()
