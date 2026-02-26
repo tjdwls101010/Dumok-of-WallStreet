@@ -153,7 +153,7 @@ Notes:
 	- Agent can override pipeline signal based on market context
 	- analyze/compare run 14 scripts in parallel via ThreadPoolExecutor (core SEPA + forward_pe, earnings_surprise, margins)
 	- Each script runs in independent subprocess (no shared state)
-	- Watchlist mode remains sequential per-ticker (batch parallelization would overload)
+	- Watchlist mode runs min(5, N) tickers in parallel, each with 5 scripts in parallel (max 25 subprocesses)
 	- SG-4: 200MA extension graduated levels: >80% ELEVATED (informational), >100% EXTREME (penalty -3)
 	- EARNINGS_PROXIMITY signal code: appended when next earnings within 5 trading days
 	- category_hint: earnings-pattern-based company category inference aid (hint only, not definitive)
@@ -835,47 +835,61 @@ def cmd_analyze(args):
 @safe_run
 def cmd_watchlist(args):
 	"""Batch SEPA analysis for multiple tickers."""
+
+	def _watchlist_single(symbol):
+		scripts = {
+			"tt": ("screening/trend_template.py", ["check", symbol]),
+			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
+			"volume": ("technical/volume_analysis.py", ["analyze", symbol]),
+		}
+		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as inner_executor:
+			futures = {name: inner_executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
+			return {name: future.result() for name, future in futures.items()}
+
 	results = []
+	symbols = [s.upper() for s in args.symbols]
 
-	for symbol in args.symbols:
-		symbol = symbol.upper()
+	with concurrent.futures.ThreadPoolExecutor(max_workers=min(5, len(symbols))) as executor:
+		symbol_futures = [(sym, executor.submit(_watchlist_single, sym)) for sym in symbols]
+		for symbol, future in symbol_futures:
+			r = future.result()
+			tt = r["tt"]
+			stage = r["stage"]
+			rs = r["rs"]
+			earnings = r["earnings"]
+			volume = r["volume"]
 
-		# Run core checks only (lighter weight for batch)
-		tt = _run_script("screening/trend_template.py", ["check", symbol])
-		stage = _run_script("technical/stage_analysis.py", ["classify", symbol])
-		rs = _run_script("technical/rs_ranking.py", ["score", symbol])
-		earnings = _run_script("data_sources/earnings_acceleration.py", ["code33", symbol])
+			# Lighter-weight analysis for batch
+			vcp_result = {"error": "skipped_for_batch"}
+			base = {"error": "skipped_for_batch"}
 
-		# Lighter-weight analysis for batch
-		vcp_result = {"error": "skipped_for_batch"}
-		base = {"error": "skipped_for_batch"}
-		volume = _run_script("technical/volume_analysis.py", ["analyze", symbol])
+			composite = _calc_composite_score(tt, stage, rs, earnings, vcp_result, base, volume)
+			tt_pass = tt.get("overall_pass", False) if not tt.get("error") else False
+			signal = _determine_signal(composite, tt_pass, stage)
 
-		composite = _calc_composite_score(tt, stage, rs, earnings, vcp_result, base, volume)
-		tt_pass = tt.get("overall_pass", False) if not tt.get("error") else False
-		signal = _determine_signal(composite, tt_pass, stage)
+			# Provisional mode: cap STRONG_BUY to BUY when key components are skipped
+			if signal == "STRONG_BUY":
+				signal = "BUY"
 
-		# Provisional mode: cap STRONG_BUY to BUY when key components are skipped
-		if signal == "STRONG_BUY":
-			signal = "BUY"
-
-		results.append(
-			{
-				"symbol": symbol,
-				"sepa_score": composite,
-				"signal": signal,
-				"analysis_mode": "provisional",
-				"missing_components": ["vcp", "base_count"],
-				"tt_pass": tt_pass,
-				"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
-				"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
-				"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
-				"code33": earnings.get("code33_status", "N/A") if not earnings.get("error") else "N/A",
-				"volume_grade": volume.get("accumulation_distribution_rating", "N/A")
-				if not volume.get("error")
-				else "N/A",
-			}
-		)
+			results.append(
+				{
+					"symbol": symbol,
+					"sepa_score": composite,
+					"signal": signal,
+					"analysis_mode": "provisional",
+					"missing_components": ["vcp", "base_count"],
+					"tt_pass": tt_pass,
+					"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
+					"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
+					"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
+					"code33": earnings.get("code33_status", "N/A") if not earnings.get("error") else "N/A",
+					"volume_grade": volume.get("accumulation_distribution_rating", "N/A")
+					if not volume.get("error")
+					else "N/A",
+				}
+			)
 
 	# Sort by composite score descending
 	results.sort(key=lambda x: x.get("sepa_score", 0), reverse=True)
@@ -1013,8 +1027,12 @@ def cmd_screen(args):
 	SEPA analysis (TT, Stage, RS, Earnings, Volume) on each candidate to
 	produce a filtered and scored list.
 
+	Accepts both broad sectors (technology, healthcare) and industry names
+	(Software, Semiconductors). If sector-screen returns empty, falls back
+	to minervini_leaders preset filtered by industry name.
+
 	Args:
-		sector (str): Sector name for Finviz screening
+		sector (str): Sector or industry name for screening
 
 	Returns:
 		dict: {
@@ -1038,6 +1056,19 @@ def cmd_screen(args):
 						symbols.append(sym.upper())
 				elif isinstance(item, str):
 					symbols.append(item.upper())
+
+	# Step 2.5: Industry fallback — if sector-screen returned nothing, try preset + industry filter
+	if not symbols:
+		preset_result = _run_script("screening/finviz.py", ["screen", "--preset", "minervini_leaders", "--limit", "100"])
+		if not preset_result.get("error"):
+			search_term = args.sector.lower()
+			for item in preset_result.get("data", []):
+				if isinstance(item, dict):
+					industry = (item.get("Industry") or "").lower()
+					if search_term in industry and len(symbols) < 20:
+						sym = item.get("Ticker")
+						if sym:
+							symbols.append(sym.upper())
 
 	# Step 3: Run watchlist-level analysis for each symbol in parallel
 	def _screen_single(symbol):
