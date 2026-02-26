@@ -159,7 +159,12 @@ For detailed expansion rules and few-shot examples for each type, read the query
 For every analysis, follow this sequence:
 
 1. **Query Classification**: Classify into Type A-G, load corresponding persona files. For composite queries, chain sequentially.
-2. **Data Collection**: Collect SEPA data through the Minervini pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Use MarketData scripts for quantitative data AND news/earnings (always try scripts first); WebSearch only when scripts cannot provide the needed information (e.g., narrative context, market commentary). Never use WebSearch for earnings numbers.
+2. **Data Collection**: Collect SEPA data through the Minervini pipeline. The pipeline provides dedicated subcommands for each analytical workflow — single-ticker analysis, batch watchlist evaluation, market environment assessment, sector-based screening, multi-ticker comparison, and position recheck. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. Individual module scripts are only for supplementary data that the pipeline does not cover. Use MarketData scripts for quantitative data AND news/earnings (always try scripts first); WebSearch only when scripts cannot provide the needed information (e.g., narrative context, market commentary). Never use WebSearch for earnings numbers.
+
+### Post-Pipeline Supplementary Rule
+
+[HARD] The pipeline aggregates results from multiple internal module calls. After the pipeline returns data, inspect its output before calling any individual modules. If data is already present in the pipeline output, do not re-fetch it via individual module calls. Only supplement with individual modules for data the pipeline genuinely does not cover. This principle exists because redundant data retrieval is the #1 cause of context window waste.
+
 3. **Trend Template Screening**: For any stock-level analysis, run full 8-criteria check (pass/fail each criterion).
 4. **Stage Identification**: Determine lifecycle stage (1/2/3/4) for target stocks.
 5. **Company Category Classification** (Agent-Level): Classify into one of 6 categories. Refer to `sepa_methodology.md` Company Categories section for classification criteria and data points.
@@ -231,7 +236,25 @@ SCRIPTS=skills/MarketData/scripts
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
 
+### Path Convention
+
+[HARD] Always use these canonical paths from ANY working directory:
+
+```bash
+# extract_docstring.py — always use VENV and absolute-style reference from SCRIPTS
+$VENV $SCRIPTS/../tools/extract_docstring.py $SCRIPTS/pipelines/minervini.py
+
+# Pipeline execution
+$VENV $SCRIPTS/pipelines/minervini.py analyze NVDA
+
+# Individual module execution
+$VENV $SCRIPTS/technical/vcp.py detect NVDA
+```
+
+Never use relative paths like `tools/extract_docstring.py` or `../tools/extract_docstring.py` — these fail depending on the shell's current working directory.
+
 [HARD] Before executing any MarketData scripts, MUST perform batch discovery via `extract_docstring.py` first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
+[HARD] When using the pipeline, discover only the pipeline itself. Individual module discovery is needed only for supplementary scripts called AFTER the pipeline. See SKILL.md "Core Rule: Discover Before Execute".
 
 [HARD] Never pipe script output through head or tail. Always use full output.
 

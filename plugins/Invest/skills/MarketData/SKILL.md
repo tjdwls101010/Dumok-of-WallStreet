@@ -305,44 +305,28 @@ All scripts return JSON. Error format: `{"error": "message"}` with exit code 1.
 
 ## Script Execution Safety Protocol
 
-### [HARD] Mandatory Batch Discovery Rule
+### [HARD] Core Rule: Discover Before Execute
 
-Before executing ANY scripts in parallel, run `extract_docstring.py` with ALL scripts you plan to use. This is not optional.
+Never execute a script without first discovering its subcommands via `extract_docstring.py`. Subcommand names CANNOT be guessed from Level 1 (SKILL.md catalog) alone. For example, `info.py` has subcommands `get-fast-info` and `get-info`, NOT `get`.
 
-**Batch Size Limit**: Maximum 5 scripts per `extract_docstring.py` call. If you need more than 5, split into multiple sequential calls of ≤5 scripts each.
+**Execution flow**:
+1. Identify which script(s) you need to call
+2. Run `extract_docstring.py` on those specific scripts
+3. Execute with the discovered subcommands
 
-**Why**: Wrong subcommand names cause cascading failures -- one bad call cancels ALL parallel sibling tool calls ("Sibling tool call errored"), wasting the entire round-trip. This catalog (Level 1) provides script file names only, NOT subcommand names. For example, `info.py` has subcommands `get-fast-info` and `get-info`, NOT `get`. You cannot guess these from the catalog.
+**Pipeline usage**: When using a pipeline (e.g., `minervini.py`), discover only the pipeline itself. The pipeline internally calls individual modules — you do not need to discover those modules unless you plan to call them individually as supplements AFTER the pipeline.
 
-```bash
-# Batch 1: data collection scripts (max 5)
-$VENV ../tools/extract_docstring.py scripts/data_sources/info.py scripts/data_sources/financials.py scripts/data_sources/holders.py scripts/data_sources/earnings_acceleration.py scripts/analysis/forward_pe.py
+**Batch execution**: When calling multiple scripts in parallel, discover ALL of them beforehand in a single `extract_docstring.py` call (max 5 per call) to prevent cascading "Sibling tool call errored" failures from wrong subcommand names.
 
-# Batch 2: analysis scripts (max 5)
-$VENV ../tools/extract_docstring.py scripts/analysis/sbc_analyzer.py scripts/analysis/margin_tracker.py scripts/analysis/debt_structure.py scripts/analysis/institutional_quality.py scripts/analysis/no_growth_valuation.py
-
-# Single script discovery
-$VENV ../tools/extract_docstring.py scripts/technical/oscillators.py
-```
-
-Then use the discovered subcommands in your parallel calls with confidence.
+**Skip condition**: If you have already successfully discovered a script's subcommands in the current session, you may reuse them without re-discovery.
 
 ### [HARD] Never Read Code Files Directly
 
-Always use `extract_docstring.py` for function details. Direct `.py` file Read is severe token waste -- the docstring extractor provides the same information efficiently.
-
-### Progressive Disclosure Alignment
-
-- **Level 1 (SKILL.md catalog)**: Script file names and descriptions only
-- **Level 2 (extract_docstring.py)**: Exact subcommand names, arguments, and usage examples
-- Never guess subcommand names from Level 1 alone. Always escalate to Level 2 before execution.
-
-### Skip Condition
-
-If you have already successfully discovered a script's subcommands in the current session, you may reuse them without re-discovery.
+Always use `extract_docstring.py` for function details. Direct `.py` file Read is severe token waste.
 
 ### [HARD] Output Integrity Rule
 
-Never pipe script output through `head`, `tail`, or any truncation command. Always capture and use full output. Partial data leads to incorrect analysis.
+Never pipe script output through `head`, `tail`, or any truncation command. Always capture and use full output.
 
 ### [HARD] Script Failure Mandatory Retry Rule
 
@@ -351,69 +335,10 @@ Every failed script execution MUST be retried. No exceptions.
 **Retry Protocol:**
 1. Script returns error or non-zero exit code → Retry with corrected arguments
 2. "Sibling tool call errored" (parallel execution failure) → Re-execute in the NEXT turn
-3. Second failure → Try alternative script from Fallback Chain (see Script-Level Fallback Chain below)
+3. Second failure → Try alternative script from Fallback Chain (see below)
 4. Fallback also fails → Explicitly declare: "⚠️ [script name] data unavailable. Analysis proceeds WITHOUT this data. Affected sections marked."
 
 **Prohibited Behaviors:**
 - NEVER skip a failed script and proceed as if data was collected
 - NEVER infer or estimate values that a failed script would have returned
 - NEVER substitute WebSearch results for failed MarketData scripts without explicitly stating the data source downgrade
-
-## Integration Notes
-
-**Token Budget**: 2-level Progressive Disclosure keeps token load minimal. This file serves as the complete catalog; use `extract_docstring.py` only when you need detailed function signatures.
-
-**Workflow**: Chain commands for comprehensive analysis (technical → macro → valuation → probability).
-
-**Environment**: FRED API key is hardcoded. All data sources work out of the box.
-
-**Rate Limits**: FRED 120/min, SEC 10/sec recommended.
-
-**Tools:**
-- `extract_docstring.py` - Extract function docstrings for Level 2 documentation
-
-## Error Handling & Fallback Guide
-
-### Dependency Failures
-
-If a script fails with `ModuleNotFoundError` or import errors:
-
-1. Activate the virtual environment: `cd skills/MarketData/scripts && python -m venv .venv && .venv/bin/pip install -r requirements.txt`
-2. For individual packages: `.venv/bin/pip install <package-name>`
-3. Common missing packages: `finvizfinance`, `fredapi`, `sec-api`
-4. **Read-only filesystem (Cowork)**: If venv creation fails with permission errors, create the venv in the session working directory and install requirements from the original scripts path.
-
-### Finviz 403 / Rate Limit Errors
-
-Finviz may block requests with 403 errors due to rate limiting or bot detection. Follow this 3-stage fallback:
-
-1. **Automatic retry**: `finviz.py` includes built-in retry with exponential backoff (up to 3 attempts with increasing delay)
-2. **ETF-based sector analysis**: Use `sector_leaders.py scan --fallback etf` for sector-level leadership via 11 sector ETFs (XLK, XLV, XLF, etc.). Provides sector-level RS ranking but cannot identify individual stock leaders.
-3. **YFinance-only analysis**: For individual stocks, all core SEPA scripts work without Finviz:
-   - `stage_analysis.py classify` for stage identification
-   - `rs_ranking.py score` for RS scoring (uses YFinance data)
-   - `trend_template.py check` for Trend Template (uses YFinance data)
-   - `earnings_acceleration.py` for earnings analysis (uses YFinance data)
-
-### Data Insufficiency
-
-When YFinance returns insufficient data for a specific ticker:
-
-- **Price data < 200 days**: Stage analysis and Trend Template require 200+ trading days. Try `--period 3y` for tickers with short listing history.
-- **No quarterly financials**: Some tickers (ETFs, ADRs, newly listed) lack income statement data. Use `earnings_acceleration.py surprise` (uses earnings_dates which has broader coverage) as fallback for EPS data.
-- **Missing metrics**: If a specific income statement metric is not found (e.g., DilutedEPS), the scripts automatically try alternative metric names (BasicEPS, NetIncome, etc.).
-
-### Script-Level Fallback Chain
-
-| Primary Script | Fallback 1 | Fallback 2 |
-|---------------|-----------|-----------|
-| `serenity.py analyze` | Run L4 scripts individually (info, financials, holders, sbc_analyzer, forward_pe, debt_structure, institutional_quality, no_growth_valuation, margin_tracker, iv_context) | `bottleneck_scorer.py validate` for health gates only |
-| `serenity.py screen` | `finviz.py sector-screen` + manual `bottleneck_scorer.py validate` per ticker | WebSearch for sector candidates + manual validation |
-| `capex_tracker.py cascade` | Run `capex_tracker.py track` per layer individually | `financials.py get-cash-flow --freq quarterly` + manual CapEx extraction |
-| `traderlion.py analyze` | Run individual scripts separately (volume_edge, trend_template, stage_analysis, rs_ranking, earnings_acceleration, vcp, base_count, volume_analysis, closing_range) | Manual edge counting + score calculation |
-| `minervini.py analyze` | Run individual scripts separately | Manual analysis from price/financials data |
-| `williams.py trade-setup` | Run individual williams.py subcommands separately (trade-setup, pattern-scan, williams-r, volatility-breakout, range-analysis) | Manual analysis from price data + TDW/TDM lookup |
-| `finviz.py screen` | `sector_leaders.py scan --fallback etf` | `rs_ranking.py screen` (YFinance-based RS) |
-| `finviz.py groups` | `sector_leaders.py scan --fallback etf` | Manual ETF comparison |
-| `earnings_acceleration.py code33` | `earnings_acceleration.py acceleration` | `financials.py get-income-stmt --freq quarterly` |
-| `stage_analysis.py classify` | Infer from Trend Template results | Manual MA analysis via `trend.py sma` |

@@ -75,7 +75,20 @@ Returns:
 			"top_leaders": list,
 			"broken_leaders": list,
 			"breadth_indicators": dict,
-			"market_verdict": dict
+			"market_verdict": {
+				"total_leaders_checked": int,
+				"healthy_leaders": int,
+				"broken_leaders": int,
+				"leader_health_ratio": float,
+				"breadth_available": bool,
+				"breadth_summary": dict or null {
+					"nyse_ratio": float (new_highs / new_lows),
+					"nasdaq_ratio": float,
+					"total_ratio": float,
+					"interpretation": str,
+					"nyse_nasdaq_divergence": bool
+				}
+			}
 		}
 
 	For screen:
@@ -881,8 +894,21 @@ def cmd_market_leaders(args):
 			"sector_rankings": dict (sector dashboard with leader counts and strength),
 			"top_leaders": list (top leader stocks with TT/Stage/RS data),
 			"broken_leaders": list (former leaders failing TT or in Stage 3/4),
-			"breadth_indicators": dict (market breadth data),
-			"market_verdict": dict (summary of market health signals)
+			"breadth_indicators": dict (full market breadth data),
+			"market_verdict": dict {
+				"total_leaders_checked": int,
+				"healthy_leaders": int,
+				"broken_leaders": int,
+				"leader_health_ratio": float,
+				"breadth_available": bool,
+				"breadth_summary": dict or null {
+					"nyse_ratio": float (new_highs / new_lows),
+					"nasdaq_ratio": float,
+					"total_ratio": float,
+					"interpretation": str,
+					"nyse_nasdaq_divergence": bool
+				}
+			}
 		}
 	"""
 	# Run sector dashboard and breadth in parallel
@@ -928,12 +954,32 @@ def cmd_market_leaders(args):
 		else:
 			broken_leaders.append({"symbol": sym, "tt": tt})
 
+	# Build breadth summary from breadth_indicators
+	breadth_summary = None
+	if not breadth.get("error"):
+		nyse = breadth.get("nyse", {})
+		nasdaq = breadth.get("nasdaq", {})
+		total = breadth.get("total", {})
+		nyse_ratio = nyse.get("ratio", 0.0)
+		nasdaq_ratio = nasdaq.get("ratio", 0.0)
+		# Divergence: one exchange bullish (ratio > 1) while the other bearish (ratio < 1)
+		nyse_bullish = nyse_ratio > 1.0
+		nasdaq_bullish = nasdaq_ratio > 1.0
+		breadth_summary = {
+			"nyse_ratio": nyse_ratio,
+			"nasdaq_ratio": nasdaq_ratio,
+			"total_ratio": total.get("ratio", 0.0),
+			"interpretation": breadth.get("interpretation", ""),
+			"nyse_nasdaq_divergence": nyse_bullish != nasdaq_bullish,
+		}
+
 	market_verdict = {
 		"total_leaders_checked": len(leader_symbols),
 		"healthy_leaders": len(top_leaders),
 		"broken_leaders": len(broken_leaders),
 		"leader_health_ratio": round(len(top_leaders) / max(len(leader_symbols), 1), 2),
 		"breadth_available": not breadth.get("error"),
+		"breadth_summary": breadth_summary,
 	}
 
 	output_json({
@@ -964,12 +1010,12 @@ def cmd_screen(args):
 		}
 	"""
 	# Step 1: Finviz sector screen
-	finviz_result = _run_script("screening/finviz.py", ["sector-screen", args.sector])
+	finviz_result = _run_script("screening/finviz.py", ["sector-screen", "--sector", args.sector])
 
 	# Step 2: Extract symbols
 	symbols = []
 	if not finviz_result.get("error"):
-		candidates_raw = finviz_result.get("results", finviz_result.get("candidates", []))
+		candidates_raw = finviz_result.get("data", finviz_result.get("results", finviz_result.get("candidates", [])))
 		if isinstance(candidates_raw, list):
 			for item in candidates_raw[:20]:
 				if isinstance(item, dict):
@@ -979,33 +1025,49 @@ def cmd_screen(args):
 				elif isinstance(item, str):
 					symbols.append(item.upper())
 
-	# Step 3: Run watchlist-level analysis for each symbol
+	# Step 3: Run watchlist-level analysis for each symbol in parallel
+	def _screen_single(symbol):
+		scripts = {
+			"tt": ("screening/trend_template.py", ["check", symbol]),
+			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
+			"volume": ("technical/volume_analysis.py", ["analyze", symbol]),
+		}
+		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as inner_executor:
+			futures = {name: inner_executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
+			return {name: future.result() for name, future in futures.items()}
+
+	# Parallel analysis across all symbols (limit concurrency to avoid API rate limits)
 	candidates = []
-	for symbol in symbols:
-		tt = _run_script("screening/trend_template.py", ["check", symbol])
-		stage = _run_script("technical/stage_analysis.py", ["classify", symbol])
-		rs = _run_script("technical/rs_ranking.py", ["score", symbol])
-		earnings = _run_script("data_sources/earnings_acceleration.py", ["code33", symbol])
-		volume = _run_script("technical/volume_analysis.py", ["analyze", symbol])
+	with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(symbols) or 1)) as executor:
+		symbol_futures = {sym: executor.submit(_screen_single, sym) for sym in symbols}
+		for symbol in symbols:
+			results = symbol_futures[symbol].result()
+			tt = results["tt"]
+			stage = results["stage"]
+			rs = results["rs"]
+			earnings = results["earnings"]
+			volume = results["volume"]
 
-		composite = _calc_composite_score(
-			tt, stage, rs, earnings,
-			{"error": "skipped"}, {"error": "skipped"}, volume,
-		)
+			composite = _calc_composite_score(
+				tt, stage, rs, earnings,
+				{"error": "skipped"}, {"error": "skipped"}, volume,
+			)
 
-		tt_pass = tt.get("overall_pass", False) if not tt.get("error") else False
-		signal = _determine_signal(composite, tt_pass, stage)
+			tt_pass = tt.get("overall_pass", False) if not tt.get("error") else False
+			signal = _determine_signal(composite, tt_pass, stage)
 
-		candidates.append({
-			"symbol": symbol,
-			"sepa_score": composite,
-			"signal": signal,
-			"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
-			"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
-			"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
-			"code33": earnings.get("code33_status", "N/A") if not earnings.get("error") else "N/A",
-			"volume_grade": volume.get("accumulation_distribution_rating", "N/A") if not volume.get("error") else "N/A",
-		})
+			candidates.append({
+				"symbol": symbol,
+				"sepa_score": composite,
+				"signal": signal,
+				"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
+				"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
+				"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
+				"code33": earnings.get("code33_status", "N/A") if not earnings.get("error") else "N/A",
+				"volume_grade": volume.get("accumulation_distribution_rating", "N/A") if not volume.get("error") else "N/A",
+			})
 
 	# Sort by sepa_score descending
 	candidates.sort(key=lambda x: x.get("sepa_score", 0), reverse=True)
