@@ -8,35 +8,59 @@ As of February 25, 2026, it currently supports 5 experts: **Minervini** (SEPA), 
 
 ## 1. Design Philosophy
 
-This plugin is not just a simple stock analysis tool; it aims to perfectly recreate the **mindset and decision-making framework** of each expert. To achieve this, it follows four core principles:
-
-### Progressive Disclosure
-
-Hierarchically loads only the necessary information at the exact moment it is needed.
-
-Loading the entire docstrings of ~112 modules at once wastes the context window. Instead, the agent first checks the module names and one-line descriptions in `SKILL.md` (Level 1 Catalog), and then uses `extract_docstring.py` (Level 2) to check the subcommands, arguments, and return structures only for the modules it actually needs. This two-step discovery process saves context while ensuring access to accurate information.
-
-### Single Source of Truth (Eliminating Document Synchronization Burden)
-
-The specific usage of the code (subcommands, arguments, return structures) has the **docstring of that code as its single source of truth**. Specific code names or subcommand names are not explicitly stated in the command or persona documents.
-
-While it is natural to update the docstring in the same file when modifying code, synchronizing it with separate command and persona files is burdensome and prone to omissions. `extract_docstring.py` bridges this gap, ensuring the agent always has access to the latest code information.
-
-### Pipeline-Complete
-
-Each pipeline contains ALL module calls required by the expert's methodology — the agent never needs to call individual modules to supplement pipeline results.
-
-The original "Pipeline-First" approach allowed supplementary module calls, but this led to inconsistency across runs. Pipelines now embed all methodology-required module calls within their subcommands, achieving 100% consistency and reproducibility.
-
-### Context Efficiency
-
-Pipelines load sufficient data internally but do not include massive raw data with low insight density (e.g., years of daily price history, full lists of institutional holders) in the response.
-
-However, this does not mean "fetch less data." The principle is: **"Exclude unnecessary raw data to avoid exceeding the 200k context window, but include all scores, signals, and the evidence supporting those judgments."** Claude's context window is a finite resource; if raw data occupies the context, the quality of the agent's analysis degrades.
+This plugin aims to perfectly recreate the **mindset and decision-making framework** of each investment expert, not just analyze stocks. To achieve this, the plugin enforces 7 core design principles (see Section 2) governing how the agent discovers code, executes analysis, and manages context. Every architectural decision — from the 2-step module discovery to pipeline-centric execution — derives from these principles.
 
 ---
 
-## 2. Architectural Hierarchy
+## 2. Core Design Principles
+
+Describe the meaning, purpose, and reason for introducing each principle.
+
+### 2.1 Single Source of Truth (Eliminating Document Synchronization Burden)
+
+**Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify **interface details** (subcommand names, argument formats, return structures) in commands or personas — these change when code evolves. The agent always accesses the latest interface information via `extract_docstring.py`. Structural references (which pipeline file serves which persona, execution path format patterns) are acceptable since they are stable architectural facts.
+
+**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing interface details with separate files (commands/personas) was burdensome and prone to omissions. `extract_docstring.py` bridges this gap, ensuring the agent always has access to the latest code information.
+
+### 2.2 Persona Purity
+
+**Principle**: Each command prioritizes the use of its dedicated pipeline. Calling pipelines of other personas is prohibited. Modules can be shared, but the interpretation of results must always be within the context of the respective persona.
+
+**Reason for Introduction**: Previously, when the agent autonomously selected modules, boundaries between personas collapsed (e.g., interpreting Minervini's SEPA/VCP from a Minervini perspective during a Serenity analysis). Pipelines solve this by enforcing module combinations, weights, and gates unique to each persona.
+
+### 2.3 Pipeline-Complete
+
+**Principle**: Each pipeline must contain ALL module calls required by the expert's methodology. The pipeline's subcommands serve as the complete implementation of the methodology — the agent should NEVER need to call individual modules to supplement pipeline results.
+
+**Reason for Introduction**: The original "Pipeline-First" approach allowed agents to supplement pipeline results with individual module calls. However, this led to inconsistency — the same query produced different supplementary module selections across runs, undermining reproducibility. The evolved approach (demonstrated by Minervini and Williams pipelines) embeds all methodology-required module calls within the pipeline's subcommands, achieving 100% consistency. The agent's role is limited to interpreting pipeline outputs, not selecting which modules to call.
+
+### 2.4 Context Efficiency
+
+**Principle**: Pipelines load sufficient data internally but do not include massive raw data with low insight density (e.g., years of daily price history) in the response. However, sufficient evidence for each judgment must be included. The principle is not "less data," but "exclude unnecessary raw data, but include all scores, signals, and evidence for judgments."
+
+**Reason for Introduction**: Claude's context window (200k) is a finite resource. When raw data occupied the context, the quality of the agent's analysis degraded. Pipelines solve this by processing raw data internally and returning only derived metrics and evidence for judgments, utilizing the context efficiently.
+
+### 2.5 Progressive Disclosure
+
+**Principle**: Hierarchically load only the necessary information at the exact moment it is needed. The agent first checks module names and one-line descriptions in `SKILL.md` (Level 1 Catalog), then uses `extract_docstring.py` (Level 2 Details) to check subcommands, arguments, and return structures only for the modules it actually needs. This two-step discovery process saves context while ensuring access to accurate information. Do not guess subcommands.
+
+**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. The 2-step discovery process retrieves detailed information only for the necessary modules at the necessary time.
+
+### 2.6 Graceful Degradation
+
+**Principle**: Continue analysis with the remaining components even if individual components of the pipeline fail. Indicate `missing_components`.
+
+**Reason for Introduction**: Individual module failures are inevitable due to reliance on external data sources (yfinance, FRED, etc.). If a single failure halts the entire analysis, usability severely degrades.
+
+### 2.7 Module Neutrality
+
+**Principle**: Individual modules are not dependent on a specific persona. The identity of a persona is determined by the combination, weights, and gate design of the pipeline, and the interpretation context of the command and persona documents.
+
+**Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
+
+---
+
+## 3. Architectural Hierarchy
 
 ```
 Command (.md) — Agent Persona + Execution Protocol
@@ -62,9 +86,9 @@ Module Scripts — Atomic Analysis Functions (~112)
 
 ---
 
-## 3. Component Guide
+## 4. Component Guide
 
-### 3.1 Command (.md)
+### 4.1 Command (.md)
 
 **Location**: `commands/`
 **Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how."
@@ -88,9 +112,9 @@ Module Scripts — Atomic Analysis Functions (~112)
 **Notes:**
 - **Include Inline Methodology Summary**: Directly include core criteria (e.g., Minervini's 8 Trend Template conditions) in the Methodology Quick Reference. Used as a fallback if persona files fail to load.
 - **Query Classification**: Define analysis workflows for each type (Type A ~ G) to determine the appropriate analysis path based on the user's question intent.
-- **Do Not Specify Concrete Code/Subcommand Names**: Following the Single Source of Truth principle, discover them using `extract_docstring.py`.
+- **Do Not Specify Interface Details**: Following the Single Source of Truth principle, do not include subcommand names, argument formats, or return structures. Discover them at runtime via `extract_docstring.py`. Structural references (pipeline file paths, execution format) are acceptable.
 
-### 3.2 SKILL.md
+### 4.2 SKILL.md
 
 **Location**: `skills/MarketData/SKILL.md`
 **Role**: The Level 1 catalog for all scripts. The entry point for Progressive Disclosure.
@@ -111,7 +135,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 - Do not list subcommand names — discover them via Level 2 (`extract_docstring.py`).
 - Do not modify the Safety Protocol rules.
 
-### 3.3 Persona Files
+### 4.3 Persona Files
 
 **Location**: `skills/MarketData/Personas/{Name}/`
 **Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Like the Command, it defines "how to interpret," but is not dependent on specific code implementations.
@@ -133,9 +157,9 @@ Module Scripts — Atomic Analysis Functions (~112)
 - Must map to the Command's Query Classification.
 - Extract the methodology (HOW) from original books and reports. Use past cases only as few-shot examples, focusing on the decision-making process. Prevent anchoring bias from specific stock conclusions.
 - Avoid over-generalization — preserve the unique perspective of the specific expert.
-- Avoid specifying concrete script names or subcommand names (creates synchronization burden when code changes).
+- Avoid specifying interface details (subcommand names, arguments, return structures) — creates synchronization burden when code changes. Structural pipeline references are acceptable.
 
-### 3.4 Pipeline Scripts
+### 4.4 Pipeline Scripts
 
 **Location**: `scripts/pipelines/`
 **Role**: Facade pattern — executes multiple modules in parallel to provide a comprehensive analysis tailored to the persona's methodology.
@@ -176,7 +200,7 @@ Writing calling code based on guesswork without verifying the module's interface
 - Must include sufficient evidence for each judgment, not just scores and signals.
 - Principle: Not "less data," but **"exclude unnecessary raw data + include evidence for judgments."**
 
-### 3.5 Module Scripts
+### 4.5 Module Scripts
 
 **Location**: `scripts/` (excluding pipelines)
 **Role**: Atomic functions focusing on a single analysis concern. Approximately 112 modules.
@@ -191,7 +215,7 @@ Writing calling code based on guesswork without verifying the module's interface
 - **Write Persona-Neutrally**: Do not hardcode the interpretation logic of a specific persona so that it can be reused across multiple pipelines.
 - **Docstring Concentration Principle**: `extract_docstring.py` extracts only the module-level docstring at the very top of the file using `ast.get_docstring()`. All information the agent needs to know (subcommands, arguments, return structures, usage examples) must be concentrated within a single `""" """` block at the very top of the file. Function-specific docstrings or inline comments will not be discovered by `extract_docstring.py`.
 
-### 3.6 Docstring & extract_docstring.py
+### 4.6 Docstring & extract_docstring.py
 
 **Location**: `tools/extract_docstring.py`
 **Role**: Level 2 Discovery — safely discovers the subcommands, arguments, and return structures of modules.
@@ -204,54 +228,6 @@ This is the **core mechanism of the Single Source of Truth**. Instead of specify
 - Do not read Python files directly; always use `extract_docstring.py`.
 - Maximum of 5 scripts per call.
 - Adhere to the `docstring_guidelines.md` specifications.
-
----
-
-## 4. Core Design Principles
-
-Describe the meaning, purpose, and reason for introducing each principle.
-
-### 4.1 Single Source of Truth (Eliminating Document Synchronization Burden)
-
-**Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify code names or subcommand names in commands or personas. The agent always accesses the latest code information via `extract_docstring.py`.
-
-**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing it with separate files (commands/personas) was burdensome and prone to omissions. This principle fundamentally eliminates the synchronization burden across multiple files when code changes.
-
-### 4.2 Persona Purity
-
-**Principle**: Each command prioritizes the use of its dedicated pipeline. Calling pipelines of other personas is prohibited. Modules can be shared, but the interpretation of results must always be within the context of the respective persona.
-
-**Reason for Introduction**: Previously, when the agent autonomously selected modules, boundaries between personas collapsed (e.g., interpreting Minervini's SEPA/VCP from a Minervini perspective during a Serenity analysis). Pipelines solve this by enforcing module combinations, weights, and gates unique to each persona.
-
-### 4.3 Pipeline-Complete
-
-**Principle**: Each pipeline must contain ALL module calls required by the expert's methodology. The pipeline's subcommands serve as the complete implementation of the methodology — the agent should NEVER need to call individual modules to supplement pipeline results.
-
-**Reason for Introduction**: The original "Pipeline-First" approach allowed agents to supplement pipeline results with individual module calls. However, this led to inconsistency — the same query produced different supplementary module selections across runs, undermining reproducibility. The evolved approach (demonstrated by Minervini and Williams pipelines) embeds all methodology-required module calls within the pipeline's subcommands, achieving 100% consistency. The agent's role is limited to interpreting pipeline outputs, not selecting which modules to call.
-
-### 4.4 Context Efficiency
-
-**Principle**: Pipelines load sufficient data internally but do not include massive raw data with low insight density (e.g., years of daily price history) in the response. However, sufficient evidence for each judgment must be included. The principle is not "less data," but "exclude unnecessary raw data, but include all scores, signals, and evidence for judgments."
-
-**Reason for Introduction**: Claude's context window (200k) is a finite resource. When raw data occupied the context, the quality of the agent's analysis degraded. Pipelines solve this by processing raw data internally and returning only derived metrics and evidence for judgments, utilizing the context efficiently.
-
-### 4.5 Progressive Disclosure
-
-**Principle**: `SKILL.md` (Level 1 Catalog) → `extract_docstring.py` (Level 2 Details) → Execution. Do not guess subcommands.
-
-**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. Solved by a 2-step discovery process that retrieves detailed information only for the necessary modules at the necessary time.
-
-### 4.6 Graceful Degradation
-
-**Principle**: Continue analysis with the remaining components even if individual components of the pipeline fail. Indicate `missing_components`.
-
-**Reason for Introduction**: Individual module failures are inevitable due to reliance on external data sources (yfinance, FRED, etc.). If a single failure halts the entire analysis, usability severely degrades.
-
-### 4.7 Module Neutrality
-
-**Principle**: Individual modules are not dependent on a specific persona. The identity of a persona is determined by the combination, weights, and gate design of the pipeline, and the interpretation context of the command and persona documents.
-
-**Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
 
 ---
 

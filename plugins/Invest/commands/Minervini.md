@@ -116,21 +116,16 @@ Output: Sector health verdict + ranked SEPA candidate list with valuation contex
 **Type D - Trade Timing** (매매 타이밍)
 "지금 사?", "들어가도 됨?", "진입 시점", "언제 사야 해?", "타이밍"
 User intent: The stock qualifies, but WHEN and WHERE exactly do I buy?
-Workflow: VCP analysis (including shakeout grading, Cup & Handle, Power Play, setup readiness, time compression, demand evidence, pivot tightness), alternative entry technique assessment (pocket pivot, low cheat, tight closes, 3C Cup Completion Cheat entry), pivot point identification, volume confirmation, base maturity assessment, relative correction vs SPY, breakout mechanics.
-Output: Specific entry price + initial stop + breakeven trigger + profit target + 4 contingency plans + alternative entry options.
-Note: If the stock has not been diagnosed yet, chain B then D automatically.
-Note: Evaluate shakeout grades, setup readiness score, and alternative entry signals for comprehensive entry quality assessment.
-Note: When pipeline returns EARNINGS_PROXIMITY_WARNING in signal_reason_codes, explicitly address earnings timing risk in the action plan. Consider recommending post-earnings entry or reduced initial position size.
+Prerequisite: If the stock has not been diagnosed yet, chain B then D automatically.
+Workflow: VCP analysis (including shakeout grading, Cup & Handle, Power Play, setup readiness, time compression, demand evidence, pivot tightness), alternative entry technique assessment (pocket pivot, low cheat, tight closes, 3C Cup Completion Cheat entry), pivot point identification, volume confirmation, base maturity assessment, relative correction vs SPY, breakout mechanics. Evaluate shakeout grades, setup readiness score, and alternative entry signals for comprehensive entry quality assessment.
+Output: Specific entry price + initial stop + breakeven trigger + profit target + 4 contingency plans + alternative entry options. When pipeline returns EARNINGS_PROXIMITY_WARNING in signal_reason_codes, explicitly address earnings timing risk and consider recommending post-earnings entry or reduced initial position size.
 
 **Type E - Position Management** (포지션 관리)
 "이거 팔아?", "손절해야 하나?", "익절 시점", "물타기 해도 돼?", "계속 들고 가?"
 User intent: I already OWN this stock. What do I do with it?
-Workflow: Current stage recheck, post-breakout monitoring for behavior classification (tennis_ball/egg/squat) and 20MA sell rule, failure reset monitoring after stop-out, stop-loss adjustment rules, profit-taking criteria, scaling rules, disposition effect check.
+Guardrail: "물타기" (averaging down) questions always receive a firm rejection per Minervini rules.
+Workflow: Current stage recheck, post-breakout monitoring for behavior classification (tennis_ball/egg/squat) and 20MA sell rule, failure reset monitoring after stop-out, stop-loss adjustment rules, profit-taking criteria, scaling rules, disposition effect check. When user provides entry price and date, use these as arguments to post-breakout monitoring for objective hold_sell_signal. Execute the Disposition Effect Check Protocol (see `risk_and_trade_management.md`) before issuing any hold recommendation. For earnings events within 5 trading days, activate Earnings Event Protocol (see `risk_and_trade_management.md`).
 Output: Hold/trim/sell decision + adjusted stop levels + contingency activation.
-Note: "물타기" (averaging down) questions always receive a firm rejection per Minervini rules.
-Note: For earnings events within 5 trading days, activate Earnings Event Protocol (see `risk_and_trade_management.md`).
-Note: For all Type E queries, execute the Disposition Effect Check Protocol defined in `risk_and_trade_management.md` before issuing any hold recommendation.
-Note: When user provides entry price and date, run post-breakout monitoring with entry price and date arguments to get objective hold_sell_signal.
 
 **Type F - Risk Check** (리스크 점검)
 "위험해?", "과매수?", "버블?", "폭락?", "고점?", "PE 높은데 괜찮아?"
@@ -163,25 +158,25 @@ For detailed expansion rules and few-shot examples for each type, read the query
 For every analysis, follow this sequence:
 
 1. **Query Classification**: Classify into Type A-G, load corresponding persona files. For composite queries, chain sequentially.
-2. **Data Collection**: Collect SEPA data through the Minervini pipeline. The pipeline provides dedicated subcommands for each analytical workflow — single-ticker analysis, batch watchlist evaluation, market environment assessment, sector-based screening, multi-ticker comparison, and position recheck. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. Individual module scripts are only for supplementary data that the pipeline does not cover. Use MarketData scripts for quantitative data AND news/earnings (always try scripts first); WebSearch only when scripts cannot provide the needed information (e.g., narrative context, market commentary). Never use WebSearch for earnings numbers.
+2. **Data Collection**: Collect SEPA data through the Minervini pipeline. The pipeline provides dedicated subcommands for each analytical workflow — single-ticker analysis, batch watchlist evaluation, market environment assessment, sector-based screening, multi-ticker comparison, and position recheck. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. The pipeline contains all methodology-required module calls (Pipeline-Complete); do not call individual modules to supplement. Use WebSearch only when the pipeline cannot provide the needed information (e.g., narrative context, market commentary, competitive landscape). Never use WebSearch for earnings numbers.
 
-### Post-Pipeline Supplementary Rule
+*Steps 3-9 below interpret the pipeline output collected in Step 2. Steps marked (Agent-Level) require LLM reasoning beyond reading pipeline data.*
 
-[HARD] The pipeline aggregates results from multiple internal module calls. After the pipeline returns data, inspect its output before calling any individual modules. If data is already present in the pipeline output, do not re-fetch it via individual module calls. Only supplement with individual modules for data the pipeline genuinely does not cover. This principle exists because redundant data retrieval is the #1 cause of context window waste.
-
-3. **Trend Template Screening**: For any stock-level analysis, run full 8-criteria check (pass/fail each criterion).
-4. **Stage Identification**: Determine lifecycle stage (1/2/3/4) for target stocks.
+3. **Trend Template Screening**: For any stock-level analysis, verify the 8-criteria pass/fail results from pipeline output.
+4. **Stage Identification**: Confirm the lifecycle stage (1/2/3/4) from pipeline output.
 5. **Company Category Classification** (Agent-Level): Classify into one of 6 categories. Refer to `sepa_methodology.md` Company Categories section for classification criteria and data points.
-6. **Volume Pattern Confirmation**: Run volume analysis to confirm volume patterns. Evaluate Up/Down ratio (50d, 20d), Distribution Day clustering, Climactic Volume Days, and pullback volume quality. If volume contradicts price pattern (e.g., TT passes but heavy distribution detected), issue a warning. **Do not make a SEPA verdict without volume confirmation.** Applies to stock-level queries (Type B, D, E, G).
-7. **Earnings Analysis**: Check acceleration patterns, Code 33 status, surprise history.
-8. **Risk Assessment**: Calculate risk/reward ratio, position sizing implications, mathematical expectation.
+6. **Volume Pattern Confirmation**: Evaluate volume metrics from pipeline output — Up/Down ratio (50d, 20d), Distribution Day clustering, Climactic Volume Days, and pullback volume quality. If volume contradicts price pattern (e.g., TT passes but heavy distribution detected), issue a warning. **Do not make a SEPA verdict without volume confirmation.** Applies to stock-level queries (Type B, D, E, G).
+7. **Earnings Analysis**: Review acceleration patterns, Code 33 status, and surprise history from pipeline output.
+8. **Risk Assessment** (Agent-Level): Synthesize risk/reward ratio, position sizing implications, and mathematical expectation from pipeline data and methodology principles.
 9. **Action Plan**: Entry points, stop levels, profit targets, contingency plans.
 
-### Short-Circuit Rule
+### Pipeline Output Interpretation
+
+#### Short-Circuit Rule
 
 After Step 3-4, apply Short-Circuit Analysis Rule to determine analysis depth (see `risk_and_trade_management.md` for full criteria). TT 6/8+ and Stage 2 proceeds to full analysis (Steps 5-9); TT 0-3/8 or Stage 3/4 short-circuits to AVOID.
 
-### Hard-Gate Interpretation
+#### Hard-Gate Signals
 
 When the Minervini pipeline analyze returns `hard_gate_result.blocked=true`:
 
@@ -191,7 +186,7 @@ When the Minervini pipeline analyze returns `hard_gate_result.blocked=true`:
 - Hard-gate blockers: TT insufficient (<6/8), Stage 3/4, distribution cluster with weak 20d volume ratio (<0.7).
 - Soft-gate penalties (VCP not detected, no breakout volume, excessive correction) reduce the score but do not block.
 
-### Provisional Signal Handling
+#### Provisional Mode
 
 When watchlist results contain `analysis_mode: "provisional"`:
 
@@ -199,11 +194,11 @@ When watchlist results contain `analysis_mode: "provisional"`:
 - STRONG_BUY is automatically capped to BUY in provisional mode.
 - When the user selects a candidate from the watchlist, recommend running full analysis for complete SEPA evaluation.
 
-### Script-Automated vs Agent-Level Inference
+#### Pipeline-Automated vs Agent-Level Steps
 
-Each analysis step is either automated via script or requires agent-level LLM reasoning:
+Each analysis step is either automated via the pipeline or requires agent-level LLM reasoning:
 
-- **Script-automated**: Trend Template, Stage Analysis, RS Ranking, Earnings Acceleration, VCP Detection, Base Counting, Volume Analysis, Position Sizing (including pyramid and expectation), SEPA Pipeline, Earnings Proximity Detection, Company Category Hint
+- **Pipeline-automated**: Trend Template, Stage Analysis, RS Ranking, Earnings Acceleration, VCP Detection, Base Counting, Volume Analysis, Position Sizing (including pyramid and expectation), Earnings Proximity Detection, Company Category Hint
 - **Agent-level inference**: Company Category classification (refer to `sepa_methodology.md`), Lockout Rally recognition (refer to `sepa_methodology.md`), Contingency Plan formulation, Risk/Reward narrative synthesis, Market Environment interpretation
 
 ### Reference Files
@@ -240,25 +235,19 @@ SCRIPTS=skills/MarketData/scripts
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
 
-### Path Convention
-
 [HARD] Always use these canonical paths from ANY working directory:
 
 ```bash
-# extract_docstring.py — always use VENV and absolute-style reference from SCRIPTS
+# extract_docstring.py
 $VENV $SCRIPTS/../tools/extract_docstring.py $SCRIPTS/pipelines/minervini.py
 
-# Pipeline execution
-$VENV $SCRIPTS/pipelines/minervini.py analyze NVDA
-
-# Individual module execution
-$VENV $SCRIPTS/technical/vcp.py detect NVDA
+# Pipeline execution — discover actual subcommands via extract_docstring.py
+$VENV $SCRIPTS/pipelines/minervini.py {subcommand} {args}
 ```
 
-Never use relative paths like `tools/extract_docstring.py` or `../tools/extract_docstring.py` — these fail depending on the shell's current working directory.
+Never use relative paths like `tools/extract_docstring.py` or `../tools/extract_docstring.py`.
 
-[HARD] Before executing any MarketData scripts, MUST perform batch discovery via `extract_docstring.py` first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
-[HARD] When using the pipeline, discover only the pipeline itself. Individual module discovery is needed only for supplementary scripts called AFTER the pipeline. See SKILL.md "Core Rule: Discover Before Execute".
+[HARD] Before executing the pipeline, MUST perform batch discovery via `extract_docstring.py` first. See `SKILL.md` "Script Execution Safety Protocol" for the mandatory workflow. Never guess subcommand names.
 
 [HARD] Never pipe script output through head or tail. Always use full output.
 
@@ -288,7 +277,7 @@ If a SEPA script fails or returns an error:
 - **RS ranking failure**: Use price history for stock and SPY, manually compare 3/6/12-month returns
 - **Earnings failure**: Use financial statements and analyst estimates as fallbacks for quarterly income and EPS trend
 - **VCP detection failure**: Describe price action qualitatively from chart data
-- **Pipeline failure**: Run individual scripts separately instead of the pipeline
+- **Pipeline failure**: As a fallback only, run individual scripts separately. Discover their interfaces via `extract_docstring.py` before execution.
 - **Finviz 403 error**: See `SKILL.md` Error Handling section for detailed fallback paths (ETF-based sector analysis, YFinance-only alternatives)
 
 ## Response Format
