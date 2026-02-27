@@ -15,7 +15,7 @@ claude plugin add <repo-url>
 
 | Plugin | Version | Category | Description |
 |--------|---------|----------|-------------|
-| **Invest** | 2.5.5 | Finance | Financial market data analysis with MarketData skill and analyst personas |
+| **Invest** | 2.5.6 | Finance | Financial market data analysis with MarketData skill and analyst personas |
 | **Study** | 1.1.2 | Education | Study and knowledge management with PDF, presentation, NotebookLM |
 | **Obsidian** | 1.1.0 | Productivity | Obsidian vault authoring with Markdown, Canvas, and Bases file format skills |
 | **Moai** | 1.0.0 | Developer Tools | Builder toolkit for creating Claude Code agents, plugins, skills |

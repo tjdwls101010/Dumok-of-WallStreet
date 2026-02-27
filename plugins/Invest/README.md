@@ -22,11 +22,11 @@ The specific usage of the code (subcommands, arguments, return structures) has t
 
 While it is natural to update the docstring in the same file when modifying code, synchronizing it with separate command and persona files is burdensome and prone to omissions. `extract_docstring.py` bridges this gap, ensuring the agent always has access to the latest code information.
 
-### Pipeline-First
+### Pipeline-Complete
 
-Prioritizes consistent analysis through dedicated pipelines, using individual modules only for supplementary purposes.
+Each pipeline contains ALL module calls required by the expert's methodology — the agent never needs to call individual modules to supplement pipeline results.
 
-If the agent autonomously selects from ~112 modules without a pipeline, it might use different codes for the same task or call similar codes multiple times, leading to redundant loading of the same data. Pipelines guarantee consistency and efficiency by executing predefined combinations of modules in parallel.
+The original "Pipeline-First" approach allowed supplementary module calls, but this led to inconsistency across runs. Pipelines now embed all methodology-required module calls within their subcommands, achieving 100% consistency and reproducibility.
 
 ### Context Efficiency
 
@@ -57,8 +57,8 @@ Module Scripts — Atomic Analysis Functions (~112)
 | Command | When the user invokes the command | Always |
 | SKILL.md | Before the Command executes analysis | Always |
 | Persona Files | When in-depth methodology is needed | Selectively, based on Query Classification |
-| Pipeline Scripts | When executing analysis | Always (Pipeline-First Principle) |
-| Module Scripts | Orchestrated by the pipeline | Automatically within the pipeline, or called individually for supplementary analysis |
+| Pipeline Scripts | When executing analysis | Always (Pipeline-Complete Principle) |
+| Module Scripts | Orchestrated by the pipeline | Exclusively called within pipelines; pipelines must contain all methodology-required module calls |
 
 ---
 
@@ -80,7 +80,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 | Prohibitions | Actions to absolutely avoid (Guardrails) |
 | Methodology Quick Reference | Inline summary of core formulas and criteria |
 | Query Classification | Workflows by user intent (Type A-G) |
-| Analysis Protocol | Mandating Pipeline-First usage |
+| Analysis Protocol | Mandating Pipeline-Complete usage |
 | Reference Files | List of persona files |
 | Error Handling | Response to data source failures |
 | Response Format | Definition of output structure |
@@ -223,11 +223,11 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 **Reason for Introduction**: Previously, when the agent autonomously selected modules, boundaries between personas collapsed (e.g., interpreting Minervini's SEPA/VCP from a Minervini perspective during a Serenity analysis). Pipelines solve this by enforcing module combinations, weights, and gates unique to each persona.
 
-### 4.3 Pipeline-First
+### 4.3 Pipeline-Complete
 
-**Principle**: Always execute the pipeline first to gather comprehensive data. Then, supplement only the missing data with individual modules.
+**Principle**: Each pipeline must contain ALL module calls required by the expert's methodology. The pipeline's subcommands serve as the complete implementation of the methodology — the agent should NEVER need to call individual modules to supplement pipeline results.
 
-**Reason for Introduction**: Without pipelines, when the agent autonomously selected from ~112 modules, it used different codes for the same task or called similar codes multiple times, leading to redundant data loading and wasted context. The consistency of analysis results was also not guaranteed. Pipelines solve this by executing predefined combinations of modules in parallel.
+**Reason for Introduction**: The original "Pipeline-First" approach allowed agents to supplement pipeline results with individual module calls. However, this led to inconsistency — the same query produced different supplementary module selections across runs, undermining reproducibility. The evolved approach (demonstrated by Minervini and Williams pipelines) embeds all methodology-required module calls within the pipeline's subcommands, achieving 100% consistency. The agent's role is limited to interpreting pipeline outputs, not selecting which modules to call.
 
 ### 4.4 Context Efficiency
 

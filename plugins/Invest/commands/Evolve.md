@@ -110,7 +110,7 @@ Before finalizing the plan, use `sequential-thinking` to answer these questions:
 2. **Does it conflict with design principles?** Verify against each of the 7 principles in README.md:
    - Single Source of Truth
    - Persona Purity
-   - Pipeline-First
+   - Pipeline-Complete
    - Context Efficiency
    - Progressive Disclosure
    - Graceful Degradation
@@ -154,7 +154,7 @@ Before finalizing the plan, use `sequential-thinking` to answer these questions:
 All items must pass before presenting the final plan:
 
 - [ ] README.md 7 design principles: compliance verified for each
-  - Single Source of Truth / Persona Purity / Pipeline-First / Context Efficiency / Progressive Disclosure / Graceful Degradation / Module Neutrality
+  - Single Source of Truth / Persona Purity / Pipeline-Complete / Context Efficiency / Progressive Disclosure / Graceful Degradation / Module Neutrality
 - [ ] Completeness of all affected file list (no missing files)
 - [ ] Pattern consistency with existing experts confirmed
 - [ ] Verification strategy included (how to test after execution)
