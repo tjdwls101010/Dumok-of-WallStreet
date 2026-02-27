@@ -2,254 +2,154 @@
 name: Describe_Images
 description: Convert Wiki-style image links to Markdown format with AI-generated descriptions. Use when preprocessing markdown files for PPT generation, converting ![[image.png]] to ![description](path) format, or enabling text-based image understanding.
 allowed-tools: Read, Bash, Glob
-version: 2.0.0
-updated: 2026-01-26
+version: 2.1.0
+updated: 2026-02-27
 status: active
 color: green
 ---
 
-# Describe_Images: Wiki to Markdown Image Link Converter
+# Describe_Images
 
-Convert Wiki-style image links (![[image.png]]) to Markdown format (![AI-generated description](path)) with intelligent AI-powered image analysis.
+Wiki 이미지 링크(`![[img.png]]`)를 AI 설명이 포함된 Markdown 형식(`![description](path)`)으로 변환한다.
+
+**2-step 워크플로우:**
+```
+![[image.png]]  ──Convert_Image-Link.py──▶  ![](path/image.png)  ──Describe_Images.py──▶  ![AI description](path/image.png)
+```
+
+> PPT 워크플로우에서는 `/ppt` 커맨드가, Book 워크플로우에서는 `/Book` 커맨드가 이 스킬을 자동으로 호출한다.
 
 ---
 
-## Quick Reference (30 seconds)
+## Setup
 
-**Purpose**: Convert Wiki-style image links to Markdown format with AI-generated alt text descriptions.
+스크립트 실행 전 가상환경이 준비되어 있는지 확인한다.
 
-**Script Location**: `Scripts/`
-
-**Two Scripts**:
-1. `Convert_Image-Link.py` - Wiki link to Markdown conversion only
-2. `Describe_Images.py` - AI description generation for images
-
-**Execution Commands**:
+### 자동 환경 확인 (매 실행 전)
 
 ```bash
-# Step 1: Convert Wiki links to Markdown format
-cd "Scripts" && \
-source .venv/bin/activate && \
-python3 Convert_Image-Link.py "{markdown_path}"
+SKILL_DIR="<이 SKILL.md가 위치한 디렉토리의 절대경로>"
+cd "$SKILL_DIR/Scripts"
 
-# Step 2: Generate AI descriptions for images
-cd "Scripts" && \
-source .venv/bin/activate && \
-python3 Describe_Images.py "{markdown_path}" -m gpt
+# venv가 없으면 생성
+if [ ! -d ".venv" ]; then
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install -r requirements.txt
+else
+  source .venv/bin/activate
+fi
 ```
 
-**Prerequisites**:
-- Python venv with: `openai`, `google-generativeai`, `pillow`, `python-dotenv`
-- API Key: `.env` in working directory (or `Scripts/.env` as fallback) with `OPENAI_API_KEY` or `GOOGLE_API_KEY`
+### API Key 설정
 
-**Output**: In-place modification of the markdown file.
+`Scripts/.env` 파일에 키를 설정한다. 없으면 `.env.example`을 복사:
+
+```bash
+cp .env.example .env  # 후 키 입력
+```
+
+`.env` 로딩 우선순위: CWD의 `.env` → `Scripts/.env` (폴백)
 
 ---
 
-## Implementation Guide (5 minutes)
+## Execution
 
-### Basic Usage
+모든 명령어는 venv 활성화 후 `Scripts/` 디렉토리에서 실행한다.
 
-**Step 1**: Ensure virtual environment is set up
-```bash
-cd "Scripts"
-python -m venv .venv
-source .venv/bin/activate
-pip install python-dotenv openai google-generativeai Pillow
-```
+| 작업 | 명령어 |
+|------|--------|
+| Wiki→Markdown 변환 | `python3 Convert_Image-Link.py "{markdown_path}"` |
+| Wiki→Markdown (미리보기) | `python3 Convert_Image-Link.py "{markdown_path}" -n` |
+| AI 설명 생성 (GPT) | `python3 Describe_Images.py "{markdown_path}" -m gpt` |
+| AI 설명 생성 (Gemini) | `python3 Describe_Images.py "{markdown_path}" -m gemini` |
+| AI 설명 (미리보기) | `python3 Describe_Images.py "{markdown_path}" -n` |
 
-**Step 2**: Create `.env` file in your working directory (project root)
-```bash
-# Create at: <working_directory>/.env
-OPENAI_API_KEY=sk-your-openai-key-here
-OPENAI_MODEL=gpt-5-mini
+---
 
-# Or for Gemini
-GOOGLE_API_KEY=AIza-your-google-key-here
-GOOGLE_MODEL=gemini-3-flash-preview
-```
+## Input/Output
 
-**Step 3**: Execute the scripts
-
-```bash
-# Wiki link conversion only
-python Convert_Image-Link.py "/path/to/document.md"
-
-# Wiki link conversion (dry-run)
-python Convert_Image-Link.py "/path/to/document.md" -n
-
-# AI description generation using GPT (default)
-python Describe_Images.py "/path/to/document.md" -m gpt
-
-# AI description generation using Gemini
-python Describe_Images.py "/path/to/document.md" -m gemini
-
-# AI description generation (dry-run)
-python Describe_Images.py "/path/to/document.md" -n
-```
-
-### Input/Output Format
-
-**Input (Wiki-style)**:
+**Input** (Wiki-style):
 ```markdown
 ![[image.png]]
 ![[folder/diagram.jpg]]
-![[screenshot.webp]]
 ```
 
 **After Convert_Image-Link.py**:
 ```markdown
-![](absolute/path/to/image.png)
-![](absolute/path/to/folder/diagram.jpg)
-![](absolute/path/to/screenshot.webp)
+![](vault-relative/path/to/image.png)
+![](folder/diagram.jpg)
 ```
 
 **After Describe_Images.py**:
 ```markdown
-![Detailed AI-generated description of the image content](absolute/path/to/image.png)
-![System architecture diagram showing...](absolute/path/to/folder/diagram.jpg)
-![Screenshot of the application interface...](absolute/path/to/screenshot.webp)
+![Detailed AI-generated description](vault-relative/path/to/image.png)
+![System architecture diagram showing...](folder/diagram.jpg)
 ```
 
-### CLI Options
+출력은 마크다운 파일을 in-place 수정한다.
 
-**Convert_Image-Link.py**:
-| Option | Description |
-|--------|-------------|
-| `-n, --dry-run` | Preview changes without modifying the file |
+---
 
-**Describe_Images.py**:
-| Option | Description |
-|--------|-------------|
-| `-n, --dry-run` | Preview changes without modifying the file (outputs JSON) |
-| `-m, --model` | AI model selection: `gpt` (default) or `gemini` |
+## CLI Reference
 
-### Script Configuration
+### Convert_Image-Link.py
 
-Configurable constants in Describe_Images.py:
+| 옵션 | 설명 |
+|------|------|
+| `-n, --dry-run` | 파일 수정 없이 변환 내역 미리보기 |
+
+### Describe_Images.py
+
+| 옵션 | 설명 |
+|------|------|
+| `-n, --dry-run` | 파일 수정 없이 AI 설명 결과를 JSON 출력 |
+| `-m, --model` | AI 모델 선택: `gpt` (기본) 또는 `gemini` |
+
+### 설정 상수 (Describe_Images.py)
 
 ```python
-CONTEXT_CHARS = 500   # Characters before/after image for context
-MAX_RETRIES = 3       # API call retry attempts
-CONCURRENT = 20       # Maximum parallel image analyses
+CONTEXT_CHARS = 500   # 이미지 앞뒤 컨텍스트 추출 길이
+MAX_RETRIES = 3       # API 호출 재시도 횟수
+CONCURRENT = 20       # 최대 병렬 이미지 분석 수
 ```
 
-### Image Search Behavior
-
-Convert_Image-Link.py searches for images in the following order:
-1. Image index built from entire vault
-2. Path specified in wiki link (if contains /)
-3. Full vault search as fallback
-
-### Supported Image Formats
+### 지원 이미지 형식
 
 png, jpg, jpeg, gif, webp, svg, bmp, tiff, ico
 
 ---
 
-## PPT Workflow Integration
+## Path Resolution
 
-This skill serves as a critical pre-processing step in the PPT generation workflow.
+### Vault Root 탐지
 
-### Integration Flow
+두 스크립트 모두 동일한 `find_vault_root()` 사용:
+1. 마크다운 파일의 상위 디렉토리에서 `.obsidian/` 탐색
+2. 없으면 `VAULT_ROOT` 환경변수 폴백
 
-**Step 1**: Convert_Image-Link.py converts Wiki links
-- `![[image.png]]` → `![](path/image.png)`
+### Convert_Image-Link.py 이미지 경로 해석
 
-**Step 2**: Describe_Images.py generates AI descriptions
-- `![](path/image.png)` → `![AI description](path/image.png)`
+vault 전체 이미지 인덱스(`{파일명: 절대경로}`)를 먼저 빌드한 후:
+1. 경로에 `/` 포함 → vault-relative 경로로 직접 사용
+2. 파일명이 인덱스에 존재 → 인덱스의 절대경로에서 vault-relative 경로 계산
+3. 둘 다 아니면 → 건너뜀 (경고 출력)
 
-**Step 3**: Planner-PPT reads pre-processed markdown
-- Understands image content through text descriptions
-- Creates slide outlines based on visual content
+### Describe_Images.py 이미지 경로 해석
 
-**Step 4**: Nano-Banana generates slide images
-- Uses Planner-PPT output to create final slides
-
-### Benefits
-
-**Context Overflow Prevention**:
-- Visual content converted to text descriptions
-- Significantly reduces token usage in Planner-PPT
-
-**Enhanced Understanding**:
-- Planner-PPT can make intelligent decisions about image placement
-- AI descriptions provide semantic understanding of visual content
-
----
-
-## Book Workflow Integration
-
-This skill is also used in the Book processing workflow.
-
-### Integration Flow
-
-**Step 1**: Prepare_Book converts PDF to Markdown
-- Creates markdown files without image descriptions
-
-**Step 2**: Describe_Images.py generates AI descriptions (Phase 1.5)
-- Adds AI descriptions to all images in parallel
-
-**Step 3**: Restructure skill processes markdown
-- Works with pre-described images
-
----
-
-## Related Resources
-
-**Related Agent**:
-- `Planner-PPT`: Consumes pre-processed markdown for slide planning
-
-**Related Skills**:
-- `Nano-Banana`: Generates final PPT slide images
-- `Prepare_Book`: PDF to Markdown conversion (uses Describe_Images for image descriptions)
-
-**Related Commands**:
-- `/ppt`: Orchestrates complete PPT workflow including image pre-processing
-- `/Book`: Orchestrates book restructuring workflow including image description
+`resolve_image_path()` 함수:
+1. 절대경로 → 그대로 사용
+2. 마크다운 파일 기준 상대경로 → 존재하면 사용
+3. Vault 루트 기준 상대경로 → 존재하면 사용
 
 ---
 
 ## Troubleshooting
 
-**API Key Not Found**:
-- Ensure `.env` file exists in your working directory (CWD) or at `Scripts/.env` as fallback
-- Verify `OPENAI_API_KEY` or `GOOGLE_API_KEY` is set correctly
-
-**Image Not Found**:
-- Check if image file exists in the vault
-- Verify file extension matches supported formats
-- Use dry-run mode to preview path resolution
-
-**Empty Descriptions**:
-- Check API connectivity
-- Verify API key has sufficient quota
-- Review API error messages in console output
-
-**Partial Processing**:
-- Script saves progress after each image
-- Re-run script to process remaining images
-- Already-processed images (with alt text) are skipped
-
-**Virtual Environment Issues**:
-```bash
-# Recreate virtual environment
-cd "Scripts"
-rm -rf .venv
-python -m venv .venv
-source .venv/bin/activate
-pip install python-dotenv openai google-generativeai Pillow
-```
-
----
-
-## Version History
-
-**v2.0.0** (2026-01-26): Split into two scripts
-- `Convert_Image-Link.py`: Wiki link conversion only
-- `Describe_Images.py`: AI description generation only
-- Removed: `Convert_Image-Link_Wiki-to-Markdown.py` (combined script)
-- Now used by both PPT and Book workflows
-
-**v1.0.0** (2026-01-04): Initial release
-- Single combined script for conversion and description
+| 증상 | 해결 |
+|------|------|
+| API Key Not Found | `.env` 파일이 CWD 또는 `Scripts/`에 있는지 확인. `OPENAI_API_KEY` 또는 `GOOGLE_API_KEY` 설정 확인 |
+| Image Not Found | 이미지 파일이 vault에 존재하는지, 확장자가 지원 형식인지 확인. `-n` 모드로 경로 확인 |
+| Empty Descriptions | API 연결 및 키 할당량 확인. 콘솔 에러 메시지 참조 |
+| Partial Processing | 스크립트 재실행 시 이미 설명이 있는 이미지는 건너뜀. 재실행으로 나머지 처리 |
+| venv 문제 | `rm -rf .venv && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt` |
