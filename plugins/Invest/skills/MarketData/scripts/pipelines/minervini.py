@@ -9,7 +9,7 @@ and actionable signal.
 Commands:
 	analyze: Full SEPA analysis for a single ticker
 	watchlist: Batch SEPA analysis for multiple tickers
-	market-leaders: Market environment assessment (sector leaders, sector performance, sector valuation, breadth, TT batch)
+	market-leaders: Market environment assessment (sector leaders, sector/industry performance, sector/industry valuation, breadth, TT batch)
 	screen: Sector/industry SEPA candidate screening with industry name resolution and performance context
 	compare: Multi-ticker full SEPA comparison with head-to-head ranking
 	recheck: Position management recheck (TT, Stage, post-breakout, volume, earnings)
@@ -77,6 +77,8 @@ Returns:
 			"sector_rankings": dict,
 			"sector_performance": dict or null (sector performance ranking from finviz groups),
 			"sector_valuation": dict or null (sector valuation data: P/E, Forward P/E, PEG, EPS growth),
+			"industry_rankings": list (top 15 industry groups by composite score:
+				leader_count + performance + valuation),
 			"top_leaders": list,
 			"broken_leaders": list,
 			"breadth_indicators": dict,
@@ -100,7 +102,9 @@ Returns:
 		dict: {
 			"sector": str,
 			"industry_context": list[dict] or null (matching industry performance data),
+			"industry_valuation": dict or null (industry-average P/E, Forward P/E, PEG benchmarks),
 			"candidates": list[dict],
+			"screening_summary": dict (aggregate stats: TT pass rate, avg scores, Code33 count),
 			"filters_applied": list[str]
 		}
 
@@ -213,6 +217,138 @@ def _run_script(script_path, args_list):
 		return {"error": "Invalid JSON output from script"}
 	except Exception as e:
 		return {"error": str(e)}
+
+
+def _fuzzy_match(name, data_map):
+	"""Fuzzy match industry name against data map keys.
+
+	Tries exact match first, then case-insensitive, then substring.
+	"""
+	if name in data_map:
+		return data_map[name]
+	name_lower = name.lower()
+	for key, val in data_map.items():
+		if key.lower() == name_lower:
+			return val
+	for key, val in data_map.items():
+		if name_lower in key.lower() or key.lower() in name_lower:
+			return val
+	return None
+
+
+def _safe_float(val):
+	"""Convert value to float for sorting, defaulting to -999."""
+	if val is None:
+		return -999.0
+	try:
+		return float(val)
+	except (ValueError, TypeError):
+		return -999.0
+
+
+def _round4(val):
+	"""Round numeric value to 4 decimal places, pass through None."""
+	if val is None:
+		return None
+	try:
+		return round(float(val), 4)
+	except (ValueError, TypeError):
+		return val
+
+
+def _build_industry_rankings(sector_rankings, industry_perf, industry_val):
+	"""Cross-reference leader counts with industry performance and valuation.
+
+	Returns top 15 industries sorted by composite score.
+	Only top 15 are returned to maintain context efficiency (~150 industries → 15).
+	"""
+	# Step 1: Extract leader counts per industry group
+	leader_counts = {}
+	if not sector_rankings.get("error"):
+		for group in sector_rankings.get("leadership_dashboard", []):
+			name = group.get("industry_group", "")
+			count = group.get("leader_count", 0)
+			if name and count > 0:
+				leader_counts[name] = count
+
+	# Step 2: Build performance lookup
+	perf_map = {}
+	if not industry_perf.get("error"):
+		for item in industry_perf.get("data", []):
+			name = item.get("name", "")
+			if name:
+				perf_map[name] = item
+
+	# Step 3: Build valuation lookup
+	val_map = {}
+	if not industry_val.get("error"):
+		for item in industry_val.get("data", []):
+			name = item.get("name", "")
+			if name:
+				val_map[name] = item
+
+	# Step 4: Cross-reference — only industries with leaders
+	rankings = []
+	for name, count in leader_counts.items():
+		entry = {
+			"industry": name,
+			"leader_count": count,
+		}
+		perf = _fuzzy_match(name, perf_map)
+		if perf:
+			entry["perf_week"] = _round4(perf.get("performance_1w"))
+			entry["perf_month"] = _round4(perf.get("performance_1m"))
+			entry["perf_quarter"] = _round4(perf.get("performance_3m"))
+			entry["perf_half"] = _round4(perf.get("performance_6m"))
+			entry["perf_year"] = _round4(perf.get("performance_1y"))
+			entry["perf_ytd"] = _round4(perf.get("performance_ytd"))
+
+		val = _fuzzy_match(name, val_map)
+		if val:
+			entry["pe"] = val.get("pe")
+			entry["forward_pe"] = val.get("forward_pe")
+			entry["peg"] = val.get("peg")
+			entry["eps_growth_past_5y"] = val.get("eps_growth_past_5y")
+			entry["eps_growth_next_5y"] = val.get("eps_growth_next_5y")
+
+		rankings.append(entry)
+
+	# Step 5: Sort by leader_count > perf_half > perf_year
+	rankings.sort(key=lambda x: (
+		x["leader_count"],
+		_safe_float(x.get("perf_half")),
+		_safe_float(x.get("perf_year")),
+	), reverse=True)
+
+	return rankings[:15]
+
+
+def _build_screening_summary(candidates):
+	"""Aggregate screening results into a summary."""
+	if not candidates:
+		return {"total_candidates": 0}
+
+	total = len(candidates)
+	tt_pass = sum(1 for c in candidates if c.get("tt_score", "").startswith(("7/", "8/")))
+	stage2 = sum(1 for c in candidates if c.get("stage") == 2 or c.get("stage") == "Stage 2")
+	code33_pass = sum(1 for c in candidates if c.get("code33") == "PASS")
+
+	scores = [c.get("sepa_score", 0) for c in candidates if c.get("sepa_score")]
+	avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+
+	rs_scores = [c.get("rs_score", 0) for c in candidates
+				 if isinstance(c.get("rs_score"), (int, float))]
+	avg_rs = round(sum(rs_scores) / len(rs_scores), 1) if rs_scores else 0
+
+	return {
+		"total_candidates": total,
+		"tt_pass_count": tt_pass,
+		"tt_pass_rate": round(tt_pass / total * 100, 1),
+		"stage2_count": stage2,
+		"code33_pass_count": code33_pass,
+		"avg_composite_score": avg_score,
+		"avg_rs_score": avg_rs,
+	}
 
 
 def _calc_composite_score(tt, stage, rs, earnings, vcp, base, volume):
@@ -914,18 +1050,20 @@ def cmd_watchlist(args):
 
 @safe_run
 def cmd_market_leaders(args):
-	"""Market environment assessment: sector leadership, breadth, performance, valuation, and leader health.
+	"""Market environment assessment: sector/industry leadership, breadth, performance, valuation, and leader health.
 
 	Runs sector leadership dashboard, market breadth analysis, sector performance
-	ranking, sector valuation comparison, and Trend Template checks on top leaders
-	to assess market environment strength and identify broken leaders transitioning
-	out of Stage 2.
+	ranking, sector valuation comparison, industry performance/valuation ranking,
+	and Trend Template checks on top leaders to assess market environment strength,
+	identify promising industries, and detect broken leaders.
 
 	Returns:
 		dict: {
 			"sector_rankings": dict (sector dashboard with leader counts and strength),
 			"sector_performance": dict or null (sector performance ranking from finviz groups),
 			"sector_valuation": dict or null (sector valuation: P/E, Forward P/E, PEG, EPS growth),
+			"industry_rankings": list (top 15 industry groups by composite score:
+				leader_count + performance + valuation),
 			"top_leaders": list (top leader stocks with TT/Stage/RS data),
 			"broken_leaders": list (former leaders failing TT or in Stage 3/4),
 			"breadth_indicators": dict (full market breadth data),
@@ -945,16 +1083,23 @@ def cmd_market_leaders(args):
 			}
 		}
 	"""
-	# Run sector dashboard, breadth, sector performance, and sector valuation in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+	# Run sector dashboard, breadth, sector/industry performance and valuation in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 		future_sectors = executor.submit(_run_script, "screening/sector_leaders.py", ["scan"])
 		future_breadth = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
 		future_sector_perf = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "sector", "--metric", "performance"])
 		future_sector_val = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "sector", "--metric", "valuation"])
+		future_industry_perf = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "industry", "--metric", "performance"])
+		future_industry_val = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "industry", "--metric", "valuation"])
 		sector_rankings = future_sectors.result()
 		breadth = future_breadth.result()
 		sector_perf = future_sector_perf.result()
 		sector_val = future_sector_val.result()
+		industry_perf = future_industry_perf.result()
+		industry_val = future_industry_val.result()
+
+	# Build industry rankings (top 15 by composite score)
+	industry_rankings = _build_industry_rankings(sector_rankings, industry_perf, industry_val)
 
 	# Extract top leader symbols (up to 10) from sector scan dashboard
 	leader_symbols = []
@@ -1024,6 +1169,7 @@ def cmd_market_leaders(args):
 		"sector_rankings": sector_rankings,
 		"sector_performance": sector_perf if not sector_perf.get("error") else None,
 		"sector_valuation": sector_val if not sector_val.get("error") else None,
+		"industry_rankings": industry_rankings,
 		"top_leaders": top_leaders,
 		"broken_leaders": broken_leaders,
 		"breadth_indicators": breadth,
@@ -1033,11 +1179,11 @@ def cmd_market_leaders(args):
 
 @safe_run
 def cmd_screen(args):
-	"""Sector/industry SEPA candidate screening with industry name resolution and performance context.
+	"""Sector/industry SEPA candidate screening with valuation benchmarks and screening summary.
 
 	Screens a sector or industry for candidates using Finviz, then runs watchlist-level
 	SEPA analysis (TT, Stage, RS, Earnings, Volume) on each candidate to produce a
-	filtered and scored list.
+	filtered and scored list with industry valuation context.
 
 	Accepts both broad sectors (technology, healthcare) and industry names
 	(Software, Semiconductors). Uses 3-step fallback:
@@ -1045,7 +1191,7 @@ def cmd_screen(args):
 	- Step 1.5: industry-screen with partial name match (e.g., "Software" → "Software - Application" + "Software - Infrastructure")
 	- Step 2.5: minervini_leaders preset filtered by industry name (strict)
 
-	Fetches industry performance context in parallel for sector environment assessment.
+	Fetches industry performance and valuation context in parallel for sector environment assessment.
 
 	Args:
 		sector (str): Sector name (e.g., "technology") or industry name (e.g., "Software", "Semiconductors")
@@ -1054,12 +1200,14 @@ def cmd_screen(args):
 		dict: {
 			"sector": str,
 			"industry_context": list[dict] or null (matching industry performance data),
+			"industry_valuation": dict or null (industry-average P/E, Forward P/E, PEG benchmarks),
 			"candidates": list[dict] (SEPA-filtered stocks with scores),
+			"screening_summary": dict (aggregate stats: TT pass rate, avg scores, Code33 count),
 			"filters_applied": list[str]
 		}
 	"""
-	# Step 0 + Step 1: Fetch industry performance context and sector screen in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=2) as init_exec:
+	# Step 0 + Step 1: Fetch industry performance, valuation, and sector screen in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=3) as init_exec:
 		future_industry_perf = init_exec.submit(
 			_run_script, "screening/finviz.py",
 			["groups", "--group", "industry", "--metric", "performance"]
@@ -1068,8 +1216,13 @@ def cmd_screen(args):
 			_run_script, "screening/finviz.py",
 			["sector-screen", "--sector", args.sector]
 		)
+		future_industry_val = init_exec.submit(
+			_run_script, "screening/finviz.py",
+			["groups", "--group", "industry", "--metric", "valuation"]
+		)
 		industry_perf_result = future_industry_perf.result()
 		finviz_result = future_sector_screen.result()
+		industry_val_result = future_industry_val.result()
 
 	# Extract industry performance context for matching industries
 	industry_context = None
@@ -1079,6 +1232,15 @@ def cmd_screen(args):
 					if search_term in (item.get("name") or "").lower()]
 		if matching:
 			industry_context = matching
+
+	# Extract industry valuation benchmark for the target industry
+	industry_valuation = None
+	if not industry_val_result.get("error"):
+		search_term = args.sector.lower()
+		for item in industry_val_result.get("data", []):
+			if search_term in (item.get("name") or "").lower():
+				industry_valuation = item
+				break
 
 	# Step 2: Extract symbols from sector-screen
 	symbols = []
@@ -1165,10 +1327,15 @@ def cmd_screen(args):
 	# Sort by sepa_score descending
 	candidates.sort(key=lambda x: x.get("sepa_score", 0), reverse=True)
 
+	# Build screening summary
+	screening_summary = _build_screening_summary(candidates)
+
 	output_json({
 		"sector": args.sector,
 		"industry_context": industry_context,
+		"industry_valuation": industry_valuation,
 		"candidates": candidates,
+		"screening_summary": screening_summary,
 		"filters_applied": ["trend_template", "stage_analysis", "rs_ranking", "earnings_acceleration", "volume_analysis"],
 	})
 
