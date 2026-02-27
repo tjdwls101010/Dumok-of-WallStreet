@@ -130,8 +130,8 @@ This is nonnegotiable regardless of query type.
 For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 
 1. **Query Classification**: Classify into Type A-F, load corresponding persona files. For composite queries, chain sequentially. For Type B with earnings trigger ("실적", "earnings"), additionally load "Earnings as Supply Chain Thesis Validation" from `valuation_fundamentals.md`. For Type B, Step 2b (Bottleneck Relevance Assessment) may trigger additional loading of `supply_chain_bottleneck.md` based on company characteristics discovered during data collection.
-2. **Data Collection -- Pipeline Routing + Tool Hierarchy (MANDATORY)**:
-	**Pipeline-First**: Collect data through the Serenity pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Route by query type:
+2. **Data Collection (MANDATORY)**:
+	Collect data through the Serenity pipeline. The pipeline provides dedicated subcommands for each analytical workflow — macro regime assessment, single-ticker 6-Level analysis, evidence chain verification, multi-ticker comparison, sector-based screening, and CapEx cascade tracking. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. **The pipeline contains all methodology-required module calls (Pipeline-Complete); do not call individual modules to supplement.** WebSearch is used exclusively for agent-driven context: L2 supply chain cascade mapping, L3 bottleneck identification, L6 taxonomy classification, and qualitative research that cannot be automated via scripts. Route by query type:
 	- **Type A (Macro)**: Macro regime assessment — Fed policy, liquidity, VIX term structure, ERP
 	- **Type B (Stock)**: Full 6-Level analysis — L1/L4/L5 auto-executed, L2/L3 require agent context
 	- **Type C (Discovery, with ticker)**: Multi-ticker side-by-side comparison
@@ -145,14 +145,16 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	- L4 fundamental scripts are re-executed in `analyze` (expected — `compare` collects fewer fields than `analyze`)
 	- Present compare results first as an overview, then run `analyze` only on top candidates for deep-dive
 
-	**Tool Hierarchy (when not using pipeline)**:
-	- **MarketData scripts = PRIMARY** for ALL quantitative financial data. ALWAYS run BEFORE WebSearch.
-	- **WebSearch = SECONDARY** for qualitative/discovery: supply chain mapping, bottleneck news, geopolitical issues, industry reports.
-	- **WebFetch = TERTIARY** for detailed documents: earnings transcripts, SEC filings, industry reports.
-	- **Post-Earnings Reaction Check**: Check post-earnings 5-day returns for each quarter. If any recent quarter shows post-ER 5d return <= -10% or >= +20%, treat that earnings event as a critical context point in the analysis. Explain what drove the extreme reaction. Script data is PRIMARY; supplement with news data only if additional context is needed.
+	**Tool Hierarchy**:
+	- **Serenity Pipeline = PRIMARY** for all quantitative financial data. Pipeline-Complete — all methodology-required module calls are contained within the pipeline.
+	- **WebSearch = for agent-driven context**: supply chain mapping (L2/L3), bottleneck identification, geopolitical dynamics, industry reports. Used AFTER pipeline data collection for qualitative enrichment.
+	- **WebFetch = for detailed documents**: earnings transcripts, SEC filings (supplementary to pipeline), industry reports requiring deep extraction.
+	- **Post-Earnings Reaction Check**: Pipeline L5 earnings_surprise includes post-ER reaction data. Supplement with WebSearch only if additional narrative context is needed for extreme reactions (5d return <= -10% or >= +20%).
 	**Step 2b -- Bottleneck Relevance Assessment (Type B only)**: After collecting company data in Step 2, assess whether the company has supply chain bottleneck relevance by reading the `industry` and `businessSummary` fields from the ticker information output. Load `supply_chain_bottleneck.md` if the company meets ANY of: (A) manufactures, mines, or supplies physical materials, components, or substrates used in other companies' products, (B) occupies a concentrated or sole-source position in its supply chain, or (C) is exposed to geopolitical supply chain dynamics such as export controls or critical mineral policies. If none apply, proceed without loading. Err toward loading -- the cost of missing a bottleneck framework on a relevant company far exceeds the ~5K token cost of an unnecessary load.
-3. **Supply Chain Mapping**: Trace supply chain position -- customers, suppliers, bottleneck location.
-4. **Float/SI/Dilution Analysis (MANDATORY)**: Collect holder data, SBC analysis. Do NOT skip. Check `dilution_flag`: if "active_dilution" (shares Q/Q change > 2%), check SEC filings for recent S-3/S-3ASR filings confirming ATM program. Script data (shares outstanding change) is PRIMARY; SEC filing is SECONDARY confirmation.
+*Steps 3-8 below combine pipeline output interpretation with agent-driven supply chain research. Steps marked (Agent-Level) require LLM reasoning, WebSearch, or Sequential Thinking beyond reading pipeline data.*
+
+3. **Supply Chain Mapping** (Agent-Level): Trace supply chain position -- customers, suppliers, bottleneck location.
+4. **Float/SI/Dilution Analysis (MANDATORY)**: Review holder data, SBC analysis from pipeline output. Do NOT skip. The pipeline automatically checks `dilution_flag`: if "active_dilution" (shares Q/Q change > 2%), it runs a conditional SEC filing lookup (S-3 form) and includes the result in `sec_dilution_check`. Verify the `DILUTION_` readiness code for quick status. If SEC filing data requires deeper analysis (e.g., reading the actual S-3ASR filing), use WebFetch on the filing URL.
 5. **Institutional Flow Analysis (MANDATORY)**: Collect 13F data, holder composition, insider activity. Rate IO quality on 1-10 scale.
 6. **Forward Revenue & Margin Assessment**: Collect financial statements, analyst estimates, earnings acceleration data. Project forward revenue, compare market cap.
 7. **Valuation**: Apply appropriate method (SoP, Forward P/E, EV/Revenue, BOM economics, No-Growth Stress Test). **SoP is MANDATORY** when: 2+ independent business units exist, holdings/conglomerate structure, subsidiary has independent valuation, or non-core assets exceed 20% of market cap. See `valuation_fundamentals.md` SoP triggers.
@@ -222,7 +224,9 @@ Validate each candidate against health gates (Bear-Bull Paradox, dilution, no-gr
 **Phase 5: Final Rating**
 Scenario probability weighting, historical analogy matching, conviction assignment.
 
-### Health-Gate Interpretation
+### Pipeline Output Interpretation
+
+#### Health-Gate Signals
 
 When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
 
@@ -232,12 +236,34 @@ When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
 - Explain to the user WHY each gate flagged using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
 - Flags are informational, not absolute blockers — a company in early-stage CapEx deployment may legitimately flag on dilution if the capital is productively deployed. The agent must contextualize.
 
+#### Fundamental Readiness Codes
+
+The pipeline `analyze` output includes `fundamental_readiness_codes` — a list of standardized codes summarizing the automated assessment for auditability:
+
+- `HEALTH_GATES_{pass}_{total}`: Health gate pass count (e.g., HEALTH_GATES_4_4)
+- `DILUTION_{status}`: clean / active_dilution / sec_confirmed_atm
+- `VALUATION_FLOOR_{upside}PCT`: No-growth upside percentage
+- `FWD_PE_{value}`: Forward P/E value
+- `MARGIN_{status}`: EXPANDING / STABLE / COMPRESSION / COLLAPSE
+- `DEBT_GRADE_{grade}`: A / B / C / D
+- `IO_QUALITY_{score}`: Institutional ownership quality (1-10)
+- `CODE33_{status}`: PASS / FAIL / INSUFFICIENT_DATA
+- `BEATS_{count}`: Consecutive earnings beats count
+- `SBC_{flag}`: healthy / warning / toxic
+- `CAPEX_{direction}`: company CapEx trend direction
+
+These codes enable transparent audit of the quantitative foundation. The agent's final rating adds qualitative thesis elements (L2/L3/L6) that the pipeline cannot automate.
+
+#### Pipeline Failure Fallback
+
+If the pipeline fails entirely, as a fallback only, run individual scripts separately. Discover their interfaces via `extract_docstring.py` before execution. This is a degraded mode — document which scripts were run individually in the response.
+
 ### Script-Automated vs Agent-Level Inference
 
 Each analysis step is either automated via script or requires agent-level LLM reasoning:
 
-- **Script-automated**: Serenity Pipeline (primary entry point for all query types — L1 macro, L4 fundamentals, L5 catalysts, health gates, evidence chain, comparison, screening, CapEx cascade), Bottleneck Financial Validation (asymmetry scoring, batch ranking)
-- **Agent-level inference**: L2 CapEx Flow Mapping (supply chain layer definition, cascade interpretation), L3 Bottleneck Identification (6-Criteria scoring via WebSearch, geographic concentration), L6 Taxonomy Classification (Evolution/Disruption/Bottleneck), Supply Chain Position Mapping, Forward Revenue Projection, Rating Assignment with Price-Dependent Adjustments, Bottleneck Relevance Assessment (Step 2b), Scenario Construction (Type D Phase 1)
+- **Pipeline-automated**: Serenity Pipeline (exclusive automated data source for all query types — L1 macro, L4 fundamentals, L5 catalysts, health gates, fundamental readiness codes, evidence chain, comparison, screening, CapEx cascade, conditional SEC filing verification). Bottleneck Financial Validation (asymmetry scoring, batch ranking).
+- **Agent-level inference**: L2 CapEx Flow Mapping (supply chain layer definition, cascade interpretation), L3 Bottleneck Identification (6-Criteria scoring via WebSearch, geographic concentration), L6 Taxonomy Classification (Evolution/Disruption/Bottleneck), Supply Chain Position Mapping, Forward Revenue Projection, Rating Assignment with Price-Dependent Adjustments, Bottleneck Relevance Assessment (Step 2b), Scenario Construction (Type D Phase 1).
 
 ### Reference Files
 

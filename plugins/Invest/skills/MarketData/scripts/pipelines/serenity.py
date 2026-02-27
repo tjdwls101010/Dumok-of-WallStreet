@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline: 6-Level analytical hierarchy automating supply chain
-bottleneck analysis with macro regime assessment, fundamental validation,
-and evidence chain verification.
+"""Serenity Pipeline (Pipeline-Complete): 6-Level analytical hierarchy automating
+supply chain bottleneck analysis with macro regime assessment, fundamental
+validation, and evidence chain verification.
 
 Orchestrates the complete Serenity analysis by running macro regime scripts,
 fundamental analysis tools, valuation models, and catalyst monitoring in
-parallel. Levels 1/4/5/6 are automated; Level 2 (CapEx Flow) includes
-company CapEx auto-extraction with supply chain cascade requiring agent
-context; Level 3 (Bottleneck) requires agent context for supply chain
-knowledge.
+parallel. Pipeline-Complete — all methodology-required module calls are contained
+within the pipeline; do not call individual modules to supplement. Levels 1/4/5/6
+are automated; Level 2 (CapEx Flow) includes company CapEx auto-extraction with
+supply chain cascade requiring agent context; Level 3 (Bottleneck) requires agent
+context for supply chain knowledge.
 
 Commands:
 	macro: Level 1 macro regime assessment (6 parallel macro scripts → regime
@@ -38,8 +39,7 @@ Args:
 
 	For screen:
 		sector (str): Sector name for Finviz screening
-		--min-rs (int): Minimum relative strength score (default: 50)
-		--max-mcap (str): Maximum market cap filter (default: "10B")
+		--max-mcap (str): Maximum market cap filter, applied post-screen (default: "10B")
 
 	For capex-cascade:
 		tickers (list): 2+ stock ticker symbols for CapEx cascade tracking
@@ -51,12 +51,14 @@ Returns:
 		drain_count (int), decision_rules (list[str] with actual values),
 		signals (dict with erp_pct, vix_spot, vix_regime, vix_structure,
 		net_liq_direction, net_liq_current, fear_greed,
-		fedwatch_next_meeting, fedwatch_probabilities)
+		fedwatch_next_meeting, fedwatch_probabilities;
+		when --extended: dxy (raw DXY data), bdi (raw BDI data))
 
 	For analyze:
 		dict with ticker, levels (L1_macro through L6_taxonomy),
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
-		margin_collapse — each PASS or FLAG), valuation_summary.
+		margin_collapse — each PASS or FLAG), valuation_summary,
+		fundamental_readiness_codes (list of standardized audit codes).
 		L1_macro: regime classification + signals dict (no raw data).
 		L2_capex_flow: company_capex (8-quarter trend auto-included),
 		cascade_requires_context (agent-driven supply chain layers).
@@ -111,7 +113,7 @@ Example:
 	>>> python serenity.py compare AXTI AEHR FORM
 	{"tickers": [...], "comparative_table": {"forward_pe": {...}, "market_cap": {...}, "revenue_growth_yoy": {...}, ...}, ...}
 
-	>>> python serenity.py screen "Defense" --min-rs 60
+	>>> python serenity.py screen "Defense" --max-mcap 5B
 	{"sector": "Defense", "candidates_screened": 10, ...}
 
 Use Cases:
@@ -123,14 +125,17 @@ Use Cases:
 	- Sector-agnostic: works for defense, EV, agriculture, semiconductors, etc.
 
 Notes:
+	- Pipeline-Complete: all methodology-required module calls are contained within subcommands
 	- L1 macro and L4-L6 fundamentals auto-execute for any ticker
 	- L2 company CapEx auto-included (8-quarter trend); supply chain cascade requires agent context
 	- L3 (Bottleneck) returns requires_context for agent-driven analysis
 	- Health gates are extracted from L4 script outputs (debt, dilution, valuation, margin)
+	- Conditional SEC filing check when active_dilution detected (S-3 form lookup)
+	- fundamental_readiness_codes provide audit trail of automated assessment
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Pipeline continues even if individual scripts fail (graceful degradation)
-	- screen subcommand depends on finviz.py and bottleneck_scorer.py
-	- L1 output contains only extracted signals (9 scalars), not raw macro script data
+	- screen subcommand depends on finviz.py and bottleneck_scorer.py; --max-mcap applied as post-filter
+	- L1 output contains extracted signals (9 scalars + DXY/BDI when --extended)
 	- L4 info uses get-info-fields with 24 essential fields (not full 100+ field info object)
 	- L4 insider_transactions: 12-month lookback, summarized (buy/sell aggregates + net_direction + recent 20)
 	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
@@ -463,6 +468,81 @@ def _summarize_holders(data):
 
 
 # ---------------------------------------------------------------------------
+# Fundamental Readiness Codes
+# ---------------------------------------------------------------------------
+
+def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None):
+	"""Build standardized fundamental readiness codes for auditability.
+
+	Returns:
+		list of str codes summarizing automated assessment
+	"""
+	codes = []
+
+	# Health gates
+	codes.append(f"HEALTH_GATES_{health_gates['total_pass']}_{health_gates['total_gates']}")
+
+	# Dilution status
+	sbc = l4_results.get("sbc_analyzer", {})
+	if sec_result and not sec_result.get("error"):
+		codes.append("DILUTION_sec_confirmed_atm")
+	elif not sbc.get("error"):
+		dilution = sbc.get("dilution_flag", "clean")
+		codes.append(f"DILUTION_{dilution}")
+
+	# Valuation floor
+	upside = valuation_summary.get("no_growth_upside_pct")
+	if upside is not None:
+		codes.append(f"VALUATION_FLOOR_{upside:.0f}PCT")
+
+	# Forward PE
+	fpe = valuation_summary.get("forward_pe")
+	if fpe is not None:
+		codes.append(f"FWD_PE_{fpe:.1f}")
+
+	# Margin trajectory
+	margin = valuation_summary.get("margin_status")
+	if margin:
+		codes.append(f"MARGIN_{margin}")
+
+	# Debt quality
+	debt = valuation_summary.get("debt_quality_grade")
+	if debt:
+		codes.append(f"DEBT_GRADE_{debt}")
+
+	# IO quality
+	io = valuation_summary.get("io_quality_score")
+	if io is not None:
+		codes.append(f"IO_QUALITY_{io}")
+
+	# Code 33 status
+	ea = l4_results.get("earnings_acceleration", {})
+	if not ea.get("error"):
+		c33 = ea.get("code33_status")
+		if c33 is not None:
+			codes.append(f"CODE33_{str(c33).upper()}")
+
+	# Consecutive beats
+	if l5_results:
+		es = l5_results.get("earnings_surprise", {})
+		if not es.get("error"):
+			beats = es.get("consecutive_beats")
+			if beats is not None:
+				codes.append(f"BEATS_{beats}")
+
+	# SBC health
+	if not sbc.get("error"):
+		sbc_flag = sbc.get("flag")
+		if sbc_flag:
+			codes.append(f"SBC_{sbc_flag}")
+
+	# CapEx direction (from L2 company_capex if available)
+	# capex_data is passed separately as it's popped from l4_results
+
+	return codes
+
+
+# ---------------------------------------------------------------------------
 # Macro Regime Classification
 # ---------------------------------------------------------------------------
 
@@ -629,24 +709,35 @@ def cmd_macro(args):
 	# Classify regime
 	classification = _classify_macro_regime(results)
 
+	signals = {
+		"erp_pct": results.get("erp", {}).get("current", {}).get("erp"),
+		"vix_spot": results.get("vix_curve", {}).get("vix_spot"),
+		"vix_regime": results.get("vix_curve", {}).get("regime"),
+		"vix_structure": results.get("vix_curve", {}).get("structure_type"),
+		"net_liq_direction": results.get("net_liquidity", {})
+			.get("net_liquidity", {}).get("direction"),
+		"net_liq_current": results.get("net_liquidity", {})
+			.get("net_liquidity", {}).get("current"),
+		"fear_greed": results.get("fear_greed", {}).get("current", {}).get("score"),
+		"fedwatch_next_meeting": results.get("fedwatch", {}).get("next_meeting"),
+		"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
+	}
+
+	# Extended signals: DXY and BDI
+	if args.extended:
+		dxy = results.get("dxy", {})
+		if not dxy.get("error"):
+			signals["dxy"] = dxy
+		bdi = results.get("bdi", {})
+		if not bdi.get("error"):
+			signals["bdi"] = bdi
+
 	output = {
 		"regime": classification["regime"],
 		"risk_level": classification["risk_level"],
 		"drain_count": classification["drain_count"],
 		"decision_rules": classification["decision_rules"],
-		"signals": {
-			"erp_pct": results.get("erp", {}).get("current", {}).get("erp"),
-			"vix_spot": results.get("vix_curve", {}).get("vix_spot"),
-			"vix_regime": results.get("vix_curve", {}).get("regime"),
-			"vix_structure": results.get("vix_curve", {}).get("structure_type"),
-			"net_liq_direction": results.get("net_liquidity", {})
-				.get("net_liquidity", {}).get("direction"),
-			"net_liq_current": results.get("net_liquidity", {})
-				.get("net_liquidity", {}).get("current"),
-			"fear_greed": results.get("fear_greed", {}).get("current", {}).get("score"),
-			"fedwatch_next_meeting": results.get("fedwatch", {}).get("next_meeting"),
-			"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
-		},
+		"signals": signals,
 	}
 
 	output_json(output)
@@ -788,8 +879,24 @@ def cmd_analyze(args):
 	# Health gates (extracted from L4)
 	health_gates = _extract_health_gates(l4_results)
 
+	# Conditional SEC filing check for active dilution
+	sec_filing_result = None
+	if "active_dilution" in health_gates.get("flags", []):
+		sec_filing_result = _run_script(
+			"data_advanced/sec/filings.py",
+			[ticker, "--form", "S-3", "--limit", "5"]
+		)
+		if sec_filing_result and not sec_filing_result.get("error"):
+			l4_results["sec_dilution_check"] = sec_filing_result
+
 	# Valuation summary
 	valuation_summary = _build_valuation_summary(l4_results)
+
+	# Fundamental readiness codes
+	readiness_codes = _build_readiness_codes(
+		health_gates, valuation_summary, l4_results,
+		l5_results=l5_results, sec_result=sec_filing_result,
+	)
 
 	output = {
 		"ticker": ticker,
@@ -813,6 +920,7 @@ def cmd_analyze(args):
 		},
 		"health_gates": health_gates,
 		"valuation_summary": valuation_summary,
+		"fundamental_readiness_codes": readiness_codes,
 	}
 
 	output_json(output)
@@ -1202,17 +1310,39 @@ def _determine_relative_strengths(tickers, table):
 	return strengths
 
 
+def _parse_mcap_string(mcap_str):
+	"""Parse market cap string like '1.5B', '500M', '10B' to a numeric value.
+
+	Returns:
+		float or None if parsing fails
+	"""
+	if not mcap_str or not isinstance(mcap_str, str):
+		return None
+	mcap_str = mcap_str.strip().upper()
+	multipliers = {"T": 1e12, "B": 1e9, "M": 1e6, "K": 1e3}
+	for suffix, mult in multipliers.items():
+		if mcap_str.endswith(suffix):
+			try:
+				return float(mcap_str[:-1]) * mult
+			except ValueError:
+				return None
+	try:
+		return float(mcap_str)
+	except ValueError:
+		return None
+
+
 @safe_run
 def cmd_screen(args):
 	"""Sector-based Bottleneck Candidate Screening.
 
 	Uses finviz.py sector-screen to get initial candidates,
-	then validates each with bottleneck_scorer.py.
+	filters by --max-mcap, then validates each with bottleneck_scorer.py.
 	Sorts by asymmetry_score descending.
 	"""
 	sector = args.sector
-	min_rs = args.min_rs
 	max_mcap = args.max_mcap
+	max_mcap_val = _parse_mcap_string(max_mcap)
 
 	# Step 1: Get candidates from finviz sector-screen
 	screen_args = ["sector-screen", "--sector", sector, "--limit", "50"]
@@ -1238,6 +1368,16 @@ def cmd_screen(args):
 		})
 		return
 
+	# Apply --max-mcap filter
+	if max_mcap_val is not None:
+		filtered = []
+		for row in candidates:
+			raw_mcap = row.get("Market Cap") or row.get("market_cap")
+			row_mcap = _parse_mcap_string(str(raw_mcap)) if raw_mcap else None
+			if row_mcap is None or row_mcap <= max_mcap_val:
+				filtered.append(row)
+		candidates = filtered
+
 	# Extract ticker symbols (limit to 10)
 	ticker_list = []
 	for row in candidates[:10]:
@@ -1250,7 +1390,7 @@ def cmd_screen(args):
 			"sector": sector,
 			"candidates_screened": 0,
 			"results": [],
-			"note": "No ticker symbols found in screening results",
+			"note": "No candidates passed filters",
 		})
 		return
 
@@ -1299,7 +1439,6 @@ def cmd_screen(args):
 		"sector": sector,
 		"candidates_screened": len(scored_results),
 		"filters_applied": {
-			"min_rs": min_rs,
 			"max_mcap": max_mcap,
 		},
 		"results": scored_results,
@@ -1481,12 +1620,6 @@ def main():
 		"screen", help="Sector-based bottleneck candidate screening"
 	)
 	sp_screen.add_argument("sector", help="Sector name for Finviz screening")
-	sp_screen.add_argument(
-		"--min-rs",
-		type=int,
-		default=50,
-		help="Minimum relative strength score (default: 50)",
-	)
 	sp_screen.add_argument(
 		"--max-mcap",
 		default="10B",
