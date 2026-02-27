@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Finviz screening preset definitions.
+"""Finviz screening preset definitions and criteria filter sets.
 
 This module contains predefined filter configurations for stock screening using finvizfinance.
 Each preset represents a specific investment strategy or screening methodology.
@@ -10,6 +10,10 @@ Preset Categories:
 - Technical Analysis: golden_cross, large_cap_rsi20, large_cap_rsi80
 - Minervini SEPA: minervini_leaders, minervini_breakout, minervini_stage2
 - Serenity Supply Chain: serenity_bottleneck, serenity_neocloud
+
+Criteria Filters:
+- CRITERIA_FILTERS dict: Reusable filter sets for sector-screen and industry-screen commands
+- Categories: growth, value, momentum, dividend, quality
 """
 
 # Preset filter definitions for finvizfinance
@@ -158,5 +162,35 @@ PRESETS = {
 			"Average Volume": "Over 300K",
 			"200-Day Simple Moving Average": "Price above SMA200",
 		},
+	},
+}
+
+# Criteria filter sets for sector-screen and industry-screen commands.
+# Each criteria maps to a dict of finvizfinance filter key-value pairs.
+# Used by finviz.py cmd_sector_screen and cmd_industry_screen.
+CRITERIA_FILTERS = {
+	"growth": {
+		"EPS growththis year": "Over 20%",
+		"EPS growthnext year": "Over 10%",
+		"Sales growthqtr over qtr": "Over 10%",
+	},
+	"value": {
+		"P/E": "Under 20",
+		"P/B": "Under 3",
+		"PEG": "Low (<1)",
+	},
+	"momentum": {
+		"20-Day Simple Moving Average": "Price above SMA20",
+		"50-Day Simple Moving Average": "Price above SMA50",
+		"52-Week High/Low": "0-10% below High",
+	},
+	"dividend": {
+		"Dividend Yield": "Over 2%",
+		"Payout Ratio": "Under 50%",
+	},
+	"quality": {
+		"Return on Equity": "Over +15%",
+		"Debt/Equity": "Under 1",
+		"EPS growthpast 5 years": "Positive (>0%)",
 	},
 }

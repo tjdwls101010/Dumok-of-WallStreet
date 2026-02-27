@@ -240,7 +240,7 @@ Finviz stock screener and Minervini Trend Template
 
 | Function | Description | Script |
 |----------|-------------|--------|
-| `finviz` | Finviz stock screening, sector/industry group analysis, and market breadth (new 52W highs/lows by exchange) | `screening/finviz.py` |
+| `finviz` | Finviz stock screening, sector/industry group analysis, industry-level screening (partial name match), and market breadth (new 52W highs/lows by exchange) | `screening/finviz.py` |
 | `finviz_presets` | Finviz screening preset definitions (includes Minervini SEPA presets) | `screening/finviz_presets.py` |
 | `sector_leaders` | Bottom-up sector leadership dashboard: leader count by industry group with performance enrichment | `screening/sector_leaders.py` |
 | `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |

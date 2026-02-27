@@ -12,10 +12,12 @@ Commands:
 Args:
 	For scan:
 	--limit (int): Maximum leader stocks to screen (default: 200)
+	--preset (str): Screening preset name from finviz_presets.py (default: minervini_leaders)
 
 	For top-groups:
 	--top (int): Number of top groups to return (default: 10)
 	--limit (int): Maximum leader stocks to screen (default: 200)
+	--preset (str): Screening preset name from finviz_presets.py (default: minervini_leaders)
 
 Returns:
 	dict: {
@@ -36,7 +38,7 @@ Returns:
 	"metadata": {
 	"total_leaders_found": int,
 	"groups_with_leaders": int,
-	"scan_preset": "minervini_leaders",
+	"scan_preset": str,
 	"timestamp": str
 	}
 	}
@@ -58,6 +60,9 @@ Example:
 	"metadata": {"total_leaders_found": 45, "groups_with_leaders": 12}
 	}
 
+	>>> python sector_leaders.py scan --preset minervini_stage2
+	{"leadership_dashboard": [...], "metadata": {"scan_preset": "minervini_stage2", ...}}
+
 	>>> python sector_leaders.py top-groups --top 5
 	{"top_groups": [...top 5 entries...], "metadata": {...}}
 
@@ -68,8 +73,9 @@ Use Cases:
 	- Sector rotation tracking: compare dashboard snapshots over time
 
 Notes:
-	- Uses minervini_leaders preset from finviz_presets.py (Year +20%, Quarter +10%,
+	- Default preset is minervini_leaders from finviz_presets.py (Year +20%, Quarter +10%,
 	  near 52W high, EPS growth >25%, above 200MA, volume >200K)
+	- --preset parameter allows using any preset from finviz_presets.py (Module Neutrality)
 	- Enriches with Finviz industry group performance data for context
 	- Groups are ranked by leader count (descending) as the primary sort key
 	- Performance enrichment may fail gracefully (returns dashboard without perf data)
@@ -177,14 +183,17 @@ def _scan_via_etf(period="6mo"):
 	return results
 
 
-def _screen_leaders(limit=200):
-	"""Screen for Minervini leaders using the minervini_leaders preset.
+def _screen_leaders(limit=200, preset_name="minervini_leaders"):
+	"""Screen for leaders using a configurable preset from finviz_presets.py.
 
-	Uses finvizfinance Overview screener with the minervini_leaders filter set
-	(Year +20%, Quarter +10%, near 52W high, EPS QoQ >25%, Volume >200K, above 200MA).
+	Uses finvizfinance Overview screener with the specified preset filter set.
+	Defaults to minervini_leaders (Year +20%, Quarter +10%, near 52W high,
+	EPS QoQ >25%, Volume >200K, above 200MA).
 
 	Args:
 			limit (int): Maximum number of stocks to return from the screener. Default 200.
+			preset_name (str): Preset name from finviz_presets.py PRESETS dict.
+					Default "minervini_leaders".
 
 	Returns:
 			list[dict]: List of screener result rows. Each dict contains at minimum
@@ -193,7 +202,7 @@ def _screen_leaders(limit=200):
 	"""
 	from finvizfinance.screener.overview import Overview
 
-	preset = PRESETS["minervini_leaders"]
+	preset = PRESETS[preset_name]
 	filters_dict = preset["filters"]
 
 	foverview = Overview()
@@ -358,10 +367,11 @@ def cmd_scan(args):
 			Outputs JSON to stdout with leadership_dashboard array and metadata.
 	"""
 	use_etf = getattr(args, "fallback", None) == "etf"
+	preset_name = getattr(args, "preset", "minervini_leaders")
 
 	if not use_etf:
 		try:
-			leaders = _screen_leaders(limit=args.limit)
+			leaders = _screen_leaders(limit=args.limit, preset_name=preset_name)
 		except Exception:
 			leaders = []
 			use_etf = True  # Auto-fallback on Finviz failure
@@ -394,7 +404,7 @@ def cmd_scan(args):
 			"metadata": {
 				"total_leaders_found": len(leaders),
 				"groups_with_leaders": len(dashboard),
-				"scan_preset": "minervini_leaders",
+				"scan_preset": preset_name,
 				"timestamp": datetime.now(timezone.utc).isoformat(),
 			},
 		}
@@ -416,7 +426,8 @@ def cmd_top_groups(args):
 	Returns:
 			Outputs JSON to stdout with top_groups array and metadata.
 	"""
-	leaders = _screen_leaders(limit=args.limit)
+	preset_name = getattr(args, "preset", "minervini_leaders")
+	leaders = _screen_leaders(limit=args.limit, preset_name=preset_name)
 
 	if not leaders:
 		output_json(
@@ -425,7 +436,7 @@ def cmd_top_groups(args):
 				"metadata": {
 					"total_leaders_found": 0,
 					"top_n": args.top,
-					"scan_preset": "minervini_leaders",
+					"scan_preset": preset_name,
 					"timestamp": datetime.now(timezone.utc).isoformat(),
 				},
 			}
@@ -442,7 +453,7 @@ def cmd_top_groups(args):
 				"total_leaders_found": len(leaders),
 				"groups_with_leaders": len(dashboard),
 				"top_n": args.top,
-				"scan_preset": "minervini_leaders",
+				"scan_preset": preset_name,
 				"timestamp": datetime.now(timezone.utc).isoformat(),
 			},
 		}
@@ -460,6 +471,12 @@ def main():
 		type=int,
 		default=200,
 		help="Maximum number of leader stocks to screen (default: 200)",
+	)
+	p_scan.add_argument(
+		"--preset",
+		default="minervini_leaders",
+		choices=list(PRESETS.keys()),
+		help="Screening preset from finviz_presets.py (default: minervini_leaders)",
 	)
 	p_scan.add_argument(
 		"--fallback",
@@ -482,6 +499,12 @@ def main():
 		type=int,
 		default=200,
 		help="Maximum number of leader stocks to screen (default: 200)",
+	)
+	p_top.add_argument(
+		"--preset",
+		default="minervini_leaders",
+		choices=list(PRESETS.keys()),
+		help="Screening preset from finviz_presets.py (default: minervini_leaders)",
 	)
 	p_top.set_defaults(func=cmd_top_groups)
 

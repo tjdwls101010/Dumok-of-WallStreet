@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""Finviz stock screening, sector/industry group analysis, and market breadth via finvizfinance.
+"""Finviz stock screening, sector/industry group analysis, industry-level screening, and market breadth via finvizfinance.
 
 Provides preset-based stock screening, sector/industry group performance comparison,
-sector-specific screening with quality filters, and market breadth analysis (new 52-week
-highs vs lows) for comprehensive market analysis.
+sector-specific screening with quality filters, industry-level screening with partial
+name matching, and market breadth analysis (new 52-week highs vs lows) for comprehensive
+market analysis.
 
 Commands:
-	screen          Screen stocks using predefined presets (minervini_leaders, etc.)
-	groups          Sector/industry group performance, valuation, or overview comparison
-	presets         List all available screening presets
-	sector-screen   Screen stocks within a specific sector with quality filters
-	market-breadth  New 52-week highs vs lows count by exchange with sector breakdown
+	screen           Screen stocks using predefined presets (minervini_leaders, etc.)
+	groups           Sector/industry group performance, valuation, or overview comparison
+	presets          List all available screening presets
+	sector-screen    Screen stocks within a specific sector with quality filters
+	industry-screen  Screen stocks within specific industry groups (partial name match)
+	market-breadth   New 52-week highs vs lows count by exchange with sector breakdown
 
 Args:
 	For screen:
@@ -27,6 +29,11 @@ Args:
 		--criteria (str): Filter criteria - all, growth, value, momentum, dividend, quality (default: all)
 		--limit (int): Maximum results (default: 50)
 
+	For industry-screen:
+		--industry (str): Industry name or search term, supports partial match (required)
+		--criteria (str): Filter criteria - all, growth, value, momentum, dividend, quality (default: all)
+		--limit (int): Maximum results (default: 50)
+
 	For market-breadth:
 		No required args. Returns new highs/lows by exchange with sector breakdown.
 
@@ -36,6 +43,18 @@ Returns:
 
 	For groups:
 		dict: {"data": [group rows with normalized performance], "metadata": {group, metric, count}}
+
+	For industry-screen:
+		dict: {
+			"data": [screener rows],
+			"metadata": {
+				"search_term": str,
+				"matched_industries": [str],
+				"criteria": str,
+				"count": int,
+				"timestamp": str
+			}
+		}
 
 	For market-breadth:
 		dict: {
@@ -54,6 +73,9 @@ Example:
 	>>> python finviz.py groups --group industry --metric performance --order perf_month
 	{"data": [{"name": "Semiconductors", "performance_1m": 0.12, ...}], "metadata": {...}}
 
+	>>> python finviz.py industry-screen --industry "Software" --criteria momentum
+	{"data": [...], "metadata": {"matched_industries": ["Software - Application", "Software - Infrastructure"], ...}}
+
 	>>> python finviz.py market-breadth
 	{
 		"nyse": {"new_highs": 116, "new_lows": 38, "ratio": 3.05},
@@ -67,18 +89,21 @@ Use Cases:
 	- Preset-based stock screening for Minervini SEPA candidates
 	- Sector/industry group ranking by performance, valuation, or overview
 	- Sector-specific screening with growth, value, momentum, or quality filters
+	- Industry-level screening with automatic name resolution (partial match)
 	- Market breadth assessment for Type A (market environment) and Type F (risk) analyses
 	- NYSE vs NASDAQ divergence detection for sector rotation signals
 
 Notes:
 	- Screening presets are defined in finviz_presets.py (minervini_leaders, minervini_breakout, etc.)
+	- Criteria filters are defined in finviz_presets.py CRITERIA_FILTERS dict (growth, value, momentum, etc.)
 	- Group performance data includes normalized percent values (decimals, not strings)
+	- Industry-screen resolves partial names (e.g., "Software" → "Software - Application" + "Software - Infrastructure")
 	- Market breadth uses Finviz signal filters (New High / New Low) per exchange
 	- Sector breakdown of new highs shows where leadership is concentrated
 	- Interpretation includes automatic NYSE/NASDAQ divergence detection
 
 See Also:
-	- finviz_presets.py: PRESETS dict with all screening preset definitions
+	- finviz_presets.py: PRESETS dict and CRITERIA_FILTERS dict
 	- sector_leaders.py: Bottom-up sector leadership dashboard using these presets
 	- minervini.py: Full SEPA analysis for individual stocks
 """
@@ -121,9 +146,9 @@ def _fetch_with_retry(func, max_retries=3, base_delay=2):
 
 
 try:
-	from .finviz_presets import PRESETS
+	from .finviz_presets import PRESETS, CRITERIA_FILTERS
 except ImportError:
-	from finviz_presets import PRESETS
+	from finviz_presets import PRESETS, CRITERIA_FILTERS
 
 # Sector filter mappings for finvizfinance screener
 SECTOR_FILTERS = {
@@ -441,53 +466,10 @@ def cmd_sector_screen(args):
 	# Build filters based on criteria
 	filters_dict = {"Sector": sector_value}
 
-	# Add quality filters based on criteria argument
+	# Apply criteria filters from presets (replaces inline criteria logic)
 	criteria = args.criteria
-	if criteria == "growth":
-		# High growth stocks in the sector
-		filters_dict.update(
-			{
-				"EPS growththis year": "Over 20%",
-				"EPS growthnext year": "Over 10%",
-				"Sales growthqtr over qtr": "Over 10%",
-			}
-		)
-	elif criteria == "value":
-		# Value stocks in the sector
-		filters_dict.update(
-			{
-				"P/E": "Under 20",
-				"P/B": "Under 3",
-				"PEG": "Low (<1)",
-			}
-		)
-	elif criteria == "momentum":
-		# Momentum stocks in the sector
-		filters_dict.update(
-			{
-				"20-Day Simple Moving Average": "Price above SMA20",
-				"50-Day Simple Moving Average": "Price above SMA50",
-				"52-Week High/Low": "0-10% below High",
-			}
-		)
-	elif criteria == "dividend":
-		# Dividend stocks in the sector
-		filters_dict.update(
-			{
-				"Dividend Yield": "Over 2%",
-				"Payout Ratio": "Under 50%",
-			}
-		)
-	elif criteria == "quality":
-		# Quality stocks (default)
-		filters_dict.update(
-			{
-				"Return on Equity": "Over +15%",
-				"Debt/Equity": "Under 1",
-				"EPS growthpast 5 years": "Positive (>0%)",
-			}
-		)
-	# else: "all" - no additional filters
+	if criteria != "all":
+		filters_dict.update(CRITERIA_FILTERS.get(criteria, {}))
 
 	foverview = Overview()
 	foverview.set_filter(filters_dict=filters_dict)
@@ -529,6 +511,85 @@ def cmd_sector_screen(args):
 			},
 		}
 	)
+
+
+@safe_run
+def cmd_industry_screen(args):
+	"""Screen stocks within a specific industry group with partial name matching.
+
+	Accepts partial industry names (e.g., "Software" matches "Software - Application"
+	and "Software - Infrastructure"). Combines results from all matching industries.
+	Uses CRITERIA_FILTERS from finviz_presets.py for quality filtering.
+	"""
+	from finvizfinance.group import Performance as GroupPerformance
+	from finvizfinance.screener.overview import Overview
+
+	search_term = args.industry.lower()
+
+	# Step 1: Get all industry names from finviz
+	gperf = GroupPerformance()
+	try:
+		df = _fetch_with_retry(lambda: gperf.screener_view(group="Industry"))
+	except Exception as e:
+		error_json(f"Failed to fetch industry list: {e}")
+
+	if df is None or df.empty:
+		error_json("Failed to fetch industry list from Finviz")
+
+	all_industries = df["Name"].tolist() if "Name" in df.columns else df.index.tolist()
+
+	# Step 2: Partial match
+	matching = [name for name in all_industries if search_term in name.lower()]
+	if not matching:
+		output_json({
+			"data": [],
+			"metadata": {
+				"search_term": args.industry,
+				"matched_industries": [],
+				"criteria": args.criteria,
+				"count": 0,
+				"timestamp": datetime.now(timezone.utc).isoformat(),
+			},
+		})
+		return
+
+	# Step 3: Screen each matching industry
+	all_records = []
+	for industry_name in matching:
+		filters = {"Industry": industry_name}
+		if args.criteria != "all":
+			filters.update(CRITERIA_FILTERS.get(args.criteria, {}))
+
+		foverview = Overview()
+		foverview.set_filter(filters_dict=filters)
+		try:
+			df_screen = _fetch_with_retry(lambda: foverview.screener_view(limit=args.limit, verbose=0))
+		except Exception:
+			df_screen = None
+		if df_screen is not None and not df_screen.empty:
+			records = df_screen.to_dict(orient="records")
+			all_records.extend([_normalize_screener_row(r) for r in records])
+
+	# Step 4: Deduplicate by ticker, limit results
+	seen = set()
+	unique = []
+	for r in all_records:
+		ticker = r.get("Ticker")
+		if ticker and ticker not in seen:
+			seen.add(ticker)
+			unique.append(r)
+	unique = unique[:args.limit]
+
+	output_json({
+		"data": unique,
+		"metadata": {
+			"search_term": args.industry,
+			"matched_industries": matching,
+			"criteria": args.criteria,
+			"count": len(unique),
+			"timestamp": datetime.now(timezone.utc).isoformat(),
+		},
+	})
 
 
 @safe_run
@@ -690,6 +751,27 @@ def main():
 		help="Maximum number of results (default: 50)",
 	)
 	p_sector.set_defaults(func=cmd_sector_screen)
+
+	# industry-screen - Screen stocks within a specific industry (partial name match)
+	p_industry = sub.add_parser("industry-screen", help="Screen stocks within a specific industry group")
+	p_industry.add_argument(
+		"--industry",
+		required=True,
+		help="Industry name or search term (partial match supported)",
+	)
+	p_industry.add_argument(
+		"--criteria",
+		default="all",
+		choices=["all", "growth", "value", "momentum", "dividend", "quality"],
+		help="Screening criteria (default: all - no filters)",
+	)
+	p_industry.add_argument(
+		"--limit",
+		type=int,
+		default=50,
+		help="Maximum number of results (default: 50)",
+	)
+	p_industry.set_defaults(func=cmd_industry_screen)
 
 	# market-breadth - New 52-week highs vs lows
 	p_breadth = sub.add_parser(

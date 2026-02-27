@@ -9,8 +9,8 @@ and actionable signal.
 Commands:
 	analyze: Full SEPA analysis for a single ticker
 	watchlist: Batch SEPA analysis for multiple tickers
-	market-leaders: Market environment assessment (sector leaders, sector performance, breadth, TT batch)
-	screen: Sector-based SEPA candidate screening (finviz + watchlist-level analysis)
+	market-leaders: Market environment assessment (sector leaders, sector performance, sector valuation, breadth, TT batch)
+	screen: Sector/industry SEPA candidate screening with industry name resolution and performance context
 	compare: Multi-ticker full SEPA comparison with head-to-head ranking
 	recheck: Position management recheck (TT, Stage, post-breakout, volume, earnings)
 
@@ -27,7 +27,7 @@ Args:
 		(no arguments)
 
 	For screen:
-		sector (str): Sector name for screening
+		sector (str): Sector name (e.g., "technology") or industry name (e.g., "Software", "Semiconductors")
 
 	For compare:
 		symbols (list): 2+ ticker symbols to compare
@@ -76,6 +76,7 @@ Returns:
 		dict: {
 			"sector_rankings": dict,
 			"sector_performance": dict or null (sector performance ranking from finviz groups),
+			"sector_valuation": dict or null (sector valuation data: P/E, Forward P/E, PEG, EPS growth),
 			"top_leaders": list,
 			"broken_leaders": list,
 			"breadth_indicators": dict,
@@ -98,6 +99,7 @@ Returns:
 	For screen:
 		dict: {
 			"sector": str,
+			"industry_context": list[dict] or null (matching industry performance data),
 			"candidates": list[dict],
 			"filters_applied": list[str]
 		}
@@ -912,16 +914,18 @@ def cmd_watchlist(args):
 
 @safe_run
 def cmd_market_leaders(args):
-	"""Market environment assessment: sector leadership, breadth, performance, and leader health.
+	"""Market environment assessment: sector leadership, breadth, performance, valuation, and leader health.
 
 	Runs sector leadership dashboard, market breadth analysis, sector performance
-	ranking, and Trend Template checks on top leaders to assess market environment
-	strength and identify broken leaders transitioning out of Stage 2.
+	ranking, sector valuation comparison, and Trend Template checks on top leaders
+	to assess market environment strength and identify broken leaders transitioning
+	out of Stage 2.
 
 	Returns:
 		dict: {
 			"sector_rankings": dict (sector dashboard with leader counts and strength),
 			"sector_performance": dict or null (sector performance ranking from finviz groups),
+			"sector_valuation": dict or null (sector valuation: P/E, Forward P/E, PEG, EPS growth),
 			"top_leaders": list (top leader stocks with TT/Stage/RS data),
 			"broken_leaders": list (former leaders failing TT or in Stage 3/4),
 			"breadth_indicators": dict (full market breadth data),
@@ -941,14 +945,16 @@ def cmd_market_leaders(args):
 			}
 		}
 	"""
-	# Run sector dashboard, breadth, and sector performance in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+	# Run sector dashboard, breadth, sector performance, and sector valuation in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
 		future_sectors = executor.submit(_run_script, "screening/sector_leaders.py", ["scan"])
 		future_breadth = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
 		future_sector_perf = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "sector", "--metric", "performance"])
+		future_sector_val = executor.submit(_run_script, "screening/finviz.py", ["groups", "--group", "sector", "--metric", "valuation"])
 		sector_rankings = future_sectors.result()
 		breadth = future_breadth.result()
 		sector_perf = future_sector_perf.result()
+		sector_val = future_sector_val.result()
 
 	# Extract top leader symbols (up to 10) from sector scan dashboard
 	leader_symbols = []
@@ -1017,6 +1023,7 @@ def cmd_market_leaders(args):
 	output_json({
 		"sector_rankings": sector_rankings,
 		"sector_performance": sector_perf if not sector_perf.get("error") else None,
+		"sector_valuation": sector_val if not sector_val.get("error") else None,
 		"top_leaders": top_leaders,
 		"broken_leaders": broken_leaders,
 		"breadth_indicators": breadth,
@@ -1026,30 +1033,54 @@ def cmd_market_leaders(args):
 
 @safe_run
 def cmd_screen(args):
-	"""Sector-based SEPA candidate screening with progressive filtering.
+	"""Sector/industry SEPA candidate screening with industry name resolution and performance context.
 
-	Screens a sector for candidates using Finviz, then runs watchlist-level
-	SEPA analysis (TT, Stage, RS, Earnings, Volume) on each candidate to
-	produce a filtered and scored list.
+	Screens a sector or industry for candidates using Finviz, then runs watchlist-level
+	SEPA analysis (TT, Stage, RS, Earnings, Volume) on each candidate to produce a
+	filtered and scored list.
 
 	Accepts both broad sectors (technology, healthcare) and industry names
-	(Software, Semiconductors). If sector-screen returns empty, falls back
-	to minervini_leaders preset filtered by industry name.
+	(Software, Semiconductors). Uses 3-step fallback:
+	- Step 1: sector-screen (broad sector match)
+	- Step 1.5: industry-screen with partial name match (e.g., "Software" → "Software - Application" + "Software - Infrastructure")
+	- Step 2.5: minervini_leaders preset filtered by industry name (strict)
+
+	Fetches industry performance context in parallel for sector environment assessment.
 
 	Args:
-		sector (str): Sector or industry name for screening
+		sector (str): Sector name (e.g., "technology") or industry name (e.g., "Software", "Semiconductors")
 
 	Returns:
 		dict: {
 			"sector": str,
+			"industry_context": list[dict] or null (matching industry performance data),
 			"candidates": list[dict] (SEPA-filtered stocks with scores),
 			"filters_applied": list[str]
 		}
 	"""
-	# Step 1: Finviz sector screen
-	finviz_result = _run_script("screening/finviz.py", ["sector-screen", "--sector", args.sector])
+	# Step 0 + Step 1: Fetch industry performance context and sector screen in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=2) as init_exec:
+		future_industry_perf = init_exec.submit(
+			_run_script, "screening/finviz.py",
+			["groups", "--group", "industry", "--metric", "performance"]
+		)
+		future_sector_screen = init_exec.submit(
+			_run_script, "screening/finviz.py",
+			["sector-screen", "--sector", args.sector]
+		)
+		industry_perf_result = future_industry_perf.result()
+		finviz_result = future_sector_screen.result()
 
-	# Step 2: Extract symbols
+	# Extract industry performance context for matching industries
+	industry_context = None
+	if not industry_perf_result.get("error"):
+		search_term = args.sector.lower()
+		matching = [item for item in industry_perf_result.get("data", [])
+					if search_term in (item.get("name") or "").lower()]
+		if matching:
+			industry_context = matching
+
+	# Step 2: Extract symbols from sector-screen
 	symbols = []
 	if not finviz_result.get("error"):
 		candidates_raw = finviz_result.get("data", finviz_result.get("results", finviz_result.get("candidates", [])))
@@ -1062,7 +1093,19 @@ def cmd_screen(args):
 				elif isinstance(item, str):
 					symbols.append(item.upper())
 
-	# Step 2.5: Industry fallback — if sector-screen returned nothing, try preset + industry filter
+	# Step 1.5: Industry fallback — industry-screen with partial name matching
+	if not symbols:
+		industry_result = _run_script("screening/finviz.py", [
+			"industry-screen", "--industry", args.sector,
+			"--criteria", "momentum", "--limit", "50"
+		])
+		if not industry_result.get("error"):
+			for item in industry_result.get("data", []):
+				sym = item.get("Ticker")
+				if sym and len(symbols) < 20:
+					symbols.append(sym.upper())
+
+	# Step 2.5: Strict fallback — minervini_leaders preset filtered by industry name
 	if not symbols:
 		preset_result = _run_script("screening/finviz.py", ["screen", "--preset", "minervini_leaders", "--limit", "100"])
 		if not preset_result.get("error"):
@@ -1124,6 +1167,7 @@ def cmd_screen(args):
 
 	output_json({
 		"sector": args.sector,
+		"industry_context": industry_context,
 		"candidates": candidates,
 		"filters_applied": ["trend_template", "stage_analysis", "rs_ranking", "earnings_acceleration", "volume_analysis"],
 	})
