@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""TraderLion Pipeline: full S.N.I.P.E. analysis integrating volume edges, stage/trend,
-growth, setup quality, and volume confirmation.
+"""TraderLion Pipeline (Pipeline-Complete): full S.N.I.P.E. analysis integrating volume edges,
+stage/trend, growth, setup quality, and volume confirmation.
 
 Orchestrates the complete S.N.I.P.E. (Search-Narrow-Identify-Plan-Execute) analysis by running
 Volume Edge Detection, Trend Template, Stage Analysis, RS Ranking, Earnings Acceleration,
 VCP Detection, Base Counting, Volume Analysis, Closing Range, and Position Sizing in sequence.
-Produces a SNIPE Composite Score and actionable signal.
+Contains all methodology-required module calls — the agent should not call individual modules
+to supplement pipeline results. Produces a SNIPE Composite Score and actionable signal.
 
 Commands:
 	analyze: Full S.N.I.P.E. analysis for a single ticker

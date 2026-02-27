@@ -8,6 +8,67 @@ Systematic framework for identifying high-potential growth stocks through volume
 
 ---
 
+## TIGERS Stock Selection Framework
+
+TIGERS is the proprietary acronym summarizing the six dimensions evaluated when selecting stocks. It is TraderLion's adaptation of CANSLIM, providing the holistic evaluation framework for stock identification. Every stock analysis should be evaluated against all six dimensions. A stock meeting multiple TIGERS criteria simultaneously presents the highest probability opportunity.
+
+### T — Theme
+
+The stock is riding a strong growth theme driven by larger forces.
+
+- **Two types**: **Transformative** (technology-driven, long-lasting, multiple innovation waves -- e.g. semiconductors, internet, AI) and **Cyclical** (economic cycle/macro driven, shorter-lived, less meaningful opportunities -- e.g. energy, construction, banks, airlines).
+- Transformative themes produce longer-lasting, more meaningful opportunities.
+- **Potential Leadership Groups (PLGs)**: Stocks move in groups. A few PLGs make up current market cycle leadership. Even average stocks in strong groups can outperform the strongest stocks in mediocre groups. The goal is to identify the top 1-3 stocks within the current transformative theme of the cycle.
+- **Three-wave alignment**: For a "special stock," three waves must align: (1) a healthy general market creating trends, (2) a disruptive theme attracting institutional accumulation, and (3) a specific company best positioned to profit. When all three waves combine, the result is maximum potential.
+
+### I — Innovation
+
+The company has a standout product, service, or element separating it from peers.
+
+- Unique value proposition leading to rapid growth and market share capture.
+- New product leveraging proprietary technology or unique approach to solving customer problems.
+- Try to experience the company/product firsthand for unique insight.
+- **Critical rule**: However deep the research, if price action does not confirm the thesis, look elsewhere.
+
+### G — Growth
+
+Currently growing earnings and sales rapidly, or projected to in upcoming quarters.
+
+- Minimum quarterly growth: **>25% YoY** in earnings or sales.
+- Preferred: **triple-digit growth** and/or **accelerating** across sequential quarters.
+- **Acceleration pattern**: Growth rate increasing from quarter to quarter (e.g. 25% -> 40% -> 80%). This acceleration signal is one of the most powerful confirmations of emerging institutional interest. Track not just the latest quarter but the sequential trend of quarterly EPS and sales growth rates.
+- Revenue growth is particularly important for growth-at-all-cost companies that may forgo profits.
+- Profits should be on the near horizon; during tighter monetary cycles, markets may focus solely on profitable companies.
+
+### E — Edges
+
+The chart displays at least one of the recognized technical edges indicating institutional accumulation.
+
+- Accumulation must show up in the charts.
+- Stock should trend orderly when market is strong, fight downtrends, bounce quickly after corrections.
+- Gaps up on earnings, breaks out and trends from base patterns.
+- Looking for a rising leader already showing outperformance -- not a beaten-down stock.
+- See the Volume Edges, Relative Strength Edge, and N-Factor Edge sections below for detailed edge definitions.
+
+### R — Relative Strength
+
+The stock is displaying unusual strength, outperformance, momentum, and trend.
+
+- Should jump out; close to the top of leaderboards in 3-month RS.
+- Continues to trend and obey moving averages.
+- Large gap ups, respect for MAs, leading the market in the cycle.
+- See the Relative Strength Edge section below for detection criteria.
+
+### S — Setup
+
+The stock is forming an actionable setup.
+
+- Wait until the stock develops a setup you have studied and can trade effectively.
+- Specialization: master 1-3 setups rather than trying to learn everything at once.
+- See the Setups section below for setup definitions (Launch Pad, Gapper, Base Breakout).
+
+---
+
 ## Volume Edges
 
 Volume signatures indicate that a stock is undergoing a potential significant character change. A gap up on extremely large volume can lead to a strong momentum move and/or a long-term new trend.
@@ -23,6 +84,8 @@ Volume signatures indicate that a stock is undergoing a potential significant ch
 - Minimum $3M dollar volume
 
 **Interpretation**: Represents the most extreme institutional interest signal. When paired with a game-changing catalyst (first-time profitability, revolutionary product launch, industry-level regulatory change), this often marks the beginning of a new long-term trend. HVE is the strongest of the three HV edges.
+
+**Follow-Through Confirmation**: If the stock rises the next trading day on even higher volume than the HVE day, the character change is confirmed. This is a strong additional signal of sustained institutional demand.
 
 **Caution**: Biotech stocks frequently appear on HVE screens due to drug trial news — these often gap up but go nowhere. Prefer stocks in other industries with catalysts that translate directly to sustained earnings and sales growth.
 
@@ -41,6 +104,8 @@ Volume signatures indicate that a stock is undergoing a potential significant ch
 - Minimum $3M dollar volume
 
 **Interpretation**: Indicates that institutional interest has reached a level not seen since the initial public offering excitement. Particularly meaningful for stocks that have been public for at least 6-12 months, as it suggests a fundamental re-evaluation by the market. The longer the time since IPO, the more significant this signal becomes.
+
+**Follow-Through Confirmation**: If the stock rises the next trading day on even higher volume than the HVIPO day, the character change is confirmed. This is a strong additional signal of sustained institutional demand.
 
 *Apply this framework independently to the current analysis target.*
 
@@ -110,6 +175,8 @@ See SKILL.md -> Technical, Screening
 4. **Divergent Higher Lows**: During the later part of a correction, the stock ignores market pullbacks and forms higher lows as the market forms lower lows
 5. **Spring Release Recovery**: As the market moves up the right side after consolidating, the stock "jumps up" and recovers faster — as if pressure on a spring has been released
 
+**RS Timing Principle**: Stocks showing RS especially during the **last third** of a correction are the most likely to become leaders of the next uptrend. Leaders will reclaim MAs and make new highs ahead of the indexes.
+
 ### MA Maintenance Criteria
 
 The following moving averages are monitored for RS analysis:
@@ -137,7 +204,7 @@ See SKILL.md -> Technical, Screening
 
 **Catalyst Categories**:
 
-1. **Earnings/Revenue Surprise**: Company dramatically beats expectations and raises forward guidance. Forces institutions to re-model and accumulate. Most effective when EPS growth is triple-digit or shows acceleration.
+1. **Earnings/Revenue Surprise**: Company dramatically beats expectations and raises forward guidance. Forces institutions to re-model and accumulate. Most effective when EPS growth is triple-digit or shows acceleration across sequential quarters (e.g. 25% -> 40% -> 80%). Track not just the latest quarter but the sequential trend of quarterly EPS and sales growth rates alongside EPS surprise percentages.
 
 2. **Industry-Level Regulatory Change**: Regulation changes that allow significant new development and growth across an entire sector. Focus on the strongest stock in the group, not laggards.
 
@@ -221,7 +288,23 @@ Setups are larger chart patterns that take weeks to form but yield trends that c
 - **Alternative early entry**: Enter as the stock moves up toward the breakout level rather than waiting for the breach
 - **Alternative pullback entry**: Enter when a stock stalls after breakout and falls back to a key MA (particularly the 21 EMA), then resets
 
+**Double-Bottom Variant**: Shakeouts within a base can form double bottoms, which are actionable base breakout patterns. The double bottom provides a clear support level for stop placement. The second low that holds or slightly undercuts the first low, then reverses, confirms demand at that price area.
+
 **Focus Prioritization**: Like the gapper, focus on the first few bases in a stock's longer-term move to ensure remaining runway.
+
+### Base Count and Quality Degradation
+
+Track the sequential base number within a single trend cycle. Each stock resets to "1st base" after a significant decline that breaks the trend structure (price breaks below the 200 SMA and forms a new base).
+
+| Base Number | Quality | Probability Assessment |
+|---|---|---|
+| 1st base | Highest | Full position sizing, broadest stop tolerance |
+| 2nd base | High | Full position sizing, standard stops |
+| 3rd base | Moderate | Reduced sizing (75%), tighter stops |
+| 4th base | Low | Half sizing maximum, very tight stops |
+| 5th+ base | Lowest | Monitor only, or minimal test position |
+
+This degradation schedule is strongly supported by case studies across all market cycles 2004-2024. Late-stage base failures are the most common failure mode for stocks that were prior market leaders.
 
 *Apply this framework independently to the current analysis target.*
 
@@ -239,35 +322,128 @@ Setups are larger chart patterns that take weeks to form but yield trends that c
 - **DCR > 50%**: Closed in the upper half of the range — buyers controlled the session
 - **DCR < 50%**: Closed in the lower half of the range — sellers controlled the session
 
-### Constructive Bar Classification
+### Constructive vs Non-Constructive Bar Classification
 
-A bar (daily candlestick) is classified as **constructive** when it demonstrates institutional accumulation:
+A bar's quality is determined by the combination of its direction, closing range, and volume level relative to the moving average. This three-dimensional classification replaces narrative descriptions with a precise decision matrix.
 
-**Constructive Characteristics**:
-- High closing range (>50%, ideally >70%)
-- Above-average volume supporting the advance
-- Stock holds above key MAs (especially 21 EMA)
-- Tight price range with close near the high (low-volatility accumulation)
-- Gap-up days that hold their gains into the close
-- On down market days: stock shows high DCR even if slightly red (relative strength)
+| Classification | Day Type | Closing Range | Volume Level | Interpretation |
+|---|---|---|---|---|
+| **Constructive** | Up Day | >50% | Below Average | Light buying, controlled accumulation |
+| **Constructive** | Up Day | >50% | Average | Normal buying, positive |
+| **Constructive** | Up Day | >50% | Above Average | Strong buying, institutional demand |
+| **Constructive** | Down Day | Any | Below Average | Lack of sellers, minor pullback |
+| **Non-Constructive** | Up Day | <50% | Average | Buyers lost control, faded into close |
+| **Non-Constructive** | Up Day | <50% | Above Average | Heavy selling into rally, distribution |
+| **Non-Constructive** | Down Day | <50% | Above Average | Institutional selling, distribution day |
 
-### Non-Constructive Bar Classification
-
-A bar is classified as **non-constructive** when it demonstrates institutional distribution:
-
-**Non-Constructive Characteristics**:
-- Low closing range (<40%)
-- High volume accompanying price decline (distribution)
-- Stock closes below key MAs
-- Wide price range with close near the low (selling pressure)
+**Additional Non-Constructive Signals**:
+- Stock closes below key MAs on high volume
 - Gap-up days that fade and close in the lower portion of the range
 - Climax-top behavior: acceleration upward on extreme volume after a major advance, then reversal to close red — signals end of the move
+
+**Time-Frame Hierarchy Principle**: Single bar analysis must always be viewed in context of higher time frames. A weekly closing range contextualizes daily bars; daily contextualizes intraday. A poorly closing 5-minute bar on Friday does not matter if the weekly has 95% closing range, just broke out of a large base, and is making new highs.
 
 ### Application
 
 Track the ratio of constructive to non-constructive bars over rolling periods. A stock transitioning from predominantly constructive to non-constructive bars is undergoing a character change from accumulation to distribution, regardless of whether the overall price level still appears high.
 
+### Positive Expectation Breaker
+
+**Definition**: A stock positioned in a structurally bearish configuration (below key MAs, forming lower highs, near breakdown level) that instead breaks out to the upside, defying the bearish expectation.
+
+**Detection Conditions**:
+- Stock is below the 21 EMA or has formed at least one lower high
+- Price is near a breakdown level (base pivot, prior swing low)
+- Instead of breaking down, stock closes above a prior swing high or resistance level on the same day or within 2 days
+- Closing range on the breakout day >50%
+- Volume on breakout day above average
+
+**Interpretation**: Represents hidden institutional accumulation that was not visible in the price structure. The bearish expectation trapped short sellers and weak holders; the upside break creates a short squeeze and forces re-evaluation. One of the most powerful continuation signals observed across 120+ annotated market leader charts spanning 2004-2024.
+
+**Key Distinction**: Different from a simple range breakout because the structural context was bearish. The "positive expectation" is the market's expectation of further decline that was "broken."
+
+### No Follow-Through Down
+
+**Definition**: A bearish event (gap down, support break, distribution day) that fails to produce sustained downside within 1-3 trading days.
+
+**Detection Conditions**:
+- Stock experiences a bearish event: gap down >2%, break below key MA, break below base pivot, or high-volume down day
+- Within 1-3 days, stock recovers above the event trigger level
+- Recovery occurs on constructive volume (up day volume > down day volume)
+
+**Interpretation**: Institutional buyers absorbed the selling pressure generated by the bearish event. This is a demand signal — there is more buying interest than the visible supply. Frequently precedes renewed upside. Approximately 30% of annotated winning charts display this pattern at least once during their base formation or early trend phase.
+
+### Inside Day and Tight Day Setup Bars
+
+**Inside Day Definition**: A day where the high is lower than the prior day's high AND the low is higher than the prior day's low. The entire day's range fits within the prior day's range.
+
+**Tight Day Definition**: A day where the range (high - low) is less than 50% of the 20-day Average Daily Range.
+
+**Double Inside Day**: Two consecutive inside days. A particularly powerful setup bar configuration.
+
+**Interpretation**: Both patterns signal volatility contraction — the market for this stock has reached temporary equilibrium. The direction of the subsequent expansion (the day that breaks the inside day's range or the tight day's range) has high continuation probability.
+
+**Highest Value When**:
+- Occurring at or near a key moving average (21 EMA, 50 SMA)
+- Occurring at or near a base pivot level
+- Occurring after a constructive pullback within an uptrend
+- Low volume on the inside/tight day itself (supply dried up)
+
+**Detection**: Flag inside days and tight days occurring within 3% of a key MA or base pivot. Assign higher setup quality score when these conditions are met.
+
 See SKILL.md -> Technical, Screening
+
+---
+
+## Opportunity Zones
+
+Three lifecycle zones where stocks commonly double and triple. Knowing which zone a stock is in sets expectations for behavior, volatility, and appropriate setup types.
+
+### IPO Boom Zone
+
+The first opportunity zone, occurring right after IPO. Often begins with an IPO base (short consolidation of a few days to weeks). Can produce high-momentum moves especially if the stock is part of a current leadership group or theme. This zone is short-lived and volatile.
+
+**Supply/Demand Dynamic**: During the lock-up period, many holders are restricted from selling, creating high trend potential with strong demand. Once the lock-up ends, insiders sell, secondary offerings increase supply, leading to a drawdown and an "institutional due diligence phase."
+
+### Growth Transition Zone
+
+After the initial IPO drawdown, the stock establishes a trading range and begins a new longer-term uptrend. Institutions have researched the company and begun accumulating. The stock is often showing first signs of profitability.
+
+**What to Watch For**: IPOs 6-12 months old, part of a leading theme, just turning profitable or posting strong growth. This zone often lines up with the appearance of the 200-day SMA. Look for base breakouts off the bottom or along the trend toward previous highs.
+
+### New Momentum Zone
+
+Can occur multiple times during a stock's lifetime. After declining or basing for an extended period, the stock forms a base and begins a new strong Stage 2 uptrend. Often occurs after the market experiences a longer-term basing or correctional period. Most powerful when associated with a catalyst and a leading theme.
+
+---
+
+## Stock Character Assessment
+
+Each stock has its own patterns of movement driven by supply/demand dynamics and the major participants involved. Understanding a stock's character before entry sets expectations for how to manage the position.
+
+### ADR% (Average Daily Range)
+
+**Calculation**: Average of (High - Low) / Close over a lookback period, expressed as a percentage.
+
+**Preferred Threshold**: 3-5% minimum for growth/momentum trading. At this level, stocks can make powerful moves in just a few weeks. ADR% expresses volatility in a comparable way across different share prices.
+
+### Clean Trenders vs Choppy Traders
+
+- **Clean trenders**: Orderly transitions from uptrends to downtrends, respecting trend lines and MAs, few gap downs. Preferred — easier to manage, position in, and stay in.
+- **Choppy traders**: Frequent gap ups and gap downs, lack tight areas, little respect for MAs. Example: oil/gas companies influenced by the underlying commodity. Both types can make great moves, but clean trenders are significantly easier to trade within the TraderLion framework.
+
+### Character Change Signals
+
+A character change occurs when a catalyst fundamentally changes a company or industry. Institutions recalibrate models and allocate capital accordingly. The change shows up as:
+- Large volume increase and powerful price moves
+- The stock may develop newfound respect for MAs and trade more cleanly
+- Transition from choppy to orderly price action
+
+### Liquidity, Float, and Life Cycle Context
+
+- **Dollar Volume** (Avg Shares Traded x Current Price): More liquid stocks produce cleaner trends, tighter bid-ask spreads, less jumpy action, and more respect for key levels and MAs. Institutions need sufficient liquidity to build tens-of-millions-dollar positions.
+- **Float**: Lower float = more volatile. Higher float = gentler moves.
+- **Life Cycle**: Recent IPOs are more volatile pre-lock-up due to restricted float. Post lock-up and after secondary offerings, stocks mature and become more liquid.
 
 ---
 
@@ -275,13 +451,25 @@ See SKILL.md -> Technical, Screening
 
 The complete checklist of characteristics that high-potential growth stocks exhibit. The more items checked, the higher the probability of a significant advance and the larger the warranted position size.
 
+### Price/Volume Signatures
+
+Based on studies of top-performing stocks from the mid-1990s onwards, almost all stocks that double and triple share these seven price and volume signatures. These are the observation-level patterns that provide the foundation for the detailed detection-level criteria in the 12-item checklist below.
+
+1. **Increase in Average Volume** — A distinct step-up in average daily volume as institutions accumulate. Often begins at the start of a new uptrend or after a transformative earnings report.
+2. **Huge Volume Spikes** — Highest volume in a year or more on the daily chart; large up-weeks on the weekly chart. Key moments: base breakouts, earnings reports. "Volume = Price, Cause = Effect."
+3. **Tight Areas on Low Volume** — During trends and consolidation, the stock pauses and forms tight ranges with low volume — equilibrium in supply/demand, signifying lack of sellers and subtle institutional accumulation. The stock stair-steps: expand up, go tight, expand up, go tight, repeat.
+4. **Respect for Moving Averages** — Strong leaders hold specific key MAs for extended periods. Loss of that respect signals the move is near the end or the stock needs to build a longer base. Note which MA the stock respects — this is part of the stock's character.
+5. **Powerful Prior Moves** — Winning stocks often continue to win. Stocks with strong recent trends can perform again after a base or corrective period. If the left side of the chart shows weak or choppy trading, do not expect a clean trend unless a full character change is visible.
+6. **Gap Ups** — A key signature of market leaders. Stocks making 200-500%+ moves often have multiple gap ups. Early gaps in a move have higher probability of maturing into a sustained trend.
+7. **Relative Strength** — Leaders stand out during corrections — going sideways or advancing while the market pulls in. Can be observed via the RS line or screened using RS rating and absolute strength ranking.
+
 ### Fundamental Characteristics
 
 1. **Theme Alignment**: Stock is part of a current leading transformative or cyclical theme with visible group strength
 2. **Innovation / N-Factor**: Company possesses a standout, game-changing competitive advantage driving institutional interest
-3. **Quarterly EPS Growth >25% YoY**: Ideally triple-digit and accelerating across sequential quarters
-4. **Quarterly Sales Growth >25% YoY**: Revenue growth confirming demand, especially critical for growth-at-all-cost companies
-5. **EPS/Revenue Surprises**: Consistent positive surprises forcing institutional re-evaluation and accumulation
+3. **Quarterly EPS Growth >25% YoY**: Ideally triple-digit and accelerating across sequential quarters (e.g. 25% -> 40% -> 80%). Track the sequential trend of quarterly EPS growth rates — acceleration is a key confirmation pattern.
+4. **Quarterly Sales Growth >25% YoY**: Revenue growth confirming demand, especially critical for growth-at-all-cost companies. Acceleration in sales growth across sequential quarters strengthens the signal.
+5. **EPS/Revenue Surprises**: Consistent positive surprises forcing institutional re-evaluation and accumulation. Track sequential EPS surprise percentages alongside growth rates.
 6. **Strong Forward Estimates**: Next-quarter EPS growth estimates also exceeding 30%, confirming sustainability
 
 ### Technical Characteristics

@@ -77,6 +77,30 @@ For detailed methodology references:
 - Market cycle signals and cycle score components: See `market_environment.md`
 - Volume edges, RS, setups, winning characteristics: See `stock_identification.md`
 
+### S.N.I.P.E. Scoring (0-100)
+
+| Component | Weight | What it measures |
+|-----------|--------|------------------|
+| Edge Detection | 30 | HVE/HVIPO/HV1/Increasing Avg Vol/RS/N-Factor |
+| Stage/Trend | 20 | Stage 2 + Trend Template pass count |
+| Growth | 15 | Earnings acceleration, sales growth |
+| Setup Quality | 15 | VCP maturity, base tightness, constructive ratio |
+| Volume Confirmation | 10 | Accumulation grade, volume ratio |
+| Winning Characteristics | 10 | 12-item checklist score |
+
+### Signal Thresholds
+AGGRESSIVE: ≥80 / STANDARD: 65-79 / REDUCED: 50-64 / MONITOR: 35-49 / AVOID: <35
+
+### 4 Hard Gates (Entry Blockers)
+1. Stage 3/4 → distribution phase, institutions exiting
+2. Trend Template <5/8 → trend not established
+3. Zero volume edges + RS <50 → no institutional footprint
+4. Distribution cluster + constructive ratio <0.35 → selling dominant
+
+### Edge-Based Position Sizing
+Base 10% + 2.5% per edge (max 4 edges = 20%). Market adjustment:
+Upcycle 100% / Normal 75% / Reduced 50% / Downcycle 0%
+
 ---
 
 ## Query Classification
@@ -147,29 +171,21 @@ For every analysis, follow this sequence. Do NOT skip steps.
 
 1. **Market Cycle Assessment**: Always complete first. Classify cycle stage (Downcycle/Bottoming/Upcycle/Topping). Compute cycle score. This constrains all subsequent analysis.
 2. **Query Classification**: Classify into Type A-G, identify required persona files.
-3. **TraderLion Pipeline Execution (S.N.I.P.E.)**: Collect S.N.I.P.E. data through the TraderLion pipeline. Prefer pipeline subcommands as the primary data interface; individual scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script. Pipeline output feeds steps 4-9.
+3. **TraderLion Pipeline Execution (S.N.I.P.E.)**: Collect S.N.I.P.E. data through the TraderLion pipeline. The pipeline provides dedicated subcommands for each analytical workflow — single-ticker analysis, batch watchlist evaluation, market cycle assessment, sector screening, multi-ticker comparison, and position recheck. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. The pipeline contains all methodology-required module calls (Pipeline-Complete); do not call individual modules to supplement. Use WebSearch only when the pipeline cannot provide the needed information (e.g., N-Factor catalyst research, theme identification, industry context). Never use WebSearch for data the pipeline already provides.
+
+*Steps 4-10 below interpret the pipeline output collected in Step 3. Steps marked (Agent-Level) require LLM reasoning beyond reading pipeline data.*
+
 4. **Hard-Gate Check**: If `hard_gate_result.blocked == true`, stop entry-path analysis immediately. Output blockers with TraderLion principle explanations. Proceed only to monitor/watchlist recommendations.
-5. **Edge Detection**: Run volume edge detection and RS analysis if not already from pipeline. Count edges present. Identify N-Factor catalysts if applicable.
-6. **Volume Confirmation**: [HARD] No edge verdict without volume confirmation. Check volume analysis for accumulation/distribution grade AND closing range analysis for constructive bar ratio. Both must confirm before declaring edges actionable.
-7. **Setup Recognition**: Determine if the stock is forming an actionable setup (Launch Pad, Gapper, Base Breakout). Verify VCP characteristics if base pattern.
+5. **Edge Detection**: Evaluate volume edge and RS data **from pipeline output**. Count edges present. Identify N-Factor catalysts if applicable (Agent-Level).
+6. **Volume Confirmation**: [HARD] No edge verdict without volume confirmation. Confirm volume analysis accumulation/distribution grade AND closing range constructive bar ratio **from pipeline output**. Both must confirm before declaring edges actionable.
+7. **Setup Recognition**: Assess setup quality **from pipeline output** — VCP characteristics, base count, constructive ratio. Determine if the stock is forming an actionable setup (Launch Pad, Gapper, Base Breakout).
 8. **Entry Planning**: Select the appropriate entry tactic. Define entry level, failure level, and stop placement. Verify all four contingency plans are defined.
 9. **Position Sizing**: Calculate position size based on edge count, market condition, and development stage. Use SNIPE pipeline position_sizing output or manual calculation.
 10. **Risk Assessment**: Compute total open risk. Verify the trade fits within risk budget. Grade existing positions if managing a portfolio.
 
-### Script-Automated vs. Agent-Level Inference
+### Pipeline Output Interpretation
 
-**Script-automated** (run these via MarketData scripts):
-- TraderLion Pipeline (composite score, hard gates, edge count, signal, position sizing — primary entry point for all query types), Closing Range, Volume Edge Detection, Volume Analysis, RS Ranking, Stage Analysis, Trend Template, VCP Detection, Base Counting, Indicators, Oscillators, Post-Breakout Monitoring, Screening
-
-**Agent-level inference** (LLM reasoning required):
-- Market cycle stage classification (synthesizing QQQ MA status + breadth + gauge stocks)
-- TIGERS composite evaluation (weighing multiple dimensions)
-- Setup quality assessment (judgment on base maturity, tightening quality)
-- Entry tactic selection (matching tactic to setup context)
-- Sell rule stage determination (Stage 1-2 rigid vs. Progressive vs. Performance)
-- N-Factor catalyst evaluation (fundamental judgment on game-changing potential)
-
-### Short-Circuit Rules (3-Tier)
+#### Short-Circuit Rules (3-Tier)
 
 **Full Path** (all conditions met):
 - Cycle score ≥4 AND signal is AGGRESSIVE or STANDARD AND no hard gates blocked
@@ -185,7 +201,7 @@ For every analysis, follow this sequence. Do NOT skip steps.
 - Signal is AVOID or MONITOR → Flag as low conviction. Do not proceed to entry planning.
 - Any hard gate blocked → Output blocker reasons. Do not proceed to entry planning regardless of score.
 
-### Hard-Gate Interpretation
+#### Hard-Gate Interpretation
 
 When the TraderLion pipeline returns `hard_gate_result.blocked == true`:
 
@@ -196,6 +212,30 @@ When the TraderLion pipeline returns `hard_gate_result.blocked == true`:
    - `HG2_TT_INSUFFICIENT` → "Trend Template이 5/8 미만이면 추세가 확립되지 않은 상태. 추세 없이는 모멘텀 없다."
    - `HG3_NO_INSTITUTIONAL_FOOTPRINT` → "볼륨 엣지 0개 + RS < 50 = 기관의 발자국이 없다. 기관이 관심 없는 종목은 패스."
    - `HG4_DISTRIBUTION_WEAK_CONSTRUCTION` → "분배 클러스터 + 건설적 바 비율 <35% = 팔자 우세. 사이클이 바뀔 때까지 대기."
+
+#### Provisional Signal Handling
+
+When the TraderLion pipeline watchlist returns results with `analysis_mode: "provisional"`:
+
+1. **AGGRESSIVE is capped to STANDARD** in provisional mode — acknowledge this explicitly
+2. **List missing_components** — state which analyses were skipped (VCP, base count, closing range)
+3. **Recommend full analysis** for any provisional STANDARD signal — "This is a provisional result. Full analysis required."
+4. **Sort and present** watchlist results by snipe_score descending with signal color coding
+
+#### Pipeline-Automated vs Agent-Level Steps
+
+**Pipeline-automated** (run via TraderLion pipeline):
+- TraderLion Pipeline (composite score, hard gates, edge count, signal,
+  position sizing, winning characteristics, volume edge, closing range,
+  constructive ratio, VCP, base count, RS ranking, stage analysis,
+  trend template — exclusive automated data source for all query types)
+
+**Agent-level inference** (LLM reasoning required):
+- Market cycle stage classification (synthesizing QQQ MA status + breadth + gauge stocks)
+- TIGERS composite evaluation (T, I dimensions require judgment)
+- Entry tactic selection (matching 11 tactics to current setup context)
+- Sell rule stage determination (rigid vs. progressive vs. performance)
+- N-Factor catalyst evaluation (fundamental judgment on game-changing potential)
 
 ### Agent Orchestration Guide
 
@@ -214,15 +254,6 @@ When the TraderLion pipeline returns `hard_gate_result.blocked == true`:
 - Market breadth data retrieval
 
 **Never delegate to sub-agent**: TIGERS synthesis, entry tactic selection, sell rule decisions, cycle stage judgment. These require full conversational context and methodology integration.
-
-### Provisional Signal Handling
-
-When the TraderLion pipeline watchlist returns results with `analysis_mode: "provisional"`:
-
-1. **AGGRESSIVE is capped to STANDARD** in provisional mode — acknowledge this explicitly
-2. **List missing_components** — state which analyses were skipped (VCP, base count, closing range)
-3. **Recommend full analysis** for any provisional STANDARD signal — "This is a provisional result. Full analysis required."
-4. **Sort and present** watchlist results by snipe_score descending with signal color coding
 
 ---
 
@@ -290,7 +321,7 @@ Use when:
 ## Error Handling
 
 If a MarketData script fails:
-- **SNIPE pipeline failure**: Run individual component scripts separately (see SKILL.md for script catalog). Manually compute composite score if needed.
+- **SNIPE pipeline failure**: As a fallback only, run individual scripts separately. Discover their interfaces via `extract_docstring.py` before execution.
 - **Volume edge failure**: Use volume analysis for accumulation/distribution grading as fallback; manually assess HV edges from price data
 - **Closing range failure**: Calculate CR manually from price data: (Close - Low) / (High - Low) × 100
 - **Stage analysis failure**: Use Trend Template data to infer stage from MA relationships

@@ -14,6 +14,16 @@ Systematic trade management methodology combining precise entry tactics with edg
 
 Entry tactics are short-term processes and patterns used to build a position as a larger setup is being completed. Each tactic has two components: a well-defined pivot point (entry trigger) and a risk management level (stop placement). The goal is to size enough to make a difference if the trade works, while keeping losses small if it fails.
 
+### Setup-to-Tactic Pairing
+
+Not every entry tactic applies to every setup. Use the following table to identify which tactics are available for each setup type:
+
+| Setup | Available Entry Tactics |
+|-------|------------------------|
+| Launchpad / Base Breakout | Key Support Level Reclaim, Consolidation Pivot Breakout, Key MA Pullback, Oops Reversal, Key Support Level Pullback |
+| Gapper | Opening Range Breakout, Intraday Base Entry, High Volume Close Pivot |
+| Post-Breakout (any setup) | 10 SMA Retest, 21 EMA Catch-Up, First 50 SMA Touch |
+
 ### Launchpad / Base Breakout Entry Tactics
 
 #### 1. Key Support Level Reclaim
@@ -97,6 +107,13 @@ After the initial base breakout, add to positions or start swing trades using th
 - **Stop**: Low of the breakout day or relevant intraday higher low; target < 3%
 - **Notes**: Can also be used as a U-turn entry after a pullback and consolidation. Often used as the last addition when building a position through ORB + intraday base + HVC
 
+### General Entry Principles
+
+- **Entry precision**: Focus on getting in within 1.5% of the pivot. Entering further above the pivot degrades risk management because the stop distance widens, reducing the risk/reward ratio of the trade.
+- **Position building**: Top traders do not buy large positions all at once. They string together entry tactics (e.g., 20% of target position, then 10%, then 20%) as the stock triggers successive new pivots, building size while keeping overall risk small. The goal is to have a full position with a profit cushion before the stock breaks out of the larger pattern.
+- **Context matters**: Different market periods favor certain setups and entry tactics. Technical themes can be in play at any moment. Watch for what types of patterns are producing follow-through and lean into those.
+- **Not every setup resolves the same way**: Entry tactics allow creative entry while managing risk. Flexibility within the structure is the advantage.
+
 *Apply this framework independently to the current analysis target.*
 
 ---
@@ -123,6 +140,8 @@ Position sizing is determined by the number of edges present in a setup, combine
 - Stage 1: Stay consistent at base 10% while building process
 - Stage 2: Adjust up to 20% maximum based on edges, market, and feedback
 - Stage 3: Customize parameters after proving risk management across multiple market cycles
+
+**"Earn the Right to Size Up" Principle**: You must earn the right to trade larger size. Larger positions lead to bigger performance ONLY if you can manage risk correctly. Even experienced traders pull back sizing when not in sync with the market. Do not increase position size because of conviction alone — increase it because the process is working, the market is cooperating, and recent trades confirm that the edge is present.
 
 **Market-Condition Adjustment**:
 - Weak markets: 5% starting positions
@@ -160,11 +179,16 @@ A tight stop alone is useless if normal fluctuations trigger it. A logical stop 
 
 ### Stop Placement Guidelines
 
-- Place a few cents below key levels (obvious stops get shaken out)
-- Strong bull markets: give benefit of the doubt; can use wider intraday stop as worst case (decide in advance)
-- Weak/choppy markets: act immediately, cut early if stock does not act well
-- Hard stops for those who cannot watch the market constantly
-- After being stopped out: re-enter if setup and story are still valid; best trades sometimes take multiple attempts
+- Place a few cents below key levels (obvious stops get shaken out). Always be ready to re-enter if the stock reclaims the level
+- Hard stops for those who cannot watch the market constantly. If you can monitor and follow rules, use alerts instead
+- After being stopped out: re-enter if setup and story are still valid; best trades sometimes take multiple attempts. A shakeout that takes out obvious stops may even improve the setup. BUT: if the bar that takes you out suggests significant distribution, be patient for the chart to heal
+- No place to put a stop? You are looking to enter in the middle of nowhere. Have the discipline to wait
+
+**Intraday Stop vs End-of-Day Stop**: In a strong bull market, give the stock benefit of the doubt. You can define two stop levels in advance: a regular end-of-day stop and a wider intraday worst-case stop. For example, a 4% end-of-day stop with a 7% intraday absolute stop. The key rule: decide which approach you will use IN ADVANCE, not while the stock is falling. In a choppy market, act immediately — do not wait, do not ask questions, and consider cutting early if the stock does not act well.
+
+**Constantly Getting Stopped Out?** Analyze entries. If normal fluctuations are stopping you out, expand the stop slightly and lower position size to rebalance the total risk equation. Also examine whether the entries and setups themselves are the issue — are you entering extended from the pivot, or is the setup quality too low?
+
+**Stock Gaps Down Below Stop?** This happens less frequently than most traders expect. Beginners should honor the original stop and sell at the open. With experience, judge the severity of the gap and the catalyst behind it. The goal is always capital preservation — a large gap down means something is wrong, and you are likely better off exiting.
 
 ### Stop Adjustment Progression
 
@@ -255,13 +279,14 @@ Advance through these progressions only after demonstrating consistent process:
 3. Same as #2 but allow adding back 1/3 if stock forms another low-risk entry tactic
 4. Sell 1/3 at average gain, sell 1/3 into strength, sell 1/3 on MA weakness; allow adding back up to 2/3 on new low-risk buy points
 
-### Stage 3: Performance Phase (Aggressive Selling)
+### Stage 3: Performance Phase (Adaptive Selling)
 
 - Less proactive selling early in each cycle; wait until later to sell more aggressively into strength
 - Divide sales between two different key MAs to hold part of position for larger moves
 - Judgment calls on MA closes: Are they sharp and definitive, or merely drifting? Is the second close higher than the first?
 - Market leaders in leading themes: hold core for larger move
 - Secondary/performance enhancer names: quicker to sell into strength
+- **Average winner monitoring**: Pay attention to how the average winner over the past 20-30 trades has performed. If the average winner is increasing, look to increase holding periods and let winners run longer. If the average winner is declining, shorten holding periods and lean more into swing trading. This metric is a feedback loop that adjusts selling behavior to current market conditions and personal execution quality.
 
 ### Selling Into Strength Methods
 
@@ -279,7 +304,45 @@ Advance through these progressions only after demonstrating consistent process:
 - Widest range bar since breakout
 - Reversal below prior day's low with low closing range
 
+**On Vertical Acceleration** (sell when 3+ of these align):
+- Rate of price advance has noticeably steepened compared to the prior trend slope
+- Stock is extended more than 25% above the 21 EMA
+- Daily ranges are expanding (wider bars than recent average)
+- Volume may spike or become erratic
+- Stock has been in an uptrend for more than 8 weeks
+
+When a stock transitions from orderly trending to vertical acceleration, sell at least 1/3 into the strength. This climax pattern precedes the majority of significant corrections observed in historical case studies of market leaders.
+
+### Selling Into Strength vs. Weakness: A Style Choice
+
+Selling into strength and selling into weakness are both valid approaches. The choice is a deliberate personal style decision based on psychological makeup and trading timeframe.
+
+**Selling into strength**: Sell at equity peaks after short-duration moves. You may miss further profits, but you lock in gains, build confidence, and free capital for fresh ideas. Even when selling 1/3 or 1/2 into strength, the remainder continues to ride the trend.
+
+**Selling into weakness**: Stay with the trend until it fully breaks down. Allows for larger single-trade gains. Produces larger drawdowns in the equity curve and locks capital in one idea for longer.
+
+Depending on style and psychological makeup, one option (or a deliberate split) will give the most peace of mind. Swing traders lean toward selling into strength. Position traders lean toward selling into weakness. Know which style suits you and commit to it — inconsistency between the two approaches is where most selling mistakes originate.
+
 *Apply this framework independently to the current analysis target.*
+
+---
+
+## Trade Execution Process
+
+A step-by-step process from daily routine to order management. This operational workflow ensures that every trade receives the same disciplined execution.
+
+1. **Daily focus list**: From the daily routine, maintain a list of maximum 5 ideas (ideally 1-3). The tighter the list, the better the execution quality.
+2. **Pre-trade plan**: For each stock on the focus list, define the buy point/entry tactic, stop loss location, and number of shares before the market opens.
+3. **Set alerts**: Place alerts at the buy point AND one or two alerts slightly below to be notified as the stock approaches the level of action.
+4. **Visualize scenarios**: For each stock on the focus list, visualize what it will look like if it executes the entry tactic and how you will respond. Also visualize what it looks like if it fails.
+5. **Market open monitoring**: Monitor setups and alerts. As a stock hits early alerts, prepare the order with the broker.
+6. **Verification**: As the stock hits early alerts, double-check that it fulfills all requirements of the setup and entry tactic. Be very restrictive. If you require certain volume, make sure it is running much more than average.
+7. **Order execution**: If the stock triggers entry conditions, place the order AND enter the pre-planned stop loss immediately.
+8. **Post-entry monitoring**: Continue to monitor but no need to watch constantly. Place alerts just below entry price and just above stop loss.
+9. **Best trades**: Often make immediate progress and push higher throughout the day. If nothing triggers in the morning, there is often opportunity after lunch or in the last hour.
+10. **Near the close**: Check executed trades. Determine how the stock is acting and whether to hold to next day. In choppier markets, take a trade off if there is no follow-through or if down near the close.
+11. **Stop/sell rule check**: Check stop loss and position management rules for any actions or adjustments needed.
+12. **End of day review**: Review trades and journal thoughts and potential improvements.
 
 ---
 
@@ -301,14 +364,24 @@ For each trade, record in real time:
 | Execution Rating | Out of 10, with rationale |
 | Key Takeaways | Lessons for future trades |
 
+### Selecting Trades for Analysis
+
+Sort all trades by % return. Pick the top 5 performing trades and bottom 10 losing trades. If more time is available, analyze the next top 5 and next bottom 10. Even in this small sample size, tendencies and patterns emerge. Depth of analysis is more important than total number of trades reviewed — a small sample with deep analysis yields more actionable improvements than many shallow reviews.
+
 ### 6-Step Chart Analysis Process
 
-1. **Gather trade log information**: Notes, screenshots at key actions (buys/sells)
-2. **Mark up the chart**: Label buys, sells, stops, MAs on the chart at the time of entry
+1. **Gather trade log information**: Notes, screenshots at key actions (buys/sells). Fill out the trade log template as much as possible in real time. If you find yourself forgetting to fill it out, eliminate questions until it takes under 2 minutes.
+2. **Mark up the chart**: Go back in time in charting software to what the stock looked like at the moment of the buy decision. Label buys, sells, stops, MAs. Note relevant price and volume characteristics. Then ask these diagnostic questions:
+   - Were there clear signs of accumulation before entry?
+   - Was there a lower-risk buy point prior to the actual entry? Why was it not taken?
+   - What was the trend on multiple timeframes? Was the trade aligned with the longer-term context?
+   - How was the market/sector/group performing at time of entry? Where in the market cycle?
+   - Judge the actual entry point vs. the ideal entry point. How different? Why? What would you change?
+   - What was the template setup/entry tactic? How would you grade this specific example?
 3. **Grade action by action**: Entry execution, stop management, sell decisions — each graded out of 10
 4. **Overall trade observations**: What went well, what went poorly, what could improve
-5. **Look forward past exit**: Did the stock set up again? Was timing or market cycle the issue?
-6. **Derive system-level rules**: Not "I need to buy closer to the pivot" but implement a specific routine change (set alerts below pivot)
+5. **Look forward past exit**: Always look 2-3 weeks past the exit. Did the stock set up again? Was initial timing or market cycle the issue? Often the stock is right, just the timing held it back momentarily.
+6. **Derive system-level rules**: Not "I need to buy closer to the pivot" but implement a specific routine change (e.g., set alerts below pivot, change order preparation process). System-level actions, not personal resolutions.
 
 ### Key Trade Analytics
 
@@ -322,6 +395,29 @@ Track these metrics regularly (every few months):
 - **Max Loss**: Should be nearly equal to average loss; any outlier loss requires root cause analysis
 - **Avg Trade Length (Winners)**: Should be much longer than losers
 - **Avg Trade Length (Losers)**: Minimize to cut losses fast
+
+### Trading Journal (Daily, ~15 Minutes)
+
+Separate from the trade log and 6-step analysis, maintain a daily trading journal. This is a brief, consistent practice — not a deep dive. Target 15 minutes at end of day.
+
+**Five Sections**:
+
+1. **Overall trading performance check-in**: Out of 10, how do you rank execution and trading today?
+2. **Market trend and thoughts**: Include a chart of market indexes. Current thoughts on trend direction and market cycle stage.
+3. **New positions with charts and thoughts**: List any new positions entered. Thoughts on performance, execution quality, setup rationale, and plan adherence.
+4. **Active trades and thoughts**: Existing positions — any needing management? Which are the strongest performers? Which are under stress?
+5. **Key notes on feelings and psychology**: Additional notes about feelings, confidence level, and psychological state. Are you feeling aggressive, defensive, frustrated, calm?
+
+**Purpose**: The journal creates a reference for how you were thinking and feeling during different moments of the market cycle. During later post analysis, this context is invaluable for understanding why certain decisions were made.
+
+### Equity Curve Analysis
+
+Plot account value over time. The ideal shape is a staircase from bottom-left to top-right — steady progress with flat-to-shallow drawdowns.
+
+- **Erratic boom-and-bust periods**: Indicate problems with risk management and position sizing that need to be addressed before increasing size.
+- **Difference-maker periods**: Pay special attention to large jumps and strong uptrends in the equity curve. Look back at the trades, journal entries, setups, and stocks during those periods. Study yourself at your best and try to replicate those actions, conditions, and decision-making processes.
+- **Drawdown management**: Performance will be somewhat correlated to the market. The key is to flatten drawdowns during market corrections and pullbacks. If drawdowns are deeper than the market's, the risk management system needs tightening.
+- **Self-study**: The equity curve is the single best mirror of a trader's process. It reveals whether the risk dial is being turned correctly and whether the sell rules are functioning.
 
 ### The 1% Improvement Philosophy
 
@@ -379,6 +475,14 @@ After a breakout entry, the stock's immediate behavior reveals institutional con
 - **Non-Constructive Squat**: Volume erratic, wide intraday swings, testing MAs — may resolve downward
 
 **Action**: Reduce position by 1/3 if squat persists beyond 10 days. Set a time stop: if no resolution within 15 trading days, sell half. Constructive squat — hold with tighter stop below 21 EMA. Non-constructive squat — sell 2/3 and trail remainder.
+
+### Extension Down with Strong Close (Potential Base Low)
+
+**Definition**: A day where the stock extends significantly below its recent range (intraday low exceeds 1.5x ADR below the prior close) but closes in the upper 60% of the day's range.
+
+**Interpretation**: The strong close after a sharp decline indicates institutional buying emerged at lower prices. When this occurs near a base pivot, a key moving average (50 SMA, 200 SMA), or a prior support level, it frequently marks the swing low or base low.
+
+**Action**: Do not enter on the day itself. Monitor the following 1-3 days for confirmation: a higher low, a constructive close, or a "no follow-through down" pattern. If confirmed, this becomes a high-quality entry zone with the extension day's low as the logical stop placement.
 
 ### Constructive Bar Ratio Monitoring
 
@@ -486,11 +590,14 @@ Template: "If {symbol} closes below ${stop_price} ({stop_pct}% below entry), sel
 
 ### Plan 2: Re-Entry (What If Stopped Out But Setup Remains Valid?)
 
+**Key insight from case studies**: The best winning stocks across 2004-2024 frequently required 2-3 entry attempts before the successful move began. Being stopped out once or twice on a valid setup is NORMAL, not a signal to abandon the stock. Maintain the stock on the focus list and continue monitoring for re-entry opportunities as long as the fundamental thesis and RS characteristics remain intact.
+
 Define conditions for re-entering after a stop-out:
 - **Waiting period**: Minimum 1 trading day after stop-out (no same-day re-entry)
 - **Re-entry conditions**: Stock must reclaim the level that triggered the stop AND show constructive price action (CR >60%, volume expansion)
 - **Size adjustment**: Re-entry at 50% of original position size. Only scale back to full size after the trade shows positive progress (2-3% profit)
 - **Maximum attempts**: 2 re-entries on the same setup. After 3 total attempts, move the stock to monitor-only status.
+- **Shakeout re-entry**: A stop-out that takes out obvious stops may actually improve the setup by clearing out weak holders. If the stock quickly reclaims the key level with volume, this is often one of the best re-entry signals.
 
 ### Plan 3: Profit-Taking (What If Right And Running?)
 

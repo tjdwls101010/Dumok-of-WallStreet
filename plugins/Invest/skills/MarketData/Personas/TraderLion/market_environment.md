@@ -67,6 +67,20 @@ The market alternates between uptrends and downtrends driven by two layers: the 
 
 **False Starts**: Every sensitive market cycle system will produce false starts. The key differentiator is follow-through: leading stocks confirm with strong action, gap ups, breakouts, and multiple mature bases.
 
+**Cycle Strength and Prior Correction Depth**: The strongest cycles occur after more significant corrections or extended bear markets. After such periods most traders feel tentative, but these uptrends, when they take hold, lead to the strongest performance and longest moves. Calibrate initial aggression based on the depth and duration of the preceding correction — deeper corrections warrant faster exposure building when confirmed.
+
+### Group Base Formation Signal
+
+When multiple stocks within the same theme or sector simultaneously form similar base patterns (launchpads, VCPs, or shallow bases), this indicates a sector-level accumulation event. This group base formation signal substantially increases the probability that individual breakouts will succeed, because the institutional accumulation is broad-based rather than isolated to a single stock.
+
+**Detection**: Monitor whether 3 or more stocks in a leading theme are forming bases concurrently. When the first stock breaks out successfully, the remaining stocks in the group become higher-probability setup candidates.
+
+**Application**: During cycle transitions (Stage 2: Bottoming), group base formation in a leading theme is one of the strongest confirmation signals that a new cycle is beginning.
+
+### Progression Principle: Interpretation to Anticipation
+
+The goal across all stages of the market cycle is to progress from interpretation (reacting to confirmed signals) to anticipation (positioning before confirmation based on developing evidence). Stage 1-2 traders should focus on interpreting cycle signals accurately. Stage 3-4 traders should look to anticipate cycle transitions and stress tests, positioning earlier as they notice the environment changing. This progression applies to cycle start identification, stress test handling, position building speed and sizing, and cycle end management.
+
 *Apply this framework independently to the current analysis target.*
 
 ---
@@ -80,6 +94,8 @@ Market gauges are key stocks that institutions are currently supporting and accu
 **Stalwarts** (permanent gauges): Select 2-3 large-cap stocks with heavy index weighting and high institutional ownership. These serve as permanent gauges because their price action directly reflects institutional risk-on/risk-off behavior regardless of market cycle.
 
 **Cycle Leaders** (rotational gauges): Select 1-2 stocks from the current cycle's dominant leadership theme. Rotate as market leadership shifts between themes. The strongest RS stock in the leading group is the primary candidate.
+
+**Theme Type Context**: Cycles driven by Transformative themes (AI, semiconductors, internet — long-lasting with multiple innovation waves) tend to produce stronger, longer-lasting leadership than cycles driven by Cyclical themes (energy, banks, airlines — shorter-lived, macro-dependent). The dominant theme type informs expected cycle duration and leadership persistence.
 
 ### Gauge Interpretation
 
@@ -344,5 +360,32 @@ Breadth qualifiers in the cycle score ("expanding" / "narrowing" / "divergent") 
 ### Integration with Cycle Score
 
 The two breadth components in the cycle score (expanding breadth +1, healthy leadership +1) should now be evaluated using the quantitative thresholds above rather than subjective judgment. This ensures consistency across different market assessments.
+
+### Screen Result Count Tracking
+
+Screening is not just for finding stocks — the number of results returned by screens over time serves as an independent market health gauge.
+
+**Method**: Run a general trend screen (e.g., stocks trending above 21 EMA + 50 SMA + 200 SMA) consistently and track the result count over time.
+
+**Interpretation**:
+
+| Result Count vs Baseline | Market Reading |
+|-------------------------|----------------|
+| At or above baseline (~200 for a standard trend screen) | Healthy breadth, normal environment |
+| Declining (e.g., drops from ~200 to ~77) | Negative change developing, breadth contracting |
+| Expanding (above normal) | Broadening market, expanding opportunities |
+
+**Integration**: Use screen result count trends as an independent confirmation signal alongside NH/NL ratio and leadership breadth. A declining screen count that precedes a cycle end signal provides early warning. An expanding screen count following a cycle start signal confirms broadening participation.
+
+### Conditional Setup Performance by Market Environment
+
+Setup success rates vary significantly based on market environment. When analyzing any setup, evaluate its historical performance conditional on the composite cycle score and QQQ's position relative to the 21 EMA.
+
+**Framework**: For each setup type in the system, track:
+- Success rate when QQQ is above the 21 EMA vs below
+- Success rate by composite cycle score tier (6-8 / 4-5 / 2-3 / 0-1)
+- Average gain magnitude by market state
+
+This conditional analysis transforms the composite cycle score from a general exposure guide into a setup-specific probability adjuster. A setup with a 65% success rate in a 6-8 cycle score environment may only succeed 35% of the time when the cycle score is 0-1. Knowing these conditional rates informs both position sizing and trade selection.
 
 See SKILL.md -> Screening
