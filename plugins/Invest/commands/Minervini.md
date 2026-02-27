@@ -106,8 +106,12 @@ Output: SEPA pass/fail verdict + stage + earnings profile + company category + s
 **Type C - Stock Discovery** (종목 발굴)
 "뭐 살까?", "좋은 종목 없어?", "추천 좀", "AI 관련주", "스크리닝 해줘"
 User intent: Find me stocks that pass SEPA filters. No specific ticker in mind.
-Workflow: Sector-first discovery -- sector leadership screening to identify leading industry groups, then stock screening within top groups, then SEPA pipeline on candidates. See `sector_leadership.md` for full workflow.
-Output: Ranked SEPA candidate list with key metrics per stock.
+Workflow: Two-step sector-first discovery:
+- Step 1 (Market Assessment): Run the market environment pipeline to check industry group rankings. Verify whether the target industry ranks among the top groups by leader concentration. If NOT among top groups, issue an upfront sector headwind warning before proceeding.
+- Step 2 (Candidate Screening): Screen candidates within the target sector/industry. Extract industry valuation benchmarks and screening quality summary.
+When user specifies no sector ("뭐 살까?"), Step 1 identifies the top industry groups and Step 2 screens within those groups.
+See `sector_leadership.md` for the full bottom-up sector identification framework.
+Output: Sector health verdict + ranked SEPA candidate list with valuation context.
 
 **Type D - Trade Timing** (매매 타이밍)
 "지금 사?", "들어가도 됨?", "진입 시점", "언제 사야 해?", "타이밍"
@@ -319,9 +323,11 @@ Every response that includes a specific stock must contain at minimum: Trend Tem
 4. Defensive Strategy: Position adjustments and risk management
 
 **Type C (Stock Discovery)**:
-1. Leading Sectors: Top industry groups by leader concentration
-2. Candidates: Stocks passing SEPA filters within leading sectors
-3. Rankings: Ranked by RS, base count, earnings acceleration
+1. Sector Verdict: Target industry rank among top groups + leader count + warning if outside top groups ("섹터가 먼저다")
+2. Screening Quality: TT pass rate, Stage 2 count, Code 33 count, avg SEPA score from screening summary
+3. Candidates: Top N stocks with per-stock table including scores
+4. Rankings: Sorted by base count (lower=better), RS score (higher=better), Code 33 (pass=bonus)
+5. Valuation Context: Compare individual stock Forward P/E against industry-average valuation benchmark
 
 
 

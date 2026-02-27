@@ -102,7 +102,7 @@ Returns:
 		dict: {
 			"sector": str,
 			"industry_context": list[dict] or null (matching industry performance data),
-			"industry_valuation": dict or null (industry-average P/E, Forward P/E, PEG benchmarks),
+			"industry_valuation": list[dict] or null (matching industry-average P/E, Forward P/E, PEG benchmarks),
 			"candidates": list[dict],
 			"screening_summary": dict (aggregate stats: TT pass rate, avg scores, Code33 count),
 			"filters_applied": list[str]
@@ -1200,7 +1200,7 @@ def cmd_screen(args):
 		dict: {
 			"sector": str,
 			"industry_context": list[dict] or null (matching industry performance data),
-			"industry_valuation": dict or null (industry-average P/E, Forward P/E, PEG benchmarks),
+			"industry_valuation": list[dict] or null (matching industry-average P/E, Forward P/E, PEG benchmarks),
 			"candidates": list[dict] (SEPA-filtered stocks with scores),
 			"screening_summary": dict (aggregate stats: TT pass rate, avg scores, Code33 count),
 			"filters_applied": list[str]
@@ -1233,14 +1233,14 @@ def cmd_screen(args):
 		if matching:
 			industry_context = matching
 
-	# Extract industry valuation benchmark for the target industry
+	# Extract industry valuation benchmarks for matching industries (list, consistent with industry_context)
 	industry_valuation = None
 	if not industry_val_result.get("error"):
 		search_term = args.sector.lower()
-		for item in industry_val_result.get("data", []):
-			if search_term in (item.get("name") or "").lower():
-				industry_valuation = item
-				break
+		matching = [item for item in industry_val_result.get("data", [])
+					if search_term in (item.get("name") or "").lower()]
+		if matching:
+			industry_valuation = matching
 
 	# Step 2: Extract symbols from sector-screen
 	symbols = []
