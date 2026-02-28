@@ -26,7 +26,7 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 **출처**: [Trade Like a Stock Market Wizard](https://a.co/d/0jkIyj9M) — Mark Minervini
 
-![Source: Trade Like a Stock Market Wizard](Docs/Media/Source_Minervini.jpg)
+[![Source: Trade Like a Stock Market Wizard](Docs/Media/Source_Minervini.jpg)](https://a.co/d/0jkIyj9M)
 
 **방법론 특징**
 - Trend Template 8가지 기준을 필수 통과해야 후보 자격
@@ -56,7 +56,7 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 **출처**: [Twitter @aleabitoreddit](https://x.com/aleabitoreddit) — Serenity
 
-![Source: @aleabitoreddit](Docs/Media/Source_Serenity.png)
+[![Source: @aleabitoreddit](Docs/Media/Source_Serenity.png)](https://x.com/aleabitoreddit)
 
 **방법론 특징**
 - 6단계 증거 체인: 매크로 → 섹터 → 병목 → 기업 → 밸류에이션 → 카탈리스트
@@ -85,7 +85,7 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 **출처**: [YouTube @sidneykim0](https://www.youtube.com/@sidneykim0) — SidneyKim0
 
-![Source: @sidneykim0](Docs/Media/Source_SidneyKim0.png)
+[![Source: @sidneykim0](Docs/Media/Source_SidneyKim0.png)](https://www.youtube.com/@sidneykim0)
 
 **방법론 특징**
 - 시장 사이클 분류: 실적장세 / 역금융장세 / 역실적장세 / 유동성쏠림
@@ -115,7 +115,7 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 **출처**: [The Trader's Handbook](https://a.co/d/02mK4W3K) — TraderLion
 
-![Source: The Trader's Handbook](Docs/Media/Source_TraderLion.png)
+[![Source: The Trader's Handbook](Docs/Media/Source_TraderLion.png)](https://a.co/d/02mK4W3K)
 
 **방법론 특징**
 - S.N.I.P.E. 워크플로우: 체계적 종목 발굴 → 진입 → 관리 프로세스
@@ -145,7 +145,7 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 **출처**: [Long-Term Secrets to Short-Term Trading](https://a.co/d/09HI0QoX) — Larry Williams
 
-![Source: Long-Term Secrets to Short-Term Trading](Docs/Media/Source_Williams.png)
+[![Source: Long-Term Secrets to Short-Term Trading](Docs/Media/Source_Williams.png)](https://a.co/d/09HI0QoX)
 
 **방법론 특징**
 - 변동성 돌파 시스템: Open + Pct × ATR로 기계적 진입 레벨 산출
