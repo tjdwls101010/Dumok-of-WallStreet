@@ -104,6 +104,74 @@ Ryan Jones developed Fixed Ratio Trading to address the too-fast acceleration pr
 
 ---
 
+## Position Size Acceleration Problem
+
+### The Exponential Growth Cliff
+
+The fundamental danger of any fixed-fraction money management approach (Kelly, Optimal F, or Williams' formula at high risk%) is exponential contract acceleration. As profits compound, the number of contracts grows faster and faster -- until you are sitting on the end of a limb that snaps.
+
+### The Acceleration Timeline
+
+Williams demonstrates this with a concrete example: starting with $10,000 profit increments and 10 trades per month at $200 average win/loss:
+
+| Milestone | Time to Reach | Cumulative Time |
+|-----------|---------------|-----------------|
+| 1 → 2 contracts | 5 months (50 trades) | 5 months |
+| 2 → 3 contracts | 2.5 months (25 trades) | 7.5 months |
+| 3 → 4 contracts | ~7 weeks (17 trades) | ~9.2 months |
+| 4 → 5 contracts | 5 weeks (12-13 trades) | ~10.4 months |
+| 5 → 6 contracts | 1 month (10 trades) | ~11.4 months |
+| 6 → 7 contracts | 25 days (8-9 trades) | ~12.2 months |
+| 7 → 8 contracts | 21 days (7 trades) | ~12.9 months |
+| 8 → 9 contracts | 18 days (6 trades) | ~13.5 months |
+| 9 → 10 contracts | 16.5 days (5-6 trades) | ~14 months |
+
+What took 5 months initially now takes 16.5 days. The trader is now sitting on 10 contracts, and a loss of just 3x the average ($600 per contract × 10 contracts = $6,000) wipes out significant equity. Two such losses ($12,000) is devastating. Three consecutive losses at this position size can erase months of careful compounding in days.
+
+### The Smarter Deceleration
+
+Williams notes that a "smarter" trader decreases position size faster than they increase it -- cutting back two contracts for every $5,000 lost rather than one for every $10,000 gained. This asymmetric adjustment prevents the worst of the cliff scenario but requires discipline to override the emotional impulse to "hold size and catch up."
+
+### Ryan Jones' Fixed Ratio Solution
+
+Ryan Jones addressed this directly: in his Fixed Ratio approach, if it takes $5,000 in profits to go from 1 to 2 contracts, it takes $50,000 in profits to go from 10 to 11. The effort (in number of trades) to add each contract remains constant. In Williams' bond system test, Jones' method produced $18 million vs. Williams' formula producing $583 million -- but with a -61.3% drawdown vs. -29.7%. The Jones method prevents the acceleration cliff but also caps growth potential.
+
+---
+
+## Drawdown-Based Position Sizing (Alternative Formula)
+
+### The Formula
+
+Before arriving at his final formula (Account Balance × Risk% ÷ Largest Loss), Williams explored an alternative approach that uses historical drawdown as the sizing constraint:
+
+```
+Number of Contracts = Account Balance ÷ (Margin + Largest Drawdown × 1.5)
+```
+
+Where:
+- **Account Balance**: Current equity
+- **Margin**: Required margin per contract
+- **Largest Drawdown**: The worst peak-to-trough drawdown the system has historically produced
+- **1.5**: Safety multiplier to account for the likelihood that future drawdowns will exceed historical ones
+
+### Example Calculation
+
+If margin is $3,000 and the system's largest historical drawdown is $5,000:
+- Capital required per contract = $3,000 + ($5,000 × 1.5) = $10,500
+- With a $100,000 account: $100,000 ÷ $10,500 = 9 contracts
+
+### Comparison with Williams' Final Formula
+
+The drawdown-based formula is more conservative and directly addresses the survival question: "Do I have enough money to survive the worst drawdown while maintaining margin?" Williams ultimately preferred his Risk%/Largest Loss formula because it is more flexible (the Risk% parameter lets you tailor aggression to personality) and because the largest single-trade loss is a more granular risk measure than aggregate drawdown. However, the drawdown-based formula remains a useful sanity check -- if your Risk%/Largest Loss calculation suggests more contracts than the drawdown formula allows, you may be taking on more risk than the system's history supports.
+
+### When to Use This Alternative
+
+- As a **ceiling check** on the primary formula's output
+- When a system has a high win rate but occasional large drawdown streaks (common in trend-following systems)
+- When trading multiple correlated positions where aggregate drawdown matters more than single-trade loss
+
+---
+
 ## The Optimal Risk Zone
 
 Williams' research across multiple systems shows a consistent pattern in the risk% vs. drawdown relationship:
@@ -114,6 +182,25 @@ Williams' research across multiple systems shows a consistent pattern in the ris
 - **Above 25% risk**: Drawdown increases dramatically while marginal profit gains diminish -- the system becomes a time bomb
 
 In a specific bond system test, 15% risk produced $560 million ending balance with -28.4% drawdown, while 40% risk produced $845 million with -66.9% drawdown. The extra $285 million in theoretical profits came at the cost of 38 additional percentage points of drawdown -- a terrible trade-off.
+
+### Transition Point Analysis
+
+Williams observed that the crossover point -- where drawdown begins increasing faster than profits -- typically occurs between 14% and 21% risk across most systems. The four-consecutive-loss simulation confirms the danger zones:
+
+| Risk% | 4-Loss Drawdown | Zone Classification |
+|-------|----------------|---------------------|
+| 2% | ~8% | Safe zone -- minimal drawdown, steady compounding |
+| 3% | ~11.5% | Safe zone -- adequate growth with strong survival |
+| 4% | ~15% | Safe zone -- Williams' recommended "ideal" for most traders |
+| 5% | ~18.5% | Approaching threshold -- manageable but uncomfortable |
+| 10% | ~34% | Sweet spot ceiling -- aggressive but recoverable with discipline |
+| 15% | ~48% | Danger zone entry -- requires 92% gain to recover, most clients bail |
+| 20% | ~59% | Time bomb territory -- account destruction accelerates |
+| 25% | ~68% | Catastrophic -- two-thirds of account gone in just four trades |
+
+Williams' real-world experience confirms this framework. His Australian account (2007-2010) grew from ~$100,000 to over $1.2 million (~400% per year) using an average bet size of only 2%, occasionally 3%, with tight boundaries on contract counts. Even at this conservative level, four consecutive losers occurred multiple times but never seriously challenged the equity -- proving that the safe zone delivers excellent absolute returns without existential risk.
+
+The key insight: the optimal risk% is NOT the one that maximizes terminal wealth on paper. It is the one that maximizes terminal wealth *that you can actually tolerate psychologically and survive operationally*. For most traders, that number is 3-4%. For professionals with iron discipline, 10-15% is the ceiling.
 
 ---
 
@@ -136,6 +223,31 @@ The bailout captures the overnight gap that often occurs after a momentum entry.
 - Average profit per trade is small -- the bailout sacrifices large winners for consistency
 - In strongly trending markets, the bailout leaves substantial money on the table
 - Must be combined with other techniques (holding period, trailing stop) for optimal results
+
+---
+
+## Time-Stop Exit
+
+### Concept
+
+If a trade does not show a profit within a certain number of days, the original condition that justified the entry has likely evaporated. Williams treats elapsed time without profit as a standalone exit signal, independent of whether the dollar stop or bailout has triggered.
+
+### Rule
+
+Exit any trade that has not produced a profit within X days of entry, where X is determined by the time frame of the setup. For short-term volatility breakout systems operating on 3-5 day setups, a time-stop of approximately 5 days is appropriate. If the expected move has not materialized by then, the catalytic condition -- whether it was an oversold reading, a TDW alignment, or a volatility breakout -- has dissipated.
+
+### Rationale
+
+Short-term trades are predicated on a specific, time-sensitive condition. A volatility breakout entry expects follow-through within 1-3 bars. An oversold bounce entry expects a snap-back within the same time frame. If neither has occurred and the trade is sitting at breakeven or a small loss after 5 days, the odds have shifted from favorable to neutral. Holding beyond this point converts a short-term trade into a hope-based position -- exactly the kind of undisciplined behavior Williams warns against.
+
+### Integration with Other Exits
+
+The time-stop is subordinate to the dollar stop (if the dollar stop is hit first, exit immediately) but can override the bailout wait. The exit priority becomes:
+
+1. Dollar stop hit → exit immediately
+2. Opposite signal fires → exit and reverse immediately
+3. Time-stop expires (no profit after X days) → exit at market
+4. Bailout conditions met → take profits at first profitable opening
 
 ---
 
@@ -198,12 +310,21 @@ Williams uses three exits simultaneously on every trade:
 - For trades with strong momentum, hold through the bailout and use the dual time-frame exit instead
 - Exit and reverse if an opposite signal occurs -- do not wait for the stop or bailout if the system generates a signal in the other direction
 
+### Next-Bar Confirmation for Exit Reversal
+
+When the system generates an opposite signal (e.g., you are long and a sell signal fires), Williams is emphatic: do NOT wait for the dollar stop, do NOT wait for the bailout, do NOT wait for confirmation over multiple bars. The most current signal takes absolute priority. "If you are short and get a buy signal, don't wait for the stop or bailout exit; instead, go with the most current signal."
+
+The logic is straightforward: the system generated the opposite signal because market conditions have reversed. Every bar you wait is a bar where you are positioned against the new signal -- fighting the very system you trusted to get you in. The reversal should be executed on the next bar after the opposite signal fires, converting the exit into a new entry in the opposite direction.
+
+This rule also prevents the psychological trap of "giving it one more day" -- the most common form of loss-amplification in short-term trading.
+
 ### Exit Priority
 
-1. If an opposite signal fires: Exit immediately and reverse
+1. If an opposite signal fires: Exit immediately and reverse on the next bar
 2. If the protective stop is hit: Exit unconditionally
-3. If the bailout conditions are met: Take profits at the first profitable opening
-4. If none of the above: Hold the position and let profits run within the time frame
+3. If the time-stop expires (no profit after X days): Exit at market
+4. If the bailout conditions are met: Take profits at the first profitable opening
+5. If none of the above: Hold the position and let profits run within the time frame
 
 ---
 

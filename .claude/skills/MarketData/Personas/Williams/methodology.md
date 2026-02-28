@@ -31,9 +31,33 @@ The transition from pit to electronic trading fundamentally changed market struc
 - **Condition**: Same down close + close < open requirement
 - **Characteristic**: Higher net profits ($70,000 in testing) but inconsistent equity curve until 2007
 
-### Key Principle
+### Key Principle: Accuracy-to-Volume Trade-Off
 
-The percentage of range added determines a critical trade-off: lower percentages generate more trades with lower accuracy; higher percentages generate fewer trades with higher accuracy and larger average profits. In Bonds, using 100% of range produced 80% accuracy on 651 trades; restricting to the best TDW days boosted accuracy to 84% while cutting trades in half and reducing drawdown from $10,031 to $3,500.
+The percentage of range added determines a critical trade-off: **range % increases → fewer trades, higher accuracy, larger average profit**. This is one of the most important optimization levers in the system.
+
+**Bond Market Evidence** (1990-1998):
+- 100% of range: 80% accuracy on 651 trades, $173 avg profit/trade
+- Restricting to best TDW days: **84% accuracy**, trades cut in half, drawdown reduced from $10,031 to **$3,500**
+
+**S&P 500 Optimization Evidence** (1982-1998):
+- Using 50% volatility expansion on all days: $227,822 profit, 74% accuracy, 1,333 trades, $170 avg/trade
+- Optimized 40% buy / 200% sell with TDW filter: $213,560 profit, **83% accuracy**, 850 trades, **$251 avg/trade** -- reducing trades by 46% while increasing avg profit by 47%
+
+### Entry Point Comparison Framework (Electronic Era)
+
+Williams tested five reference points for the volatility expansion value post-2000 on the S&P 500 E-Mini, each with its optimal ATR percentage:
+
+| Reference Point | Best ATR % | Net Profit | Characteristic |
+|----------------|-----------|-----------|----------------|
+| Tomorrow's Open | 60% | ~$70,000 | Highest net profits but inconsistent equity until 2007 |
+| Prior Day's Close | 60% | ~$30,000 | Worked then fell apart from 2008 |
+| Prior Day's Low | 20% | ~$60,000 | Most consistent equity line; best fit overall |
+| Prior Day's High | 30% | ~$15,000 | Worked well until 2008 bear market |
+| Mid-price (H+L)/2 | Various | Mixed | Less reliable than extremes |
+
+**Williams' conclusion**: The prior day's low with a 20% ATR expansion and the next day's opening with a 60% ATR expansion are the two most productive reference points. The low-based reference produces the most consistently rising equity line across market regimes. The critical insight is that **what reference point you use matters enormously** -- each requires a different optimal volatility expansion percentage.
+
+**TDW confirmation** (Electronic era, Low + 20% ATR): Monday and Tuesday are the strongest buy days; **Wednesday should be excluded** entirely. Dropping Wednesday improved profits substantially and reduced drawdown by approximately 65%.
 
 ---
 
@@ -44,8 +68,12 @@ Williams defines market structure through a fractal hierarchy of swing points th
 ### Short-Term Swing Points
 - **Short-Term Low**: Any daily low with higher lows on both sides of it
 - **Short-Term High**: Any daily high with lower highs on both sides of it
-- Inside days (lower high + higher low, ~7.6% of all days) are ignored in swing identification
-- Outside days (~7% of all days) are resolved by examining the open-to-close direction
+
+#### Inside Day Rules
+Inside days (lower high + higher low) appear approximately 7.6% of the time (3,892 occurrences in a study of 50,692 trading sessions across nine major commodities). They are **ignored** in swing identification because they represent congestion -- the current swing did not go further, but it did not reverse either. The correct response to an inside day is: **wait, don't trade**. Do not use inside days to generate short-term swing points until the congestion resolves.
+
+#### Outside Day Interpretation
+Outside days (higher high AND lower low than the prior day) occur approximately 7% of the time (3,487 out of 50,692 sessions). When an outside day appears, resolve the ambiguity by examining the **open-to-close direction** of that day: if the close is above the open, treat the day as an up day for swing purposes; if below, treat as a down day. This directional resolution is necessary because the bar's range engulfed both sides, creating conflicting swing signals.
 
 ### Intermediate-Term Swing Points
 - **Intermediate Low**: Any short-term low with higher short-term lows on both sides
@@ -79,6 +107,13 @@ This axiom holds across all markets, all countries, and all timeframes (5-minute
 2. **Exit during large ranges**: After a cluster of large-range days, expect range contraction. Do not enter new positions during large-range periods -- this is the classic sucker play that traps the public.
 3. **Measurement**: Compare current range to a moving average of recent ranges. When the ratio drops significantly below 1.0, the market is coiled for a move.
 
+### Specific Implementation Rules
+
+- **Consecutive small-range count**: Track the number of consecutive days where the daily range is below its recent moving average. The longer the compression sequence, the more explosive the potential breakout. This is not a time cycle but a price cycle -- the coiling can last different durations each time.
+- **Direction bias combination**: Combine range analysis with close position (upper or lower portion of the daily range) to determine likely breakout direction. A string of small-range days with closes consistently in the upper portion of the range biases the expected expansion to the upside.
+- **Volatility expansion as entry trigger**: The breakout from compression is captured by the volatility breakout system. Add a percentage of recent range (or ATR) to a reference point. The percentage chosen interacts with the range state: during extreme compression, even a small percentage expansion represents a significant move relative to recent ranges, producing higher-probability signals.
+- **TDW overlay**: Not all breakout days from compression are equal. Apply the TDW filter to time your entry to the most favorable day. In the S&P, Monday-Tuesday breakouts from compression produce the strongest follow-through.
+
 ### The Public's Error
 
 The public is attracted to markets showing large price changes, incorrectly believing the current large change will continue. Knowledgeable traders do the opposite: they look for historically volatile markets that have recently produced small ranges, knowing a large-range day is approaching.
@@ -106,6 +141,22 @@ These rules are universal across freely traded markets and represent the "laws o
 
 ---
 
+## Down-Close Bias (Non-Random Market Evidence)
+
+Williams provides statistical evidence that markets are not random. In a truly random market, the probability of an up close following a down close should remain at the baseline ~53.2%. Instead, the data shows a significant bias:
+
+| Condition | Average Up Close Probability | Sample Size |
+|-----------|------------------------------|-------------|
+| After 1 down close | **55.8%** | ~22,970 observations across 10 major markets |
+| After 2 consecutive down closes | **55.2%** | ~10,683 observations |
+| After 3 consecutive down closes | **~55%** (varies by market) | Further filtered |
+
+The bias is consistent across Bellies (55%), Cotton (53%/55%), Soybeans (56%/56%), Wheat (53%/55%), British Pound (57%/56%), Gold (58%/55%), Nikkei (56%/60%), Eurodollar (59%/56%), Bonds (54%/52%), and S&P 500 (55%/53%). This is not a trading system in itself, but it is proof that price action contains exploitable non-random dependencies -- the foundation upon which all subsequent pattern work is built.
+
+**Practical application**: The Dax index (1998-2011) demonstrated this escalating: buying after every down close lost $60,558; after 2 down closes, loss narrowed to $1,568; after 3 down closes, 334 trades produced $25,295 at 55% accuracy. Restricting to Tuesdays, Thursdays, and Fridays after 3 consecutive down closes: 204 trades, 58% accuracy, $44,795 profit.
+
+---
+
 ## Close-as-Trend-Indicator
 
 Williams decomposes each day's price action into buying power and selling pressure relative to the close:
@@ -119,12 +170,25 @@ When Buying Power consistently exceeds Selling Pressure across recent days, the 
 
 ### The Real Secret to Short-Term Trading
 
-Large-range up days close at or near the high. Large-range down days close at or near the low. This means the optimal strategy for short-term traders is to hold to the close -- not to dance in and out. Williams proved this with the same S&P Monday-buy system:
-- Exit at $500 target: LOST $8,150 (59% accuracy but average profit too small)
-- Exit at $1,000 target: Made $13,737 ($35/trade average)
-- Exit at close: Made $39,075 ($100/trade average, drawdown cut to $6,650)
-- Hold to next day's close: Made $68,312 ($172/trade average)
-- Hold 6 days: Made $71,600 ($251/trade average)
+Large-range up days close at or near the high. Large-range down days close at or near the low. This means the optimal strategy for short-term traders is to hold to the close -- not to dance in and out.
+
+#### Large-Range Day Characteristics
+
+On large-range days, approximately **87% of the time** the open occurs at one extreme of the day's range and the close at the opposite extreme. Specifically (T-Bonds, 1970-1998): if the dip from Open to Low is less than 20% of yesterday's range, there is an 87% probability the day closes above the open. This is the "law of gravity" for intraday price movement -- large-range up days open near the low and close near the high; large-range down days open near the high and close near the low. Do NOT try to buy far below the open on expected large up days, because they rarely trade much below the opening.
+
+#### Holding Period Optimization Evidence
+
+Williams proved the holding period effect with a simple S&P 500 system (buy on Monday open if below Friday's close, 389 trades, 1982-1998):
+
+| Exit Strategy | Net Profit | Avg Profit/Trade | Accuracy | Drawdown |
+|--------------|-----------|-----------------|----------|----------|
+| $500 target | **-$8,150** | -$21 | 59% | $12,837 |
+| $1,000 target | $13,737 | $35 | 55% | $8,887 |
+| Exit at close | $39,075 | $100 | 53% | $6,550 |
+| Hold to next day's close | $68,312 | $172 | 55% | $11,000 |
+| Hold 6 days | **$71,600** | **$251** | 52% | $19,725 |
+
+The lesson is unambiguous: the shorter the holding period, the less opportunity for profits. The $500 target trader had the highest accuracy (59%) yet lost money because the average profit was too small to overcome the average loss. The 6-day hold produced the highest net profit with the best average per trade ($251), nearly doubling the close-exit results. As Jesse Livermore stated: "It was never my thinking that did it for me, it was my sitting that made the big money."
 
 The 2-5 day optimal holding period balances the need for time to create profits against the risk of overstaying.
 

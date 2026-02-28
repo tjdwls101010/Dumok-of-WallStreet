@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Larry Williams short-term trading tools: Williams %R, volatility breakout levels,
-range analysis, swing point identification, pattern scanning, and composite trade setup
-filter with TDW/TDM/bond confirmation.
+range analysis, swing point identification, pattern scanning, Greatest Swing Value
+analysis, and TDW/TDM calendar bias.
 
 Implements core analysis tools from Larry Williams' "Long-Term Secrets to Short-Term
 Trading" (2011 edition). All indicators are persona-neutral — interpretation context
@@ -13,7 +13,7 @@ Commands:
 	range-analysis: Range expansion/contraction phase detection
 	swing-points: Mechanical swing point identification (3 hierarchy levels)
 	pattern-scan: 5 Williams chart pattern detection
-	trade-setup: Composite filter (TDW+TDM+bond+MA+patterns) with conviction scoring and sizing
+	gsv: Greatest Swing Value failure swing measurement
 	tdw-tdm: Today's Trading Day of Week / Trading Day of Month bias
 
 Args:
@@ -39,10 +39,8 @@ Args:
 		symbol (str): Ticker symbol (e.g., "AAPL", "SPY")
 		--lookback (int): Days to scan for patterns (default: 5)
 
-	For trade-setup:
+	For gsv:
 		symbol (str): Ticker symbol (e.g., "AAPL", "SPY")
-		--risk-pct (float): Risk percentage per trade (default: 3.0)
-		--account-size (float): Account size for position sizing (default: 100000)
 
 	For tdw-tdm:
 		(no arguments — returns today's bias)
@@ -90,7 +88,15 @@ Returns:
 			"consecutive_small_ranges": int,   # Count of below-avg ranges in a row
 			"consecutive_large_ranges": int,
 			"axiom_signal": str,               # "expansion_imminent", "contraction_imminent", "neutral"
-			"range_history": [{"date": str, "range_pct": float, "phase": str}]
+			"range_history": [{"date": str, "range_pct": float, "phase": str}],
+			"close_position": {
+				"buying_power": float,         # Close - Low (Williams Buying Power)
+				"selling_pressure": float,     # High - Close (Williams Selling Pressure)
+				"close_pct": float,            # Close position within range (0-100%)
+				"recent_bias": str,            # "buying_dominant", "selling_dominant", "neutral"
+				"consecutive_upper_closes": int,
+				"consecutive_lower_closes": int
+			}
 		}
 
 	For swing-points:
@@ -115,38 +121,27 @@ Returns:
 				"direction": str,              # "bullish" or "bearish"
 				"entry_price": float,          # Suggested entry
 				"stop_price": float,           # Suggested stop
-				"electronic_era_caveat": bool  # True for Oops! pattern
+				"electronic_era_caveat": bool, # True for Oops! pattern
+				"historical_accuracy": float,  # Backtested accuracy (0-1)
+				"strength": str,               # "high", "medium", or "low"
+				"confirmation_needed": str     # Required confirmation type
 			}],
 			"pattern_count": int,
 			"scan_window_days": int
 		}
 
-	For trade-setup:
+	For gsv:
 		dict: {
 			"symbol": str,
-			"conviction_score": float,         # 0-100 composite score
-			"signal": str,                     # STRONG_BUY/BUY/HOLD/MONITOR/AVOID
-			"components": {
-				"pattern_signal": {"score": float, "max": 25, "detail": str},
-				"bond_intermarket": {"score": float, "max": 20, "detail": str},
-				"tdw_alignment": {"score": float, "max": 15, "detail": str},
-				"tdm_alignment": {"score": float, "max": 15, "detail": str},
-				"ma_trend": {"score": float, "max": 15, "detail": str},
-				"williams_r": {"score": float, "max": 10, "detail": str}
-			},
-			"hard_gates": {
-				"bond_contradiction": bool,
-				"no_pattern": bool,
-				"signal_capped": bool
-			},
-			"position_sizing": {
-				"risk_pct": float,
-				"contracts": int,
-				"dollar_risk": float,
-				"entry_price": float,
-				"stop_price": float
-			},
-			"missing_components": [str]
+			"avg_buy_swing": float,            # Average buy swing (High - Open on down days)
+			"avg_sell_swing": float,            # Average sell swing (Open - Low on up days)
+			"buy_entry_level": float,           # Open - (avg_sell_swing × 1.80)
+			"buy_stop_level": float,            # Open - (avg_sell_swing × 2.25)
+			"sell_entry_level": float,           # Open + (avg_buy_swing × 1.80)
+			"sell_stop_level": float,            # Open + (avg_buy_swing × 2.25)
+			"swing_period_days": int,            # Number of recent swings used (4)
+			"recent_gsv_exceeded": bool,         # True if 225% threshold exceeded recently
+			"swing_history": [{"date": str, "type": str, "value": float}]
 		}
 
 	For tdw-tdm:
@@ -185,9 +180,19 @@ Example:
 	{
 		"symbol": "AAPL",
 		"patterns_detected": [
-			{"pattern": "smash_day", "direction": "bullish", "entry_price": 178.50}
+			{"pattern": "smash_day", "direction": "bullish", "entry_price": 178.50,
+			 "historical_accuracy": 0.76, "strength": "medium"}
 		],
 		"pattern_count": 1
+	}
+
+	>>> python technical/williams.py gsv AAPL
+	{
+		"symbol": "AAPL",
+		"avg_buy_swing": 2.15,
+		"avg_sell_swing": 1.85,
+		"buy_entry_level": 172.17,
+		"sell_entry_level": 179.37
 	}
 
 	>>> python technical/williams.py tdw-tdm
@@ -199,21 +204,12 @@ Example:
 		"combined_bias": "slightly_bullish"
 	}
 
-	>>> python technical/williams.py trade-setup AAPL --risk-pct 3 --account-size 100000
-	{
-		"symbol": "AAPL",
-		"conviction_score": 72.5,
-		"signal": "BUY",
-		"components": {...},
-		"position_sizing": {"contracts": 150, "dollar_risk": 3000}
-	}
-
 Use Cases:
 	- Short-term (2-5 day) trade qualification using Williams' mechanical framework
 	- Volatility breakout entry level calculation for intraday/swing setups
 	- Pattern detection for 5 Williams-specific chart patterns
 	- TDW/TDM calendar bias assessment for timing confirmation
-	- Composite conviction scoring integrating multiple Williams factors
+	- Greatest Swing Value failure swing analysis for entry/stop level calculation
 
 Notes:
 	- Williams %R scale: 0 to -100 (0 = overbought, -100 = oversold)
@@ -329,6 +325,16 @@ def _combine_bias(tdw_bias, tdm_bias):
 	return "neutral"
 
 
+# Pattern accuracy constants (Williams.db backtested data)
+PATTERN_ACCURACY = {
+	"outside_day": {"accuracy": 0.85, "source": "S&P 109 trades (1982-1998)"},
+	"smash_day": {"accuracy": 0.76, "source": "S&P 25 trades"},
+	"hidden_smash_day": {"accuracy": 0.89, "source": "T-Bonds 28 trades"},
+	"specialists_trap": {"accuracy": 0.80, "source": "estimated from book examples"},
+	"oops": {"accuracy": 0.82, "source": "S&P 98 trades (diminished in electronic era)"},
+}
+
+
 # ---------------------------------------------------------------------------
 # Swing Point Detection
 # ---------------------------------------------------------------------------
@@ -388,6 +394,9 @@ def _detect_outside_day(df, idx):
 				"entry_price": round(float(curr["Open"]), 2),  # Buy at next open
 				"stop_price": round(float(curr["Low"]), 2),
 				"electronic_era_caveat": False,
+				"historical_accuracy": PATTERN_ACCURACY["outside_day"]["accuracy"],
+				"strength": "high",
+				"confirmation_needed": "next_bar_open_buy",
 			}
 	return None
 
@@ -406,6 +415,9 @@ def _detect_smash_day(df, idx):
 			"entry_price": round(float(curr["High"]), 2),  # Buy above today's high
 			"stop_price": round(float(curr["Low"]), 2),
 			"electronic_era_caveat": False,
+			"historical_accuracy": PATTERN_ACCURACY["smash_day"]["accuracy"],
+			"strength": "low",
+			"confirmation_needed": "next_bar_above_high",
 		}
 	return None
 
@@ -426,6 +438,9 @@ def _detect_hidden_smash_day(df, idx):
 			"entry_price": round(float(curr["High"]), 2),  # Buy above today's high
 			"stop_price": round(float(curr["Low"]), 2),
 			"electronic_era_caveat": False,
+			"historical_accuracy": PATTERN_ACCURACY["hidden_smash_day"]["accuracy"],
+			"strength": "high",
+			"confirmation_needed": "next_bar_above_high",
 		}
 	return None
 
@@ -454,6 +469,9 @@ def _detect_specialists_trap(df, idx, lookback=10):
 			"entry_price": round(float(box_high), 2),
 			"stop_price": round(float(curr["Low"]), 2),
 			"electronic_era_caveat": False,
+			"historical_accuracy": PATTERN_ACCURACY["specialists_trap"]["accuracy"],
+			"strength": "medium",
+			"confirmation_needed": "price_above_box_high",
 		}
 	return None
 
@@ -475,6 +493,9 @@ def _detect_oops(df, idx):
 				"entry_price": round(float(prev["Low"]), 2),
 				"stop_price": round(float(curr["Low"]), 2),
 				"electronic_era_caveat": True,
+				"historical_accuracy": PATTERN_ACCURACY["oops"]["accuracy"],
+				"strength": "medium",
+				"confirmation_needed": "recovery_to_prior_low",
 			}
 	return None
 
@@ -651,6 +672,55 @@ def cmd_range_analysis(args):
 			"phase": p,
 		})
 
+	# Close-as-Trend-Indicator (Williams: Buying Power = Close - Low, Selling Pressure = High - Close)
+	close = float(df["Close"].iloc[-1])
+	high = float(df["High"].iloc[-1])
+	low = float(df["Low"].iloc[-1])
+	bar_range = high - low
+	close_pct = round((close - low) / bar_range * 100, 1) if bar_range > 0 else 50.0
+	buying_power = round(close - low, 2)
+	selling_pressure = round(high - close, 2)
+
+	# Recent bias: average buying power vs selling pressure over last 5 days
+	recent_bp = []
+	recent_sp = []
+	for i in range(-min(5, len(df)), 0):
+		row = df.iloc[i]
+		bp = float(row["Close"]) - float(row["Low"])
+		sp_val = float(row["High"]) - float(row["Close"])
+		recent_bp.append(bp)
+		recent_sp.append(sp_val)
+	avg_bp = sum(recent_bp) / len(recent_bp)
+	avg_sp = sum(recent_sp) / len(recent_sp)
+	if avg_bp > avg_sp * 1.2:
+		recent_bias = "buying_dominant"
+	elif avg_sp > avg_bp * 1.2:
+		recent_bias = "selling_dominant"
+	else:
+		recent_bias = "neutral"
+
+	# Consecutive upper/lower closes
+	consecutive_upper = 0
+	consecutive_lower = 0
+	for i in range(len(df) - 1, max(len(df) - 20, 0) - 1, -1):
+		row = df.iloc[i]
+		r = float(row["High"]) - float(row["Low"])
+		if r > 0:
+			cp = (float(row["Close"]) - float(row["Low"])) / r * 100
+			if cp >= 65:
+				consecutive_upper += 1
+			else:
+				break
+	for i in range(len(df) - 1, max(len(df) - 20, 0) - 1, -1):
+		row = df.iloc[i]
+		r = float(row["High"]) - float(row["Low"])
+		if r > 0:
+			cp = (float(row["Close"]) - float(row["Low"])) / r * 100
+			if cp <= 35:
+				consecutive_lower += 1
+			else:
+				break
+
 	output_json({
 		"symbol": symbol,
 		"current_range_pct": round(current_range, 3),
@@ -661,6 +731,14 @@ def cmd_range_analysis(args):
 		"consecutive_large_ranges": consecutive_large,
 		"axiom_signal": axiom_signal,
 		"range_history": range_history,
+		"close_position": {
+			"buying_power": buying_power,
+			"selling_pressure": selling_pressure,
+			"close_pct": close_pct,
+			"recent_bias": recent_bias,
+			"consecutive_upper_closes": consecutive_upper,
+			"consecutive_lower_closes": consecutive_lower,
+		},
 	})
 
 
@@ -752,198 +830,91 @@ def cmd_pattern_scan(args):
 
 
 @safe_run
-def cmd_trade_setup(args):
-	"""Composite filter: TDW+TDM+bond+MA+patterns → conviction scoring with position sizing."""
+def cmd_gsv(args):
+	"""Greatest Swing Value: failure swing measurement.
+
+	Measures the distance price swings against the close direction:
+	- Buy Swing: High - Open on down-close days (bulls failed)
+	- Sell Swing: Open - Low on up-close days (bears failed)
+
+	Returns average swing values and threshold levels (180%, 225%).
+	"""
 	symbol = args.symbol.upper()
-	missing_components = []
+	df = _fetch_ohlcv(symbol, period="3mo")
 
-	# --- Fetch stock data ---
-	df = _fetch_ohlcv(symbol, period="1y")
-	current_price = float(df["Close"].iloc[-1])
+	if len(df) < 15:
+		raise ValueError(f"Insufficient data for GSV calculation ({len(df)} bars)")
 
-	# --- Component 1: Pattern signal (25 points) ---
-	pattern_score = 0
-	pattern_detail = "no_patterns"
-	try:
-		patterns = []
-		for idx in range(max(1, len(df) - 5), len(df)):
-			for detect_fn in [_detect_outside_day, _detect_smash_day, _detect_hidden_smash_day,
-							  _detect_specialists_trap, _detect_oops]:
-				p = detect_fn(df, idx)
-				if p:
-					patterns.append(p)
-		if patterns:
-			# Score by pattern count and recency
-			non_caveat = [p for p in patterns if not p.get("electronic_era_caveat")]
-			if non_caveat:
-				pattern_score = min(25, 15 + len(non_caveat) * 5)
-				pattern_detail = f"{len(non_caveat)} patterns: " + ", ".join(p["pattern"] for p in non_caveat)
-			elif patterns:
-				pattern_score = 8
-				pattern_detail = f"{len(patterns)} patterns (electronic era caveat)"
-	except Exception:
-		missing_components.append("pattern_signal")
+	# Separate buy swings (down-close days) and sell swings (up-close days)
+	buy_swings = []  # High - Open on down close days
+	sell_swings = []  # Open - Low on up close days
 
-	# --- Component 2: Bond inter-market (20 points) ---
-	bond_score = 0
-	bond_detail = "unavailable"
-	bond_contradiction = False
-	try:
-		tlt = yf.Ticker("TLT")
-		tlt_df = tlt.history(period="3mo")
-		if not tlt_df.empty and len(tlt_df) >= 14:
-			tlt_close = tlt_df["Close"]
-			# 14-day channel breakout check
-			high_14 = tlt_close.rolling(14).max()
-			low_14 = tlt_close.rolling(14).min()
-			current_tlt = float(tlt_close.iloc[-1])
-			prev_high = float(high_14.iloc[-2]) if len(high_14) > 1 else current_tlt
-			prev_low = float(low_14.iloc[-2]) if len(low_14) > 1 else current_tlt
+	for i in range(len(df)):
+		row = df.iloc[i]
+		if row["Close"] < row["Open"]:  # Down close day
+			buy_swings.append(float(row["High"] - row["Open"]))
+		else:  # Up close day
+			sell_swings.append(float(row["Open"] - row["Low"]))
 
-			if current_tlt >= prev_high:
-				bond_score = 20
-				bond_detail = "bonds_breaking_up_bullish_stocks"
-			elif current_tlt <= prev_low:
-				bond_score = 0
-				bond_detail = "bonds_breaking_down_bearish_stocks"
-				bond_contradiction = True
-			else:
-				# Middle ground - check trend direction
-				sma_20 = float(tlt_close.rolling(20).mean().iloc[-1])
-				if current_tlt > sma_20:
-					bond_score = 12
-					bond_detail = "bonds_above_20ma_mildly_bullish"
-				else:
-					bond_score = 5
-					bond_detail = "bonds_below_20ma_mildly_bearish"
+	# Use last 4 valid values for each
+	recent_buy_swings = buy_swings[-4:] if len(buy_swings) >= 4 else buy_swings
+	recent_sell_swings = sell_swings[-4:] if len(sell_swings) >= 4 else sell_swings
+
+	avg_buy_swing = round(sum(recent_buy_swings) / len(recent_buy_swings), 2) if recent_buy_swings else 0.0
+	avg_sell_swing = round(sum(recent_sell_swings) / len(recent_sell_swings), 2) if recent_sell_swings else 0.0
+
+	current_open = float(df["Open"].iloc[-1])
+
+	# Entry and stop levels
+	buy_entry_level = round(current_open - (avg_sell_swing * 1.80), 2)
+	buy_stop_level = round(current_open - (avg_sell_swing * 2.25), 2)
+	sell_entry_level = round(current_open + (avg_buy_swing * 1.80), 2)
+	sell_stop_level = round(current_open + (avg_buy_swing * 2.25), 2)
+
+	# Check if recent GSV exceeded 225% threshold (exhaustion signal)
+	recent_gsv_exceeded = False
+	for i in range(-min(5, len(df)), 0):
+		row = df.iloc[i]
+		if row["Close"] < row["Open"]:
+			swing = float(row["High"] - row["Open"])
+			if avg_buy_swing > 0 and swing > avg_buy_swing * 2.25:
+				recent_gsv_exceeded = True
+				break
 		else:
-			missing_components.append("bond_intermarket")
-	except Exception:
-		missing_components.append("bond_intermarket")
+			swing = float(row["Open"] - row["Low"])
+			if avg_sell_swing > 0 and swing > avg_sell_swing * 2.25:
+				recent_gsv_exceeded = True
+				break
 
-	# --- Component 3: TDW alignment (15 points) ---
-	today = datetime.date.today()
-	dow = today.isoweekday()  # 1=Mon ... 7=Sun
-	tdw_info = TDW_BIAS.get(dow, {"bias": "neutral", "note": "Weekend"})
-
-	tdw_score = 0
-	if tdw_info["bias"] == "bullish":
-		tdw_score = 15
-	elif tdw_info["bias"] == "neutral":
-		tdw_score = 8
-	else:  # bearish
-		tdw_score = 3
-
-	# --- Component 4: TDM alignment (15 points) ---
-	tdm_info = _tdm_bias(today.day)
-	tdm_score = 0
-	if tdm_info["bias"] == "bullish":
-		tdm_score = 15
-	elif tdm_info["bias"] == "neutral":
-		tdm_score = 8
-	else:
-		tdm_score = 3
-
-	# --- Component 5: 20-day MA trend (15 points) ---
-	ma_score = 0
-	ma_detail = "insufficient_data"
-	if len(df) >= 20:
-		sma_20 = float(df["Close"].rolling(20).mean().iloc[-1])
-		sma_20_prev = float(df["Close"].rolling(20).mean().iloc[-5])
-		if current_price > sma_20 and sma_20 > sma_20_prev:
-			ma_score = 15
-			ma_detail = f"price_above_rising_20ma (SMA20={round(sma_20, 2)})"
-		elif current_price > sma_20:
-			ma_score = 10
-			ma_detail = f"price_above_flat_20ma (SMA20={round(sma_20, 2)})"
-		elif current_price < sma_20 and sma_20 < sma_20_prev:
-			ma_score = 0
-			ma_detail = f"price_below_falling_20ma (SMA20={round(sma_20, 2)})"
+	# Swing history (last 10 days)
+	swing_history = []
+	for i in range(-min(10, len(df)), 0):
+		row = df.iloc[i]
+		date_str = df.index[i].strftime("%Y-%m-%d")
+		if row["Close"] < row["Open"]:
+			swing_history.append({
+				"date": date_str,
+				"type": "buy_swing",
+				"value": round(float(row["High"] - row["Open"]), 2),
+			})
 		else:
-			ma_score = 5
-			ma_detail = f"price_below_20ma (SMA20={round(sma_20, 2)})"
-
-	# --- Component 6: Williams %R (10 points) ---
-	wr_score = 0
-	wr_detail = "insufficient_data"
-	if len(df) >= 14:
-		wr_series = _williams_pct_r(df, period=14)
-		wr_val = float(wr_series.dropna().iloc[-1])
-		if wr_val < -80:
-			wr_score = 10  # Oversold = bullish opportunity
-			wr_detail = f"oversold ({round(wr_val, 1)})"
-		elif wr_val < -50:
-			wr_score = 7
-			wr_detail = f"neutral_low ({round(wr_val, 1)})"
-		elif wr_val < -20:
-			wr_score = 4
-			wr_detail = f"neutral_high ({round(wr_val, 1)})"
-		else:
-			wr_score = 1  # Overbought = reduced opportunity
-			wr_detail = f"overbought ({round(wr_val, 1)})"
-
-	# --- Composite score ---
-	raw_score = pattern_score + bond_score + tdw_score + tdm_score + ma_score + wr_score
-	conviction = round(min(100, raw_score), 1)
-
-	# --- Hard gates ---
-	signal_capped = False
-	no_pattern = pattern_score == 0 and "pattern_signal" not in missing_components
-
-	if bond_contradiction:
-		conviction = min(conviction, 59)  # Cap at HOLD
-		signal_capped = True
-	if no_pattern:
-		conviction = min(conviction, 59)
-		signal_capped = True
-
-	# --- Signal ---
-	if conviction >= 80:
-		signal = "STRONG_BUY"
-	elif conviction >= 60:
-		signal = "BUY"
-	elif conviction >= 40:
-		signal = "HOLD"
-	elif conviction >= 20:
-		signal = "MONITOR"
-	else:
-		signal = "AVOID"
-
-	# --- Position sizing (Williams formula) ---
-	entry_price = current_price
-	# Stop based on ATR
-	atr_series = _atr(df, period=3)
-	atr_val = float(atr_series.iloc[-1]) if not atr_series.dropna().empty else current_price * 0.02
-	stop_price = round(entry_price - atr_val, 2)
-	dollar_risk = args.account_size * (args.risk_pct / 100)
-	risk_per_share = entry_price - stop_price
-	contracts = int(dollar_risk / risk_per_share) if risk_per_share > 0 else 0
+			swing_history.append({
+				"date": date_str,
+				"type": "sell_swing",
+				"value": round(float(row["Open"] - row["Low"]), 2),
+			})
 
 	output_json({
 		"symbol": symbol,
-		"conviction_score": conviction,
-		"signal": signal,
-		"components": {
-			"pattern_signal": {"score": pattern_score, "max": 25, "detail": pattern_detail},
-			"bond_intermarket": {"score": bond_score, "max": 20, "detail": bond_detail},
-			"tdw_alignment": {"score": tdw_score, "max": 15, "detail": f"{tdw_info['bias']} ({tdw_info['note']})"},
-			"tdm_alignment": {"score": tdm_score, "max": 15, "detail": f"{tdm_info['bias']} ({tdm_info['note']})"},
-			"ma_trend": {"score": ma_score, "max": 15, "detail": ma_detail},
-			"williams_r": {"score": wr_score, "max": 10, "detail": wr_detail},
-		},
-		"hard_gates": {
-			"bond_contradiction": bond_contradiction,
-			"no_pattern": no_pattern,
-			"signal_capped": signal_capped,
-		},
-		"position_sizing": {
-			"risk_pct": args.risk_pct,
-			"contracts": contracts,
-			"dollar_risk": round(dollar_risk, 2),
-			"entry_price": round(entry_price, 2),
-			"stop_price": stop_price,
-		},
-		"missing_components": missing_components,
+		"avg_buy_swing": avg_buy_swing,
+		"avg_sell_swing": avg_sell_swing,
+		"buy_entry_level": buy_entry_level,
+		"buy_stop_level": buy_stop_level,
+		"sell_entry_level": sell_entry_level,
+		"sell_stop_level": sell_stop_level,
+		"swing_period_days": 4,
+		"recent_gsv_exceeded": recent_gsv_exceeded,
+		"swing_history": swing_history,
 	})
 
 
@@ -1015,16 +986,14 @@ def main():
 	sp.add_argument("--lookback", type=int, default=5, help="Scan window days (default: 5)")
 	sp.set_defaults(func=cmd_pattern_scan)
 
-	# trade-setup
-	sp = sub.add_parser("trade-setup", help="Composite trade qualification filter")
-	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--risk-pct", type=float, default=3.0, help="Risk %% per trade (default: 3.0)")
-	sp.add_argument("--account-size", type=float, default=100000, help="Account size (default: 100000)")
-	sp.set_defaults(func=cmd_trade_setup)
-
 	# tdw-tdm
 	sp = sub.add_parser("tdw-tdm", help="Today's TDW/TDM bias")
 	sp.set_defaults(func=cmd_tdw_tdm)
+
+	# gsv
+	sp = sub.add_parser("gsv", help="Greatest Swing Value failure swing measurement")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.set_defaults(func=cmd_gsv)
 
 	args = parser.parse_args()
 	args.func(args)

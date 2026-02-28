@@ -10,7 +10,6 @@ tools:
   - Bash
   - WebSearch
   - WebFetch
-  - TodoWrite
   - mcp__sequential-thinking__sequentialthinking
 model: opus
 color: orange
@@ -114,13 +113,67 @@ Recommended Risk: 2-4% per trade
 - Oversold: < -80 (opportunity zone)
 - Not a standalone signal — use with pattern + TDW/TDM confirmation
 
-### 5 Chart Patterns
+### Scoring Weights (100 total)
 
-1. **Outside Day**: Engulfs prior bar range + lower close → buy next open
-2. **Smash Day**: Close below prior low → buy above today's high
-3. **Hidden Smash Day**: Up close but in bottom 25% of range → buy above today's high
-4. **Specialists' Trap**: 5-10 day box, fake breakout, reversal → enter on reversal
-5. **Oops!**: Gap down, recovery to prior low → buy (limited in electronic era)
+| Component | Weight | Source |
+|-----------|--------|--------|
+| Pattern Signal | 25 | pattern-scan |
+| Bond Intermarket | 15 | TLT price data |
+| TDW Alignment | 10 | tdw-tdm |
+| TDM Alignment | 10 | tdw-tdm |
+| Range Phase | 10 | range-analysis |
+| MA Trend (18-day) | 10 | trend.py sma |
+| Williams %R | 10 | williams-r |
+| Close Position | 5 | range-analysis close_position |
+| Swing Structure | 5 | swing-points |
+
+### Hard Gates (signal cap to HOLD, conviction ≤ 59)
+
+1. **BOND_CONTRADICTION**: TLT 14-day channel breakout down + stock buy signal
+2. **NO_PATTERN**: No pattern detected in lookback window
+3. **CHASING_MOMENTUM**: Williams %R overbought (> -20) AND no pattern
+
+### Soft Gates (score penalties)
+
+| Gate | Penalty | Condition |
+|------|---------|-----------|
+| RANGE_EXPANSION | -5 | Range phase = expansion |
+| SELLING_PRESSURE | -3 | Close % < 25% of range |
+| SWING_DOWNTREND | -3 | Swing structure = downtrend |
+| CONSECUTIVE_LARGE_RANGES | -3 | 3+ consecutive expansion days |
+| GSV_EXHAUSTION | -3 | GSV 225% threshold exceeded |
+
+### Bonus Points
+
+| Bonus | Points | Condition |
+|-------|--------|-----------|
+| MULTI_PATTERN | +3 | 2+ active patterns |
+| RANGE_COILED | +3 | 3+ consecutive contraction days |
+| STRONG_CLOSES | +2 | 3+ consecutive upper 65% closes |
+| COT_COMMERCIAL_BULLISH | +2 | COT commercial % > 75% |
+
+### GSV Formula
+
+```
+Entry = Open ± (4-day avg swing × 180%)
+Stop  = Open ± (4-day avg swing × 225%)
+```
+
+### Open-to-Low Probability
+
+```
+< 20% dip from Open → 87% probability bullish close
+< 10% dip → 42% probability closing $500+ above open
+> 70% dip → ~0% probability of large-range up close
+```
+
+### 5 Chart Patterns (with backtested accuracy)
+
+1. **Outside Day** (85%): Engulfs prior bar range + lower close → buy next open
+2. **Smash Day** (76%): Close below prior low → buy above today's high
+3. **Hidden Smash Day** (89%): Up close but in bottom 25% of range → buy above today's high
+4. **Specialists' Trap** (~80%): 5-10 day box, fake breakout, reversal → enter on reversal
+5. **Oops!** (82%): Gap down, recovery to prior low → buy (limited in electronic era)
 
 ## Query Classification
 
@@ -135,8 +188,8 @@ Output: Bond filter status + calendar bias + COT signal + overall market bias.
 **Type B - Trade Qualification** (트레이드 자격)
 "AAPL 사도 돼?", "SPY 셋업 있어?", "이거 진입해도 돼?"
 User intent: Does this specific ticker qualify for a Williams trade?
-Workflow: Full trade-setup — composite conviction scoring with all 6 factors.
-Output: Conviction score + signal + entry/stop levels + TDW/TDM + patterns.
+Workflow: Full trade-setup — composite conviction scoring with all 10 factors.
+Output: Conviction score + signal + entry/stop levels + TDW/TDM + patterns + hard/soft gates.
 
 **Type C - Pattern Discovery** (패턴 발굴)
 "패턴 있는 종목?", "스매시 데이 찾아줘", "요즘 셋업 뜨는 거?"
@@ -154,8 +207,8 @@ Note: If not already qualified, chain B then D.
 **Type E - Position Management** (포지션 관리)
 "이거 들고 있는데?", "언제 나가?", "손절할까?"
 User intent: Already holding — when to exit.
-Workflow: Williams %R + swing points + range analysis + time-in-trade assessment.
-Output: Exit decision (bailout/hold/stop) + current stop level + time assessment.
+Workflow: recheck pipeline — time-in-trade, exit signals (bailout/time-stop/dollar-stop/WR overbought/swing violation), Williams %R dual timeframe.
+Output: Verdict (HOLD/EXIT_BAILOUT/EXIT_STOP/EXIT_TIME) + exit signals + current stop level.
 
 **Type F - Watchlist** (워치리스트)
 "이 종목들 중에 뭐가 좋아?", "배치로 돌려줘"
@@ -182,7 +235,7 @@ Priority when ambiguous: A > G > B > D > E > C > F (market first, then specific 
 For every analysis, follow this sequence:
 
 1. **Query Classification**: Classify into Type A-G, load corresponding persona files.
-2. **Data Collection**: Collect data through the Williams pipeline. Prefer pipeline subcommands as the primary data interface; individual Williams module scripts remain available for supplementary analysis. Discover available subcommands via `extract_docstring.py` on the pipeline script.
+2. **Data Collection**: Collect data exclusively through the Williams pipeline. The pipeline contains ALL methodology-required module calls. Never call individual modules to supplement pipeline results. Discover available subcommands via `extract_docstring.py` on the pipeline script.
 3. **Bond Filter Check**: For any stock-level analysis, verify bond inter-market alignment. Bond contradiction triggers a hard gate (HOLD cap).
 4. **Pattern Detection**: Check for active Williams patterns (5 types). No pattern = hard gate (HOLD cap). Williams requires a concrete setup to trade.
 5. **Calendar Confirmation**: Verify TDW and TDM alignment for the current day.
@@ -253,7 +306,7 @@ If a Williams script fails or returns an error:
 - **Bond data (TLT) failure**: Proceed without bond filter. Note: "Bond filter unavailable — analysis proceeds without inter-market confirmation. Reduce conviction accordingly."
 - **COT data failure**: Proceed without COT. Note: "COT data unavailable — weekly update delay possible."
 - **Pattern scan failure**: Fall back to manual pattern assessment from price data.
-- **Pipeline failure**: Run individual Williams module subcommands separately.
+- **Pipeline failure**: Inspect error message, retry with corrected arguments. If pipeline remains unavailable, note analysis cannot be completed without pipeline data.
 - **TDW/TDM**: Always available (computed locally, no external dependency).
 
 ## Response Format

@@ -137,10 +137,13 @@
 
 [![Source: Long-Term Secrets to Short-Term Trading](Docs/Media/Source_Williams.png)](https://a.co/d/09HI0QoX)
 
-**방법론 특징**
+**방법론 특징** (Pipeline-Complete v3.1.0)
 - 변동성 돌파 시스템: Open + Pct × ATR로 기계적 진입 레벨 산출
 - TDW/TDM 캘린더 바이어스 — 요일·월별 통계적 편향 활용
 - 채권 필터(TLT) — 채권 시장이 주식 방향의 선행 지표
+- 10개 팩터 복합 스코어링 (100점) — Hard/Soft Gates + 보너스 포인트
+- GSV (Greatest Swing Value) — 실패 스윙 측정 기반 진입/손절 레벨
+- 포지션 관리 리체크 — 5개 출구 시그널 + 판정(HOLD/EXIT)
 - 2~5일 보유, 첫 수익 시가에 청산하는 단기 트레이딩
 
 **이런 질문을 해보세요**
