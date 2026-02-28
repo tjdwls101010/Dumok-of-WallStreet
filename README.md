@@ -1,8 +1,8 @@
 # Dumok of WallStreet
 
-![](Docs/Media/Main.png)
+> 성진의 Claude 금융 시장 분석 플러그인
 
-Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나가 각자의 방법론으로 시장을 분석합니다.
+![](Docs/Media/Main.png)
 
 ## 설치 방법
 
