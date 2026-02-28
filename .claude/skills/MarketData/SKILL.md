@@ -12,7 +12,7 @@ Multi-source financial data retrieval system providing comprehensive market anal
 
 **Setup**:
 ```bash
-cd skills/MarketData/scripts
+cd $SKILL_ROOT/scripts
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
@@ -24,7 +24,7 @@ python -m venv .venv
 Before running any script, verify the following:
 1. Check if `.venv` exists → if not:
    ```bash
-   cd skills/MarketData/scripts
+   cd $SKILL_ROOT/scripts
    python3 -m venv .venv
    .venv/bin/pip install -r requirements.txt
    ```
@@ -294,8 +294,8 @@ Filings, insider trades, 13F, FTD
 
 **Environment variables** (for all script execution):
 ```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
+VENV=$SKILL_ROOT/scripts/.venv/bin/python
+SCRIPTS=$SKILL_ROOT/scripts
 ```
 > In Cowork (read-only filesystem), `$VENV` should point to the venv created in the writable session directory.
 

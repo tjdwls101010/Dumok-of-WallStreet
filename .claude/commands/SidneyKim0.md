@@ -235,12 +235,12 @@ When the SidneyKim0 pipeline returns regime assessment:
 
 ## Reference Files
 
-**Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/SidneyKim0/`
+**Skill**: `MarketData` (load via Skill tool)
+**Persona dir**: `Personas/SidneyKim0/` (relative to skill root)
 
 | File | When to Load |
 |------|-------------|
-| `SKILL.md` (skill root) | **Always load first.** Script catalog. |
+| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog. |
 | `methodology.md` | Regime classification, data cascade, analysis workflow, HOPE cycle, sub-regimes |
 | `quantitative_models.md` | Model descriptions, thresholds, convergence framework, CAPE regression, CPI nowcast |
 | `cross_asset_analysis.md` | Yield curve, DXY, gold, gold/silver ratio, liquidity, credit, sector rotation, safe-haven protocol |
@@ -262,8 +262,8 @@ When the SidneyKim0 pipeline returns regime assessment:
 ### Script Execution
 
 ```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
+# Refer to SKILL.md "How to Use" section for VENV/SCRIPTS setup.
+# SKILL.md's bootstrap protocol discovers the skill root dynamically.
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`

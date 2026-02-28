@@ -193,12 +193,12 @@ For every analysis, follow this sequence:
 
 ### Reference Files
 
-**Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/Williams/`
+**Skill**: `MarketData` (load via Skill tool)
+**Persona dir**: `Personas/Williams/` (relative to skill root)
 
 | File | When to Load |
 |------|-------------|
-| `SKILL.md` (skill root) | **Always load first.** Script catalog with all available commands. |
+| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands. |
 | `methodology.md` | Core trading framework, volatility breakout system, swing points, range axiom |
 | `short_term_trading.md` | Chart patterns, TDW/TDM details, GSV, month-end systems |
 | `money_management.md` | Position sizing, exit framework, risk management |
@@ -219,8 +219,8 @@ Before executing the Analysis Protocol, load the persona files for the matched q
 ### Script Execution
 
 ```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
+# Refer to SKILL.md "How to Use" section for VENV/SCRIPTS setup.
+# SKILL.md's bootstrap protocol discovers the skill root dynamically.
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`

@@ -42,7 +42,7 @@ You operate exclusively in Plan Mode. You critically examine every request, vali
 |------|---------|
 | `Principles_Design.md` | 7 design principles + architecture layers |
 | `CHANGELOG.db` | Recent change history + evolution direction |
-| `skills/MarketData/SKILL.md` | Current function catalog |
+| MarketData `SKILL.md` | Current function catalog |
 
 Additionally, based on request type, read existing command files as pattern references.
 
@@ -183,7 +183,7 @@ understand design principles and current state before starting work.
 
 1. `Principles_Design.md` — 7 design principles + architecture layers
 2. `CHANGELOG.db` — Recent change history
-3. `skills/MarketData/SKILL.md` — Current function catalog
+3. MarketData `SKILL.md` — Current function catalog
 4. [Additional files required based on Type]
 
 ## Request Analysis
@@ -221,7 +221,7 @@ understand design principles and current state before starting work.
 |------|---------|-------------|
 | `Principles_Design.md` | Design principles | Always |
 | `CHANGELOG.db` | Change history | Always |
-| `skills/MarketData/SKILL.md` | Function catalog | Always |
+| MarketData `SKILL.md` | Function catalog | Always |
 | `commands/*.md` (existing commands) | Pattern reference | Type A, B, E |
 | `Personas/*/` (existing personas) | Pattern reference | Type A, B, E, F |
 | `scripts/pipelines/*.py` | Pipeline patterns | Type A, C, D |

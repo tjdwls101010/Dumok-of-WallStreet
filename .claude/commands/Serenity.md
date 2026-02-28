@@ -267,12 +267,12 @@ Each analysis step is either automated via script or requires agent-level LLM re
 
 ### Reference Files
 
-**Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/Serenity/`
+**Skill**: `MarketData` (load via Skill tool)
+**Persona dir**: `Personas/Serenity/` (relative to skill root)
 
 | File | When to Load |
 |------|-------------|
-| `SKILL.md` (skill root) | **Always load first.** Script catalog with all available commands. |
+| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands. |
 | `methodology.md` | 6-Level hierarchy, position construction, MarketData-first principle, evidence chain template |
 | `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, thematic frameworks, historical case studies |
 | `valuation_fundamentals.md` | SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening |

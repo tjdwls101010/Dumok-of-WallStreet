@@ -260,12 +260,12 @@ When the TraderLion pipeline watchlist returns results with `analysis_mode: "pro
 
 ## Reference Files
 
-**Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/TraderLion/`
+**Skill**: `MarketData` (load via Skill tool)
+**Persona dir**: `Personas/TraderLion/` (relative to skill root)
 
 | File | When to Load |
 |------|-------------|
-| `SKILL.md` (skill root) | **Always load first.** Script catalog. |
+| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog. |
 | `methodology.md` | S.N.I.P.E. workflow, TIGERS, position sizing overview, trader development, screening framework |
 | `stock_identification.md` | Volume edges (HVE/HVIPO/HV1), RS edge, N-Factor, setups (Launch Pad/Gapper/Base Breakout), Closing Range, Winning Characteristics |
 | `trade_management.md` | Entry tactics (11), stop system, sell rules, total open risk, post analysis |
@@ -287,8 +287,8 @@ When the TraderLion pipeline watchlist returns results with `analysis_mode: "pro
 ### Script Execution
 
 ```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
+# Refer to SKILL.md "How to Use" section for VENV/SCRIPTS setup.
+# SKILL.md's bootstrap protocol discovers the skill root dynamically.
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`

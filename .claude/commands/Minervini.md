@@ -203,12 +203,12 @@ Each analysis step is either automated via the pipeline or requires agent-level 
 
 ### Reference Files
 
-**Skill root**: `skills/MarketData/`
-**Persona dir**: `skills/MarketData/Personas/Minervini/`
+**Skill**: `MarketData` (load via Skill tool)
+**Persona dir**: `Personas/Minervini/` (relative to skill root)
 
 | File | When to Load |
 |------|-------------|
-| `SKILL.md` (skill root) | **Always load first.** Script catalog with all available commands and navigation flow. |
+| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands and navigation flow. |
 | `sepa_methodology.md` | SEPA framework, Stage lifecycle, Company Categories, market timing via leaders |
 | `risk_and_trade_management.md` | Contingency plans, Short-Circuit Rule, Earnings Event Protocol, market environment adjustments |
 | `earnings_insights.md` | P/E interpretation, earnings quality assessment, Code 33 failure modes |
@@ -229,8 +229,8 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 ### Script Execution
 
 ```bash
-VENV=skills/MarketData/scripts/.venv/bin/python
-SCRIPTS=skills/MarketData/scripts
+# Refer to SKILL.md "How to Use" section for VENV/SCRIPTS setup.
+# SKILL.md's bootstrap protocol discovers the skill root dynamically.
 ```
 
 All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
