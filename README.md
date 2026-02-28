@@ -1,14 +1,14 @@
-# Dumok of WallStreet
+# 💸Dumok of WallStreet
 
 > 성진의 Claude 금융 시장 분석 플러그인
 
 ![](Docs/Media/Main.png)
 
-## 설치 방법
+## 💾설치 방법
 
 > 추후 작성 예정
 
-## 전문가 소개
+## 📚전문가 소개
 
 | 전문가 | 전문 분야 | 분석 시간대 | 참조 출처 |
 |--------|----------|-----------|----------|
@@ -159,7 +159,7 @@
 
 ---
 
-## MarketData 스킬
+## 🤖MarketData 스킬
 
 모든 전문가가 공유하는 데이터 수집 인프라입니다.
 
@@ -172,11 +172,11 @@
 | CFTC | 선물 포지셔닝 (COT 리포트) |
 | CBOE | VIX, 풋/콜 비율, 변동성 커브 |
 
-## Evolve
+## ♻️Evolve
 
 기존 전문가를 개선하거나 새로운 전문가를 추가하기 위한 메타-엔지니어링 도구입니다. Plan Mode에서 동작하며, 페르소나 파일·파이프라인·커맨드 생성을 체계적으로 안내합니다.
 
-## 프로젝트 구조
+## 🗂️프로젝트 구조
 
 ```
 Dumok-of-WallStreet/
@@ -195,10 +195,10 @@ Dumok-of-WallStreet/
 └── README.md
 ```
 
-## 설계 철학
+## 🌏설계 철학
 
 7가지 핵심 설계 원칙(Single Source of Truth, Persona Purity, Pipeline-Complete 등)과 아키텍처 상세는 [Principles_Design.md](Principles_Design.md)를 참조하세요.
 
-## 라이선스
+## 🔥라이선스
 
 Private repository. For personal use only.
