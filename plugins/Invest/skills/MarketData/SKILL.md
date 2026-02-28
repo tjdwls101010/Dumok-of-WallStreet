@@ -83,7 +83,7 @@ Z-score, percentile, correlation, extremes
 
 #### Technical
 
-RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Counting, Volume Analysis, Pocket Pivot, Low Cheat, Tight Closes, Closing Range, Volume Edge
+RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Counting, Volume Analysis, Pocket Pivot, Low Cheat, Tight Closes, Closing Range, Volume Edge, Sell Signals, Special Patterns, Stock Character, Entry Patterns
 
 | Function | Description | Script |
 |----------|-------------|--------|
@@ -102,6 +102,10 @@ RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Coun
 | `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading and breakout confirmation | `technical/volume_analysis.py` |
 | `closing_range` | Closing Range (CR) calculation with Constructive/Non-constructive bar classification and screening | `technical/closing_range.py` |
 | `volume_edge` | Volume edge detection: HVE, HVIPO, HV1, Increasing Average Volume, Volume Run Rate with conviction scoring | `technical/volume_edge.py` |
+| `sell_signals` | Sell signal detection: MA breach (21 EMA / 50 SMA), high-volume reversal, vertical acceleration, key reversal, distribution cluster with severity grading and disposition effect audit | `technical/sell_signals.py` |
+| `special_patterns` | Special bullish reversal/continuation pattern detection: Positive Expectation Breaker (bearish setup breakout), No Follow-Through Down (failed bearish event), Undercut & Rally (shakeout recovery) for hidden institutional demand | `technical/special_patterns.py` |
+| `stock_character` | Stock character assessment: ADR%, clean/choppy classification, MA respect consistency, personality grade (A-D), liquidity tier | `technical/stock_character.py` |
+| `entry_patterns` | Entry pattern detection: MA pullback, consolidation pivot, inside day, double inside day, tight day, gap reversal, support reclaim with trigger/stop prices | `technical/entry_patterns.py` |
 | `williams` | Larry Williams short-term trading tools: Williams %R, volatility breakout levels, range analysis, swing point identification, pattern scanning (Outside Day/Smash Day/Hidden Smash Day/Specialists' Trap/Oops!), and composite trade setup filter with TDW/TDM/bond confirmation | `technical/williams.py` |
 
 #### Data Sources

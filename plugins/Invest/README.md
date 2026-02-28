@@ -2,7 +2,7 @@
 
 A plugin designed to 100% replicate the methodologies and personas of renowned investment experts, analyzing the market from their unique perspectives.
 
-As of February 25, 2026, it currently supports 5 experts: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), and **Williams** (Volatility Breakout).
+As of February 28, 2026, it currently supports 5 experts: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), and **Williams** (Volatility Breakout).
 
 ---
 

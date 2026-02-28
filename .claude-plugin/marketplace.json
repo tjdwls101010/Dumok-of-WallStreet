@@ -7,13 +7,13 @@
   },
   "metadata": {
     "description": "성진이의 클로드 세팅",
-    "version": "2.6.0"
+    "version": "2.9.0"
   },
   "plugins": [
     {
       "name": "invest",
       "source": "./plugins/Invest",
-      "version": "2.6.0",
+      "version": "2.9.0",
       "description": "Financial market data analysis with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), and Evolve meta-engineering tool",
       "category": "finance",
       "skills": [

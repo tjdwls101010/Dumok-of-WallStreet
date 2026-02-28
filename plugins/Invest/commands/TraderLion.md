@@ -228,7 +228,8 @@ When the TraderLion pipeline watchlist returns results with `analysis_mode: "pro
 - TraderLion Pipeline (composite score, hard gates, edge count, signal,
   position sizing, winning characteristics, volume edge, closing range,
   constructive ratio, VCP, base count, RS ranking, stage analysis,
-  trend template — exclusive automated data source for all query types)
+  trend template, stock profile, entry readiness, sell signal audit,
+  special pattern flags — exclusive automated data source for all query types)
 
 **Agent-level inference** (LLM reasoning required):
 - Market cycle stage classification (synthesizing QQQ MA status + breadth + gauge stocks)

@@ -80,6 +80,27 @@ Returns:
 				"items": [{"name": str, "present": bool}]
 			},
 			"tigers_summary": dict,
+			"stock_profile": {
+				"adr_pct": float,
+				"character": str,
+				"character_grade": str,
+				"liquidity_tier": str
+			},
+			"entry_readiness": {
+				"active_patterns": list,
+				"pattern_count": int,
+				"best_entry": dict or None,
+				"setup_readiness": str
+			},
+			"sell_signal_audit": {
+				"active_signals": list,
+				"signal_count": int,
+				"severity": str
+			},
+			"special_pattern_flags": {
+				"patterns_detected": list,
+				"bullish_confirmation_count": int
+			},
 			"recommendation_text": str
 		}
 
@@ -117,6 +138,7 @@ Returns:
 			"post_breakout": dict,
 			"closing_range": dict,
 			"volume_edge_status": dict,
+			"sell_signal_audit": dict,
 			"earnings_proximity": dict,
 			"position_grade_data": dict
 		}
@@ -143,6 +165,7 @@ Notes:
 	- SNIPE Score weights: Edge Detection 30, Stage/Trend 20, Growth 15, Setup Quality 15, Volume Confirmation 10, Winning Characteristics 10
 	- Signals: AGGRESSIVE 80+, STANDARD 65-79, REDUCED 50-64, MONITOR 35-49, AVOID <35
 	- Hard gates block AGGRESSIVE/STANDARD: Stage 3/4, TT<5/8, no volume edges + RS<50, distribution cluster + constructive ratio <0.35
+	- Soft penalties: CHOPPY_CHARACTER (-2), SELL_SIGNAL_ACTIVE (-3), NO_INCREASING_AVG_VOL (-3), WEAK_CONSTRUCTIVE_RATIO (-3), EXTREME_200MA_EXTENSION (-3)
 	- Edge-based sizing: 10% base + 2.5% per edge, max 4 edges = 20%
 	- EARNINGS_PROXIMITY signal code: appended when next earnings within 5 trading days
 	- Pipeline continues even if individual components fail (graceful degradation)
@@ -162,6 +185,10 @@ See Also:
 	- base_count.py: Base counting within Stage 2
 	- volume_analysis.py: Accumulation/distribution rating
 	- position_sizing.py: Risk-based position sizing
+	- stock_character.py: ADR%, clean/choppy classification, character grade
+	- sell_signals.py: MA breach, key reversal, vertical acceleration detection
+	- entry_patterns.py: MA pullback, consolidation pivot, inside day detection
+	- special_patterns.py: Positive expectation breaker, no follow-through down
 """
 
 import argparse
@@ -590,7 +617,7 @@ def _calc_snipe_score(volume_edge, tt, stage, rs, earnings, vcp, base, volume, c
 # Hard Gates
 # ---------------------------------------------------------------------------
 
-def _evaluate_hard_gates(tt, stage, volume_edge, rs, volume, closing_range):
+def _evaluate_hard_gates(tt, stage, volume_edge, rs, volume, closing_range, stock_character=None, sell_signals=None):
 	"""Evaluate 4 TraderLion hard gates + soft penalties.
 
 	Hard gates (any triggered = blocked):
@@ -598,7 +625,18 @@ def _evaluate_hard_gates(tt, stage, volume_edge, rs, volume, closing_range):
 	- HG-2: TT < 5/8 → blocked
 	- HG-3: 0 volume edges AND RS < 50 → blocked ("기관 발자국 없음")
 	- HG-4: Distribution cluster + constructive bar ratio < 0.35 → blocked
+
+	Soft penalties:
+	- NO_INCREASING_AVG_VOL: -3
+	- WEAK_CONSTRUCTIVE_RATIO: -3
+	- EXTREME_200MA_EXTENSION: -3
+	- CHOPPY_CHARACTER: -2 (stock character is choppy — unsuitable for momentum)
+	- SELL_SIGNAL_ACTIVE: -3 (1+ active sell signals detected)
 	"""
+	if stock_character is None:
+		stock_character = {}
+	if sell_signals is None:
+		sell_signals = {}
 	blockers = []
 	soft_penalties = []
 
@@ -658,6 +696,15 @@ def _evaluate_hard_gates(tt, stage, volume_edge, rs, volume, closing_range):
 				soft_penalties.append(
 					{"code": "EXTREME_200MA_EXTENSION", "penalty": -3, "detail": f"{extension_pct:.1f}% above 200MA"}
 				)
+
+	# SP-4: Choppy character (-2)
+	if not stock_character.get("error") and stock_character.get("character") == "choppy":
+		soft_penalties.append({"code": "CHOPPY_CHARACTER", "penalty": -2})
+
+	# SP-5: Active sell signals (-3)
+	if not sell_signals.get("error") and (sell_signals.get("signal_count", 0) or 0) >= 1:
+		soft_penalties.append({"code": "SELL_SIGNAL_ACTIVE", "penalty": -3,
+			"detail": f"{sell_signals.get('signal_count')} active: {', '.join(sell_signals.get('active_sell_signals', []))}"})
 
 	total_soft_penalty = sum(p["penalty"] for p in soft_penalties)
 
@@ -757,7 +804,8 @@ def _calc_edge_based_sizing(edge_count, signal, account_size, entry_price, stop_
 # Signal Reason Codes
 # ---------------------------------------------------------------------------
 
-def _build_signal_reason_codes(signal, tt, stage, rs, earnings, vcp, volume, volume_edge, closing_range, base, edge_info, hard_gate_result):
+def _build_signal_reason_codes(signal, tt, stage, rs, earnings, vcp, volume, volume_edge, closing_range, base, edge_info, hard_gate_result,
+	stock_character=None, sell_signals=None, entry_patterns=None, special_patterns=None):
 	"""Build human-readable reason codes explaining the signal determination."""
 	codes = []
 
@@ -827,6 +875,32 @@ def _build_signal_reason_codes(signal, tt, stage, rs, earnings, vcp, volume, vol
 	if hard_gate_result["blocked"]:
 		for b in hard_gate_result["blockers"]:
 			codes.append(f"HARD_GATE:{b}")
+
+	# Stock character
+	if stock_character and not stock_character.get("error"):
+		codes.append(f"CHAR_{stock_character.get('character_grade', 'N/A')}")
+		adr = stock_character.get("adr_pct", 0)
+		if adr:
+			codes.append(f"ADR_PCT_{adr}")
+
+	# Entry readiness
+	if entry_patterns and not entry_patterns.get("error"):
+		readiness = entry_patterns.get("setup_readiness", "none")
+		codes.append(f"ENTRY_{readiness.upper()}")
+		for p in entry_patterns.get("active_patterns", []):
+			codes.append(f"ENTRY_READY_{p.get('pattern', 'UNKNOWN')}")
+
+	# Sell signals
+	if sell_signals and not sell_signals.get("error"):
+		cnt = sell_signals.get("signal_count", 0) or 0
+		codes.append(f"SELL_SIGNAL_COUNT_{cnt}")
+		for sig_name in sell_signals.get("active_sell_signals", []):
+			codes.append(f"SELL:{sig_name}")
+
+	# Special patterns
+	if special_patterns and not special_patterns.get("error"):
+		for p in special_patterns.get("patterns_detected", []):
+			codes.append(f"SPECIAL_{p.get('pattern', 'UNKNOWN')}")
 
 	return codes
 
@@ -1006,6 +1080,77 @@ def _generate_recommendation(symbol, signal, snipe_score, edge_info, tt, stage, 
 
 
 # ---------------------------------------------------------------------------
+# Evidence Builders (stock_profile, entry_readiness, sell_signal_audit, special_pattern_flags)
+# ---------------------------------------------------------------------------
+
+def _build_stock_profile(stock_character):
+	"""Build stock profile from stock_character.py output."""
+	if stock_character.get("error"):
+		return {"error": "stock_character unavailable"}
+	return {
+		"adr_pct": stock_character.get("adr_pct", 0),
+		"adr_class": stock_character.get("adr_class", "unknown"),
+		"character": stock_character.get("character", "unknown"),
+		"character_grade": stock_character.get("character_grade", "D"),
+		"liquidity_tier": stock_character.get("liquidity_tier", "unknown"),
+		"dollar_volume_avg": stock_character.get("dollar_volume_avg", 0),
+		"ma_respect": stock_character.get("ma_respect", {}),
+		"gap_frequency_20d": stock_character.get("gap_frequency_20d", 0),
+	}
+
+
+def _build_entry_readiness(entry_patterns):
+	"""Build entry readiness assessment from entry_patterns.py output."""
+	if entry_patterns.get("error"):
+		return {"error": "entry_patterns unavailable"}
+
+	patterns = entry_patterns.get("active_patterns", [])
+	readiness = entry_patterns.get("setup_readiness", "none")
+
+	# Find best entry (highest quality, then tightest stop)
+	best_entry = None
+	if patterns:
+		quality_order = {"high": 3, "moderate": 2, "low": 1}
+		sorted_patterns = sorted(
+			patterns,
+			key=lambda p: (quality_order.get(p.get("quality", "low"), 0), -(p.get("stop_pct", 100))),
+			reverse=True,
+		)
+		best_entry = sorted_patterns[0]
+
+	return {
+		"active_patterns": patterns,
+		"pattern_count": len(patterns),
+		"best_entry": best_entry,
+		"setup_readiness": readiness,
+	}
+
+
+def _build_sell_signal_audit(sell_signals):
+	"""Build sell signal audit from sell_signals.py output."""
+	if sell_signals.get("error"):
+		return {"error": "sell_signals unavailable"}
+	return {
+		"active_signals": sell_signals.get("active_sell_signals", []),
+		"signal_count": sell_signals.get("signal_count", 0),
+		"severity": sell_signals.get("severity", "unknown"),
+		"signals": sell_signals.get("signals", {}),
+	}
+
+
+def _build_special_pattern_flags(special_patterns):
+	"""Build special pattern flags from special_patterns.py output."""
+	if special_patterns.get("error"):
+		return {"error": "special_patterns unavailable"}
+
+	detected = special_patterns.get("patterns_detected", [])
+	return {
+		"patterns_detected": detected,
+		"bullish_confirmation_count": len(detected),
+	}
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -1026,9 +1171,13 @@ def cmd_analyze(args):
 		"volume_edge": ("technical/volume_edge.py", ["detect", symbol]),
 		"closing_range": ("technical/closing_range.py", ["analyze", symbol]),
 		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]),
+		"stock_character": ("technical/stock_character.py", ["assess", symbol]),
+		"sell_signals": ("technical/sell_signals.py", ["check", symbol]),
+		"entry_patterns": ("technical/entry_patterns.py", ["scan", symbol]),
+		"special_patterns": ("technical/special_patterns.py", ["scan", symbol]),
 	}
 
-	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=14) as executor:
 		futures = {name: executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
 		results = {name: future.result() for name, future in futures.items()}
 
@@ -1041,6 +1190,10 @@ def cmd_analyze(args):
 	volume = results["volume"]
 	vol_edge = results["volume_edge"]
 	cr = results["closing_range"]
+	stock_char = results["stock_character"]
+	sell_sigs = results["sell_signals"]
+	entry_pats = results["entry_patterns"]
+	special_pats = results["special_patterns"]
 
 	# Count edges
 	edge_info = _count_edges(vol_edge, rs, earnings)
@@ -1048,8 +1201,8 @@ def cmd_analyze(args):
 	# Calculate SNIPE composite score
 	snipe_score = _calc_snipe_score(vol_edge, tt, stage, rs, earnings, vcp_result, base, volume, cr, edge_info)
 
-	# Evaluate hard gates
-	hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, cr)
+	# Evaluate hard gates (with new soft penalties from stock_character and sell_signals)
+	hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, cr, stock_char, sell_sigs)
 
 	# Apply soft penalties to score
 	if hard_gate_result["total_soft_penalty"] != 0:
@@ -1058,9 +1211,10 @@ def cmd_analyze(args):
 	# Determine signal
 	signal = _determine_signal(snipe_score, hard_gate_result["blocked"])
 
-	# Build signal reason codes
+	# Build signal reason codes (with new evidence sources)
 	signal_reason_codes = _build_signal_reason_codes(
-		signal, tt, stage, rs, earnings, vcp_result, volume, vol_edge, cr, base, edge_info, hard_gate_result
+		signal, tt, stage, rs, earnings, vcp_result, volume, vol_edge, cr, base, edge_info, hard_gate_result,
+		stock_character=stock_char, sell_signals=sell_sigs, entry_patterns=entry_pats, special_patterns=special_pats
 	)
 
 	# Earnings proximity check
@@ -1084,6 +1238,12 @@ def cmd_analyze(args):
 
 	# TIGERS summary
 	tigers = _build_tigers_summary(tt, stage, rs, earnings, vcp_result, vol_edge)
+
+	# Build new evidence fields
+	stock_profile = _build_stock_profile(stock_char)
+	entry_readiness = _build_entry_readiness(entry_pats)
+	sell_signal_audit = _build_sell_signal_audit(sell_sigs)
+	special_pattern_flags = _build_special_pattern_flags(special_pats)
 
 	output_json({
 		"symbol": symbol,
@@ -1114,6 +1274,10 @@ def cmd_analyze(args):
 			"items": wc_items,
 		},
 		"tigers_summary": tigers,
+		"stock_profile": stock_profile,
+		"entry_readiness": entry_readiness,
+		"sell_signal_audit": sell_signal_audit,
+		"special_pattern_flags": special_pattern_flags,
 		"recommendation_text": recommendation,
 	})
 
@@ -1418,7 +1582,7 @@ def cmd_compare(args):
 	"""
 	symbols = [s.upper() for s in args.symbols]
 
-	# Define the 10-script analysis for each symbol
+	# Define the 14-script analysis for each symbol
 	def _analyze_single(symbol):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
@@ -1431,9 +1595,13 @@ def cmd_compare(args):
 			"volume_edge": ("technical/volume_edge.py", ["detect", symbol]),
 			"closing_range": ("technical/closing_range.py", ["analyze", symbol]),
 			"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]),
+			"stock_character": ("technical/stock_character.py", ["assess", symbol]),
+			"sell_signals": ("technical/sell_signals.py", ["check", symbol]),
+			"entry_patterns": ("technical/entry_patterns.py", ["scan", symbol]),
+			"special_patterns": ("technical/special_patterns.py", ["scan", symbol]),
 		}
 
-		with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+		with concurrent.futures.ThreadPoolExecutor(max_workers=14) as executor:
 			futures = {name: executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
 			results = {name: future.result() for name, future in futures.items()}
 
@@ -1447,10 +1615,14 @@ def cmd_compare(args):
 		vol_edge = results["volume_edge"]
 		cr = results["closing_range"]
 		earnings_dates = results["earnings_dates"]
+		stock_char = results["stock_character"]
+		sell_sigs = results["sell_signals"]
+		entry_pats = results["entry_patterns"]
+		special_pats = results["special_patterns"]
 
 		edge_info = _count_edges(vol_edge, rs, earnings)
 		snipe_score = _calc_snipe_score(vol_edge, tt, stage, rs, earnings, vcp_result, base, volume, cr, edge_info)
-		hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, cr)
+		hard_gate_result = _evaluate_hard_gates(tt, stage, vol_edge, rs, volume, cr, stock_char, sell_sigs)
 
 		if hard_gate_result["total_soft_penalty"] != 0:
 			snipe_score = max(0, round(snipe_score + hard_gate_result["total_soft_penalty"], 1))
@@ -1458,7 +1630,8 @@ def cmd_compare(args):
 		signal = _determine_signal(snipe_score, hard_gate_result["blocked"])
 
 		signal_reason_codes = _build_signal_reason_codes(
-			signal, tt, stage, rs, earnings, vcp_result, volume, vol_edge, cr, base, edge_info, hard_gate_result
+			signal, tt, stage, rs, earnings, vcp_result, volume, vol_edge, cr, base, edge_info, hard_gate_result,
+			stock_character=stock_char, sell_signals=sell_sigs, entry_patterns=entry_pats, special_patterns=special_pats
 		)
 
 		is_near, days_until, next_date = _check_earnings_proximity(earnings_dates)
@@ -1506,6 +1679,10 @@ def cmd_compare(args):
 				"items": wc_items,
 			},
 			"tigers_summary": tigers,
+			"stock_profile": _build_stock_profile(stock_char),
+			"entry_readiness": _build_entry_readiness(entry_pats),
+			"sell_signal_audit": _build_sell_signal_audit(sell_sigs),
+			"special_pattern_flags": _build_special_pattern_flags(special_pats),
 			"recommendation_text": recommendation_text,
 		}
 
@@ -1608,14 +1785,20 @@ def cmd_recheck(args):
 	if args.entry_date:
 		pb_args.extend(["--entry-date", args.entry_date])
 
+	# Build sell_signals args
+	ss_args = ["check", symbol]
+	if args.entry_price:
+		ss_args = ["audit", symbol, "--entry-price", str(args.entry_price)]
+
 	# Run all scripts in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
 		tt_future = executor.submit(_run_script, "screening/trend_template.py", ["check", symbol])
 		stage_future = executor.submit(_run_script, "technical/stage_analysis.py", ["classify", symbol])
 		pb_future = executor.submit(_run_script, "technical/post_breakout.py", pb_args)
 		cr_future = executor.submit(_run_script, "technical/closing_range.py", ["analyze", symbol])
 		ve_future = executor.submit(_run_script, "technical/volume_edge.py", ["detect", symbol])
 		ed_future = executor.submit(_run_script, "data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"])
+		ss_future = executor.submit(_run_script, "technical/sell_signals.py", ss_args)
 
 		tt = tt_future.result()
 		stage = stage_future.result()
@@ -1623,9 +1806,13 @@ def cmd_recheck(args):
 		closing_range = cr_future.result()
 		volume_edge = ve_future.result()
 		earnings_dates = ed_future.result()
+		sell_signals = ss_future.result()
 
 	# Check earnings proximity
 	is_near, days_until, next_date = _check_earnings_proximity(earnings_dates)
+
+	# Build sell_signal_audit
+	sell_signal_audit = _build_sell_signal_audit(sell_signals)
 
 	# Build position_grade_data
 	position_grade_data = {
@@ -1638,6 +1825,8 @@ def cmd_recheck(args):
 			volume_edge.get("hv1", {}).get("detected"),
 		]) if not volume_edge.get("error") else False,
 		"earnings_near": is_near,
+		"sell_signal_count": sell_signals.get("signal_count", 0) if not sell_signals.get("error") else 0,
+		"sell_severity": sell_signals.get("severity", "unknown") if not sell_signals.get("error") else "unknown",
 	}
 
 	output_json({
@@ -1647,6 +1836,7 @@ def cmd_recheck(args):
 		"post_breakout": post_breakout,
 		"closing_range": closing_range,
 		"volume_edge_status": volume_edge,
+		"sell_signal_audit": sell_signal_audit,
 		"earnings_proximity": {"is_near": is_near, "days_until": days_until, "next_date": next_date},
 		"position_grade_data": position_grade_data,
 	})

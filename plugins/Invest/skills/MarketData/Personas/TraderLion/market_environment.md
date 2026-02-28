@@ -2,130 +2,68 @@
 
 ## Overview
 
-Market environment analysis methodology combining market cycle identification, institutional gauge assessment, breadth analysis, and technical foundation principles. The framework determines when to be aggressive and when to protect capital by reading the market's cyclical behavior and the actions of institutional participants.
+Market environment analysis methodology combining market cycle identification, institutional gauge assessment, and breadth analysis. Determines when to be aggressive and when to protect capital by reading cyclical behavior and institutional participation.
 
-> "At least 50% of the whole game is the general market." — William O'Neil
-
-> Three out of four stocks follow the trend of the general market. Trade when the deck is hot and probabilities are with you.
+> "At least 50% of the whole game is the general market." — William O'Neil. Three out of four stocks follow the trend of the general market.
 
 ---
 
 ## Market Cycle Framework
 
-The market alternates between uptrends and downtrends driven by two layers: the technical/liquidity layer (longer-term cycles, bull/bear) and the human psychology layer (shorter-term fluctuations driven by fear and greed).
+The market alternates between uptrends and downtrends driven by two layers: technical/liquidity (longer-term bull/bear) and human psychology (shorter-term fear/greed).
 
 ### Stage 1: Downcycle
-
-**Environment**: Market in sustained decline or choppy sideways action. Leadership failing, trends short-lived.
-
-**Actions**:
-- Limit exposure or take select shorts
-- Stage 1-2 traders: primarily in cash, sitting on hands
-- Watch for stocks showing Relative Strength and holding up well
-- Build watchlists of potential leaders for the next cycle
-
-**Key Principle**: Trying to trade long in a downcycle is like sailing a boat upwind. Preserve capital for the opportunity ahead.
+- Market in sustained decline or choppy sideways. Leadership failing, trends short-lived.
+- Limit exposure or take select shorts. Stage 1-2 traders: primarily cash.
+- Watch for RS stocks holding up well; build watchlists for the next cycle.
+- "Trying to trade long in a downcycle is like sailing upwind."
 
 ### Stage 2: Bottoming / Cycle Transition
-
-**Early Signs of Downtrend Exhaustion**:
-
-1. **Index support holding**: Indexes begin holding support on daily charts; rounded bottom look or capitulatory sharp drop that recovers quickly after extended downside
-2. **Decoupling / RS divergence**: Key stocks and market gauges begin ignoring the general market's weakness. When indexes make new lows or gap down hard, watchlist stocks perform significantly better — institutions are stepping in and accumulating
-
-**Actions**:
-- Be on high alert for cycle turn signals
-- Prepare focus list of the strongest RS stocks
-- Do NOT go full exposure immediately — test the waters
+- **Index support holding**: Rounded bottom or capitulatory drop that recovers quickly
+- **Decoupling / RS divergence**: Key stocks begin ignoring general weakness — institutions stepping in
+- Be on high alert. Prepare focus list of strongest RS stocks. Do NOT go full exposure — test the waters.
 
 ### Stage 3: Upcycle
-
-**Cycle Start Signal**: Close above the 21 EMA (using QQQ as reference)
-
-**Cycle End Signal**: Two closes below the 21 EMA, with the second close below the prior day's low
-
-**Trading the Upcycle**:
-
-**Days 1-3** (Best Risk/Reward):
-- The first 1-3 days of a new cycle offer the best risk/reward opportunities
-- Add exposure using ETFs or the most promising setup stocks
-- Stage 1-2: Start with half normal position size, build to full after positive traction
-- Stage 3-4: Work more quickly based on intuition and traction
-
-**Days 4-6** (First Stress Test):
-- Natural profit-taking creates a sudden negative day within the early uptrend
-- How the portfolio, watchlists, leaders, and market respond provides critical information
-- If market holds firm and recovers: expect rally to extend
-- Goal: be in a winning position (risk and stops) so that even if all positions stop out, equity curve makes a higher low
-- Stage 1-2: focus on interpretation; Stage 3-4: anticipate
-
-**Later in the Cycle**:
-- Continue fresh trades but stay focused on best stocks and low-risk entry points
-- Become stricter as the trend progresses — risk/reward declines over time
-- Stocks breaking out multiple months into a cycle are laggards, more prone to failure
-- Goal: keep portfolio cost basis low enough that MAs rise above cost basis, allowing swing trades to transition into position trades
-
-**False Starts**: Every sensitive market cycle system will produce false starts. The key differentiator is follow-through: leading stocks confirm with strong action, gap ups, breakouts, and multiple mature bases.
-
-**Cycle Strength and Prior Correction Depth**: The strongest cycles occur after more significant corrections or extended bear markets. After such periods most traders feel tentative, but these uptrends, when they take hold, lead to the strongest performance and longest moves. Calibrate initial aggression based on the depth and duration of the preceding correction — deeper corrections warrant faster exposure building when confirmed.
+- **Start signal**: Close above 21 EMA (QQQ reference)
+- **End signal**: Two closes below 21 EMA, second close below prior day's low
+- **Days 1-3** (Best R/R): Add exposure via ETFs or best setup stocks. Stage 1-2: half size, build after traction.
+- **Days 4-6** (First Stress Test): Natural profit-taking creates a sudden negative day. How leaders respond provides critical info. Goal: portfolio positioned so even if all stop out, equity curve makes higher low.
+- **Later in Cycle**: Continue fresh trades but become stricter. Late-cycle breakouts are laggards, more prone to failure. Keep cost basis low enough for swing-to-position transitions.
+- **False Starts**: Every sensitive system produces them. Differentiator is follow-through: leading stocks confirm with strong action, gap ups, breakouts.
+- **Cycle Strength**: Strongest cycles follow significant corrections or extended bear markets. Calibrate initial aggression based on prior correction depth.
 
 ### Group Base Formation Signal
+When 3+ stocks in the same theme simultaneously form similar bases, this indicates sector-level accumulation. When the first breaks out, remaining stocks become higher-probability candidates. During Stage 2 transitions, this is one of the strongest confirmation signals.
 
-When multiple stocks within the same theme or sector simultaneously form similar base patterns (launchpads, VCPs, or shallow bases), this indicates a sector-level accumulation event. This group base formation signal substantially increases the probability that individual breakouts will succeed, because the institutional accumulation is broad-based rather than isolated to a single stock.
-
-**Detection**: Monitor whether 3 or more stocks in a leading theme are forming bases concurrently. When the first stock breaks out successfully, the remaining stocks in the group become higher-probability setup candidates.
-
-**Application**: During cycle transitions (Stage 2: Bottoming), group base formation in a leading theme is one of the strongest confirmation signals that a new cycle is beginning.
-
-### Progression Principle: Interpretation to Anticipation
-
-The goal across all stages of the market cycle is to progress from interpretation (reacting to confirmed signals) to anticipation (positioning before confirmation based on developing evidence). Stage 1-2 traders should focus on interpreting cycle signals accurately. Stage 3-4 traders should look to anticipate cycle transitions and stress tests, positioning earlier as they notice the environment changing. This progression applies to cycle start identification, stress test handling, position building speed and sizing, and cycle end management.
-
-*Apply this framework independently to the current analysis target.*
+### Progression Principle
+Progress from interpretation (reacting to confirmed signals) to anticipation (positioning before confirmation). Stage 1-2 traders: interpret accurately. Stage 3-4 traders: anticipate cycle transitions and position earlier.
 
 ---
 
 ## Market Gauge System
 
-Market gauges are key stocks that institutions are currently supporting and accumulating. They serve as leading indicators of institutional risk appetite.
+Key stocks that institutions currently support, serving as leading indicators of risk appetite.
 
-### Gauge Stock Selection
-
-**Stalwarts** (permanent gauges): Select 2-3 large-cap stocks with heavy index weighting and high institutional ownership. These serve as permanent gauges because their price action directly reflects institutional risk-on/risk-off behavior regardless of market cycle.
-
-**Cycle Leaders** (rotational gauges): Select 1-2 stocks from the current cycle's dominant leadership theme. Rotate as market leadership shifts between themes. The strongest RS stock in the leading group is the primary candidate.
-
-**Theme Type Context**: Cycles driven by Transformative themes (AI, semiconductors, internet — long-lasting with multiple innovation waves) tend to produce stronger, longer-lasting leadership than cycles driven by Cyclical themes (energy, banks, airlines — shorter-lived, macro-dependent). The dominant theme type informs expected cycle duration and leadership persistence.
-
-### Gauge Interpretation
+- **Stalwarts** (permanent): 2-3 large-cap stocks with heavy index weighting and high institutional ownership. Reflect risk-on/risk-off regardless of cycle.
+- **Cycle Leaders** (rotational): 1-2 stocks from current dominant theme. Rotate as leadership shifts. Strongest RS stock in leading group is primary candidate.
+- **Theme Type Context**: Transformative themes (AI, semis) produce stronger, longer-lasting leadership than Cyclical themes (energy, banks).
 
 | Gauge Signal | Market Reading |
 |---|---|
-| Gauge stocks above key MAs, holding round-number psychological levels | Environment positive — other trades will work well |
-| Gauge stocks breaking below key levels | Environment deteriorating — increase caution |
-| Gauge stocks showing RS during market weakness | Potential cycle turn — prepare for uptrend |
+| Above key MAs, holding psychological levels | Positive — other trades will work well |
+| Breaking below key levels | Deteriorating — increase caution |
+| Showing RS during market weakness | Potential cycle turn — prepare for uptrend |
 
-### Gauge Rules
-
-- Add a point to cycle score if gauge stocks are above a relevant moving average
-- The selection is somewhat subjective — the key is that these stocks represent institutional risk appetite
-- Update gauge stocks as market leadership rotates between themes
+- Add a point to cycle score if gauge stocks are above a relevant MA
+- Update gauge stocks as market leadership rotates
 
 ---
 
 ## Breadth and Cycle Confirmation
 
-### Breadth Indicators for Cycle Stage Confirmation
-
-Breadth metrics help confirm which stage of the cycle the market is in:
-
-- **Expanding breadth** during upcycle: confirms broad institutional participation
-- **Narrowing breadth** late in cycle: warning of distribution beneath the surface
-- **Breadth divergence**: indexes making new highs while fewer stocks participate — late-cycle signal
-
 ### Point System: Composite Cycle Score
 
-Combine multiple criteria into a composite score for cycle assessment:
+→ pipeline의 `cycle_score` 참조
 
 | Component | Signal | Points |
 |---|---|---|
@@ -139,19 +77,17 @@ Combine multiple criteria into a composite score for cycle assessment:
 | **Feedback** | Recent trades working (positive win rate) | +1 |
 
 **Score Interpretation**:
-- 6-8 points: Strong upcycle — aggressive exposure appropriate
+- 6-8 points: Strong upcycle — aggressive exposure
 - 4-5 points: Normal conditions — standard sizing
 - 2-3 points: Choppy/transitional — reduced sizing, tighter stops
 - 0-1 points: Downcycle — minimal exposure, cash preservation
 
 ### Trend Definitions by Timeframe
 
-Using QQQ as reference index:
+Using QQQ as reference:
 - **Short-term uptrend**: Above a rising 10 SMA
 - **Intermediate-term uptrend**: Above a rising 21 EMA
 - **Long-term uptrend**: Above a rising 200 SMA
-
-These definitions create rule variations for different market environments:
 
 | Market State | Action |
 |---|---|
@@ -161,231 +97,41 @@ These definitions create rule variations for different market environments:
 | Long-term downtrend, short-term uptrends, developing leadership | Test waters cautiously |
 | Choppy short/medium trends, mixed leadership | Reduce position count and size |
 
+### Breadth Interpretation
+
+Breadth metrics confirm cycle stage. Pipeline quantifies these — use output for scoring:
+- **Expanding breadth** during upcycle confirms broad institutional participation
+- **Narrowing breadth** late in cycle warns of distribution beneath the surface
+- **Breadth divergence** (indexes at highs, fewer stocks participating) is a late-cycle topping signal
+- Track screen result counts over time as an independent breadth confirmation signal
+
 ### Stage 4: Topping / Cycle End
 
-**Topping Signals**:
-- Cycle end triggered: two closes below 21 EMA with second close below prior day's low
-- Leading stocks showing distribution (key reversals, failed breakouts)
-- Breadth narrowing while indexes may still hold
-- Gauge stocks breaking key levels
-
-**Actions**:
-- Reduce exposure systematically (Grade D positions first)
-- Tighten stops across the portfolio
-- Shift mindset to capital preservation
-- Begin monitoring for next bottoming phase
-
----
-
-## Technical Analysis Foundations
-
-### Closing Range
-
-The Closing Range quantifies buyer vs. seller strength within a single price bar:
-
-```
-Closing Range = (Close - Low) / (High - Low) x 100
-```
-
-**Interpretation**:
-- CR > 50%: Buyers won the bar; the higher toward 100%, the stronger the buying pressure
-- CR = 50%: Indecision, balance between buyers and sellers
-- CR < 50%: Sellers won the bar; the lower toward 0%, the stronger the selling pressure
-
-*Example*: High = 100, Low = 90, Close = 98 -> CR = (98-90)/(100-90) x 100 = 80%
-
-### Constructive vs. Non-Constructive Bars
-
-| Type | Day Direction | Closing Range | Volume | Signal |
-|---|---|---|---|---|
-| **Constructive** | Up | > 50% | Below avg / Average / Above avg | Healthy demand |
-| **Constructive** | Down | Any | Below average | Lack of selling pressure |
-| **Non-Constructive** | Up | < 50% | Average / Above average | Weak buying, potential distribution |
-| **Non-Constructive** | Down | < 50% | Above average | Strong selling pressure |
-
-**Critical Context Rule**: A single bar's price action must always be interpreted within the larger pattern. Higher timeframes supersede lower ones. A poor 5-minute close on Friday is irrelevant if the weekly bar has a 95% CR and is breaking out of a base to new highs.
-
-### Market-Level Application
-
-Apply CR and constructive/non-constructive analysis to index bars (QQQ, SPY) to assess overall market health:
-- Series of constructive bars during a base: accumulation signal
-- Non-constructive up bars at resistance: distribution signal
-- Index CR patterns help confirm or challenge cycle stage assessment
-
-*Apply this framework independently to the current analysis target.*
-
----
-
-## Volatility Contraction Pattern
-
-### The "Coiling Spring" Principle
-
-Stocks alternate between consolidation periods and expansions (trends). Volatility contraction — tight price ranges on declining volume — precedes explosive momentum moves. The tighter the contraction relative to recent price action, the more powerful the eventual expansion.
-
-### Identifying Volatility Contraction
-
-**Single-Bar Contraction**:
-- Inside day: Range smaller than prior day's range (e.g., normal 5% ADR stock forms a 2% range bar)
-- Tight open-close: Open and close prices very similar, indicating equilibrium
-- Below-average volume: Supply drying up
-
-**Multi-Bar Contraction**:
-- Series of narrowing ranges building a defined consolidation
-- Volume gradually declining as equilibrium is reached
-- "Stair-step" pattern in trends: expand up, go tight, expand up, go tight — orderly progression above MAs
-- During bases: volume decline signals lack of sellers and subtle institutional accumulation
-
-### Trending Behavior
-
-During a healthy trend, stocks exhibit a repeatable cycle:
-1. **Expansion**: Sharp price advance on elevated volume
-2. **Contraction**: Tight area forms with declining volume near key MA
-3. **Repeat**: Next expansion resumes the trend
-
-This pattern — expand, contract, expand — is characteristic of institutional accumulation. When this rhythm breaks (wide swings, failed expansions), the trend character may be changing.
-
----
-
-## Multi-Timeframe Alignment
-
-### Principle
-
-The market is fractal — trends and patterns occur on all timeframes. Levels and breakouts become more powerful when aligned across multiple timeframes because they involve participants from each timeframe simultaneously.
-
-### Application
-
-**Daily + Weekly/Monthly Confluence**:
-- A daily breakout through yesterday's high that coincides with a key weekly or monthly resistance level involves participants from both timeframes
-- This adds fuel to the breakout and increases the likelihood of a sustained trend
-
-**Higher Timeframe Support**:
-- Prior swing lows from monthly charts create areas where daily downtrends may find support
-- These areas can trigger trend reversals on lower timeframes (lower highs/lows transitioning to higher highs/lows)
-
-**Key Level Confluence**:
-- When multiple key levels line up together (MA + prior pivot + higher timeframe level), the probability of an actionable pattern increases
-- IPO highs, round numbers, and 200 SMA areas often serve as multi-timeframe confluence zones
-
-### Practical Checks
-
-For any potential trade entry, verify:
-1. Is the daily signal supported by the weekly pattern?
-2. Does the entry level align with any monthly chart significance?
-3. Are moving averages aligned bullishly across timeframes (21 EMA > 50 SMA > 200 SMA)?
+- **Trigger**: Two closes below 21 EMA with second close below prior day's low
+- Leading stocks showing distribution (key reversals, failed breakouts) → pipeline의 `sell_signal_audit` 참조
+- Breadth narrowing while indexes may still hold; gauge stocks breaking key levels
+- Reduce exposure systematically (Grade D positions first), tighten stops, shift to capital preservation
 
 ---
 
 ## Breakout Pattern Recognition
 
-### Failed vs. Successful Breakout Distinguishing Patterns
-
-**Characteristics of Successful Breakouts**:
-- Volume at breakout is above average (25%+ above the volume MA)
-- Immediate follow-through: stock closes strong on breakout day (high CR)
-- Stock trends above VWAP on breakout day
+### Successful Breakout Characteristics
+- Volume 25%+ above average at breakout
+- Immediate follow-through: strong close (high CR), trends above VWAP on breakout day
 - Subsequent bars remain constructive (up on volume, tight on low volume)
-- MAs are aligned and rising (21 EMA > 50 SMA > 200 SMA)
-- Stock is part of a leading theme with institutional sponsorship
+- MAs aligned and rising (21 EMA > 50 SMA > 200 SMA)
+- Part of a leading theme with institutional sponsorship
+- Early cycle timing: higher probability, stronger follow-through
 
-**Characteristics of Failed Breakouts**:
-- Volume is average or below at breakout — lack of conviction
-- Breakout bar closes in the lower half of the range (low CR, distribution signal)
-- Stock quickly reverses below the breakout pivot within 1-3 days
-- Non-constructive bars follow: up days on low volume, down days on high volume
-- Stock character is choppy (gaps up and down, no respect for MAs)
-- Occurring late in a market cycle with narrowing breadth
+### Failed Breakout Characteristics
+- Volume average or below at breakout — lack of conviction
+- Breakout bar closes in lower half of range (low CR, distribution signal)
+- Quick reversal below pivot within 1-3 days
+- Non-constructive bars follow: up on low volume, down on high volume
+- Choppy stock character (gaps up and down, no MA respect) → pipeline의 `stock_profile.character_grade` 참조
+- Late cycle timing with narrowing breadth
 
-**Key Differentiators at Market Level**:
-- Early cycle breakouts: higher probability, stronger follow-through (institutions still accumulating aggressively)
-- Late cycle breakouts: laggards, more prone to failure
-- Breakouts during positive gauge stock readings: higher probability
-- Breakouts during gauge deterioration: lower probability
+→ pipeline의 `constructive_ratio`, `volume_edge`, `stock_profile` 참조
 
-### Winning Characteristics Checklist
-
-Stocks that double and triple consistently share these signatures:
-1. **Increase in average volume**: Step-up in liquidity as institutions accumulate
-2. **Huge volume spikes**: At breakouts and earnings — sign of large-scale institutional buying
-3. **Tight areas on low volume**: Equilibrium in supply/demand, subtle accumulation
-4. **Respect for key MAs**: 21 EMA, 50 SMA / 10-week, 200 SMA / 40-week
-5. **Powerful prior moves**: Winners continue to win after basing periods
-6. **Gap ups**: Multiple gaps during the move, especially early gaps near catalysts
-7. **Relative Strength**: During market corrections, potential leaders go sideways or advance
-
-See SKILL.md -> Macro, Data Sources
-
----
-
-## Market Breadth Quantification
-
-Breadth qualifiers in the cycle score ("expanding" / "narrowing" / "divergent") require quantitative measurement. Use the following framework to replace subjective breadth readings with measurable data.
-
-### New Highs / New Lows Ratio
-
-**Data Source**: Exchange-level 52-week new highs and new lows data
-
-**Formula**: NH/NL Ratio = New 52-Week Highs / (New 52-Week Highs + New 52-Week Lows)
-
-**Interpretation**:
-
-| NH/NL Ratio | Breadth Reading | Cycle Score Impact |
-|------------|----------------|-------------------|
-| >0.80 | Strong expansion | Breadth = +1 (expanding) |
-| 0.60-0.80 | Healthy | Breadth = +1 (expanding) |
-| 0.40-0.60 | Mixed | Breadth = +0 (neutral) |
-| 0.20-0.40 | Narrowing | Breadth = +0 (narrowing) |
-| <0.20 | Severe contraction | Breadth = +0 (contracting, potential bottoming signal if indexes hold) |
-
-### Leadership Breadth Assessment
-
-**Definition**: Count how many current cycle leaders are still above their 21 EMA and making new highs.
-
-**Measurement**:
-1. Identify the top 10 RS stocks from the current cycle's focus list
-2. Check how many are above 21 EMA: count / 10 = leadership breadth ratio
-3. Interpret:
-
-| Leadership Ratio | Reading | Cycle Score Impact |
-|-----------------|---------|-------------------|
-| >=0.7 | Leadership healthy | Leadership = +1 |
-| 0.4-0.69 | Leadership thinning | Leadership = +0 |
-| <0.4 | Leadership broken | Leadership = +0, flag cycle top risk |
-
-### Breadth Divergence Detection
-
-**Definition**: Indexes making new highs while breadth deteriorates — a classic late-cycle topping signal.
-
-**Detection Rule**: If QQQ is within 3% of 52-week high BUT NH/NL Ratio <0.40, flag breadth divergence. This is a late-cycle warning requiring reduced exposure for new positions and tightened stops on existing positions.
-
-### Integration with Cycle Score
-
-The two breadth components in the cycle score (expanding breadth +1, healthy leadership +1) should now be evaluated using the quantitative thresholds above rather than subjective judgment. This ensures consistency across different market assessments.
-
-### Screen Result Count Tracking
-
-Screening is not just for finding stocks — the number of results returned by screens over time serves as an independent market health gauge.
-
-**Method**: Run a general trend screen (e.g., stocks trending above 21 EMA + 50 SMA + 200 SMA) consistently and track the result count over time.
-
-**Interpretation**:
-
-| Result Count vs Baseline | Market Reading |
-|-------------------------|----------------|
-| At or above baseline (~200 for a standard trend screen) | Healthy breadth, normal environment |
-| Declining (e.g., drops from ~200 to ~77) | Negative change developing, breadth contracting |
-| Expanding (above normal) | Broadening market, expanding opportunities |
-
-**Integration**: Use screen result count trends as an independent confirmation signal alongside NH/NL ratio and leadership breadth. A declining screen count that precedes a cycle end signal provides early warning. An expanding screen count following a cycle start signal confirms broadening participation.
-
-### Conditional Setup Performance by Market Environment
-
-Setup success rates vary significantly based on market environment. When analyzing any setup, evaluate its historical performance conditional on the composite cycle score and QQQ's position relative to the 21 EMA.
-
-**Framework**: For each setup type in the system, track:
-- Success rate when QQQ is above the 21 EMA vs below
-- Success rate by composite cycle score tier (6-8 / 4-5 / 2-3 / 0-1)
-- Average gain magnitude by market state
-
-This conditional analysis transforms the composite cycle score from a general exposure guide into a setup-specific probability adjuster. A setup with a 65% success rate in a 6-8 cycle score environment may only succeed 35% of the time when the cycle score is 0-1. Knowing these conditional rates informs both position sizing and trade selection.
-
-See SKILL.md -> Screening
+See SKILL.md → Macro, Data Sources
