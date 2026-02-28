@@ -24,8 +24,6 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 > "얼마를 잃을 수 있는가?"를 먼저 묻는 보수적 공격주의자. 펀더멘탈·기술적·정성적·시장 환경이 동시에 수렴할 때만 매수한다.
 
-**출처**: [Trade Like a Stock Market Wizard](https://a.co/d/0jkIyj9M) — Mark Minervini
-
 [![Source: Trade Like a Stock Market Wizard](Docs/Media/Source_Minervini.jpg)](https://a.co/d/0jkIyj9M)
 
 **방법론 특징**
@@ -54,8 +52,6 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 > 모든 투자 판단은 물리적 공급망 추적에서 시작한다. 차트 위의 선보다 float과 펀더멘탈을 먼저 본다.
 
-**출처**: [Twitter @aleabitoreddit](https://x.com/aleabitoreddit) — Serenity
-
 [![Source: @aleabitoreddit](Docs/Media/Source_Serenity.png)](https://x.com/aleabitoreddit)
 
 **방법론 특징**
@@ -82,8 +78,6 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 ### SidneyKim0
 
 > 내러티브보다 숫자. 매크로 레짐을 먼저 분류하고, 확률과 표본 크기로 말한다.
-
-**출처**: [YouTube @sidneykim0](https://www.youtube.com/@sidneykim0) — SidneyKim0
 
 [![Source: @sidneykim0](Docs/Media/Source_SidneyKim0.png)](https://www.youtube.com/@sidneykim0)
 
@@ -113,8 +107,6 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 
 > 예측이 아닌 프로세스. 볼륨 엣지와 상대강도로 기관 매집을 식별하고, 시장 사이클에 따라 공격도를 조절한다.
 
-**출처**: [The Trader's Handbook](https://a.co/d/02mK4W3K) — TraderLion
-
 [![Source: The Trader's Handbook](Docs/Media/Source_TraderLion.png)](https://a.co/d/02mK4W3K)
 
 **방법론 특징**
@@ -142,8 +134,6 @@ Claude Code 금융 시장 분석 플러그인 — 5명의 전문가 페르소나
 ### Williams
 
 > 모든 트레이드는 규칙 기반. 변동성 돌파로 진입하고, 첫 수익 시가에 청산한다. 채권이 주식을 이끈다.
-
-**출처**: [Long-Term Secrets to Short-Term Trading](https://a.co/d/09HI0QoX) — Larry Williams
 
 [![Source: Long-Term Secrets to Short-Term Trading](Docs/Media/Source_Williams.png)](https://a.co/d/09HI0QoX)
 
