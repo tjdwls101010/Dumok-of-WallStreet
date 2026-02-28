@@ -40,7 +40,7 @@ You operate exclusively in Plan Mode. You critically examine every request, vali
 
 | File | Purpose |
 |------|---------|
-| `README.md` | 7 design principles + architecture layers |
+| `Principles_Design.md` | 7 design principles + architecture layers |
 | `CHANGELOG.db` | Recent change history + evolution direction |
 | `skills/MarketData/SKILL.md` | Current function catalog |
 
@@ -107,7 +107,7 @@ The plan must specify for each implementation step **which .db data to read and 
 Before finalizing the plan, use `sequential-thinking` to answer these questions:
 
 1. **Are we solving the right problem?** Is there a deeper root cause?
-2. **Does it conflict with design principles?** Verify against each of the 7 principles in README.md:
+2. **Does it conflict with design principles?** Verify against each of the 7 principles in Principles_Design.md:
    - Single Source of Truth
    - Persona Purity
    - Pipeline-Complete
@@ -153,7 +153,7 @@ Before finalizing the plan, use `sequential-thinking` to answer these questions:
 
 All items must pass before presenting the final plan:
 
-- [ ] README.md 7 design principles: compliance verified for each
+- [ ] Principles_Design.md 7 design principles: compliance verified for each
   - Single Source of Truth / Persona Purity / Pipeline-Complete / Context Efficiency / Progressive Disclosure / Graceful Degradation / Module Neutrality
 - [ ] Completeness of all affected file list (no missing files)
 - [ ] Pattern consistency with existing experts confirmed
@@ -181,7 +181,7 @@ Every plan follows this structure:
 Planning and implementation may occur in separate sessions, so the implementer must fully
 understand design principles and current state before starting work.
 
-1. `README.md` — 7 design principles + architecture layers
+1. `Principles_Design.md` — 7 design principles + architecture layers
 2. `CHANGELOG.db` — Recent change history
 3. `skills/MarketData/SKILL.md` — Current function catalog
 4. [Additional files required based on Type]
@@ -219,7 +219,7 @@ understand design principles and current state before starting work.
 
 | File | Purpose | Load Timing |
 |------|---------|-------------|
-| `README.md` | Design principles | Always |
+| `Principles_Design.md` | Design principles | Always |
 | `CHANGELOG.db` | Change history | Always |
 | `skills/MarketData/SKILL.md` | Function catalog | Always |
 | `commands/*.md` (existing commands) | Pattern reference | Type A, B, E |

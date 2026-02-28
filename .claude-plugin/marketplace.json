@@ -1,79 +1,31 @@
 {
-  "name": "Claude_Seongjin",
+  "name": "Dumok_of_WallStreet",
   "owner": {
     "name": "Seongjin",
     "url": "https://github.com/tjdwls101010/Claude_Seongjin",
     "email": "chunghun1@naver.com"
   },
   "metadata": {
-    "description": "성진이의 클로드 세팅",
-    "version": "2.9.0"
+    "description": "월스트릿의 독목 - 금융 시장 분석 플러그인",
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "invest",
-      "source": "./plugins/Invest",
-      "version": "2.9.0",
+      "source": "./.claude",
+      "version": "3.0.0",
       "description": "Financial market data analysis with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), and Evolve meta-engineering tool",
       "category": "finance",
       "skills": [
-        "./plugins/Invest/skills/MarketData/SKILL.md"
+        "./.claude/skills/MarketData/SKILL.md"
       ],
       "commands": [
-        "./plugins/Invest/commands/Evolve.md",
-        "./plugins/Invest/commands/Minervini.md",
-        "./plugins/Invest/commands/Serenity.md",
-        "./plugins/Invest/commands/SidneyKim0.md",
-        "./plugins/Invest/commands/TraderLion.md",
-        "./plugins/Invest/commands/Williams.md"
-      ]
-    },
-    {
-      "name": "study",
-      "source": "./plugins/Study",
-      "version": "1.1.3",
-      "description": "Study and knowledge management with PDF processing, image description, presentation generation, NotebookLM integration, and content restructuring",
-      "category": "education",
-      "skills": [
-        "./plugins/Study/skills/Describe_Images/SKILL.md",
-        "./plugins/Study/skills/Nano-Banana/SKILL.md",
-        "./plugins/Study/skills/NoteBookLM/SKILL.md",
-        "./plugins/Study/skills/Prepare_Book/SKILL.md",
-        "./plugins/Study/skills/Restructure/SKILL.md",
-        "./plugins/Study/skills/pdf/SKILL.md"
-      ],
-      "commands": [
-        "./plugins/Study/commands/Book.md",
-        "./plugins/Study/commands/Knowledge.md",
-        "./plugins/Study/commands/Mermaid.md",
-        "./plugins/Study/commands/PPT.md",
-        "./plugins/Study/commands/Restructure.md"
-      ]
-    },
-    {
-      "name": "moai",
-      "source": "./plugins/Moai",
-      "version": "1.0.0",
-      "description": "MoAI builder toolkit for creating Claude Code agents, plugins, and skills with standards compliance",
-      "category": "developer-tools"
-    },
-    {
-      "name": "template",
-      "source": "./plugins/Template",
-      "version": "1.0.0",
-      "description": "Template plugin for scaffolding new Claude Code plugins",
-      "category": "developer-tools"
-    },
-    {
-      "name": "obsidian",
-      "source": "./plugins/Obsidian",
-      "version": "1.1.0",
-      "description": "Obsidian vault authoring with Markdown, Canvas, and Bases file format skills",
-      "category": "productivity",
-      "skills": [
-        "./plugins/Obsidian/skills/Markdown/SKILL.md",
-        "./plugins/Obsidian/skills/Canvas/SKILL.md",
-        "./plugins/Obsidian/skills/Bases/SKILL.md"
+        "./.claude/commands/Evolve.md",
+        "./.claude/commands/Minervini.md",
+        "./.claude/commands/Serenity.md",
+        "./.claude/commands/SidneyKim0.md",
+        "./.claude/commands/TraderLion.md",
+        "./.claude/commands/Williams.md"
       ]
     }
   ]
