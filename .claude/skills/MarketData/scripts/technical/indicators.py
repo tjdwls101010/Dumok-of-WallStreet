@@ -25,6 +25,12 @@ Args:
 		period (int): SMA period for middle band (default: 20)
 		std_dev (float): Standard deviation multiplier (default: 2.0)
 
+	For calculate_atr:
+		high (pd.Series): High prices
+		low (pd.Series): Low prices
+		close (pd.Series): Close prices
+		period (int): ATR calculation period (default: 14)
+
 	For calculate_macd:
 		prices (pd.Series): Price series
 		fast (int): Fast EMA period (default: 12)
@@ -44,6 +50,9 @@ Returns:
 	For calculate_bollinger_bands:
 		tuple: (sma, upper_band, lower_band) as pd.Series
 
+	For calculate_atr:
+		pd.Series: Average True Range values
+
 	For calculate_macd:
 		tuple: (macd_line, signal_line, histogram) as pd.Series
 
@@ -61,6 +70,7 @@ Example:
 	>>> sma_20 = calculate_sma(prices, 20)
 	>>> ema_12 = calculate_ema(prices, 12)
 	>>> sma, upper, lower = calculate_bollinger_bands(prices, 20, 2.0)
+	>>> atr = calculate_atr(data["High"], data["Low"], data["Close"], 14)
 	>>> macd, signal, hist = calculate_macd(prices, 12, 26, 9)
 
 Use Cases:
@@ -76,6 +86,7 @@ Notes:
 	- EMA gives more weight to recent prices compared to SMA
 	- Bollinger Bands assume normal distribution (2σ ≈ 95% confidence interval)
 	- MACD histogram = MACD line - Signal line (positive = bullish momentum)
+	- ATR uses Wilder's True Range: max(High-Low, |High-PrevClose|, |Low-PrevClose|)
 	- Functions are composable: output Series can be input to other functions
 
 See Also:
@@ -163,6 +174,30 @@ def calculate_bollinger_bands(prices: pd.Series, period: int = 20, std_dev: floa
 	upper = sma + (std * std_dev)
 	lower = sma - (std * std_dev)
 	return sma, upper, lower
+
+
+def calculate_atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 14) -> pd.Series:
+	"""Calculate Average True Range.
+
+	True Range = max(High - Low, |High - PrevClose|, |Low - PrevClose|)
+	ATR = Simple Moving Average of True Range over the period.
+
+	Args:
+		high: High prices
+		low: Low prices
+		close: Close prices
+		period: ATR calculation period (default: 14)
+
+	Returns:
+		pd.Series: Average True Range values
+	"""
+	prev_close = close.shift(1)
+	tr = pd.concat([
+		high - low,
+		(high - prev_close).abs(),
+		(low - prev_close).abs(),
+	], axis=1).max(axis=1)
+	return tr.rolling(period).mean()
 
 
 def calculate_macd(prices: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):

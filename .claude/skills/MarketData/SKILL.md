@@ -106,7 +106,13 @@ RSI, MACD, SMA, EMA, Bollinger Bands, Stage Analysis, RS Ranking, VCP, Base Coun
 | `special_patterns` | Special bullish reversal/continuation pattern detection: Positive Expectation Breaker (bearish setup breakout), No Follow-Through Down (failed bearish event), Undercut & Rally (shakeout recovery) for hidden institutional demand | `technical/special_patterns.py` |
 | `stock_character` | Stock character assessment: ADR%, clean/choppy classification, MA respect consistency, personality grade (A-D), liquidity tier | `technical/stock_character.py` |
 | `entry_patterns` | Entry pattern detection: MA pullback, consolidation pivot, inside day, double inside day, tight day, gap reversal, support reclaim with trigger/stop prices | `technical/entry_patterns.py` |
-| `williams` | Larry Williams short-term trading tools: Williams %R, volatility breakout levels, range analysis (with close-position), swing point identification, pattern scanning with accuracy metadata (Outside Day/Smash Day/Hidden Smash Day/Specialists' Trap/Oops!), Greatest Swing Value (GSV), and TDW/TDM calendar bias | `technical/williams.py` |
+| `williams_r` | Williams %R momentum oscillator (0 to -100 scale) | `technical/williams_r.py` |
+| `atr_breakout` | ATR-based volatility breakout entry/exit levels | `technical/atr_breakout.py` |
+| `range_analysis` | Range expansion/contraction phase detection with close-position analysis | `technical/range_analysis.py` |
+| `swing_points` | Mechanical swing point identification (3 hierarchy levels) | `technical/swing_points.py` |
+| `bar_patterns` | Williams chart pattern detection (Outside Day, Smash Day, Hidden Smash Day, Specialists' Trap, Oops!) with accuracy metadata | `technical/bar_patterns.py` |
+| `gsv` | Greatest Swing Value failure swing measurement | `technical/gsv.py` |
+| `calendar_bias` | TDW/TDM calendar bias assessment | `technical/calendar_bias.py` |
 
 #### Data Sources
 

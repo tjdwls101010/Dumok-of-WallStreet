@@ -225,8 +225,13 @@ Notes:
 	- Watchlist mode caps STRONG_BUY to BUY (provisional mode)
 
 See Also:
-	- technical/williams.py: Williams %R, volatility breakout, range analysis,
-	  swing points, pattern scan, GSV, TDW/TDM
+	- technical/williams_r.py: Williams %R oscillator
+	- technical/atr_breakout.py: ATR-based volatility breakout levels
+	- technical/range_analysis.py: Range expansion/contraction detection
+	- technical/swing_points.py: Swing point identification (3 levels)
+	- technical/bar_patterns.py: Williams chart pattern detection (5 patterns)
+	- technical/gsv.py: Greatest Swing Value analysis
+	- technical/calendar_bias.py: TDW/TDM calendar bias
 	- technical/trend.py: SMA/EMA trend indicators
 	- technical/closing_range.py: Close position bar classification
 	- data_sources/price.py: Historical OHLCV data
@@ -968,14 +973,14 @@ def cmd_trade_setup(args):
 
 	# --- Parallel module calls (12 scripts) ---
 	scripts = {
-		"volatility_breakout": ("technical/williams.py", ["volatility-breakout", symbol]),
-		"range_analysis": ("technical/williams.py", ["range-analysis", symbol]),
-		"swing_short": ("technical/williams.py", ["swing-points", symbol, "--level", "short"]),
-		"swing_intermediate": ("technical/williams.py", ["swing-points", symbol, "--level", "intermediate"]),
-		"pattern_scan": ("technical/williams.py", ["pattern-scan", symbol, "--lookback", "10"]),
-		"williams_r": ("technical/williams.py", ["williams-r", symbol, "--period", "14"]),
-		"tdw_tdm": ("technical/williams.py", ["tdw-tdm"]),
-		"gsv": ("technical/williams.py", ["gsv", symbol]),
+		"volatility_breakout": ("technical/atr_breakout.py", ["breakout", symbol]),
+		"range_analysis": ("technical/range_analysis.py", ["analyze", symbol]),
+		"swing_short": ("technical/swing_points.py", ["detect", symbol, "--level", "short"]),
+		"swing_intermediate": ("technical/swing_points.py", ["detect", symbol, "--level", "intermediate"]),
+		"pattern_scan": ("technical/bar_patterns.py", ["scan", symbol, "--lookback", "10"]),
+		"williams_r": ("technical/williams_r.py", ["calculate", symbol, "--period", "14"]),
+		"tdw_tdm": ("technical/calendar_bias.py", ["today"]),
+		"gsv": ("technical/gsv.py", ["analyze", symbol]),
 		"trend_ma": ("technical/trend.py", ["sma", symbol, "--periods", "18,50,200"]),
 		"closing_range": ("technical/closing_range.py", ["analyze", symbol]),
 		"tlt_data": ("data_sources/price.py", ["history", "TLT", "--period", "3mo"]),
@@ -1111,15 +1116,15 @@ def cmd_analyze(args):
 	missing_components = []
 
 	scripts = {
-		"williams_r": ("technical/williams.py", ["williams-r", symbol, "--period", "14"]),
-		"volatility_breakout": ("technical/williams.py", ["volatility-breakout", symbol]),
-		"range_analysis": ("technical/williams.py", ["range-analysis", symbol]),
-		"swing_short": ("technical/williams.py", ["swing-points", symbol, "--level", "short"]),
-		"swing_intermediate": ("technical/williams.py", ["swing-points", symbol, "--level", "intermediate"]),
-		"swing_long": ("technical/williams.py", ["swing-points", symbol, "--level", "long"]),
-		"pattern_scan": ("technical/williams.py", ["pattern-scan", symbol, "--lookback", "10"]),
-		"tdw_tdm": ("technical/williams.py", ["tdw-tdm"]),
-		"gsv": ("technical/williams.py", ["gsv", symbol]),
+		"williams_r": ("technical/williams_r.py", ["calculate", symbol, "--period", "14"]),
+		"volatility_breakout": ("technical/atr_breakout.py", ["breakout", symbol]),
+		"range_analysis": ("technical/range_analysis.py", ["analyze", symbol]),
+		"swing_short": ("technical/swing_points.py", ["detect", symbol, "--level", "short"]),
+		"swing_intermediate": ("technical/swing_points.py", ["detect", symbol, "--level", "intermediate"]),
+		"swing_long": ("technical/swing_points.py", ["detect", symbol, "--level", "long"]),
+		"pattern_scan": ("technical/bar_patterns.py", ["scan", symbol, "--lookback", "10"]),
+		"tdw_tdm": ("technical/calendar_bias.py", ["today"]),
+		"gsv": ("technical/gsv.py", ["analyze", symbol]),
 		"trend_ma": ("technical/trend.py", ["sma", symbol, "--periods", "18,50,200"]),
 		"closing_range": ("technical/closing_range.py", ["analyze", symbol]),
 		"tlt_data": ("data_sources/price.py", ["history", "TLT", "--period", "3mo"]),
@@ -1210,7 +1215,7 @@ def cmd_pattern_scan(args):
 	symbols = [s.upper() for s in args.symbols]
 
 	def _scan_one(sym):
-		return _run_script("technical/williams.py", ["pattern-scan", sym, "--lookback", str(args.lookback)])
+		return _run_script("technical/bar_patterns.py", ["scan", sym, "--lookback", str(args.lookback)])
 
 	results = []
 	total_patterns = 0
@@ -1256,7 +1261,7 @@ def cmd_market_context(args):
 
 	# Parallel calls
 	with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-		tdw_future = executor.submit(_run_script, "technical/williams.py", ["tdw-tdm"])
+		tdw_future = executor.submit(_run_script, "technical/calendar_bias.py", ["today"])
 		tlt_future = executor.submit(_run_script, "data_sources/price.py", ["history", "TLT", "--period", "3mo"])
 		cot_future = executor.submit(_run_script, "data_advanced/cftc/cftc.py", ["cot", "ES", "--limit", "4"])
 		gld_future = executor.submit(_run_script, "data_sources/price.py", ["history", "GLD", "--period", "3mo"])
@@ -1373,14 +1378,14 @@ def cmd_watchlist(args):
 	def _setup_one(sym):
 		"""Run trade-setup logic for a single ticker (inline for batch)."""
 		scripts = {
-			"volatility_breakout": ("technical/williams.py", ["volatility-breakout", sym]),
-			"range_analysis": ("technical/williams.py", ["range-analysis", sym]),
-			"swing_short": ("technical/williams.py", ["swing-points", sym, "--level", "short"]),
-			"swing_intermediate": ("technical/williams.py", ["swing-points", sym, "--level", "intermediate"]),
-			"pattern_scan": ("technical/williams.py", ["pattern-scan", sym, "--lookback", "10"]),
-			"williams_r": ("technical/williams.py", ["williams-r", sym, "--period", "14"]),
-			"tdw_tdm": ("technical/williams.py", ["tdw-tdm"]),
-			"gsv": ("technical/williams.py", ["gsv", sym]),
+			"volatility_breakout": ("technical/atr_breakout.py", ["breakout", sym]),
+			"range_analysis": ("technical/range_analysis.py", ["analyze", sym]),
+			"swing_short": ("technical/swing_points.py", ["detect", sym, "--level", "short"]),
+			"swing_intermediate": ("technical/swing_points.py", ["detect", sym, "--level", "intermediate"]),
+			"pattern_scan": ("technical/bar_patterns.py", ["scan", sym, "--lookback", "10"]),
+			"williams_r": ("technical/williams_r.py", ["calculate", sym, "--period", "14"]),
+			"tdw_tdm": ("technical/calendar_bias.py", ["today"]),
+			"gsv": ("technical/gsv.py", ["analyze", sym]),
 			"trend_ma": ("technical/trend.py", ["sma", sym, "--periods", "18,50,200"]),
 			"tlt_data": ("data_sources/price.py", ["history", "TLT", "--period", "3mo"]),
 		}
@@ -1474,7 +1479,7 @@ def cmd_watchlist(args):
 def cmd_dashboard(args):
 	"""Quick overview: today's bias + bond filter status."""
 	with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-		tdw_future = executor.submit(_run_script, "technical/williams.py", ["tdw-tdm"])
+		tdw_future = executor.submit(_run_script, "technical/calendar_bias.py", ["today"])
 		tlt_future = executor.submit(_run_script, "data_sources/price.py", ["history", "TLT", "--period", "3mo"])
 
 		tdw_tdm = tdw_future.result()
@@ -1541,11 +1546,11 @@ def cmd_recheck(args):
 
 	# Parallel module calls
 	scripts = {
-		"williams_r": ("technical/williams.py", ["williams-r", symbol, "--period", "14"]),
-		"range_analysis": ("technical/williams.py", ["range-analysis", symbol]),
-		"swing_short": ("technical/williams.py", ["swing-points", symbol, "--level", "short"]),
-		"volatility_breakout": ("technical/williams.py", ["volatility-breakout", symbol]),
-		"tdw_tdm": ("technical/williams.py", ["tdw-tdm"]),
+		"williams_r": ("technical/williams_r.py", ["calculate", symbol, "--period", "14"]),
+		"range_analysis": ("technical/range_analysis.py", ["analyze", symbol]),
+		"swing_short": ("technical/swing_points.py", ["detect", symbol, "--level", "short"]),
+		"volatility_breakout": ("technical/atr_breakout.py", ["breakout", symbol]),
+		"tdw_tdm": ("technical/calendar_bias.py", ["today"]),
 	}
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
