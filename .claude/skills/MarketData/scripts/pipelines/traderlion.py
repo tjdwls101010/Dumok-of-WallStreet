@@ -1367,8 +1367,12 @@ def cmd_watchlist(args):
 			"hard_gate_blocked": hard_gate_result["blocked"],
 		})
 
-	# Sort by SNIPE score descending
-	results.sort(key=lambda x: x.get("snipe_score", 0), reverse=True)
+	# Sort by SNIPE score descending, tiebreak: edge_count → rs_score
+	results.sort(key=lambda x: (
+		x.get("snipe_score", 0),
+		x.get("edge_count", 0),
+		x.get("rs_score", 0) if isinstance(x.get("rs_score"), (int, float)) else 0,
+	), reverse=True)
 
 	output_json({
 		"watchlist_results": results,
@@ -1727,8 +1731,12 @@ def cmd_screen(args):
 			"volume_grade": volume.get("accumulation_distribution_rating", "N/A") if not volume.get("error") else "N/A",
 		})
 
-	# Sort by snipe_score descending
-	candidates.sort(key=lambda x: x.get("snipe_score", 0), reverse=True)
+	# Sort by snipe_score descending, tiebreak: edge_count → rs_score
+	candidates.sort(key=lambda x: (
+		x.get("snipe_score", 0),
+		x.get("edge_count", 0),
+		x.get("rs_score", 0) if isinstance(x.get("rs_score"), (int, float)) else 0,
+	), reverse=True)
 
 	output_json({
 		"funnel_stage": "narrow",
@@ -1910,7 +1918,20 @@ def cmd_compare(args):
 	win_counts = {}
 	for axis, winner in axis_winners.items():
 		win_counts[winner] = win_counts.get(winner, 0) + 1
-	top_ticker = max(win_counts, key=win_counts.get) if win_counts else symbols[0]
+	if win_counts:
+		max_wins = max(win_counts.values())
+		tied = [t for t, c in win_counts.items() if c == max_wins]
+		if len(tied) == 1:
+			top_ticker = tied[0]
+		else:
+			_q = {"high": 3, "moderate": 2, "low": 1, "none": 0}
+			top_ticker = max(tied, key=lambda t: (
+				seven_axis_table[t].get("edge_count", 0),
+				seven_axis_table[t].get("rs_score", 0),
+				_q.get(seven_axis_table[t].get("setup_maturity", "none"), 0),
+			))
+	else:
+		top_ticker = symbols[0]
 	recommendation = {
 		"top_candidate": top_ticker,
 		"axis_wins": win_counts.get(top_ticker, 0),

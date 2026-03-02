@@ -137,12 +137,12 @@
 
 [![Source: Long-Term Secrets to Short-Term Trading](Docs/Media/Source_Williams.png)](https://a.co/d/09HI0QoX)
 
-**방법론 특징** (Pipeline-Complete v3.2.0)
+**방법론 특징** (Pipeline-Complete v3.3.0)
 - 변동성 돌파 시스템: Open + Pct × ATR로 기계적 진입 레벨 산출
 - TDW/TDM 캘린더 바이어스 — 요일·거래일 기반 통계적 편향 활용
 - 채권 필터(TLT) — 채권 시장이 주식 방향의 선행 지표
 - 11개 팩터 듀얼 스코어링 (Long/Short 각 100점) — Hard/Soft Gates + 보너스 포인트
-- 11개 차트 패턴 탐지 (Bullish 5개 + Bearish 6개, 확인 상태 포함)
+- 12개 차트 패턴 탐지 (Bullish 5개 + Bearish 6개 + Neutral 1개, 확인 상태 포함)
 - GSV (Greatest Swing Value) — 실패 스윙 측정 기반 진입/손절 레벨
 - 포지션 관리 리체크 — Long/Short 양방향 출구 시그널 + 판정(HOLD/EXIT/COVER)
 - 2~5일 보유, 첫 수익 시가에 청산하는 단기 트레이딩
@@ -160,7 +160,7 @@
 | 워치리스트 | "이 종목들 중에 뭐가 좋아?" |
 | 퀵 체크 | "오늘 방향?", "TDW?", "채권?" |
 
-**기대할 수 있는 분석**: 변동성 돌파 진입 레벨, TDW/TDM 캘린더 바이어스, 채권 인터마켓 필터 상태, 11개 패턴 탐지 결과(Bullish/Bearish), Long/Short 듀얼 스코어링, 그리고 포지션 사이징까지 포함된 기계적 트레이드 판정을 받을 수 있습니다.
+**기대할 수 있는 분석**: 변동성 돌파 진입 레벨, TDW/TDM 캘린더 바이어스, 채권 인터마켓 필터 상태, 12개 패턴 탐지 결과(Bullish/Bearish/Neutral), Long/Short 듀얼 스코어링, 그리고 포지션 사이징까지 포함된 기계적 트레이드 판정을 받을 수 있습니다.
 
 ---
 

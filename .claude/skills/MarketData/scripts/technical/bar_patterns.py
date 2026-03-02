@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Williams Bar Patterns: 11 short-term chart pattern detectors (5 bullish + 6 bearish).
+"""Williams Bar Patterns: 12 chart pattern detectors (5 bullish + 6 bearish + 1 neutral).
 
 Scans recent price bars for Larry Williams' pattern setups from "Long-Term
 Secrets to Short-Term Trading" (2011 edition). Each pattern includes
 historically tested accuracy, entry/stop levels, electronic-era validity,
-direction (bullish or bearish), and next-day confirmation status where
+direction (bullish, bearish, or neutral), and next-day confirmation status where
 applicable (Williams Ch.7). Bearish patterns are mirrors of bullish setups,
 detecting sell/short entry opportunities per Williams' sell setup rules.
+Inside Day is a neutral congestion marker (Ch.1) providing breakout levels.
 
 Commands:
 	scan: Scan for Williams bar patterns on a given ticker
@@ -21,7 +22,7 @@ Returns:
 		"patterns_detected": [{
 			"pattern": str,
 			"date": str,
-			"direction": str,          # "bullish" or "bearish"
+			"direction": str,          # "bullish", "bearish", or "neutral"
 			"entry_price": float,
 			"stop_price": float,
 			"electronic_era_caveat": bool,
@@ -33,6 +34,7 @@ Returns:
 		"pattern_count": int,
 		"bullish_count": int,
 		"bearish_count": int,
+		"neutral_count": int,
 		"scan_window_days": int
 	}
 
@@ -137,6 +139,8 @@ PATTERN_ACCURACY = {
 	"bearish_specialists_trap": {"accuracy": 0.80, "source": "mirror of specialists_trap (false upside breakout)"},
 	"bearish_oops": {"accuracy": 0.82, "source": "mirror of oops (diminished in electronic era)"},
 	"selling_climax": {"accuracy": 0.70, "source": "estimated from book examples (actually bullish)"},
+	# Neutral patterns
+	"inside_day": {"accuracy": None, "source": "Congestion marker (50,692 sessions, 7.6% freq). Ch.1"},
 }
 
 # ── Bullish pattern detection functions ───────────────────────────────────
@@ -495,6 +499,35 @@ def _detect_selling_climax(df, idx):
 	}
 
 
+# ── Neutral pattern detection functions ────────────────────────────────────
+
+
+def _detect_inside_day(df, idx):
+	"""Inside Day: all trading within prior bar's range — congestion marker.
+
+	Williams Ch.1: not a directional signal but marks consolidation.
+	Provides breakout levels (prior bar high/low) for entry triggers.
+	"""
+	if idx < 1:
+		return None
+	curr, prev = df.iloc[idx], df.iloc[idx - 1]
+	if curr["High"] < prev["High"] and curr["Low"] > prev["Low"]:
+		return {
+			"pattern": "inside_day",
+			"date": df.index[idx].strftime("%Y-%m-%d"),
+			"direction": "neutral",
+			"entry_price": None,
+			"stop_price": None,
+			"electronic_era_caveat": False,
+			"historical_accuracy": None,
+			"strength": "medium",
+			"confirmation_needed": "breakout_above_or_below_prior_range",
+			"breakout_high": round(float(prev["High"]), 2),
+			"breakout_low": round(float(prev["Low"]), 2),
+		}
+	return None
+
+
 # ── All detectors in execution order ──────────────────────────────────────
 
 _DETECTORS = [
@@ -511,6 +544,8 @@ _DETECTORS = [
 	_detect_bearish_specialists_trap,
 	_detect_bearish_oops,
 	_detect_selling_climax,
+	# Neutral
+	_detect_inside_day,
 ]
 
 # ── Command ────────────────────────────────────────────────────────────────
@@ -539,6 +574,7 @@ def cmd_scan(args):
 
 	bullish_count = sum(1 for p in patterns_detected if p.get("direction") == "bullish")
 	bearish_count = sum(1 for p in patterns_detected if p.get("direction") == "bearish")
+	neutral_count = sum(1 for p in patterns_detected if p.get("direction") == "neutral")
 
 	output_json({
 		"symbol": symbol,
@@ -546,6 +582,7 @@ def cmd_scan(args):
 		"pattern_count": len(patterns_detected),
 		"bullish_count": bullish_count,
 		"bearish_count": bearish_count,
+		"neutral_count": neutral_count,
 		"scan_window_days": len(df) - start_idx,
 	})
 

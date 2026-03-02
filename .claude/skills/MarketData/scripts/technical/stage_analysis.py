@@ -348,8 +348,10 @@ def cmd_classify(args):
 	if largest_decline < -30:
 		scores[1] -= 20  # Large decline incompatible with Stage 1 consolidation
 
-	# Determine stage with highest score
-	current_stage = max(scores, key=scores.get)
+	# Determine stage with highest score (Stage 2 wins ties — Minervini's actionable stage)
+	max_score = max(scores.values())
+	tied_stages = [s for s, v in scores.items() if v == max_score]
+	current_stage = 2 if 2 in tied_stages else min(tied_stages)
 	max_score = scores[current_stage]
 	total_possible = max(sum(scores.values()), 1)
 	confidence = round(max_score / total_possible * 100, 1)

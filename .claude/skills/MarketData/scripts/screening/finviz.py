@@ -165,6 +165,39 @@ SECTOR_FILTERS = {
 	"utilities": "Utilities",
 }
 
+SECTOR_ALIASES = {
+	"tech": "technology", "ai": "technology", "software": "technology",
+	"semiconductors": "technology", "semis": "technology", "it": "technology",
+	"health": "healthcare", "biotech": "healthcare", "pharma": "healthcare",
+	"medical": "healthcare",
+	"financials": "financial", "banks": "financial", "banking": "financial",
+	"telecom": "communication_services", "media": "communication_services",
+	"communications": "communication_services",
+	"materials": "basic_materials", "metals": "basic_materials",
+	"mining": "basic_materials", "chemicals": "basic_materials",
+	"oil": "energy", "gas": "energy",
+	"reits": "real_estate", "reit": "real_estate", "property": "real_estate",
+	"industrial": "industrials", "defense": "industrials", "aerospace": "industrials",
+	"consumer": "consumer_cyclical", "retail": "consumer_cyclical",
+	"auto": "consumer_cyclical",
+	"staples": "consumer_defensive", "food": "consumer_defensive",
+}
+
+
+def _resolve_sector(raw):
+	"""Resolve user input to a canonical SECTOR_FILTERS key."""
+	n = raw.strip().lower().replace(" ", "_").replace("-", "_")
+	if n in SECTOR_FILTERS:
+		return n, False
+	if n in SECTOR_ALIASES:
+		return SECTOR_ALIASES[n], True
+	partial = [k for k in SECTOR_FILTERS if n in k]
+	if len(partial) == 1:
+		return partial[0], True
+	available = ", ".join(sorted(SECTOR_FILTERS.keys()))
+	raise ValueError(f"Unknown sector: {raw}. Available: {available}")
+
+
 # Group mappings for finvizfinance
 GROUPS_DICT = {
 	"sector": "Sector",
@@ -456,12 +489,12 @@ def cmd_sector_screen(args):
 	"""Screen stocks within a specific sector with quality filters."""
 	from finvizfinance.screener.overview import Overview
 
-	sector = args.sector
-	if sector not in SECTOR_FILTERS:
-		available = ", ".join(sorted(SECTOR_FILTERS.keys()))
-		error_json(f"Unknown sector: {sector}. Available sectors: {available}")
-
-	sector_value = SECTOR_FILTERS[sector]
+	try:
+		resolved_sector, was_alias = _resolve_sector(args.sector)
+	except ValueError as e:
+		error_json(str(e))
+		return
+	sector_value = SECTOR_FILTERS[resolved_sector]
 
 	# Build filters based on criteria
 	filters_dict = {"Sector": sector_value}
@@ -485,7 +518,7 @@ def cmd_sector_screen(args):
 			{
 				"data": [],
 				"metadata": {
-					"sector": sector,
+					"sector": resolved_sector,
 					"criteria": criteria,
 					"filters": filters_dict,
 					"count": 0,
@@ -502,7 +535,7 @@ def cmd_sector_screen(args):
 		{
 			"data": records,
 			"metadata": {
-				"sector": sector,
+				"sector": resolved_sector,
 				"sector_finviz": sector_value,
 				"criteria": criteria,
 				"filters": filters_dict,
@@ -735,8 +768,7 @@ def main():
 	p_sector.add_argument(
 		"--sector",
 		required=True,
-		choices=list(SECTOR_FILTERS.keys()),
-		help="Sector to screen",
+		help="Sector to screen (accepts aliases like 'tech', 'health', 'financials')",
 	)
 	p_sector.add_argument(
 		"--criteria",

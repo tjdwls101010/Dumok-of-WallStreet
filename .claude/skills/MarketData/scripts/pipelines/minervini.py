@@ -1351,10 +1351,16 @@ def cmd_screen(args):
 			tt_pass = tt.get("overall_pass", False) if not tt.get("error") else False
 			signal = _determine_signal(composite, tt_pass, stage)
 
+			# Screen mode: cap STRONG_BUY → BUY (provisional — VCP, Base Count skipped)
+			if signal == "STRONG_BUY":
+				signal = "BUY"
+
 			candidates.append({
 				"symbol": symbol,
 				"sepa_score": composite,
 				"signal": signal,
+				"analysis_mode": "provisional",
+				"missing_components": ["vcp", "base_count"],
 				"tt_score": f"{tt.get('passed_count', 0)}/{tt.get('total_count', 8)}" if not tt.get("error") else "N/A",
 				"stage": stage.get("current_stage", "N/A") if not stage.get("error") else "N/A",
 				"rs_score": rs.get("rs_score", "N/A") if not rs.get("error") else "N/A",
