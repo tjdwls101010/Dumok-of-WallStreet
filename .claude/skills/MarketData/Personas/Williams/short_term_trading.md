@@ -138,15 +138,50 @@ The transition from pit trading to electronic markets fundamentally changed some
 
 ---
 
+## Short-Side (Bearish) Methodology
+
+Williams' sell/short setups mirror his buy setups. Every bullish pattern has a bearish counterpart. The same principles apply: the public gets trapped by emotional reactions, and the immediate reversal creates high-probability entries for informed traders.
+
+### Bearish Entry Criteria
+
+1. **Volatility Breakout Sell**: Sell = Open - (0.6 × 3-day ATR) in classic formula. Electronic era: Sell = High - (0.20 × 3-day ATR) after up close. The breakout to the downside must be confirmed by actual price crossing below the sell level.
+
+2. **Bearish Patterns**: Mirror of each bullish pattern:
+   - **Bearish Smash Day**: Close above prior high (naked up close), next day trades below low → sell
+   - **Bearish Outside Day**: Engulfs prior bar + closes in upper half → sell next open
+   - **Bearish Hidden Smash Day**: Down close but in top 75% of range → sell below low
+   - **Bearish Specialists' Trap**: False upside breakout from box, falls back within 1-3 days
+   - **Bearish Oops!**: Gap up above prior high, sells off to prior high → sell
+
+3. **Bond Inter-Market (Inverse for Shorts)**: When bonds are bearish (TLT 14-day channel breakout down), this is FAVORABLE for shorts — stocks likely to follow bonds down. When bonds are bullish, this is a CONTRADICTION for shorts.
+
+4. **TDW/TDM for Shorts**: Thursday = best sell day for S&P. Midmonth weakness (TDM 5-7, 12-13) favorable for shorts. Monday/Tuesday are unfavorable for short entries.
+
+### Short Position Management
+
+1. **Bailout Exit**: First profitable opening where open < entry_price → cover short. Same urgency as long bailout.
+2. **Dollar Stop**: ATR-based stop ABOVE entry. Stop = entry_price + ATR. If price rises above stop, cover immediately.
+3. **Time Stop**: Same 5-day optimal window. If no profit after 5 days, cover regardless.
+4. **Williams %R Oversold Exit**: When %R drops below -80, downside momentum is exhausted → consider covering.
+5. **Reverse Signal**: If volatility breakout generates a BUY signal while holding short → EXIT_REVERSE (cover and go long).
+6. **Cover Signal**: If a bullish pattern is detected (smash day, outside day, etc.) while holding short → cover suggestion.
+
+### Short Position Sizing
+
+Same Williams formula: Contracts = (Account Balance × Risk%) / Largest Historical Loss. For shorts, the stop distance is calculated upward from entry (entry_price + ATR = stop). Risk 2-4% per trade.
+
+---
+
 ## Script Output Interpretation Guide
 
 ### Pattern Scan Output
 
 When reviewing pattern scan results:
-- **Pattern type**: Identify which of the 5 patterns was detected. Outside days and Smash days are the most frequent; Specialists' Traps and Oops! are rarer but higher-conviction
+- **Pattern type**: Identify which of the 11 patterns was detected (5 bullish + 6 bearish). Outside days and Smash days are the most frequent; Specialists' Traps and Oops! are rarer but higher-conviction
+- **Direction**: Check if pattern is "bullish" or "bearish" — this determines whether it supports long or short entries
 - **Reversal confirmation**: Has the immediate reversal (next day) already occurred? Williams' patterns require NEXT-DAY confirmation
 - **Context**: A pattern in a strong trend (continuation) is higher probability than the same pattern in a choppy range. Check the swing point hierarchy for trend alignment
-- **TDW filter**: Reject pattern signals that occur on historically unfavorable days
+- **TDW filter**: Reject pattern signals that occur on historically unfavorable days. For bearish patterns, Thursday is the best confirmation day
 
 ### TDW/TDM Analysis Output
 

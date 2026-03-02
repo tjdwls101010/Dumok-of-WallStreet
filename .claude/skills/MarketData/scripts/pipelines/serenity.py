@@ -235,7 +235,7 @@ def _extract_health_gates(results):
 	ngv = results.get("no_growth_valuation", {})
 	if not ngv.get("error"):
 		mos = ngv.get("margin_of_safety_pct")
-		if mos is not None and mos < -50:
+		if mos is not None and mos < 0:
 			gates["no_growth_fail"] = "FLAG"
 			flags.append("no_growth_fail")
 
@@ -572,7 +572,7 @@ def _classify_macro_regime(macro_results):
 	vix_contango = False
 	vix_backwardation = False
 	if not vix.get("error"):
-		structure = str(vix.get("term_structure", "")).lower()
+		structure = str(vix.get("structure_type", "")).lower()
 		vix_contango = "contango" in structure
 		vix_backwardation = "backwardation" in structure
 
@@ -1052,7 +1052,7 @@ def cmd_compare(args):
 			"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 			"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
 			"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
-			"sbc_analyzer": ("analysis/sbc_analyzer.py", ["analyze", ticker]),
+			"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 			"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
 			"bottleneck_scorer": ("analysis/bottleneck_scorer.py", ["validate", ticker]),
 		}

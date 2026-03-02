@@ -69,7 +69,9 @@ Returns:
 			},
 			"category_hint": str,
 			"recommendation_text": str,
-			"risk_assessment": dict
+			"risk_assessment": dict,
+			"earnings_data_quality": str,   # "full", "partial", "minimal", or "unavailable"
+			"insufficient_data": bool       # True when earnings data quality is not "full"
 		}
 
 	For market-leaders:
@@ -122,11 +124,13 @@ Returns:
 			"symbol": str,
 			"current_stage": int or str,
 			"trend_template": dict,
-			"post_breakout": dict,
+			"post_breakout": dict or {"skipped": True, "reason": str, "missing_params": [str]},
 			"volume_status": dict,
 			"earnings_proximity": dict,
 			"risk_update": dict
 		}
+		Note: post_breakout is skipped (not an error) when --entry-price or
+		--entry-date is not provided. All other checks still run normally.
 
 Example:
 	>>> python minervini.py analyze NVDA --account-size 100000
@@ -154,6 +158,11 @@ Notes:
 	- Signals: STRONG_BUY 80+, BUY 65-79, HOLD 50-64, WATCH 35-49, AVOID <35
 	- Hard gates block BUY/STRONG_BUY: TT<6/8, Stage 3/4, distribution+weak volume
 	- Soft gates apply score penalties: VCP undetected -5, no breakout vol -5, excessive correction -5
+	- Earnings data_quality handling: "minimal"→neutral 7.5/15 pts (no penalty),
+	  "partial"→reduced weights with 5pt floor, "full"→standard scoring.
+	  Signal codes: EARNINGS_DATA_MINIMAL, EARNINGS_DATA_PARTIAL instead of CODE33_FAIL
+	- Recheck graceful degradation: post_breakout skipped when entry-price/entry-date
+	  not provided; all other checks (TT, Stage, Volume, Earnings) still run
 	- Watchlist mode outputs provisional signals (STRONG_BUY capped to BUY, missing_components listed)
 	- Pipeline continues even if individual components fail (graceful degradation)
 	- New scripts (pocket_pivot, tight_closes, low_cheat) skipped in watchlist batch mode
@@ -386,20 +395,40 @@ def _calc_composite_score(tt, stage, rs, earnings, vcp, base, volume):
 
 	# Earnings (15 points)
 	if not earnings.get("error"):
-		eps_acc = earnings.get("eps_accelerating", False)
-		sales_acc = earnings.get("sales_accelerating", False)
-		margin_exp = earnings.get("margin_expanding", False)
-		code33 = earnings.get("code33_status") == "PASS"
-
-		if code33:
-			score += 15
-		else:
+		data_quality = earnings.get("data_quality", "full")
+		if data_quality == "minimal":
+			# Insufficient data — neutral score instead of penalizing
+			score += 7.5
+		elif data_quality == "partial":
+			# Partial data — score available criteria with reduced weight and floor
+			eps_acc = earnings.get("eps_accelerating", False)
+			sales_acc = earnings.get("sales_accelerating", False)
+			margin_exp = earnings.get("margin_expanding", False)
+			partial_score = 0
 			if eps_acc:
-				score += 6
+				partial_score += 4
 			if sales_acc:
-				score += 5
+				partial_score += 3
 			if margin_exp:
-				score += 4
+				partial_score += 3
+			# Floor of 5 points to avoid false FAIL on incomplete data
+			score += max(5, partial_score)
+		else:
+			# Full data quality — standard scoring
+			eps_acc = earnings.get("eps_accelerating", False)
+			sales_acc = earnings.get("sales_accelerating", False)
+			margin_exp = earnings.get("margin_expanding", False)
+			code33 = earnings.get("code33_status") == "PASS"
+
+			if code33:
+				score += 15
+			else:
+				if eps_acc:
+					score += 6
+				if sales_acc:
+					score += 5
+				if margin_exp:
+					score += 4
 
 	# VCP (10 points)
 	if not vcp.get("error"):
@@ -558,7 +587,10 @@ def _build_signal_reason_codes(signal, tt, stage, rs, earnings, vcp, volume, bas
 
 	# Earnings
 	if not earnings.get("error"):
-		if earnings.get("code33_status") == "PASS":
+		data_quality = earnings.get("data_quality", "full")
+		if data_quality in ("minimal", "partial"):
+			codes.append(f"EARNINGS_DATA_{data_quality.upper()}")
+		elif earnings.get("code33_status") == "PASS":
 			codes.append("CODE33_PASS")
 		else:
 			codes.append("CODE33_FAIL")
@@ -806,7 +838,7 @@ def cmd_analyze(args):
 	scripts = {
 		"tt": ("screening/trend_template.py", ["check", symbol]),
 		"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-		"rs": ("technical/rs_ranking.py", ["score", symbol]),
+		"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 		"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 		"vcp_result": ("technical/vcp.py", ["detect", symbol]),
 		"base": ("technical/base_count.py", ["count", symbol]),
@@ -927,6 +959,10 @@ def cmd_analyze(args):
 	if alt_entries:
 		recommendation += " | Alt Entries: " + ", ".join(alt_entries)
 
+	# Earnings data quality flag
+	earnings_dq = earnings.get("data_quality", "full") if not earnings.get("error") else "unavailable"
+	insufficient_data = earnings_dq in ("minimal", "partial", "unavailable")
+
 	# Risk assessment
 	risk = {
 		"base_risk": base.get("risk_level", "unknown") if not base.get("error") else "unknown",
@@ -967,6 +1003,8 @@ def cmd_analyze(args):
 			},
 			"category_hint": category_hint,
 			"risk_assessment": risk,
+			"earnings_data_quality": earnings_dq,
+			"insufficient_data": insufficient_data,
 		}
 	)
 
@@ -979,7 +1017,7 @@ def cmd_watchlist(args):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
 			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 			"volume": ("technical/volume_analysis.py", ["analyze", symbol]),
 		}
@@ -1285,7 +1323,7 @@ def cmd_screen(args):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
 			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 			"volume": ("technical/volume_analysis.py", ["analyze", symbol]),
 		}
@@ -1366,7 +1404,7 @@ def cmd_compare(args):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
 			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 			"vcp_result": ("technical/vcp.py", ["detect", symbol]),
 			"base": ("technical/base_count.py", ["count", symbol]),
@@ -1555,18 +1593,16 @@ def cmd_recheck(args):
 	"""
 	symbol = args.symbol.upper()
 
-	# Build post_breakout args
-	pb_args = ["monitor", symbol]
-	if args.entry_price:
-		pb_args.extend(["--entry-price", str(args.entry_price)])
-	if args.entry_date:
-		pb_args.extend(["--entry-date", args.entry_date])
+	# Post-breakout requires both entry-price and entry-date
+	has_entry_params = args.entry_price is not None and args.entry_date is not None
 
 	# Run all checks in parallel
 	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
 		future_tt = executor.submit(_run_script, "screening/trend_template.py", ["check", symbol])
 		future_stage = executor.submit(_run_script, "technical/stage_analysis.py", ["classify", symbol])
-		future_pb = executor.submit(_run_script, "technical/post_breakout.py", pb_args)
+		if has_entry_params:
+			pb_args = ["monitor", symbol, "--entry-price", str(args.entry_price), "--entry-date", args.entry_date]
+			future_pb = executor.submit(_run_script, "technical/post_breakout.py", pb_args)
 		future_volume = executor.submit(_run_script, "technical/volume_analysis.py", ["analyze", symbol])
 		future_earnings = executor.submit(
 			_run_script, "data_sources/actions.py", ["get-earnings-dates", symbol, "--limit", "4"]
@@ -1574,7 +1610,15 @@ def cmd_recheck(args):
 
 		tt = future_tt.result()
 		stage = future_stage.result()
-		post_breakout = future_pb.result()
+		if has_entry_params:
+			post_breakout = future_pb.result()
+		else:
+			missing = [p for p, v in [("entry-price", args.entry_price), ("entry-date", args.entry_date)] if v is None]
+			post_breakout = {
+				"skipped": True,
+				"reason": "entry-price and entry-date required for post-breakout analysis",
+				"missing_params": missing,
+			}
 		volume = future_volume.result()
 		earnings_dates = future_earnings.result()
 

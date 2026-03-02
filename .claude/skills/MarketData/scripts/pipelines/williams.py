@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Williams Pipeline (Pipeline-Complete): full short-term volatility breakout
 analysis integrating all Williams methodology modules with composite scoring,
-hard/soft gates, evidence building, and position sizing.
+hard/soft gates, evidence building, position sizing, and dual LONG/SHORT
+signal system.
 
 Orchestrates 12+ atomic module calls in parallel, applies Williams' methodology
-to produce conviction scores (0-100), signal determinations, and structured
-evidence for LLM interpretation. The pipeline is the SOLE data interface --
-individual module calls are never made outside this pipeline.
+to produce conviction scores (0-100) for BOTH long and short directions,
+signal determinations, and structured evidence for LLM interpretation. The
+pipeline is the SOLE data interface -- individual module calls are never made
+outside this pipeline.
 
 Commands:
 	trade-setup: Primary composite trade qualification for a single ticker
@@ -46,16 +48,24 @@ Args:
 		--entry-price (float): Original entry price (required)
 		--entry-date (str): Entry date YYYY-MM-DD (required)
 		--entry-stop (float): Entry stop price (optional)
+		--direction (str): Position direction "long" or "short" (default: "long")
 
 Returns:
 	For trade-setup:
 		dict: {
 			"symbol": str,
-			"conviction_score": float,         # 0-100 composite score
-			"signal": str,                     # STRONG_BUY/BUY/HOLD/MONITOR/AVOID
+			"conviction_score": float,         # 0-100 composite score (dominant direction)
+			"signal": str,                     # STRONG_BUY/BUY/HOLD/MONITOR/AVOID/SELL/STRONG_SELL
+			"direction": str,                  # "long" or "short" (dominant direction)
+			"long_score": float,               # 0-100 long conviction score
+			"short_score": float,              # 0-100 short conviction score
 			"signal_reason_codes": [str],
 			"hard_gates": {
 				"triggered": [str],            # gate codes that fired
+				"signal_capped": bool
+			},
+			"short_hard_gates": {
+				"triggered": [str],
 				"signal_capped": bool
 			},
 			"soft_gates": {
@@ -68,6 +78,19 @@ Returns:
 			},
 			"components": {
 				"pattern_signal": {"score": float, "max": 25, "detail": str},
+				"volatility_breakout": {"score": float, "max": 15, "detail": str},
+				"bond_intermarket": {"score": float, "max": 15, "detail": str},
+				"tdw_alignment": {"score": float, "max": 10, "detail": str},
+				"tdm_alignment": {"score": float, "max": 10, "detail": str},
+				"range_phase": {"score": float, "max": 10, "detail": str},
+				"ma_trend": {"score": float, "max": 10, "detail": str},
+				"williams_r": {"score": float, "max": 10, "detail": str},
+				"close_position": {"score": float, "max": 5, "detail": str},
+				"swing_structure": {"score": float, "max": 5, "detail": str}
+			},
+			"short_components": {
+				"pattern_signal": {"score": float, "max": 25, "detail": str},
+				"volatility_breakout": {"score": float, "max": 15, "detail": str},
 				"bond_intermarket": {"score": float, "max": 15, "detail": str},
 				"tdw_alignment": {"score": float, "max": 10, "detail": str},
 				"tdm_alignment": {"score": float, "max": 10, "detail": str},
@@ -157,13 +180,17 @@ Returns:
 	For recheck:
 		dict: {
 			"symbol": str,
+			"direction": str,                  # "long" or "short"
 			"entry_price": float,
 			"current_price": float,
 			"days_held": int,
 			"unrealized_pnl_pct": float,
 			"exit_signals": [{"code": str, "triggered": bool, "detail": str}],
-			"verdict": str,
+			"verdict": str,                    # EXIT_REVERSE/EXIT_STOP/EXIT_TIME/EXIT_BAILOUT/COVER/HOLD
 			"verdict_reason": str,
+			"bailout_triggered": bool,         # LONG: open > entry; SHORT: open < entry
+			"first_profitable_open": bool,     # LONG: open > entry; SHORT: open < entry
+			"reverse_signal": bool,            # True if opposite volatility breakout signal detected
 			"current_stop": float,
 			"williams_r": dict,
 			"range_phase": str,
@@ -207,15 +234,28 @@ Use Cases:
 	- Position management with exit signal monitoring
 
 Notes:
-	- Scoring weights (100 total): Pattern 25, Bond 15, TDW 10, TDM 10, Range 10,
-	  MA 10, %R 10, Close 5, Swing 5
-	- Signals: STRONG_BUY 80+, BUY 60-79, HOLD 40-59, MONITOR 20-39, AVOID <20
-	- Hard gates cap signal to HOLD (conviction ≤ 59):
-	  BOND_CONTRADICTION, NO_PATTERN, CHASING_MOMENTUM
+	- Scoring weights (115 max, capped at 100): Pattern 25, Volatility Breakout 15,
+	  Bond 15, TDW 10, TDM 10, Range 10, MA 10, %R 10, Close 5, Swing 5
+	- Volatility Breakout is the CORE of Williams' methodology (Ch.4):
+	  Active buy breakout = 15, near buy level = 8, no breakout = 3, sell signal = 0
+	- Long signals: STRONG_BUY 80+, BUY 60-79, HOLD 40-59, MONITOR 20-39, AVOID <20
+	- Short signals: STRONG_SELL 80+, SELL 60-79, HOLD 40-59, MONITOR 20-39, AVOID <20
+	- Dual scoring: trade-setup computes both long_score and short_score;
+	  the dominant direction determines the primary signal
+	- Long hard gates cap signal to HOLD (conviction ≤ 59):
+	  BOND_CONTRADICTION (bonds bearish AND buy signal active),
+	  NO_PATTERN, CHASING_MOMENTUM
+	- Short hard gates cap signal to HOLD (conviction ≤ 59):
+	  SHORT_BOND_CONTRADICTION (bonds bullish AND sell signal active),
+	  NO_BEARISH_PATTERN, CHASING_WEAKNESS (%R oversold AND no bearish pattern)
 	- Soft gates apply score penalties: RANGE_EXPANSION -5, SELLING_PRESSURE -3,
 	  SWING_DOWNTREND -3, CONSECUTIVE_LARGE_RANGES -3, GSV_EXHAUSTION -3
+	- Short soft gates: RANGE_EXPANSION -5, BUYING_PRESSURE -3 (close_pct > 75),
+	  SWING_UPTREND -3, CONSECUTIVE_LARGE_RANGES -3, GSV_EXHAUSTION -3
 	- Bonus points: MULTI_PATTERN +3, RANGE_COILED +3, STRONG_CLOSES +2,
 	  COT_COMMERCIAL_BULLISH +2
+	- Short bonuses: MULTI_BEARISH_PATTERN +3, RANGE_COILED +3, WEAK_CLOSES +2,
+	  COT_COMMERCIAL_BEARISH +2
 	- Position sizing: Williams formula — contracts = dollar_risk / stop_distance
 	- Bond data uses TLT ETF as Treasury Bond proxy
 	- COT data from CFTC (weekly update, may be 3-7 days stale)
@@ -223,6 +263,14 @@ Notes:
 	- Scripts execute in parallel via ThreadPoolExecutor for performance
 	- Each script runs in independent subprocess (no shared state)
 	- Watchlist mode caps STRONG_BUY to BUY (provisional mode)
+	- Recheck exit signals: BAILOUT_OPPORTUNITY (first profitable open, Williams Ch.11),
+	  TIME_STOP, DOLLAR_STOP_HIT, WR_OVERBOUGHT_EXIT, SWING_VIOLATION,
+	  REVERSE_SIGNAL (opposite breakout triggers EXIT_REVERSE verdict)
+	- Recheck --direction short: BAILOUT (open < entry), DOLLAR_STOP (price > stop),
+	  WR_OVERSOLD_EXIT (WR < -80), SWING_VIOLATION (above swing high),
+	  REVERSE_SIGNAL (buy breakout → EXIT_REVERSE), COVER_SIGNAL (bullish pattern)
+	- Recheck verdict priority: EXIT_REVERSE > EXIT_STOP > EXIT_TIME >
+	  EXIT_BAILOUT > COVER > HOLD
 
 See Also:
 	- technical/williams_r.py: Williams %R oscillator
@@ -356,6 +404,7 @@ def _build_pattern_evidence(scan_result):
 				"entry": p.get("entry_price"),
 				"stop": p.get("stop_price"),
 				"confirmation": p.get("confirmation_needed"),
+				"confirmed": p.get("confirmed"),
 			}
 			for p in patterns
 		],
@@ -476,9 +525,9 @@ def _build_cot_evidence(cot_data):
 def _calc_composite_score(components):
 	"""Calculate weighted composite score from all component scores.
 
-	Weights (100 total):
-	  Pattern 25, Bond 15, TDW 10, TDM 10, Range 10,
-	  MA 10, %R 10, Close 5, Swing 5
+	Weights (115 max, capped at 100):
+	  Pattern 25, Volatility Breakout 15, Bond 15, TDW 10, TDM 10,
+	  Range 10, MA 10, %R 10, Close 5, Swing 5
 	"""
 	total = 0
 	for comp in components.values():
@@ -486,19 +535,34 @@ def _calc_composite_score(components):
 	return round(min(100, total), 1)
 
 
-def _evaluate_hard_gates(components, pattern_evidence, bond_filter):
+def _evaluate_hard_gates(components, pattern_evidence, bond_filter, vb_data=None):
 	"""Evaluate hard gate conditions that cap signal to HOLD.
 
 	Hard gates:
-	  BOND_CONTRADICTION: TLT 14-day breakout down + stock buy signal
+	  BOND_CONTRADICTION: TLT 14-day breakout down + stock buy signal active
 	  NO_PATTERN: no pattern detected in scan window
 	  CHASING_MOMENTUM: Williams %R overbought (>-20) AND no pattern
 	"""
 	triggered = []
 
-	# BOND_CONTRADICTION
+	# BOND_CONTRADICTION: only trigger when bonds bearish AND there is a
+	# buy/long signal. Williams Ch.6: bonds bearish is only contradictory
+	# when you are trying to go LONG. If no signal or signal is sell, bond
+	# direction is irrelevant as a hard gate.
 	if bond_filter.get("contradiction"):
-		triggered.append("BOND_CONTRADICTION")
+		has_buy_signal = False
+		if vb_data and not vb_data.get("error"):
+			active = vb_data.get("active_signal", "none")
+			has_buy_signal = active == "buy"
+		# Also check if patterns suggest bullish direction
+		if not has_buy_signal and pattern_evidence.get("count", 0) > 0:
+			bullish_patterns = [
+				p for p in pattern_evidence.get("patterns", [])
+				if p.get("direction") == "bullish"
+			]
+			has_buy_signal = len(bullish_patterns) > 0
+		if has_buy_signal:
+			triggered.append("BOND_CONTRADICTION")
 
 	# NO_PATTERN
 	pattern_count = pattern_evidence.get("count", 0)
@@ -937,6 +1001,45 @@ def _score_close_position(range_data):
 	return 0, f"lower_range ({close_pct}%, bias: {close_pos.get('recent_bias', 'unknown')})"
 
 
+def _score_volatility_breakout(vb_data):
+	"""Score volatility breakout component (max 15 points).
+
+	This is the CORE of Williams' methodology. A volatility breakout (price
+	exceeding open ± ATR-based level) signals the trend change. Williams Ch.4:
+	"Trends are set in motion by explosions of price activity."
+
+	Scoring:
+	  Active buy signal = 15 (breakout triggered in long direction)
+	  No breakout but near level = 5 (within 25% of triggering)
+	  No breakout = 0
+	  Active sell signal = 0 (wrong direction for long setup)
+	"""
+	if vb_data.get("error"):
+		return 5, "unavailable"
+
+	active_signal = vb_data.get("active_signal", "none")
+	breakout_triggered = vb_data.get("breakout_triggered", False)
+
+	if breakout_triggered and active_signal == "buy":
+		return 15, f"breakout_buy_active (level: {vb_data.get('electronic_buy_level', '?')})"
+	elif breakout_triggered and active_signal == "sell":
+		return 0, f"breakout_sell_active (opposing direction)"
+	elif not breakout_triggered:
+		# Check proximity to buy level
+		current = vb_data.get("current_price", 0)
+		buy_level = vb_data.get("electronic_buy_level") or vb_data.get("classic_buy_level")
+		if current and buy_level and buy_level > 0:
+			distance_pct = ((buy_level - current) / current) * 100
+			if 0 < distance_pct <= 0.5:
+				return 8, f"near_buy_level ({distance_pct:.2f}% away)"
+			elif distance_pct <= 0:
+				# Price above buy level but breakout not flagged — treat as borderline
+				return 10, f"above_buy_level_unconfirmed"
+		return 3, f"no_breakout (signal: {active_signal})"
+
+	return 5, f"signal_{active_signal}"
+
+
 def _score_swing_structure(short_swing, intermediate_swing):
 	"""Score swing structure component (max 5 points)."""
 	short_trend = "neutral"
@@ -954,6 +1057,342 @@ def _score_swing_structure(short_swing, intermediate_swing):
 	elif short_trend == "down" and int_trend == "down":
 		return 0, f"downtrend (short: {short_trend}, intermediate: {int_trend})"
 	return 3, f"neutral (short: {short_trend}, intermediate: {int_trend})"
+
+
+# ---------------------------------------------------------------------------
+# SHORT-side component scoring (mirrors of LONG scoring)
+# ---------------------------------------------------------------------------
+
+def _score_pattern_short(pattern_evidence):
+	"""Score bearish pattern signal component (max 25 points).
+
+	Only counts bearish-direction patterns. 0 = 0, 1 = 15, 2+ = 20,
+	non-caveat bonus +5.
+	"""
+	patterns = pattern_evidence.get("patterns", [])
+	bearish = [p for p in patterns if p.get("direction") == "bearish"]
+	count = len(bearish)
+	non_caveat = [p for p in bearish if not p.get("electronic_era_caveat")]
+
+	if count == 0:
+		return 0, "no_bearish_patterns"
+
+	if count >= 2:
+		score = 20
+	else:
+		score = 15
+
+	if non_caveat:
+		score = min(25, score + 5)
+
+	names = [p.get("name", "?") for p in bearish]
+	detail = f"{count} bearish patterns: {', '.join(names)}"
+	return score, detail
+
+
+def _score_bond_short(bond_filter):
+	"""Score bond intermarket for SHORT (max 15 points).
+
+	Inverse of long: bonds bearish = favorable for shorts (stocks likely to drop).
+	Bonds bullish = unfavorable for shorts (stocks supported).
+	"""
+	if bond_filter.get("error"):
+		return 0, "unavailable"
+	trend = bond_filter.get("trend", "unknown")
+	if trend == "bearish":
+		return 15, f"bearish ({bond_filter.get('signal', '')}) — favorable for shorts"
+	elif trend == "mildly_bearish":
+		return 10, f"mildly_bearish — neutral_favorable for shorts"
+	elif trend == "mildly_bullish":
+		return 5, f"mildly_bullish — neutral_unfavorable for shorts"
+	return 0, f"bullish ({bond_filter.get('signal', '')}) — unfavorable for shorts"
+
+
+def _score_tdw_short(tdw_data):
+	"""Score TDW alignment for SHORT (max 10 points).
+
+	Thursday = best sell day. Monday/Tuesday bearish for shorts (strong buy days).
+	"""
+	if tdw_data.get("error"):
+		return 5, "unavailable"
+	bias = tdw_data.get("tdw_bias", "neutral")
+	if bias == "bearish":
+		return 10, f"bearish ({tdw_data.get('tdw_note', '')}) — favorable for shorts"
+	elif bias == "neutral":
+		return 5, f"neutral ({tdw_data.get('tdw_note', '')})"
+	return 2, f"bullish ({tdw_data.get('tdw_note', '')}) — unfavorable for shorts"
+
+
+def _score_tdm_short(tdw_data):
+	"""Score TDM alignment for SHORT (max 10 points).
+
+	Midmonth weakness (TDM 5-7, 12-13) = favorable for shorts.
+	"""
+	if tdw_data.get("error"):
+		return 5, "unavailable"
+	bias = tdw_data.get("tdm_bias", "neutral")
+	if bias == "bearish":
+		return 10, f"bearish ({tdw_data.get('tdm_note', '')}) — favorable for shorts"
+	elif bias == "neutral":
+		return 5, f"neutral ({tdw_data.get('tdm_note', '')})"
+	return 2, f"bullish ({tdw_data.get('tdm_note', '')}) — unfavorable for shorts"
+
+
+def _score_ma_trend_short(trend_data):
+	"""Score MA trend for SHORT (max 10 points).
+
+	Price below falling MA = favorable for shorts (downtrend confirmed).
+	"""
+	if trend_data.get("error"):
+		return 5, "unavailable"
+
+	sma_dict = trend_data.get("sma", {})
+	current_price = trend_data.get("current_price", 0)
+
+	sma_key = None
+	for key in ["SMA18", "SMA20"]:
+		if key in sma_dict:
+			sma_key = key
+			break
+
+	if not sma_key or not current_price:
+		return 5, "insufficient_data"
+
+	sma_val = sma_dict[sma_key].get("value", 0)
+	distance_pct = sma_dict[sma_key].get("distance_pct", 0)
+
+	if current_price < sma_val and distance_pct < 0:
+		return 10, f"price_below_falling_{sma_key} ({sma_val:.2f}, {distance_pct:.1f}%)"
+	elif current_price < sma_val:
+		return 7, f"price_below_flat_{sma_key} ({sma_val:.2f})"
+	elif distance_pct > 3:
+		return 0, f"price_above_rising_{sma_key} ({sma_val:.2f}, +{distance_pct:.1f}%)"
+	else:
+		return 3, f"price_above_{sma_key} ({sma_val:.2f}, +{distance_pct:.1f}%)"
+
+
+def _score_williams_r_short(wr_data):
+	"""Score Williams %R for SHORT (max 10 points).
+
+	Overbought (> -20) = opportunity for shorts. Oversold (< -80) = caution.
+	"""
+	if wr_data.get("error"):
+		return 5, "unavailable"
+
+	wr_val = wr_data.get("current_wr", -50)
+	if wr_val > -20:
+		return 10, f"overbought ({wr_val}) — short opportunity"
+	elif wr_val > -50:
+		return 7, f"neutral_high ({wr_val})"
+	elif wr_val > -80:
+		return 4, f"neutral_low ({wr_val})"
+	return 1, f"oversold ({wr_val}) — caution for shorts"
+
+
+def _score_close_position_short(range_data):
+	"""Score close position for SHORT (max 5 points).
+
+	Lower close = favorable for shorts (selling pressure dominant).
+	"""
+	if range_data.get("error"):
+		return 3, "unavailable"
+
+	close_pos = range_data.get("close_position", {})
+	close_pct = close_pos.get("close_pct")
+
+	if close_pct is None:
+		return 3, "unavailable"
+
+	if close_pct <= 35:
+		return 5, f"lower_range ({close_pct}%) — favorable for shorts"
+	elif close_pct <= 65:
+		return 3, f"middle_range ({close_pct}%)"
+	return 0, f"upper_range ({close_pct}%) — unfavorable for shorts"
+
+
+def _score_volatility_breakout_short(vb_data):
+	"""Score volatility breakout for SHORT (max 15 points).
+
+	Active sell signal = 15 (breakout triggered in short direction).
+	Active buy signal = 0 (wrong direction for short setup).
+	"""
+	if vb_data.get("error"):
+		return 5, "unavailable"
+
+	active_signal = vb_data.get("active_signal", "none")
+	breakout_triggered = vb_data.get("breakout_triggered", False)
+
+	if breakout_triggered and active_signal == "sell":
+		return 15, f"breakout_sell_active (level: {vb_data.get('electronic_sell_level', '?')})"
+	elif breakout_triggered and active_signal == "buy":
+		return 0, f"breakout_buy_active (opposing direction for short)"
+	elif not breakout_triggered:
+		current = vb_data.get("current_price", 0)
+		sell_level = vb_data.get("electronic_sell_level") or vb_data.get("classic_sell_level")
+		if current and sell_level and sell_level > 0:
+			distance_pct = ((current - sell_level) / current) * 100
+			if 0 < distance_pct <= 0.5:
+				return 8, f"near_sell_level ({distance_pct:.2f}% away)"
+			elif distance_pct <= 0:
+				return 10, f"below_sell_level_unconfirmed"
+		return 3, f"no_breakout (signal: {active_signal})"
+
+	return 5, f"signal_{active_signal}"
+
+
+def _score_swing_structure_short(short_swing, intermediate_swing):
+	"""Score swing structure for SHORT (max 5 points).
+
+	Downtrend = favorable for shorts. Uptrend = unfavorable.
+	"""
+	short_trend = "neutral"
+	if not short_swing.get("error"):
+		short_trend = short_swing.get("current_trend", "neutral")
+
+	int_trend = "neutral"
+	if not intermediate_swing.get("error"):
+		int_trend = intermediate_swing.get("current_trend", "neutral")
+
+	if short_trend == "down" and int_trend == "down":
+		return 5, f"downtrend (short: {short_trend}, intermediate: {int_trend}) — favorable"
+	elif short_trend == "down" or int_trend == "down":
+		return 3, f"mixed (short: {short_trend}, intermediate: {int_trend})"
+	elif short_trend == "up" and int_trend == "up":
+		return 0, f"uptrend (short: {short_trend}, intermediate: {int_trend}) — unfavorable"
+	return 3, f"neutral (short: {short_trend}, intermediate: {int_trend})"
+
+
+def _evaluate_hard_gates_short(components, pattern_evidence, bond_filter, vb_data=None):
+	"""Evaluate hard gate conditions for SHORT direction.
+
+	Hard gates:
+	  SHORT_BOND_CONTRADICTION: TLT bullish + sell signal (bonds support stocks)
+	  NO_BEARISH_PATTERN: no bearish pattern detected
+	  CHASING_WEAKNESS: Williams %R oversold (<-80) AND no bearish pattern
+	"""
+	triggered = []
+
+	# SHORT_BOND_CONTRADICTION: bonds bullish is contradictory for shorts
+	if not bond_filter.get("error"):
+		trend = bond_filter.get("trend", "")
+		is_bonds_bullish = trend == "bullish"
+		if is_bonds_bullish:
+			has_sell_signal = False
+			if vb_data and not vb_data.get("error"):
+				active = vb_data.get("active_signal", "none")
+				has_sell_signal = active == "sell"
+			if not has_sell_signal and pattern_evidence.get("count", 0) > 0:
+				bearish_patterns = [
+					p for p in pattern_evidence.get("patterns", [])
+					if p.get("direction") == "bearish"
+				]
+				has_sell_signal = len(bearish_patterns) > 0
+			if has_sell_signal:
+				triggered.append("SHORT_BOND_CONTRADICTION")
+
+	# NO_BEARISH_PATTERN
+	bearish_patterns = [
+		p for p in pattern_evidence.get("patterns", [])
+		if p.get("direction") == "bearish"
+	]
+	no_bearish = len(bearish_patterns) == 0
+	if no_bearish:
+		triggered.append("NO_BEARISH_PATTERN")
+
+	# CHASING_WEAKNESS: oversold + no bearish pattern
+	wr_comp = components.get("williams_r", {})
+	wr_detail = wr_comp.get("detail", "")
+	is_oversold = "oversold" in wr_detail
+	if is_oversold and no_bearish:
+		triggered.append("CHASING_WEAKNESS")
+
+	return {
+		"triggered": triggered,
+		"signal_capped": len(triggered) > 0,
+	}
+
+
+def _evaluate_soft_gates_short(components, range_evidence, gsv_evidence):
+	"""Evaluate soft gate conditions for SHORT direction.
+
+	Soft gates:
+	  RANGE_EXPANSION: range phase = expansion (-5) [same as long]
+	  BUYING_PRESSURE: close_pct > 75% (-3) [inverse of selling_pressure]
+	  SWING_UPTREND: swing structure = uptrend (-3) [inverse of downtrend]
+	  CONSECUTIVE_LARGE_RANGES: 3+ expansion days (-3) [same as long]
+	  GSV_EXHAUSTION: GSV 225% threshold exceeded (-3) [same as long]
+	"""
+	penalties = []
+
+	if range_evidence.get("phase") == "expansion":
+		penalties.append({"code": "RANGE_EXPANSION", "penalty": -5})
+
+	close_pct = range_evidence.get("close_pct")
+	if close_pct is not None and close_pct > 75:
+		penalties.append({"code": "BUYING_PRESSURE", "penalty": -3})
+
+	swing_comp = components.get("swing_structure", {})
+	if swing_comp.get("detail", "").startswith("uptrend"):
+		penalties.append({"code": "SWING_UPTREND", "penalty": -3})
+
+	if range_evidence.get("consecutive_large", 0) >= 3:
+		penalties.append({"code": "CONSECUTIVE_LARGE_RANGES", "penalty": -3})
+
+	if gsv_evidence.get("exhaustion"):
+		penalties.append({"code": "GSV_EXHAUSTION", "penalty": -3})
+
+	total = sum(p["penalty"] for p in penalties)
+	return {
+		"penalties": penalties,
+		"total_penalty": total,
+	}
+
+
+def _evaluate_bonuses_short(pattern_evidence, range_evidence, cot_evidence):
+	"""Evaluate bonus point conditions for SHORT direction.
+
+	Bonuses:
+	  MULTI_BEARISH_PATTERN: 2+ bearish patterns (+3)
+	  RANGE_COILED: 3+ consecutive contraction days (+3) [same as long]
+	  WEAK_CLOSES: 3+ consecutive lower 35% closes (+2)
+	  COT_COMMERCIAL_BEARISH: COT commercial % < 25% (+2)
+	"""
+	applied = []
+
+	bearish = [p for p in pattern_evidence.get("patterns", []) if p.get("direction") == "bearish"]
+	if len(bearish) >= 2:
+		applied.append({"code": "MULTI_BEARISH_PATTERN", "points": 3})
+
+	if range_evidence.get("consecutive_small", 0) >= 3:
+		applied.append({"code": "RANGE_COILED", "points": 3})
+
+	if range_evidence.get("consecutive_lower_closes", 0) >= 3:
+		applied.append({"code": "WEAK_CLOSES", "points": 2})
+
+	if cot_evidence and cot_evidence.get("signal") == "bearish":
+		applied.append({"code": "COT_COMMERCIAL_BEARISH", "points": 2})
+
+	total = sum(b["points"] for b in applied)
+	return {
+		"applied": applied,
+		"total_bonus": total,
+	}
+
+
+def _determine_signal_short(conviction, hard_gates):
+	"""Map SHORT conviction score to signal level, applying hard gate caps."""
+	if hard_gates.get("signal_capped"):
+		conviction = min(conviction, 59)
+
+	if conviction >= 80:
+		return "STRONG_SELL", conviction
+	elif conviction >= 60:
+		return "SELL", conviction
+	elif conviction >= 40:
+		return "HOLD", conviction
+	elif conviction >= 20:
+		return "MONITOR", conviction
+	return "AVOID", conviction
 
 
 # ---------------------------------------------------------------------------
@@ -1007,7 +1446,7 @@ def cmd_trade_setup(args):
 	gsv_evidence = _build_gsv_evidence(results["gsv"])
 	cot_evidence = _build_cot_evidence(results["cot_data"])
 
-	# --- Score each component ---
+	# --- Score each LONG component ---
 	pattern_score, pattern_detail = _score_pattern(pattern_evidence)
 	bond_score, bond_detail = _score_bond(bond_filter)
 	tdw_score, tdw_detail = _score_tdw(results["tdw_tdm"])
@@ -1017,9 +1456,11 @@ def cmd_trade_setup(args):
 	wr_score, wr_detail = _score_williams_r(results["williams_r"])
 	close_score, close_detail = _score_close_position(results["range_analysis"])
 	swing_score, swing_detail = _score_swing_structure(results["swing_short"], results["swing_intermediate"])
+	vb_score, vb_detail = _score_volatility_breakout(results["volatility_breakout"])
 
 	components = {
 		"pattern_signal": {"score": pattern_score, "max": 25, "detail": pattern_detail},
+		"volatility_breakout": {"score": vb_score, "max": 15, "detail": vb_detail},
 		"bond_intermarket": {"score": bond_score, "max": 15, "detail": bond_detail},
 		"tdw_alignment": {"score": tdw_score, "max": 10, "detail": tdw_detail},
 		"tdm_alignment": {"score": tdm_score, "max": 10, "detail": tdm_detail},
@@ -1030,24 +1471,70 @@ def cmd_trade_setup(args):
 		"swing_structure": {"score": swing_score, "max": 5, "detail": swing_detail},
 	}
 
-	# --- Calculate raw score ---
-	raw_score = _calc_composite_score(components)
+	# --- Score each SHORT component ---
+	sp_score, sp_detail = _score_pattern_short(pattern_evidence)
+	sb_score, sb_detail = _score_bond_short(bond_filter)
+	stw_score, stw_detail = _score_tdw_short(results["tdw_tdm"])
+	stm_score, stm_detail = _score_tdm_short(results["tdw_tdm"])
+	sma_score, sma_detail = _score_ma_trend_short(results["trend_ma"])
+	swr_score, swr_detail = _score_williams_r_short(results["williams_r"])
+	scp_score, scp_detail = _score_close_position_short(results["range_analysis"])
+	svb_score, svb_detail = _score_volatility_breakout_short(results["volatility_breakout"])
+	sss_score, sss_detail = _score_swing_structure_short(results["swing_short"], results["swing_intermediate"])
 
-	# --- Evaluate gates and bonuses ---
-	hard_gates = _evaluate_hard_gates(components, pattern_evidence, bond_filter)
+	short_components = {
+		"pattern_signal": {"score": sp_score, "max": 25, "detail": sp_detail},
+		"volatility_breakout": {"score": svb_score, "max": 15, "detail": svb_detail},
+		"bond_intermarket": {"score": sb_score, "max": 15, "detail": sb_detail},
+		"tdw_alignment": {"score": stw_score, "max": 10, "detail": stw_detail},
+		"tdm_alignment": {"score": stm_score, "max": 10, "detail": stm_detail},
+		"range_phase": {"score": range_score, "max": 10, "detail": range_detail},
+		"ma_trend": {"score": sma_score, "max": 10, "detail": sma_detail},
+		"williams_r": {"score": swr_score, "max": 10, "detail": swr_detail},
+		"close_position": {"score": scp_score, "max": 5, "detail": scp_detail},
+		"swing_structure": {"score": sss_score, "max": 5, "detail": sss_detail},
+	}
+
+	# --- Calculate LONG raw score ---
+	raw_score = _calc_composite_score(components)
+	hard_gates = _evaluate_hard_gates(components, pattern_evidence, bond_filter, vb_data=results["volatility_breakout"])
 	soft_gates = _evaluate_soft_gates(components, range_evidence, gsv_evidence)
 	bonuses = _evaluate_bonuses(pattern_evidence, range_evidence, cot_evidence)
+	long_conviction = raw_score + soft_gates["total_penalty"] + bonuses["total_bonus"]
+	long_conviction = round(max(0, min(100, long_conviction)), 1)
+	long_signal, long_conviction = _determine_signal(long_conviction, hard_gates)
 
-	# Apply soft gates and bonuses to score
-	conviction = raw_score + soft_gates["total_penalty"] + bonuses["total_bonus"]
-	conviction = round(max(0, min(100, conviction)), 1)
+	# --- Calculate SHORT raw score ---
+	short_raw = _calc_composite_score(short_components)
+	short_hard_gates = _evaluate_hard_gates_short(short_components, pattern_evidence, bond_filter, vb_data=results["volatility_breakout"])
+	short_soft_gates = _evaluate_soft_gates_short(short_components, range_evidence, gsv_evidence)
+	short_bonuses = _evaluate_bonuses_short(pattern_evidence, range_evidence, cot_evidence)
+	short_conviction = short_raw + short_soft_gates["total_penalty"] + short_bonuses["total_bonus"]
+	short_conviction = round(max(0, min(100, short_conviction)), 1)
+	short_signal, short_conviction = _determine_signal_short(short_conviction, short_hard_gates)
 
-	# --- Determine signal (hard gates may cap) ---
-	signal, conviction = _determine_signal(conviction, hard_gates)
+	# --- Determine dominant direction ---
+	if long_conviction >= short_conviction:
+		dominant_direction = "long"
+		conviction = long_conviction
+		signal = long_signal
+		dominant_components = components
+		dominant_hard_gates = hard_gates
+		dominant_soft_gates = soft_gates
+		dominant_bonuses = bonuses
+	else:
+		dominant_direction = "short"
+		conviction = short_conviction
+		signal = short_signal
+		dominant_components = short_components
+		dominant_hard_gates = short_hard_gates
+		dominant_soft_gates = short_soft_gates
+		dominant_bonuses = short_bonuses
 
-	# --- Signal reason codes ---
+	# --- Signal reason codes (from dominant direction) ---
 	reason_codes = _build_signal_reason_codes(
-		signal, components, hard_gates, soft_gates, bonuses, missing_components
+		signal, dominant_components, dominant_hard_gates, dominant_soft_gates,
+		dominant_bonuses, missing_components
 	)
 
 	# --- Position sizing (Williams formula) ---
@@ -1058,11 +1545,15 @@ def cmd_trade_setup(args):
 		current_price = vb.get("current_price", 0)
 		entry_price = current_price
 		stop_distance = atr_val if atr_val > 0 else current_price * 0.02
-		stop_price = round(entry_price - stop_distance, 2)
+		if dominant_direction == "long":
+			stop_price = round(entry_price - stop_distance, 2)
+		else:
+			stop_price = round(entry_price + stop_distance, 2)
 		dollar_risk = args.account_size * (args.risk_pct / 100)
 		contracts = int(dollar_risk / stop_distance) if stop_distance > 0 else 0
 
 		pos_sizing = {
+			"direction": dominant_direction,
 			"risk_pct": args.risk_pct,
 			"account_size": args.account_size,
 			"contracts": contracts,
@@ -1074,18 +1565,23 @@ def cmd_trade_setup(args):
 
 	# --- Recommendation ---
 	recommendation = _generate_recommendation(
-		symbol, signal, conviction, components, hard_gates, pattern_evidence
+		symbol, signal, conviction, dominant_components, dominant_hard_gates, pattern_evidence
 	)
 
 	output_json({
 		"symbol": symbol,
 		"conviction_score": conviction,
 		"signal": signal,
+		"direction": dominant_direction,
+		"long_score": long_conviction,
+		"short_score": short_conviction,
 		"signal_reason_codes": reason_codes,
 		"hard_gates": hard_gates,
+		"short_hard_gates": short_hard_gates,
 		"soft_gates": soft_gates,
 		"bonuses": bonuses,
 		"components": components,
+		"short_components": short_components,
 		"evidence": {
 			"bond_filter": bond_filter if not bond_filter.get("error") else None,
 			"pattern": pattern_evidence,
@@ -1156,9 +1652,11 @@ def cmd_analyze(args):
 	wr_score, wr_detail = _score_williams_r(results["williams_r"])
 	close_score, close_detail = _score_close_position(results["range_analysis"])
 	swing_score, swing_detail = _score_swing_structure(results["swing_short"], results["swing_intermediate"])
+	vb_score, vb_detail = _score_volatility_breakout(results["volatility_breakout"])
 
 	components = {
 		"pattern_signal": {"score": pattern_score, "max": 25, "detail": pattern_detail},
+		"volatility_breakout": {"score": vb_score, "max": 15, "detail": vb_detail},
 		"bond_intermarket": {"score": bond_score, "max": 15, "detail": bond_detail},
 		"tdw_alignment": {"score": tdw_score, "max": 10, "detail": tdw_detail},
 		"tdm_alignment": {"score": tdm_score, "max": 10, "detail": tdm_detail},
@@ -1170,7 +1668,7 @@ def cmd_analyze(args):
 	}
 
 	raw_score = _calc_composite_score(components)
-	hard_gates = _evaluate_hard_gates(components, pattern_evidence, bond_filter)
+	hard_gates = _evaluate_hard_gates(components, pattern_evidence, bond_filter, vb_data=results["volatility_breakout"])
 	soft_gates = _evaluate_soft_gates(components, range_evidence, gsv_evidence)
 	bonuses = _evaluate_bonuses(pattern_evidence, range_evidence, cot_evidence)
 	conviction = round(max(0, min(100, raw_score + soft_gates["total_penalty"] + bonuses["total_bonus"])), 1)
@@ -1401,6 +1899,7 @@ def cmd_watchlist(args):
 		gsv_ev = _build_gsv_evidence(res["gsv"])
 
 		ps, pd = _score_pattern(pat_ev)
+		vbs, vbd = _score_volatility_breakout(res["volatility_breakout"])
 		bs, bd = _score_bond(bond)
 		ts, td = _score_tdw(res["tdw_tdm"])
 		tms, tmd = _score_tdm(res["tdw_tdm"])
@@ -1412,6 +1911,7 @@ def cmd_watchlist(args):
 
 		comps = {
 			"pattern_signal": {"score": ps, "max": 25, "detail": pd},
+			"volatility_breakout": {"score": vbs, "max": 15, "detail": vbd},
 			"bond_intermarket": {"score": bs, "max": 15, "detail": bd},
 			"tdw_alignment": {"score": ts, "max": 10, "detail": td},
 			"tdm_alignment": {"score": tms, "max": 10, "detail": tmd},
@@ -1423,7 +1923,7 @@ def cmd_watchlist(args):
 		}
 
 		raw = _calc_composite_score(comps)
-		hg = _evaluate_hard_gates(comps, pat_ev, bond)
+		hg = _evaluate_hard_gates(comps, pat_ev, bond, vb_data=res["volatility_breakout"])
 		sg = _evaluate_soft_gates(comps, rng_ev, gsv_ev)
 		bn = _evaluate_bonuses(pat_ev, rng_ev, None)  # No COT in watchlist mode
 
@@ -1530,9 +2030,12 @@ def cmd_recheck(args):
 	"""Position management — exit signal evaluation for held positions.
 
 	Evaluates time-in-trade, Williams %R dual timeframe exit, swing violation,
-	dollar stop, and bailout opportunity for a currently held position.
+	dollar stop, and bailout opportunity. Supports both LONG and SHORT positions
+	via --direction argument.
 	"""
 	symbol = args.symbol.upper()
+	direction = getattr(args, "direction", "long")
+	is_short = direction == "short"
 	missing_components = []
 
 	# Parse entry date
@@ -1544,7 +2047,7 @@ def cmd_recheck(args):
 	entry_price = args.entry_price
 	entry_stop = args.entry_stop
 
-	# Parallel module calls
+	# Parallel module calls (add pattern_scan for short cover detection)
 	scripts = {
 		"williams_r": ("technical/williams_r.py", ["calculate", symbol, "--period", "14"]),
 		"range_analysis": ("technical/range_analysis.py", ["analyze", symbol]),
@@ -1552,8 +2055,10 @@ def cmd_recheck(args):
 		"volatility_breakout": ("technical/atr_breakout.py", ["breakout", symbol]),
 		"tdw_tdm": ("technical/calendar_bias.py", ["today"]),
 	}
+	if is_short:
+		scripts["pattern_scan"] = ("technical/bar_patterns.py", ["scan", symbol, "--lookback", "5"])
 
-	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
 		futures = {name: executor.submit(_run_script, path, a) for name, (path, a) in scripts.items()}
 		results = {name: future.result() for name, future in futures.items()}
 
@@ -1561,7 +2066,7 @@ def cmd_recheck(args):
 		if data.get("error"):
 			missing_components.append(name)
 
-	# Current price from volatility breakout or williams %R
+	# Current price from volatility breakout
 	current_price = None
 	vb = results["volatility_breakout"]
 	if not vb.get("error"):
@@ -1569,7 +2074,6 @@ def cmd_recheck(args):
 	if current_price is None:
 		wr = results["williams_r"]
 		if not wr.get("error"):
-			# williams-r doesn't return current_price directly, estimate from data
 			current_price = entry_price  # fallback
 
 	if current_price is None:
@@ -1579,109 +2083,296 @@ def cmd_recheck(args):
 	today = datetime.date.today()
 	days_held = (today - entry_date).days
 
-	# Unrealized P&L
-	unrealized_pnl_pct = round((current_price - entry_price) / entry_price * 100, 2) if entry_price > 0 else 0
+	# Unrealized P&L (inverted for shorts: profit when price drops)
+	if is_short:
+		unrealized_pnl_pct = round((entry_price - current_price) / entry_price * 100, 2) if entry_price > 0 else 0
+	else:
+		unrealized_pnl_pct = round((current_price - entry_price) / entry_price * 100, 2) if entry_price > 0 else 0
 
 	# Current stop from volatility breakout ATR
 	current_stop = entry_stop
 	if not vb.get("error") and vb.get("atr_3day"):
-		atr_stop = round(current_price - vb["atr_3day"], 2)
-		if current_stop is None or atr_stop > current_stop:
-			current_stop = atr_stop
+		if is_short:
+			# SHORT stop is ABOVE entry: price rising = loss
+			atr_stop = round(current_price + vb["atr_3day"], 2)
+			if current_stop is None or atr_stop < current_stop:
+				current_stop = atr_stop
+		else:
+			atr_stop = round(current_price - vb["atr_3day"], 2)
+			if current_stop is None or atr_stop > current_stop:
+				current_stop = atr_stop
 
 	if current_stop is None and not vb.get("error"):
-		current_stop = round(current_price - (vb.get("atr_3day", current_price * 0.02)), 2)
+		atr_val = vb.get("atr_3day", current_price * 0.02)
+		if is_short:
+			current_stop = round(current_price + atr_val, 2)
+		else:
+			current_stop = round(current_price - atr_val, 2)
 
 	# --- Evaluate exit signals ---
 	exit_signals = []
+	today_open = None
+	if not vb.get("error"):
+		today_open = vb.get("open")
 
-	# 1. BAILOUT_OPPORTUNITY: current > entry + reasonable threshold
-	bailout_triggered = current_price > entry_price and days_held >= 1
-	exit_signals.append({
-		"code": "BAILOUT_OPPORTUNITY",
-		"triggered": bailout_triggered,
-		"detail": f"Current {current_price} vs entry {entry_price}, held {days_held} days" if bailout_triggered
-		else f"No profit yet (current {current_price} vs entry {entry_price})",
-	})
+	if is_short:
+		# === SHORT position exit signals ===
 
-	# 2. TIME_STOP: held > 5 days without meaningful profit
-	time_stop = days_held > 5
-	exit_signals.append({
-		"code": "TIME_STOP",
-		"triggered": time_stop,
-		"detail": f"Held {days_held} days — exceeds 5-day optimal window" if time_stop
-		else f"Within window ({days_held}/5 days)",
-	})
+		# 1. BAILOUT: first profitable open (open < entry for shorts)
+		first_profitable_open = False
+		if today_open and entry_price and today_open < entry_price and days_held >= 1:
+			first_profitable_open = True
 
-	# 3. DOLLAR_STOP_HIT: current <= entry_stop
-	stop_hit = False
-	if current_stop is not None:
-		stop_hit = current_price <= current_stop
-	exit_signals.append({
-		"code": "DOLLAR_STOP_HIT",
-		"triggered": stop_hit,
-		"detail": f"Price {current_price} hit stop {current_stop}" if stop_hit
-		else f"Price {current_price} above stop {current_stop}",
-	})
-
-	# 4. WR_OVERBOUGHT_EXIT: Williams %R > -20 (dual timeframe)
-	wr_exit = False
-	wr_data = results["williams_r"]
-	if not wr_data.get("error"):
-		wr_val = wr_data.get("current_wr", -50)
-		wr_exit = wr_val > -20
+		bailout_triggered = (first_profitable_open or
+			(current_price < entry_price and days_held >= 1))
 		exit_signals.append({
-			"code": "WR_OVERBOUGHT_EXIT",
-			"triggered": wr_exit,
-			"detail": f"Williams %R = {wr_val} (overbought zone)" if wr_exit
-			else f"Williams %R = {wr_val} (not overbought)",
-		})
-	else:
-		exit_signals.append({
-			"code": "WR_OVERBOUGHT_EXIT",
-			"triggered": False,
-			"detail": "Williams %R unavailable",
+			"code": "BAILOUT_OPPORTUNITY",
+			"triggered": bailout_triggered,
+			"detail": (f"First profitable open: {today_open} < entry {entry_price} (short profit)" if first_profitable_open
+				else f"Current {current_price} vs entry {entry_price}, held {days_held} days" if bailout_triggered
+				else f"No profit yet (current {current_price} vs entry {entry_price})"),
 		})
 
-	# 5. SWING_VIOLATION: price below recent short-term swing low
-	swing_violated = False
-	swing_data = results["swing_short"]
-	if not swing_data.get("error"):
-		last_low = swing_data.get("last_swing_low", {})
-		if last_low and last_low.get("price"):
-			swing_violated = current_price < last_low["price"]
+		# 2. TIME_STOP
+		time_stop = days_held > 5
+		exit_signals.append({
+			"code": "TIME_STOP",
+			"triggered": time_stop,
+			"detail": f"Held {days_held} days — exceeds 5-day optimal window" if time_stop
+			else f"Within window ({days_held}/5 days)",
+		})
+
+		# 3. DOLLAR_STOP_HIT: price rises above stop (short stop is above)
+		stop_hit = False
+		if current_stop is not None:
+			stop_hit = current_price >= current_stop
+		exit_signals.append({
+			"code": "DOLLAR_STOP_HIT",
+			"triggered": stop_hit,
+			"detail": f"Price {current_price} hit stop {current_stop} (above stop)" if stop_hit
+			else f"Price {current_price} below stop {current_stop}",
+		})
+
+		# 4. WR_OVERSOLD_EXIT: Williams %R < -80 → cover short (momentum exhausted)
+		wr_exit = False
+		wr_data = results["williams_r"]
+		if not wr_data.get("error"):
+			wr_val = wr_data.get("current_wr", -50)
+			wr_exit = wr_val < -80
+			exit_signals.append({
+				"code": "WR_OVERSOLD_EXIT",
+				"triggered": wr_exit,
+				"detail": f"Williams %R = {wr_val} (oversold — cover short)" if wr_exit
+				else f"Williams %R = {wr_val} (not oversold)",
+			})
+		else:
+			exit_signals.append({
+				"code": "WR_OVERSOLD_EXIT",
+				"triggered": False,
+				"detail": "Williams %R unavailable",
+			})
+
+		# 5. SWING_VIOLATION: price above recent short-term swing high (for shorts)
+		swing_violated = False
+		swing_data = results["swing_short"]
+		if not swing_data.get("error"):
+			last_high = swing_data.get("last_swing_high", {})
+			if last_high and last_high.get("price"):
+				swing_violated = current_price > last_high["price"]
+				exit_signals.append({
+					"code": "SWING_VIOLATION",
+					"triggered": swing_violated,
+					"detail": f"Price {current_price} above swing high {last_high['price']} (short violated)" if swing_violated
+					else f"Price {current_price} below swing high {last_high['price']}",
+				})
+		else:
 			exit_signals.append({
 				"code": "SWING_VIOLATION",
-				"triggered": swing_violated,
-				"detail": f"Price {current_price} below swing low {last_low['price']}" if swing_violated
-				else f"Price {current_price} above swing low {last_low['price']}",
+				"triggered": False,
+				"detail": "Swing data unavailable",
 			})
-	else:
+
+		# 6. REVERSE_SIGNAL: buy breakout while holding short → EXIT_REVERSE
+		reverse_signal = False
+		reverse_direction = None
+		if not vb.get("error"):
+			active_signal = vb.get("active_signal", "none")
+			breakout_triggered = vb.get("breakout_triggered", False)
+			if breakout_triggered and active_signal == "buy":
+				reverse_signal = True
+				reverse_direction = "buy"
 		exit_signals.append({
-			"code": "SWING_VIOLATION",
-			"triggered": False,
-			"detail": "Swing data unavailable",
+			"code": "REVERSE_SIGNAL",
+			"triggered": reverse_signal,
+			"detail": (f"Opposite breakout signal: {reverse_direction} — cover and reverse" if reverse_signal
+				else "No opposing breakout signal"),
 		})
 
-	# --- Determine verdict ---
-	if stop_hit:
-		verdict = "EXIT_STOP"
-		verdict_reason = f"Dollar stop hit at {current_stop}. Exit immediately."
-	elif swing_violated:
-		verdict = "EXIT_STOP"
-		verdict_reason = "Short-term swing low violated. Trend structure broken."
-	elif time_stop and unrealized_pnl_pct <= 1.0:
-		verdict = "EXIT_TIME"
-		verdict_reason = f"Held {days_held} days with {unrealized_pnl_pct}% gain. Condition has evaporated."
-	elif bailout_triggered and wr_exit:
-		verdict = "EXIT_BAILOUT"
-		verdict_reason = f"Profitable ({unrealized_pnl_pct}%) + Williams %R overbought. Take profit."
-	elif bailout_triggered and days_held >= 3:
-		verdict = "HOLD"
-		verdict_reason = f"Profitable ({unrealized_pnl_pct}%), within optimal 2-5 day window. Consider bailout."
+		# 7. COVER_SIGNAL: bullish pattern detected → suggest cover
+		cover_signal = False
+		pattern_data = results.get("pattern_scan", {})
+		if not pattern_data.get("error"):
+			bullish_patterns = [
+				p for p in pattern_data.get("patterns_detected", [])
+				if p.get("direction") == "bullish"
+			]
+			cover_signal = len(bullish_patterns) > 0
+		exit_signals.append({
+			"code": "COVER_SIGNAL",
+			"triggered": cover_signal,
+			"detail": ("Bullish pattern detected — consider covering short" if cover_signal
+				else "No bullish cover patterns"),
+		})
+
+		# --- SHORT verdict ---
+		if reverse_signal:
+			verdict = "EXIT_REVERSE"
+			verdict_reason = f"Volatility breakout generated BUY signal while holding short. Cover and reverse per Williams Ch.11."
+		elif stop_hit:
+			verdict = "EXIT_STOP"
+			verdict_reason = f"Dollar stop hit at {current_stop}. Cover short immediately."
+		elif swing_violated:
+			verdict = "EXIT_STOP"
+			verdict_reason = "Short-term swing high violated. Uptrend structure confirmed — cover short."
+		elif time_stop and unrealized_pnl_pct <= 1.0:
+			verdict = "EXIT_TIME"
+			verdict_reason = f"Held {days_held} days with {unrealized_pnl_pct}% gain. Condition has evaporated."
+		elif first_profitable_open:
+			verdict = "EXIT_BAILOUT"
+			verdict_reason = f"First profitable opening at {today_open} (entry {entry_price}). Williams bailout — cover short."
+		elif cover_signal and bailout_triggered:
+			verdict = "COVER"
+			verdict_reason = f"Bullish pattern detected + profitable ({unrealized_pnl_pct}%). Cover short position."
+		elif bailout_triggered and wr_exit:
+			verdict = "COVER"
+			verdict_reason = f"Profitable ({unrealized_pnl_pct}%) + Williams %R oversold. Downside exhausted — cover."
+		elif bailout_triggered and days_held >= 3:
+			verdict = "HOLD"
+			verdict_reason = f"Profitable ({unrealized_pnl_pct}%), within optimal 2-5 day window. Consider covering."
+		else:
+			verdict = "HOLD"
+			verdict_reason = f"Within optimal window ({days_held} days), no exit signals triggered."
+
 	else:
-		verdict = "HOLD"
-		verdict_reason = f"Within optimal window ({days_held} days), no exit signals triggered."
+		# === LONG position exit signals (original logic) ===
+
+		# 1. FIRST_PROFITABLE_OPEN bailout
+		first_profitable_open = False
+		if today_open and entry_price and today_open > entry_price and days_held >= 1:
+			first_profitable_open = True
+
+		bailout_triggered = (first_profitable_open or
+			(current_price > entry_price and days_held >= 1))
+		exit_signals.append({
+			"code": "BAILOUT_OPPORTUNITY",
+			"triggered": bailout_triggered,
+			"detail": (f"First profitable open: {today_open} > entry {entry_price}" if first_profitable_open
+				else f"Current {current_price} vs entry {entry_price}, held {days_held} days" if bailout_triggered
+				else f"No profit yet (current {current_price} vs entry {entry_price})"),
+		})
+
+		# 2. TIME_STOP
+		time_stop = days_held > 5
+		exit_signals.append({
+			"code": "TIME_STOP",
+			"triggered": time_stop,
+			"detail": f"Held {days_held} days — exceeds 5-day optimal window" if time_stop
+			else f"Within window ({days_held}/5 days)",
+		})
+
+		# 3. DOLLAR_STOP_HIT
+		stop_hit = False
+		if current_stop is not None:
+			stop_hit = current_price <= current_stop
+		exit_signals.append({
+			"code": "DOLLAR_STOP_HIT",
+			"triggered": stop_hit,
+			"detail": f"Price {current_price} hit stop {current_stop}" if stop_hit
+			else f"Price {current_price} above stop {current_stop}",
+		})
+
+		# 4. WR_OVERBOUGHT_EXIT
+		wr_exit = False
+		wr_data = results["williams_r"]
+		if not wr_data.get("error"):
+			wr_val = wr_data.get("current_wr", -50)
+			wr_exit = wr_val > -20
+			exit_signals.append({
+				"code": "WR_OVERBOUGHT_EXIT",
+				"triggered": wr_exit,
+				"detail": f"Williams %R = {wr_val} (overbought zone)" if wr_exit
+				else f"Williams %R = {wr_val} (not overbought)",
+			})
+		else:
+			exit_signals.append({
+				"code": "WR_OVERBOUGHT_EXIT",
+				"triggered": False,
+				"detail": "Williams %R unavailable",
+			})
+
+		# 5. SWING_VIOLATION
+		swing_violated = False
+		swing_data = results["swing_short"]
+		if not swing_data.get("error"):
+			last_low = swing_data.get("last_swing_low", {})
+			if last_low and last_low.get("price"):
+				swing_violated = current_price < last_low["price"]
+				exit_signals.append({
+					"code": "SWING_VIOLATION",
+					"triggered": swing_violated,
+					"detail": f"Price {current_price} below swing low {last_low['price']}" if swing_violated
+					else f"Price {current_price} above swing low {last_low['price']}",
+				})
+		else:
+			exit_signals.append({
+				"code": "SWING_VIOLATION",
+				"triggered": False,
+				"detail": "Swing data unavailable",
+			})
+
+		# 6. REVERSE_SIGNAL
+		reverse_signal = False
+		reverse_direction = None
+		if not vb.get("error"):
+			active_signal = vb.get("active_signal", "none")
+			breakout_triggered = vb.get("breakout_triggered", False)
+			if breakout_triggered and active_signal == "sell":
+				reverse_signal = True
+				reverse_direction = "sell"
+		exit_signals.append({
+			"code": "REVERSE_SIGNAL",
+			"triggered": reverse_signal,
+			"detail": (f"Opposite breakout signal: {reverse_direction} — exit and reverse" if reverse_signal
+				else "No opposing breakout signal"),
+		})
+
+		cover_signal = False
+
+		# --- LONG verdict ---
+		if reverse_signal:
+			verdict = "EXIT_REVERSE"
+			verdict_reason = f"Volatility breakout generated opposite ({reverse_direction}) signal. Exit and reverse per Williams Ch.11."
+		elif stop_hit:
+			verdict = "EXIT_STOP"
+			verdict_reason = f"Dollar stop hit at {current_stop}. Exit immediately."
+		elif swing_violated:
+			verdict = "EXIT_STOP"
+			verdict_reason = "Short-term swing low violated. Trend structure broken."
+		elif time_stop and unrealized_pnl_pct <= 1.0:
+			verdict = "EXIT_TIME"
+			verdict_reason = f"Held {days_held} days with {unrealized_pnl_pct}% gain. Condition has evaporated."
+		elif first_profitable_open:
+			verdict = "EXIT_BAILOUT"
+			verdict_reason = f"First profitable opening at {today_open} (entry {entry_price}). Williams bailout rule triggered."
+		elif bailout_triggered and wr_exit:
+			verdict = "EXIT_BAILOUT"
+			verdict_reason = f"Profitable ({unrealized_pnl_pct}%) + Williams %R overbought. Take profit."
+		elif bailout_triggered and days_held >= 3:
+			verdict = "HOLD"
+			verdict_reason = f"Profitable ({unrealized_pnl_pct}%), within optimal 2-5 day window. Consider bailout."
+		else:
+			verdict = "HOLD"
+			verdict_reason = f"Within optimal window ({days_held} days), no exit signals triggered."
 
 	# Range phase
 	range_phase = "unknown"
@@ -1700,6 +2391,7 @@ def cmd_recheck(args):
 
 	output_json({
 		"symbol": symbol,
+		"direction": direction,
 		"entry_price": entry_price,
 		"current_price": current_price,
 		"days_held": days_held,
@@ -1707,6 +2399,9 @@ def cmd_recheck(args):
 		"exit_signals": exit_signals,
 		"verdict": verdict,
 		"verdict_reason": verdict_reason,
+		"bailout_triggered": bailout_triggered,
+		"first_profitable_open": first_profitable_open,
+		"reverse_signal": reverse_signal,
 		"current_stop": current_stop,
 		"williams_r": _compress_williams_r(wr_data),
 		"range_phase": range_phase,
@@ -1764,6 +2459,8 @@ def main():
 	sp.add_argument("--entry-price", type=float, required=True, help="Original entry price")
 	sp.add_argument("--entry-date", type=str, required=True, help="Entry date (YYYY-MM-DD)")
 	sp.add_argument("--entry-stop", type=float, default=None, help="Entry stop price (optional)")
+	sp.add_argument("--direction", type=str, default="long", choices=["long", "short"],
+		help="Position direction: long or short (default: long)")
 	sp.set_defaults(func=cmd_recheck)
 
 	args = parser.parse_args()

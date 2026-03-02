@@ -128,6 +128,37 @@ When interpreting range analysis output:
 ### Williams %R
 
 Williams %R measures where the current close sits relative to the recent high-low range:
-- **Values near 0 (overbought)**: Price is near the top of its recent range. In trending markets, this is a sign of strength, not a sell signal
-- **Values near -100 (oversold)**: Price is near the bottom of its recent range. Combined with other setup conditions, this identifies potential reversal zones
+- **Values near 0 (overbought)**: Price is near the top of its recent range. In trending markets, this is a sign of strength, not a sell signal. For SHORT setups, overbought = opportunity zone.
+- **Values near -100 (oversold)**: Price is near the bottom of its recent range. Combined with other setup conditions, this identifies potential reversal zones. For SHORT positions, oversold = exhaustion, consider covering.
 - **Divergence**: %R making higher lows while price makes lower lows signals weakening downside momentum
+
+---
+
+## Short Trading (Sell/Short Direction)
+
+Williams' methodology is inherently directional — every buy setup has a mirror sell setup. The pipeline computes BOTH long and short conviction scores simultaneously, with the dominant direction determining the primary signal.
+
+### Dual Scoring System
+
+The trade-setup pipeline scores 10 components for both directions:
+- **Long score**: Bullish patterns, buy breakouts, bonds bullish, oversold %R, uptrend MA, etc.
+- **Short score**: Bearish patterns, sell breakouts, bonds bearish, overbought %R, downtrend MA, etc.
+
+The dominant direction is determined by the higher conviction score. Signals are:
+- Long: STRONG_BUY (80+), BUY (60-79), HOLD (40-59), MONITOR (20-39), AVOID (<20)
+- Short: STRONG_SELL (80+), SELL (60-79), HOLD (40-59), MONITOR (20-39), AVOID (<20)
+
+### Short-Specific Hard Gates
+
+- **SHORT_BOND_CONTRADICTION**: Bonds bullish + sell signal = contradiction. Bullish bonds support stock prices, making shorts risky.
+- **NO_BEARISH_PATTERN**: No bearish pattern detected. Williams requires a concrete setup.
+- **CHASING_WEAKNESS**: Williams %R oversold + no bearish pattern = chasing oversold conditions without setup confirmation.
+
+### Short Position Management (recheck --direction short)
+
+- **Bailout**: First profitable open where open < entry_price
+- **Dollar Stop**: Price rises above entry_price + ATR → cover
+- **Williams %R Oversold**: %R < -80 → downside momentum exhausted
+- **Swing Violation**: Price above short-term swing high → uptrend confirmed
+- **Reverse Signal**: Buy breakout → EXIT_REVERSE (cover and go long)
+- **Cover Signal**: Bullish pattern detected → suggest covering

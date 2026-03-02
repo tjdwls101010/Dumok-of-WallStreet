@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Calendar Bias: Trading Day of Week (TDW) and Trading Day of Month (TDM) analysis.
 
-Returns the current day's calendar-based trading bias using historical TDW and
-TDM patterns. TDW identifies which weekdays have historically stronger or weaker
-performance, while TDM captures month-start and month-end effects driven by
-institutional fund flows.
+Returns the current day's trading bias using historical TDW and TDM patterns.
+TDW identifies which weekdays have historically stronger or weaker performance.
+TDM uses actual trading day counts (business days, not calendar days) to capture
+month-start and month-end effects driven by institutional fund flows.
 
 Commands:
 	today: Return today's TDW and TDM bias assessment
@@ -16,8 +16,8 @@ Returns:
 	dict: {
 		"date": str,
 		"day_of_week": str,
-		"trading_day_of_week": int,
-		"trading_day_of_month": int,
+		"trading_day_of_week": int,        # 1=Monday through 5=Friday
+		"trading_day_of_month": int,       # Actual trading day count (1-22 typical)
 		"tdw_bias": str,
 		"tdm_bias": str,
 		"tdw_note": str,
@@ -35,7 +35,7 @@ Example:
 		"tdw_bias": "bullish",
 		"tdm_bias": "bullish",
 		"tdw_note": "Monday historically bullish for S&P; strong open tendency",
-		"tdm_note": "Month-start effect: institutional inflows, fund deployment",
+		"tdm_note": "Month-start effect: institutional inflows, fund deployment (TDM 1-3)",
 		"combined_bias": "bullish"
 	}
 
@@ -53,7 +53,11 @@ Notes:
 	  Wednesday -$27, Thursday -$37, Friday +$109
 	- Cumulative TDW (volatility breakout, 2000-2011): Monday $50,000,
 	  Tuesday $30,000, Wednesday -$22,000
-	- TDM: Month start (TDM 1-4) and month end (TDM 19-22) show bullish bias
+	- TDM uses trading day counts (business days Mon-Fri from month start),
+	  NOT calendar day numbers. Williams' TDM tables map trading day numbers.
+	- TDM bias thresholds (trading days): TDM 1-3 bullish (month start),
+	  TDM 8 bullish (Williams best-buy anomaly), TDM 9-15 bearish (mid-month),
+	  TDM 17+ bullish (month end, strongest zone)
 	- TDM 21 is the strongest: $945 avg profit/trade (1982-1998),
 	  confirmed $297 avg/trade (1998-2011)
 	- Best TDMs for buying: 8, 18, 19, 20, 21, 22
@@ -92,21 +96,27 @@ DAY_NAMES = {
 }
 
 
-def _tdm_bias(day):
+def _tdm_bias(tdm):
 	"""Determine Trading Day of Month bias.
 
+	Williams' TDM uses actual trading day counts (not calendar days).
+	Best TDMs for buying: 8, 18, 19, 20, 21, 22 (Williams, Ch.6).
+	TDM 21 strongest: $945 avg profit/trade (1982-1998), confirmed $297 (1998-2011).
+
 	Args:
-		day: Calendar day of month (1-31)
+		tdm: Trading day of month (1-22 typical)
 
 	Returns:
 		dict: {"bias": str, "note": str}
 	"""
-	if day <= 3:
-		return {"bias": "bullish", "note": "Month-start effect: institutional inflows, fund deployment"}
-	elif day >= 25:
-		return {"bias": "bullish", "note": "Month-end effect: window dressing, fund inflows"}
-	elif 10 <= day <= 18:
-		return {"bias": "bearish", "note": "Mid-month weakness: tax payments, low institutional activity"}
+	if tdm <= 3:
+		return {"bias": "bullish", "note": "Month-start effect: institutional inflows, fund deployment (TDM 1-3)"}
+	elif tdm >= 17:
+		return {"bias": "bullish", "note": "Month-end effect: window dressing, fund inflows (TDM 17-22 strongest)"}
+	elif tdm == 8:
+		return {"bias": "bullish", "note": "TDM 8: Williams best-buy trading day, mid-month anomaly"}
+	elif 9 <= tdm <= 15:
+		return {"bias": "bearish", "note": "Mid-month weakness: tax payments, low institutional activity (TDM 9-15)"}
 	else:
 		return {"bias": "neutral", "note": "Transition zone; no strong historical bias"}
 
@@ -164,15 +174,27 @@ def _trading_day_of_week(dt):
 
 
 def _trading_day_of_month(dt):
-	"""Get the calendar day of the month.
+	"""Count actual trading days (business days) from month start to dt.
+
+	Williams' TDM maps trading day numbers (1st, 2nd, 3rd... trading day
+	of the month), not calendar dates. A typical month has ~21 trading days.
 
 	Args:
 		dt: datetime.date object
 
 	Returns:
-		int: Day of month (1-31)
+		int: Trading day of month (1-22 typical)
 	"""
-	return dt.day
+	month_start = dt.replace(day=1)
+	# Count weekdays (Mon-Fri) from month start through dt inclusive
+	count = 0
+	current = month_start
+	one_day = datetime.timedelta(days=1)
+	while current <= dt:
+		if current.weekday() < 5:  # Monday=0 through Friday=4
+			count += 1
+		current += one_day
+	return max(1, count)
 
 
 @safe_run

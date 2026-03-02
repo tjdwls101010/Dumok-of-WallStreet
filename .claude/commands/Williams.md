@@ -94,9 +94,17 @@ Electronic era (after up close):
 
 ### Exit Rules
 
-1. **Bailout Exit**: First profitable opening → exit. Default for short-term.
-2. **Dollar Stop**: ATR-based stop. If stop is too tight, even a winning system turns to loss.
+**Long Positions:**
+1. **Bailout Exit**: First profitable opening (open > entry) → exit. Default for short-term.
+2. **Dollar Stop**: ATR-based stop below entry. If stop is too tight, even a winning system turns to loss.
 3. **Time Stop**: If no profit after 5 days, exit regardless. Time decay applies to short-term positions.
+
+**Short Positions:**
+1. **Bailout Exit**: First profitable opening (open < entry) → cover short.
+2. **Dollar Stop**: ATR-based stop ABOVE entry (entry + ATR). If price rises above stop, cover immediately.
+3. **Time Stop**: Same 5-day window. If no profit after 5 days, cover.
+4. **Cover Signal**: Bullish pattern detected while holding short → consider covering.
+5. **Reverse Signal**: Buy breakout while holding short → EXIT_REVERSE (cover and go long).
 
 ### Position Sizing Formula
 
@@ -113,25 +121,32 @@ Recommended Risk: 2-4% per trade
 - Oversold: < -80 (opportunity zone)
 - Not a standalone signal — use with pattern + TDW/TDM confirmation
 
-### Scoring Weights (100 total)
+### Scoring Weights (100 total, computed for BOTH long and short directions)
 
-| Component | Weight | Source |
-|-----------|--------|--------|
-| Pattern Signal | 25 | pattern-scan |
-| Bond Intermarket | 15 | TLT price data |
-| TDW Alignment | 10 | tdw-tdm |
-| TDM Alignment | 10 | tdw-tdm |
-| Range Phase | 10 | range-analysis |
-| MA Trend (18-day) | 10 | trend.py sma |
-| Williams %R | 10 | williams-r |
-| Close Position | 5 | range-analysis close_position |
-| Swing Structure | 5 | swing-points |
+| Component | Weight | Long Bias | Short Bias |
+|-----------|--------|-----------|------------|
+| Pattern Signal | 25 | Bullish patterns | Bearish patterns |
+| Volatility Breakout | 15 | Buy breakout | Sell breakout |
+| Bond Intermarket | 15 | Bonds bullish | Bonds bearish |
+| TDW Alignment | 10 | Mon/Tue bullish | Thu bearish |
+| TDM Alignment | 10 | Start/end month | Midmonth weakness |
+| Range Phase | 10 | Contraction | Contraction |
+| MA Trend (18-day) | 10 | Above rising MA | Below falling MA |
+| Williams %R | 10 | Oversold (<-80) | Overbought (>-20) |
+| Close Position | 5 | Upper range | Lower range |
+| Swing Structure | 5 | Uptrend | Downtrend |
 
-### Hard Gates (signal cap to HOLD, conviction ≤ 59)
+### Hard Gates — Long (signal cap to HOLD, conviction ≤ 59)
 
 1. **BOND_CONTRADICTION**: TLT 14-day channel breakout down + stock buy signal
 2. **NO_PATTERN**: No pattern detected in lookback window
 3. **CHASING_MOMENTUM**: Williams %R overbought (> -20) AND no pattern
+
+### Hard Gates — Short (signal cap to HOLD, conviction ≤ 59)
+
+1. **SHORT_BOND_CONTRADICTION**: TLT bullish + sell signal (bonds support stocks)
+2. **NO_BEARISH_PATTERN**: No bearish pattern detected
+3. **CHASING_WEAKNESS**: Williams %R oversold (< -80) AND no bearish pattern
 
 ### Soft Gates (score penalties)
 
@@ -167,13 +182,22 @@ Stop  = Open ± (4-day avg swing × 225%)
 > 70% dip → ~0% probability of large-range up close
 ```
 
-### 5 Chart Patterns (with backtested accuracy)
+### 11 Chart Patterns (5 bullish + 6 bearish, with backtested accuracy)
 
+**Bullish:**
 1. **Outside Day** (85%): Engulfs prior bar range + lower close → buy next open
 2. **Smash Day** (76%): Close below prior low → buy above today's high
 3. **Hidden Smash Day** (89%): Up close but in bottom 25% of range → buy above today's high
-4. **Specialists' Trap** (~80%): 5-10 day box, fake breakout, reversal → enter on reversal
+4. **Specialists' Trap** (~80%): 5-10 day box, fake downside breakout, reversal → buy
 5. **Oops!** (82%): Gap down, recovery to prior low → buy (limited in electronic era)
+
+**Bearish:**
+6. **Bearish Outside Day** (85%): Engulfs prior bar + upper close → sell next open
+7. **Bearish Smash Day** (76%): Close above prior high → sell below today's low
+8. **Bearish Hidden Smash Day** (89%): Down close but in top 75% of range → sell below low
+9. **Bearish Specialists' Trap** (~80%): False upside breakout from box, reversal → sell
+10. **Bearish Oops!** (82%): Gap up above prior high, selloff → sell (limited in electronic era)
+11. **Selling Climax** (70%): High volume sell-off, wide range → actually bullish (marks bottom)
 
 ## Query Classification
 
@@ -186,10 +210,10 @@ Workflow: Market context — bond trend, TDW/TDM bias, COT positioning.
 Output: Bond filter status + calendar bias + COT signal + overall market bias.
 
 **Type B - Trade Qualification** (트레이드 자격)
-"AAPL 사도 돼?", "SPY 셋업 있어?", "이거 진입해도 돼?"
-User intent: Does this specific ticker qualify for a Williams trade?
-Workflow: Full trade-setup — composite conviction scoring with all 10 factors.
-Output: Conviction score + signal + entry/stop levels + TDW/TDM + patterns + hard/soft gates.
+"AAPL 사도 돼?", "SPY 셋업 있어?", "이거 진입해도 돼?", "숏 칠까?", "공매도 셋업?"
+User intent: Does this specific ticker qualify for a Williams trade (long or short)?
+Workflow: Full trade-setup — dual conviction scoring (long + short) with all 10 factors.
+Output: Conviction score + signal + direction + entry/stop levels + TDW/TDM + patterns + hard/soft gates.
 
 **Type C - Pattern Discovery** (패턴 발굴)
 "패턴 있는 종목?", "스매시 데이 찾아줘", "요즘 셋업 뜨는 거?"
@@ -205,10 +229,11 @@ Output: Breakout levels (classic + electronic), range phase, today's calendar bi
 Note: If not already qualified, chain B then D.
 
 **Type E - Position Management** (포지션 관리)
-"이거 들고 있는데?", "언제 나가?", "손절할까?"
-User intent: Already holding — when to exit.
-Workflow: recheck pipeline — time-in-trade, exit signals (bailout/time-stop/dollar-stop/WR overbought/swing violation), Williams %R dual timeframe.
-Output: Verdict (HOLD/EXIT_BAILOUT/EXIT_STOP/EXIT_TIME) + exit signals + current stop level.
+"이거 들고 있는데?", "언제 나가?", "손절할까?", "숏 포지션 유지?", "커버할까?"
+User intent: Already holding — when to exit (long or short).
+Workflow: recheck pipeline (--direction long|short) — time-in-trade, exit signals (bailout/time-stop/dollar-stop/WR exit/swing violation/reverse/cover), Williams %R.
+Output: Verdict (HOLD/EXIT_BAILOUT/EXIT_STOP/EXIT_TIME/EXIT_REVERSE/COVER) + exit signals + current stop level.
+Note: For short positions, use --direction short. Bailout triggers when open < entry (price dropped).
 
 **Type F - Watchlist** (워치리스트)
 "이 종목들 중에 뭐가 좋아?", "배치로 돌려줘"
@@ -225,8 +250,10 @@ Output: Today's bias + bond status.
 ### Composite Query Chaining
 
 - "AAPL 지금 사?" → B (qualify) then D (timing if pass)
+- "AAPL 숏 칠까?" → B (qualify — check short_score and short direction)
 - "패턴 있는 거 골라서 비교" → C (discover) then F (watchlist top candidates)
 - "오늘 장 어때? MSFT 진입?" → G (quick) then B (qualify)
+- "숏 들고 있는데 커버?" → E (recheck --direction short)
 
 Priority when ambiguous: A > G > B > D > E > C > F (market first, then specific analysis).
 

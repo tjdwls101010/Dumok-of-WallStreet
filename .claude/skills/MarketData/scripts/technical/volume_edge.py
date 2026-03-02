@@ -134,6 +134,10 @@ Notes:
 	- HVIPO (Highest Volume since IPO): volume > highest since first week of trading
 	- HV1 (Highest Volume in 1 Year): volume > highest in last 252 trading days
 	- Hierarchy: HVE > HVIPO > HV1 in signal strength
+	- HV qualification conditions (TraderLion Chapter 4): each HV bar must pass
+	  DCR > 40% (close in upper 60% of bar range), %Change > 0 (stock up on the day),
+	  and Avg$Vol > $3M (20-day average dollar volume). Bars failing qualification
+	  are skipped; the detector continues checking remaining bars in the window.
 	- HVE on price advance = extremely rare and bullish (major institutional entry)
 	- HVE on price decline = potential capitulation or distribution climax
 	- Increasing average volume over 3+ periods indicates stealth accumulation
@@ -156,11 +160,45 @@ import yfinance as yf
 from utils import output_json, safe_run
 
 
-def _detect_hve(volumes, lookback):
+def _qualifies_hv_conditions(data, idx):
+	"""Check HV edge qualification conditions for a given bar index.
+
+	Conditions from TraderLion methodology (Chapter 4):
+	- DCR > 40% (Daily Close Range: position of close within day's range)
+	- %Change > 0 (stock was up on the day)
+	- Avg$Vol > $3M (20-day average dollar volume exceeds $3M)
+	"""
+	h = float(data["High"].iloc[idx])
+	l = float(data["Low"].iloc[idx])
+	c = float(data["Close"].iloc[idx])
+
+	# DCR (Daily Close Range) > 40%
+	dcr = (c - l) / (h - l) * 100 if h != l else 50.0
+	if dcr <= 40:
+		return False
+
+	# %Change > 0 (up on the day)
+	if idx > 0:
+		prev_c = float(data["Close"].iloc[idx - 1])
+		if prev_c > 0 and c <= prev_c:
+			return False
+
+	# Avg$Vol > $3M (20-day average dollar volume)
+	start = max(0, idx - 19)
+	dollar_vol = data["Close"].iloc[start:idx + 1] * data["Volume"].iloc[start:idx + 1]
+	avg_dollar_vol = float(dollar_vol.mean())
+	if avg_dollar_vol <= 3_000_000:
+		return False
+
+	return True
+
+
+def _detect_hve(volumes, lookback, data=None):
 	"""Detect Highest Volume Ever within the lookback window.
 
 	Compares recent volume bars against the all-time high volume
-	across the entire dataset.
+	across the entire dataset. When data (full OHLC DataFrame) is provided,
+	also checks DCR>40%, %Change>0, Avg$Vol>$3M conditions.
 	"""
 	if len(volumes) < 2:
 		return {"detected": False}
@@ -175,6 +213,11 @@ def _detect_hve(volumes, lookback):
 		# Must exceed ALL prior volume including within lookback
 		all_other_max = max(prior_max, float(volumes.iloc[:volumes.index.get_loc(recent.index[i])].max())) if volumes.index.get_loc(recent.index[i]) > 0 else 0
 		if vol > all_other_max and all_other_max > 0:
+			# Check qualification conditions if OHLC data available
+			if data is not None:
+				full_idx = data.index.get_loc(recent.index[i])
+				if not _qualifies_hv_conditions(data, full_idx):
+					continue
 			return {
 				"detected": True,
 				"date": str(recent.index[i].date()),
@@ -186,11 +229,13 @@ def _detect_hve(volumes, lookback):
 	return {"detected": False}
 
 
-def _detect_hvipo(volumes, lookback, ipo_window=5):
+def _detect_hvipo(volumes, lookback, data=None, ipo_window=5):
 	"""Detect Highest Volume since IPO week.
 
 	Compares recent volume against highest volume excluding
 	the first trading week (IPO week often has anomalous volume).
+	When data (full OHLC DataFrame) is provided, also checks
+	DCR>40%, %Change>0, Avg$Vol>$3M conditions.
 	"""
 	if len(volumes) <= ipo_window:
 		return {"detected": False}
@@ -211,6 +256,11 @@ def _detect_hvipo(volumes, lookback, ipo_window=5):
 		idx_in_post_ipo = post_ipo.index.get_loc(recent.index[i])
 		all_prior = float(post_ipo.iloc[:idx_in_post_ipo].max()) if idx_in_post_ipo > 0 else 0
 		if vol > all_prior and all_prior > 0:
+			# Check qualification conditions if OHLC data available
+			if data is not None:
+				full_idx = data.index.get_loc(recent.index[i])
+				if not _qualifies_hv_conditions(data, full_idx):
+					continue
 			return {
 				"detected": True,
 				"date": str(recent.index[i].date()),
@@ -223,11 +273,12 @@ def _detect_hvipo(volumes, lookback, ipo_window=5):
 	return {"detected": False}
 
 
-def _detect_hv1(volumes, lookback, year_days=252):
+def _detect_hv1(volumes, lookback, data=None, year_days=252):
 	"""Detect Highest Volume in 1 Year within the lookback window.
 
 	Compares recent volume against the highest volume in
-	the last 252 trading days (1 year).
+	the last 252 trading days (1 year). When data (full OHLC DataFrame)
+	is provided, also checks DCR>40%, %Change>0, Avg$Vol>$3M conditions.
 	"""
 	if len(volumes) < year_days:
 		# Use all available data if less than 1 year
@@ -244,6 +295,11 @@ def _detect_hv1(volumes, lookback, year_days=252):
 		idx_in_year = year_data.index.get_loc(recent.index[i])
 		all_prior_year = float(year_data.iloc[:idx_in_year].max()) if idx_in_year > 0 else 0
 		if vol > all_prior_year and all_prior_year > 0:
+			# Check qualification conditions if OHLC data available
+			if data is not None:
+				full_idx = data.index.get_loc(recent.index[i])
+				if not _qualifies_hv_conditions(data, full_idx):
+					continue
 			return {
 				"detected": True,
 				"date": str(recent.index[i].date()),
@@ -384,10 +440,10 @@ def cmd_detect(args):
 	volumes = data["Volume"]
 	current_vol = float(volumes.iloc[-1])
 
-	# Detect edge events
-	hve = _detect_hve(volumes, args.lookback)
-	hvipo = _detect_hvipo(volumes, args.lookback)
-	hv1 = _detect_hv1(volumes, args.lookback)
+	# Detect edge events (pass full OHLC data for qualification conditions)
+	hve = _detect_hve(volumes, args.lookback, data=data)
+	hvipo = _detect_hvipo(volumes, args.lookback, data=data)
+	hv1 = _detect_hv1(volumes, args.lookback, data=data)
 	inc_avg = _detect_increasing_avg_volume(volumes)
 	run_rate = _calc_volume_run_rate(current_vol, volumes.iloc[:-1])
 
@@ -447,9 +503,9 @@ def cmd_screen(args):
 			volumes = data["Volume"]
 			current_vol = float(volumes.iloc[-1])
 
-			hve = _detect_hve(volumes, args.lookback)
-			hvipo = _detect_hvipo(volumes, args.lookback)
-			hv1 = _detect_hv1(volumes, args.lookback)
+			hve = _detect_hve(volumes, args.lookback, data=data)
+			hvipo = _detect_hvipo(volumes, args.lookback, data=data)
+			hv1 = _detect_hv1(volumes, args.lookback, data=data)
 			inc_avg = _detect_increasing_avg_volume(volumes)
 			run_rate = _calc_volume_run_rate(current_vol, volumes.iloc[:-1])
 

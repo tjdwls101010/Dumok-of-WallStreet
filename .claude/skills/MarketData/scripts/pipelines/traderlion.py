@@ -11,7 +11,7 @@ to supplement pipeline results. Produces a SNIPE Composite Score and actionable 
 Commands:
 	analyze: Full S.N.I.P.E. analysis for a single ticker
 	watchlist: Batch S.N.I.P.E. analysis for multiple tickers
-	market-cycle: Market cycle assessment (QQQ trend, gauge stocks, breadth, cycle score)
+	market-cycle: Market cycle assessment (4-state QQQ 21EMA cycle, Stalwart/CycleLeader gauge, breadth)
 	screen: Sector-based S.N.I.P.E. candidate screening
 	compare: Multi-ticker full S.N.I.P.E. comparison with 7-axis ranking
 	recheck: Position management recheck (TT, Stage, post-breakout, edges, earnings)
@@ -106,12 +106,31 @@ Returns:
 
 	For market-cycle:
 		dict: {
-			"qqq_status": dict,
-			"gauge_stocks": list[dict],
+			"qqq_status": {
+				"symbol": "QQQ",
+				"above_21ema": bool,
+				"above_50sma": bool,
+				"above_200sma": bool,
+				"rs_score": int or None,
+				"ema_cycle": {
+					"cycle_state": str,             # Upcycle/Topping/Downcycle/Bottoming
+					"above_21ema": bool,
+					"consecutive_closes_below_21ema": int,
+					"downcycle_confirmed": bool,
+					"latest_close": float,
+					"ema_21_value": float
+				}
+			},
+			"gauge_stocks": {
+				"stalwarts": [{"symbol": str, "category": "stalwart",
+					"current_price": float, "above_50sma": bool, "above_200sma": bool,
+					"psych_level": int, "above_psych_level": bool}],
+				"cycle_leaders": [{"symbol": str, "category": "cycle_leader", ...}]
+			},
 			"breadth": dict,
 			"cycle_score": int (0-8),
-			"cycle_stage": str,
-			"exposure_guidance": str
+			"cycle_stage": str (Upcycle/Topping/Downcycle/Bottoming),
+			"exposure_guidance": str (aggressive/normal/reduced/cash)
 		}
 
 	For screen:
@@ -164,10 +183,17 @@ Use Cases:
 Notes:
 	- SNIPE Score weights: Edge Detection 30, Stage/Trend 20, Growth 15, Setup Quality 15, Volume Confirmation 10, Winning Characteristics 10
 	- Signals: AGGRESSIVE 80+, STANDARD 65-79, REDUCED 50-64, MONITOR 35-49, AVOID <35
-	- Hard gates block AGGRESSIVE/STANDARD: Stage 3/4, TT<5/8, no volume edges + RS<50, distribution cluster + constructive ratio <0.35
+	- Hard gates block AGGRESSIVE/STANDARD: Stage 3/4, TT<5/8,
+	  no volume edges (HVE/HVIPO/HV1/INCREASING_AVG_VOL) + RS<50,
+	  distribution cluster + constructive ratio <0.35
+	- HV edge qualification: each HV bar must pass DCR>40%, %Change>0, Avg$Vol>$3M
 	- Soft penalties: CHOPPY_CHARACTER (-2), SELL_SIGNAL_ACTIVE (-3), NO_INCREASING_AVG_VOL (-3), WEAK_CONSTRUCTIVE_RATIO (-3), EXTREME_200MA_EXTENSION (-3)
 	- Edge-based sizing: 10% base + 2.5% per edge, max 4 edges = 20%
 	- EARNINGS_PROXIMITY signal code: appended when next earnings within 5 trading days
+	- Market cycle uses QQQ 21EMA rule (Chapter 8): 4-state model
+	  (Upcycle/Topping/Downcycle/Bottoming) with exposure guidance
+	- Gauge stocks split into Stalwarts (AAPL, MSFT, GOOGL, TSLA) and
+	  Cycle Leaders (NVDA, META) with psychological level detection
 	- Pipeline continues even if individual components fail (graceful degradation)
 	- Scripts execute in parallel via ThreadPoolExecutor for ~50-70% speedup
 	- Each script runs in independent subprocess (no shared state)
@@ -194,11 +220,13 @@ See Also:
 import argparse
 import concurrent.futures
 import json
+import math
 import os
 import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+import yfinance as yf
 from utils import output_json, safe_run
 
 SCRIPTS_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -658,6 +686,7 @@ def _evaluate_hard_gates(tt, stage, volume_edge, rs, volume, closing_range, stoc
 			volume_edge.get("hve", {}).get("detected"),
 			volume_edge.get("hvipo", {}).get("detected"),
 			volume_edge.get("hv1", {}).get("detected"),
+			volume_edge.get("increasing_avg_volume", {}).get("detected"),
 		])
 	rs_score = rs.get("rs_score", 0) or 0 if not rs.get("error") else 0
 	if not has_vol_edge and rs_score < 50:
@@ -1163,7 +1192,7 @@ def cmd_analyze(args):
 	scripts = {
 		"tt": ("screening/trend_template.py", ["check", symbol]),
 		"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-		"rs": ("technical/rs_ranking.py", ["score", symbol]),
+		"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 		"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 		"vcp_result": ("technical/vcp.py", ["detect", symbol]),
 		"base": ("technical/base_count.py", ["count", symbol]),
@@ -1293,7 +1322,7 @@ def cmd_watchlist(args):
 		# Core checks for batch mode (lighter weight)
 		tt = _run_script("screening/trend_template.py", ["check", symbol])
 		stage = _run_script("technical/stage_analysis.py", ["classify", symbol])
-		rs = _run_script("technical/rs_ranking.py", ["score", symbol])
+		rs = _run_script("technical/rs_ranking.py", ["score", symbol, "--period", "2y"])
 		earnings = _run_script("data_sources/earnings_acceleration.py", ["code33", symbol])
 		volume = _run_script("technical/volume_analysis.py", ["analyze", symbol])
 		vol_edge = _run_script("technical/volume_edge.py", ["detect", symbol])
@@ -1354,35 +1383,138 @@ def cmd_watchlist(args):
 	})
 
 
+def _nearest_psych_level(price):
+	"""Find the nearest psychological level (round number) below the current price.
+
+	Psychological levels are key round numbers that institutions watch:
+	- Prices > $200: multiples of $50 (e.g., $200, $250, $300)
+	- Prices $50-$200: multiples of $25 (e.g., $50, $75, $100)
+	- Prices < $50: multiples of $10 (e.g., $10, $20, $30)
+	"""
+	if price >= 200:
+		step = 50
+	elif price >= 50:
+		step = 25
+	else:
+		step = 10
+	return math.floor(price / step) * step
+
+
+def _determine_qqq_21ema_cycle(qqq_data):
+	"""Determine QQQ 21 EMA-based cycle state from historical data.
+
+	Rules (TraderLion Chapter 8):
+	- Upcycle START: QQQ closes ABOVE 21 EMA
+	- Upcycle END (→ Downcycle): QQQ closes BELOW 21 EMA for 2 consecutive
+	  days AND the second close is below the prior day's LOW
+
+	4-state model:
+	- Upcycle: Latest close above 21 EMA
+	- Topping: 1 close below 21 EMA (early warning, full downcycle not confirmed)
+	- Downcycle: 2 consecutive closes below 21 EMA, 2nd close < prior day's low
+	- Bottoming: In downcycle territory but showing recovery signs (close approaching
+	  21 EMA from below, or above prior day's high)
+
+	Returns:
+		dict with cycle_state, consecutive_closes_below, transition details
+	"""
+	if qqq_data is None or len(qqq_data) < 30:
+		return {"cycle_state": "unknown", "error": "insufficient QQQ data"}
+
+	closes = qqq_data["Close"]
+	highs = qqq_data["High"]
+	lows = qqq_data["Low"]
+
+	# Compute 21 EMA
+	ema21 = closes.ewm(span=21, adjust=False).mean()
+
+	# Check the last 5 bars for cycle determination
+	n = len(qqq_data)
+	latest_close = float(closes.iloc[-1])
+	latest_ema = float(ema21.iloc[-1])
+	above_21ema = latest_close > latest_ema
+
+	# Count consecutive closes below 21 EMA (from most recent backwards)
+	consec_below = 0
+	for i in range(n - 1, max(n - 10, -1), -1):
+		if float(closes.iloc[i]) < float(ema21.iloc[i]):
+			consec_below += 1
+		else:
+			break
+
+	# Check full downcycle condition: 2+ consecutive closes below 21 EMA
+	# AND the second close (today or day before) is below the prior day's low
+	downcycle_confirmed = False
+	if consec_below >= 2:
+		# Check if the 2nd consecutive close below is also below the prior day's low
+		# The "second close" is the bar that made it 2 consecutive
+		second_below_idx = n - consec_below + 1  # index of 2nd consecutive bar
+		if second_below_idx < n and second_below_idx > 0:
+			second_close = float(closes.iloc[second_below_idx])
+			prior_low = float(lows.iloc[second_below_idx - 1])
+			if second_close < prior_low:
+				downcycle_confirmed = True
+
+	# Determine 4-state cycle
+	if above_21ema:
+		cycle_state = "Upcycle"
+	elif downcycle_confirmed:
+		# Check for bottoming signs: latest close approaching 21 EMA from below
+		# or close above prior day's high (recovery attempt)
+		recovery_sign = False
+		if n >= 2:
+			prior_high = float(highs.iloc[-2])
+			ema_distance_pct = (latest_ema - latest_close) / latest_ema * 100 if latest_ema > 0 else 999
+			if latest_close > prior_high or ema_distance_pct < 1.0:
+				recovery_sign = True
+		cycle_state = "Bottoming" if recovery_sign else "Downcycle"
+	else:
+		# Below 21 EMA but full downcycle not confirmed → Topping
+		cycle_state = "Topping"
+
+	return {
+		"cycle_state": cycle_state,
+		"above_21ema": above_21ema,
+		"consecutive_closes_below_21ema": consec_below,
+		"downcycle_confirmed": downcycle_confirmed,
+		"latest_close": round(latest_close, 2),
+		"ema_21_value": round(latest_ema, 2),
+	}
+
+
 @safe_run
 def cmd_market_cycle(args):
 	"""Market cycle assessment: QQQ trend, gauge stocks, breadth, and cycle scoring.
 
-	Evaluates market cycle stage by checking QQQ 21 EMA status, gauge stock
-	MA alignment, and market breadth indicators. Produces a composite cycle
-	score (0-8) with exposure guidance.
+	Evaluates market cycle stage using the 21 EMA-based cycle determination
+	(Chapter 8), gauge stock analysis split into Stalwarts and Cycle Leaders,
+	and market breadth indicators. Produces a composite cycle score (0-8)
+	with 4-state cycle determination and exposure guidance.
 
 	Returns:
 		dict: {
-			"qqq_status": dict (21 EMA position, MA alignment),
-			"gauge_stocks": list[dict] (each gauge stock's MA status),
+			"qqq_status": dict (21 EMA position, MA alignment, cycle determination),
+			"gauge_stocks": dict (stalwarts + cycle_leaders with MA and psych level status),
 			"breadth": dict (market breadth data),
 			"cycle_score": int (0-8 composite),
-			"cycle_stage": str (Downcycle/Bottoming/Upcycle/Topping),
+			"cycle_stage": str (Upcycle/Topping/Downcycle/Bottoming),
 			"exposure_guidance": str (aggressive/normal/reduced/cash)
 		}
 	"""
-	gauge_symbols = ["TSLA", "GOOGL", "AAPL", "MSFT", "META"]
+	# TL-5: Split gauge stocks into Stalwarts (permanent) and Cycle Leaders (rotational)
+	stalwart_symbols = ["AAPL", "MSFT", "GOOGL", "TSLA"]
+	cycle_leader_symbols = ["NVDA", "META"]
+	all_gauge_symbols = stalwart_symbols + cycle_leader_symbols
 
 	# Run all scripts in parallel: SMA for 50/200, EMA for 21 (QQQ), SMA for gauge stocks
-	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+	with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
 		qqq_sma_future = executor.submit(_run_script, "technical/trend.py", ["sma", "QQQ", "--periods", "50,200"])
 		qqq_ema_future = executor.submit(_run_script, "technical/trend.py", ["ema", "QQQ", "--periods", "21"])
 		breadth_future = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
-		qqq_rs_future = executor.submit(_run_script, "technical/rs_ranking.py", ["score", "QQQ"])
+		qqq_rs_future = executor.submit(_run_script, "technical/rs_ranking.py", ["score", "QQQ", "--period", "2y"])
 		gauge_futures = {
 			sym: executor.submit(_run_script, "technical/trend.py", ["sma", sym, "--periods", "50,200"])
-			for sym in gauge_symbols
+			for sym in all_gauge_symbols
 		}
 
 		qqq_sma = qqq_sma_future.result()
@@ -1398,30 +1530,58 @@ def cmd_market_cycle(args):
 		key = f"{ma_type.upper()}{period}"
 		return ma_dict.get(key, {}).get("value", 0)
 
+	# TL-3 / TL-4: Fetch QQQ historical data for 21 EMA-based cycle determination
+	qqq_hist = None
+	try:
+		qqq_ticker = yf.Ticker("QQQ")
+		qqq_hist = qqq_ticker.history(period="3mo", interval="1d")
+	except Exception:
+		pass
+
+	ema_cycle = _determine_qqq_21ema_cycle(qqq_hist)
+
 	# Build qqq_status
 	qqq_price = qqq_sma.get("current_price", 0) if not qqq_sma.get("error") else 0
 	qqq_status = {
 		"symbol": "QQQ",
-		"above_21ema": qqq_price > _get_ma(qqq_ema, "ema", 21) if not qqq_ema.get("error") and qqq_price else None,
+		"above_21ema": ema_cycle.get("above_21ema") if ema_cycle.get("cycle_state") != "unknown" else (
+			qqq_price > _get_ma(qqq_ema, "ema", 21) if not qqq_ema.get("error") and qqq_price else None
+		),
 		"above_50sma": qqq_price > _get_ma(qqq_sma, "sma", 50) if not qqq_sma.get("error") and qqq_price else None,
 		"above_200sma": qqq_price > _get_ma(qqq_sma, "sma", 200) if not qqq_sma.get("error") and qqq_price else None,
 		"rs_score": qqq_rs.get("rs_score") if not qqq_rs.get("error") else None,
+		"ema_cycle": ema_cycle,
 		"raw_sma": qqq_sma,
 		"raw_ema": qqq_ema,
 	}
 
-	# Build gauge_stocks list
-	gauge_stocks = []
-	for sym, result in gauge_results.items():
-		if not result.get("error"):
-			price = result.get("current_price", 0)
-			gauge_stocks.append({
-				"symbol": sym,
-				"above_50sma": price > _get_ma(result, "sma", 50) if price else False,
-				"above_200sma": price > _get_ma(result, "sma", 200) if price else False,
-			})
-		else:
-			gauge_stocks.append({"symbol": sym, "error": result.get("error")})
+	# TL-5: Build gauge_stocks with Stalwart/CycleLeader categories and psychological levels
+	def _build_gauge_entry(sym, result, category):
+		if result.get("error"):
+			return {"symbol": sym, "category": category, "error": result.get("error")}
+		price = result.get("current_price", 0)
+		psych_level = _nearest_psych_level(price) if price else 0
+		return {
+			"symbol": sym,
+			"category": category,
+			"current_price": round(price, 2) if price else 0,
+			"above_50sma": price > _get_ma(result, "sma", 50) if price else False,
+			"above_200sma": price > _get_ma(result, "sma", 200) if price else False,
+			"psych_level": psych_level,
+			"above_psych_level": price > psych_level if price and psych_level else None,
+		}
+
+	gauge_stocks = {
+		"stalwarts": [
+			_build_gauge_entry(sym, gauge_results.get(sym, {"error": "missing"}), "stalwart")
+			for sym in stalwart_symbols
+		],
+		"cycle_leaders": [
+			_build_gauge_entry(sym, gauge_results.get(sym, {"error": "missing"}), "cycle_leader")
+			for sym in cycle_leader_symbols
+		],
+	}
+	all_gauges = gauge_stocks["stalwarts"] + gauge_stocks["cycle_leaders"]
 
 	# Calculate cycle_score (0-8)
 	score = 0
@@ -1434,11 +1594,12 @@ def cmd_market_cycle(args):
 	# QQQ above 200 SMA (+1)
 	if qqq_status.get("above_200sma"):
 		score += 1
-	# Gauge stocks above 50 SMA majority (+2)
-	gauge_above = sum(1 for g in gauge_stocks if g.get("above_50sma"))
-	if gauge_above >= 3:
-		score += 2
-	elif gauge_above >= 2:
+	# Gauge stocks above 50 SMA majority (+1) and holding psychological levels (+1)
+	gauge_above_50 = sum(1 for g in all_gauges if g.get("above_50sma"))
+	if gauge_above_50 >= len(all_gauges) // 2 + 1:
+		score += 1
+	gauge_above_psych = sum(1 for g in all_gauges if g.get("above_psych_level"))
+	if gauge_above_psych >= len(all_gauges) // 2 + 1:
 		score += 1
 	# Breadth positive (+2)
 	if not breadth.get("error"):
@@ -1451,15 +1612,30 @@ def cmd_market_cycle(args):
 		elif nh > nl:
 			score += 1
 
-	# Derive cycle_stage and exposure_guidance
-	if score >= 6:
-		cycle_stage, exposure = "Upcycle", "aggressive"
-	elif score >= 4:
-		cycle_stage, exposure = "Upcycle", "normal"
-	elif score >= 2:
-		cycle_stage, exposure = "Bottoming", "reduced"
+	# TL-3 / TL-4: Derive 4-state cycle_stage from 21 EMA determination + score
+	ema_state = ema_cycle.get("cycle_state", "unknown")
+	if ema_state != "unknown":
+		# Primary determination from 21 EMA rule
+		cycle_stage = ema_state
 	else:
-		cycle_stage, exposure = "Downcycle", "cash"
+		# Fallback: derive from composite score
+		if score >= 5:
+			cycle_stage = "Upcycle"
+		elif score >= 3:
+			cycle_stage = "Topping"
+		elif score >= 1:
+			cycle_stage = "Bottoming"
+		else:
+			cycle_stage = "Downcycle"
+
+	# Map cycle_stage to exposure_guidance
+	exposure_map = {
+		"Upcycle": "aggressive" if score >= 6 else "normal",
+		"Topping": "reduced",
+		"Bottoming": "reduced",
+		"Downcycle": "cash",
+	}
+	exposure = exposure_map.get(cycle_stage, "reduced")
 
 	output_json({
 		"qqq_status": qqq_status,
@@ -1518,7 +1694,7 @@ def cmd_screen(args):
 		# Step 3: Run analysis scripts sequentially per symbol (batch mode)
 		tt = _run_script("screening/trend_template.py", ["check", symbol])
 		stage = _run_script("technical/stage_analysis.py", ["classify", symbol])
-		rs = _run_script("technical/rs_ranking.py", ["score", symbol])
+		rs = _run_script("technical/rs_ranking.py", ["score", symbol, "--period", "2y"])
 		earnings = _run_script("data_sources/earnings_acceleration.py", ["code33", symbol])
 		volume = _run_script("technical/volume_analysis.py", ["analyze", symbol])
 		vol_edge = _run_script("technical/volume_edge.py", ["detect", symbol])
@@ -1587,7 +1763,7 @@ def cmd_compare(args):
 		scripts = {
 			"tt": ("screening/trend_template.py", ["check", symbol]),
 			"stage": ("technical/stage_analysis.py", ["classify", symbol]),
-			"rs": ("technical/rs_ranking.py", ["score", symbol]),
+			"rs": ("technical/rs_ranking.py", ["score", symbol, "--period", "2y"]),
 			"earnings": ("data_sources/earnings_acceleration.py", ["code33", symbol]),
 			"vcp_result": ("technical/vcp.py", ["detect", symbol]),
 			"base": ("technical/base_count.py", ["count", symbol]),
