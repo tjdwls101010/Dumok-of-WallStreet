@@ -23,6 +23,14 @@ Per-layer questions:
 - Substitutes available? (no substitutes = true bottleneck)
 ```
 
+Per-layer WebSearch strategy (use when tracing an unfamiliar supply chain):
+- Layer 1 (System Integrator): "[end product] manufacturer market share"
+- Layer 2 (Major Components): "[end product] BOM breakdown", "[end product] bill of materials cost"
+- Layer 3 (Sub-Components): "[Layer 2 component] substrate supplier", "[Layer 2 component] key material", "[Layer 2 component] supply shortage"
+- Layer 4 (Raw Materials): "[Layer 3 material] production by country", "[Layer 3 material] global supply market share", "[Layer 3 material] feedstock manufacturer"
+
+At each layer, validate concentration: "[material/component] market share concentration", "[material/component] top suppliers". If results show top 3 > 70% share → potential bottleneck, proceed to 6-Criteria Scoring.
+
 ### 5-Step Mapping Process
 
 **Step 1: Identify End-Product Driving a Macro Trend.** Start with a confirmed demand trend backed by capex commitments or government funding, not speculation.
@@ -36,6 +44,13 @@ Per-layer questions:
 **Step 5: Determine if the Bottleneck is Priced In.** Check market cap against implied revenue from supply chain position. If small-cap bottleneck in a multi-trillion dollar industry, likely underpriced. If institutions have accumulated and analyst coverage is extensive, the opportunity may have passed.
 
 **Key Principle:** "Follow the money flow down." Start from the demand source and trace layer by layer. The opportunity is at the narrowest point of the funnel. Bottlenecks migrate over time as each constraint resolves and demand hits the next one.
+
+**Depth Gate [HARD]:** The mapping is NOT complete until Layer 4 (Raw Materials / Feedstock) has been reached. If your current mapping stops at Layer 1-2, you have found the OBVIOUS companies, not the ASYMMETRIC ones. The smallest market cap bottleneck is almost always at Layer 3-4, not Layer 1-2. When tracing a supply chain:
+- Layer 1-2 companies (system integrators, major components) are typically large-cap, well-covered by analysts, and already priced in
+- Layer 3-4 companies (sub-components, raw materials) are where supply concentration is most extreme, market caps are smallest, and discovery alpha is highest
+- If you cannot identify Layer 4, search explicitly: "[Layer 3 material] raw material source", "[Layer 3 material] feedstock supplier", "[Layer 3 material] production by country"
+- Exception: If the target is a pure-service or pure-software company with no physical supply chain, document why Layer 4 is not applicable and skip
+- When mapping multiple supply chain cascades, apply the Depth Gate to EACH cascade independently. Do not compensate for a shallow secondary cascade by going deeper on the primary. Each cascade is a separate discovery opportunity
 
 ---
 
@@ -194,6 +209,15 @@ This protocol is the step-by-step process for independently discovering bottlene
 **Step 4: Concentration Point Detection.** At each layer, identify supply concentration using the per-layer questions from the 5-Layer template above. Validate with financial data collection capabilities.
 
 **Step 5: Bottleneck Scoring.** Apply the 6-Criteria Bottleneck Scoring Framework (defined above). Only concentration points scoring 4+ out of 6 qualify as investable. Document the score and evidence for each criterion.
+
+**Step 5.5 [HARD]: Nested Bottleneck Check.** For each bottleneck scoring 4+/6 in Step 5, apply the 5-Layer Supply Chain Mapping Template AGAIN, treating the bottleneck company's KEY INPUT as the new Layer 0. Trace backward: Who supplies THIS bottleneck? Is their supply also concentrated? You MUST apply the 6-Criteria Scoring to the nested bottleneck and report the score explicitly.
+
+If a nested bottleneck scores 3+/6, this is a "bottleneck within a bottleneck" — the highest asymmetry signal. The nested supplier often has:
+- Even smaller market cap (more asymmetric)
+- Even higher supply concentration (fewer alternatives)
+- Geographic/geopolitical risk amplification (if both layers concentrated in same region)
+
+Nested bottleneck discovery transforms a single-layer thesis into a multi-layer thesis with compounding pricing power. This step is the difference between finding the obvious bottleneck (everyone's thesis) and the hidden one (your alpha). Limit recursion to one additional level (2-level depth is sufficient).
 
 **Step 6: Validation.** Cross-check surviving bottleneck candidates with fundamental analysis: debt structure analysis, dilution assessment, earnings quality, No-Growth Stress Test, and Bear-Bull Paradox filter. Companies with toxic balance sheets are eliminated regardless of bottleneck score. Construct the 6-link Evidence Chain from `methodology.md` for each validated candidate.
 

@@ -78,6 +78,8 @@ Target voice balance: 60% technical / 40% casual. Testing revealed the default o
 
 Priority when ambiguous: A > D > B > C > E > F
 
+Note: Type B can escalate to Type D discovery via Step 3 Discovery Escalation when upstream supply concentration is detected. This reduces query-dependence — users don't need to explicitly ask for bottleneck discovery.
+
 ### Composite Query Chaining
 
 Chain types sequentially when a query spans multiple intents:
@@ -154,6 +156,15 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 *Steps 3-8 below combine pipeline output interpretation with agent-driven supply chain research. Steps marked (Agent-Level) require LLM reasoning, WebSearch, or Sequential Thinking beyond reading pipeline data.*
 
 3. **Supply Chain Mapping** (Agent-Level): Trace supply chain position -- customers, suppliers, bottleneck location.
+
+   **Discovery Escalation (Type B only)**: If during supply chain mapping, the target company's position reveals ALL of:
+   (a) It sits in a high-growth supply chain (hyperscaler capex-driven, government-funded, or technology transition-driven)
+   (b) Its KEY INPUT has supply concentration (top 3 suppliers > 70% share)
+   (c) Key input supplier(s) have market cap < 1/10 of the target company
+
+   → Escalate to the Scenario-Driven Discovery Protocol (`supply_chain_bottleneck.md`) for the upstream supply chain. Apply the 5-Layer Mapping Template with the key input as Layer 0, then proceed through Steps 3-5.5 (Concentration Detection → Bottleneck Scoring → Nested Bottleneck Check). The nested check is especially valuable here — the escalation already found one layer of concentration; Step 5.5 may reveal a second. This enables discovery THROUGH analysis: a user asking about $LITE (transceiver) could lead to discovering $AXTI (substrate supplier) AND the indium feedstock concentration behind it.
+
+   Report the escalation transparently: "While analyzing [target], identified a potential upstream bottleneck at [key input]. Applying supply chain discovery protocol..."
 4. **Float/SI/Dilution Analysis (MANDATORY)**: Review holder data, SBC analysis from pipeline output. Do NOT skip. The pipeline automatically checks `dilution_flag`: if "active_dilution" (shares Q/Q change > 2%), it runs a conditional SEC filing lookup (S-3 form) and includes the result in `sec_dilution_check`. Verify the `DILUTION_` readiness code for quick status. If SEC filing data requires deeper analysis (e.g., reading the actual S-3ASR filing), use WebFetch on the filing URL.
 5. **Institutional Flow Analysis (MANDATORY)**: Collect 13F data, holder composition, insider activity. Rate IO quality on 1-10 scale.
 6. **Forward Revenue & Margin Assessment**: Collect financial statements, analyst estimates, earnings acceleration data. Project forward revenue, compare market cap.
