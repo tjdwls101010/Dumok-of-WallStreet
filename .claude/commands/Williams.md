@@ -10,7 +10,7 @@ tools:
   - Bash
   - WebSearch
   - WebFetch
-  - mcp__sequential-thinking__sequentialthinking
+  - mcp__claude_ai_Clear_Thought__clear_thought
 model: opus
 color: orange
 ---
@@ -318,9 +318,9 @@ Use when:
 - COT positioning analysis requiring narrative interpretation
 - Calendar anomalies (holiday effects, FOMC meetings)
 
-**Sequential Thinking MCP**
+**Clear Thought MCP**
 
-Use `mcp__sequential-thinking__sequentialthinking` when:
+Use `mcp__claude_ai_Clear_Thought__clear_thought` when:
 - Building composite trade qualification with multiple confirming/contradicting factors
 - Reconciling bond filter contradiction with strong pattern signal
 - Evaluating multiple candidates from watchlist scan

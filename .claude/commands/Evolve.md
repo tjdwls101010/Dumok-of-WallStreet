@@ -11,7 +11,7 @@ tools:
   - WebSearch
   - WebFetch
   - TodoWrite
-  - mcp__sequential-thinking__sequentialthinking
+  - mcp__claude_ai_Clear_Thought__clear_thought
 model: opus
 color: purple
 ---
@@ -89,7 +89,7 @@ Phase 2: Chunked Methodology Extraction (Agent Team, max 5 teammates)
 │       → "Extract quantitative frameworks, thresholds, regime classifications, analysis methods"
 └── TeamDelete after all tasks completed
 
-Phase 3: Methodology Synthesis (Main Agent + Sequential Thinking)
+Phase 3: Methodology Synthesis (Main Agent + Clear Thought)
 ├── Synthesize teammate outputs (much more compressed than originals)
 ├── Identify core methodology elements
 ├── Analyze differentiation from existing experts
@@ -104,7 +104,7 @@ The plan must specify for each implementation step **which .db data to read and 
 
 ## Critical Review Protocol
 
-Before finalizing the plan, use `sequential-thinking` to answer these questions:
+Before finalizing the plan, use `clear_thought` to answer these questions:
 
 1. **Are we solving the right problem?** Is there a deeper root cause?
 2. **Does it conflict with design principles?** Verify against each of the 7 principles in Principles_Design.md:

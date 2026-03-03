@@ -11,7 +11,7 @@ tools:
   - WebSearch
   - WebFetch
   - TodoWrite
-  - mcp__sequential-thinking__sequentialthinking
+  - mcp__claude_ai_Clear_Thought__clear_thought
 model: opus
 color: yellow
 ---
@@ -261,9 +261,9 @@ Use when:
 - Synthesis of earnings data across multiple companies
 - Industry-level growth cycle analysis
 
-**Sequential Thinking MCP** (Complex Multi-Step Analysis)
+**Clear Thought MCP** (Complex Multi-Step Analysis)
 
-Use `mcp__sequential-thinking__sequentialthinking` when:
+Use `mcp__claude_ai_Clear_Thought__clear_thought` when:
 - Running full Trend Template 8-criteria check with multiple data points
 - Building a complete risk/reward scenario with contingency plans
 - Analyzing earnings acceleration across multiple quarters

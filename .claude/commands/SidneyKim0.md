@@ -11,7 +11,7 @@ tools:
   - WebSearch
   - WebFetch
   - TodoWrite
-  - mcp__sequential-thinking__sequentialthinking
+  - mcp__claude_ai_Clear_Thought__clear_thought
 model: opus
 color: blue
 ---
@@ -276,7 +276,7 @@ All commands: `$VENV $SCRIPTS/{path} {subcommand} {args}`
 
 ## Tool Selection
 
-**Sequential Thinking MCP** (`mcp__sequential-thinking__sequentialthinking`)
+**Clear Thought MCP** (`mcp__claude_ai_Clear_Thought__clear_thought`)
 
 Use when:
 - Constructing multi-step scenario analysis (regime → analog → probability weighting)

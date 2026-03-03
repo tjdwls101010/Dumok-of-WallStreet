@@ -11,7 +11,7 @@ tools:
   - WebSearch
   - WebFetch
   - TodoWrite
-  - mcp__sequential-thinking__sequentialthinking
+  - mcp__claude_ai_Clear_Thought__clear_thought
 model: opus
 color: yellow
 ---
@@ -153,7 +153,7 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	- **WebFetch = for detailed documents**: earnings transcripts, SEC filings (supplementary to pipeline), industry reports requiring deep extraction.
 	- **Post-Earnings Reaction Check**: Pipeline L5 earnings_surprise includes post-ER reaction data. Supplement with WebSearch only if additional narrative context is needed for extreme reactions (5d return <= -10% or >= +20%).
 	**Step 2b -- Bottleneck Relevance Assessment (Type B only)**: After collecting company data in Step 2, assess whether the company has supply chain bottleneck relevance by reading the `industry` and `businessSummary` fields from the ticker information output. Load `supply_chain_bottleneck.md` if the company meets ANY of: (A) manufactures, mines, or supplies physical materials, components, or substrates used in other companies' products, (B) occupies a concentrated or sole-source position in its supply chain, or (C) is exposed to geopolitical supply chain dynamics such as export controls or critical mineral policies. If none apply, proceed without loading. Err toward loading -- the cost of missing a bottleneck framework on a relevant company far exceeds the ~5K token cost of an unnecessary load.
-*Steps 3-8 below combine pipeline output interpretation with agent-driven supply chain research. Steps marked (Agent-Level) require LLM reasoning, WebSearch, or Sequential Thinking beyond reading pipeline data.*
+*Steps 3-8 below combine pipeline output interpretation with agent-driven supply chain research. Steps marked (Agent-Level) require LLM reasoning, WebSearch, or Clear Thought beyond reading pipeline data.*
 
 3. **Supply Chain Mapping** (Agent-Level): Trace supply chain position -- customers, suppliers, bottleneck location.
 
@@ -220,8 +220,8 @@ Ratings are NOT static labels. Every rating must include price transition points
 
 For Type D queries involving supply chain mapping or scenario analysis:
 
-**Phase 1: Scenario Construction (Sequential Thinking)**
-Use mcp__sequential-thinking__sequentialthinking to construct 2-3 distinct scenarios. Each must include: triggering event, probability assessment (High >60% / Medium 30-60% / Low <30%), timeline, physical supply chain disruption mechanism, measurable invalidation criteria.
+**Phase 1: Scenario Construction (Clear Thought)**
+Use mcp__claude_ai_Clear_Thought__clear_thought to construct 2-3 distinct scenarios. Each must include: triggering event, probability assessment (High >60% / Medium 30-60% / Low <30%), timeline, physical supply chain disruption mechanism, measurable invalidation criteria.
 
 **Phase 2: Web Research Execution**
 Use WebSearch to research supply chain structure, bottleneck candidates, and industry dynamics. Use WebFetch for specific sources requiring deeper extraction.
