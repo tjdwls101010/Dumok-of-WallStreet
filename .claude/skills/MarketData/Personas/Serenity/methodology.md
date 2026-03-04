@@ -136,6 +136,7 @@ Data not collectible via scripts (industry-specific data, government policies, c
 | Rating | Position Size | Description |
 |--------|--------------|-------------|
 | Fire Sale | Maximum allocation | Extreme conviction buying on drawdown |
+| Moonshot | Max 5% of portfolio | Binary asymmetric — trapped asset with restructuring catalyst |
 | Strong Buy | 20-30% of portfolio | Confirmed bottleneck + undervalued + catalysts |
 | Buy | 5-15% of portfolio | Supply chain advantage + fair valuation |
 | Hold | Maintain existing | Thesis intact, near fair value |

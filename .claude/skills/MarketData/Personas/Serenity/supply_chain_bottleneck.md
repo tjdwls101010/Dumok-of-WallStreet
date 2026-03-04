@@ -31,6 +31,25 @@ Per-layer WebSearch strategy (use when tracing an unfamiliar supply chain):
 
 At each layer, validate concentration: "[material/component] market share concentration", "[material/component] top suppliers". If results show top 3 > 70% share → potential bottleneck, proceed to 6-Criteria Scoring.
 
+### Forced Multi-hop Discovery Rule [HARD]
+
+At Layer 3-4, LLM training data often lacks multi-hop supply chain relationships (e.g., "IQE supplies Google TPUs" is unknown because the relationship is 3-4 hops removed). To overcome this limitation:
+
+1. At each layer, perform explicit WebSearch for suppliers — do NOT rely solely on LLM knowledge
+2. WebSearch queries must be layer-specific:
+   - "Who makes [Layer N-1 component]?"
+   - "[Layer N-1 component] supplier list"
+   - "[Layer N-1 component] supply chain"
+3. For every supplier discovered, immediately search: "[supplier name] publicly listed" and "[supplier name] stock ticker"
+4. Cross-validate: search from multiple directions ("[end product] raw material supplier" AND "[raw material] end use applications")
+
+If WebSearch returns no results for a layer, try alternative queries:
+- "[component] manufactured by"
+- "[component] shortage supplier"
+- "[component] import export data by company"
+
+The goal is to discover companies that AI models don't naturally associate with the end product because the relationship requires 3+ inference hops.
+
 ### 5-Step Mapping Process
 
 **Step 1: Identify End-Product Driving a Macro Trend.** Start with a confirmed demand trend backed by capex commitments or government funding, not speculation.

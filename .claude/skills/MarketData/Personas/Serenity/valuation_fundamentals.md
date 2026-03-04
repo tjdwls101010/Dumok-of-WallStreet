@@ -10,6 +10,8 @@ Choose the valuation method based on the company's characteristics. Always run t
 - **EV/Revenue**: Use for pre-profit companies with significant revenue and >50% gross margins
 - **BOM Per-Unit Economics**: Use for physical product suppliers with identifiable BOM contribution
 - **Revenue per MW**: Use for data center and AI infrastructure companies (Neocloud-specific)
+- **Cross-Listed Comparable Discovery**: Use when a bottleneck company's financials appear distressed but physical assets suggest mispricing vs global peers
+- **Physical Asset Replacement Valuation**: Use when a company has substantial countable physical assets (reactors, fabs, MW capacity) and current financial metrics are distressed
 
 ---
 
@@ -189,6 +191,42 @@ Use SBC analysis output to detect active dilution beyond SBC:
 
 ### Short Interest as Squeeze Catalyst
 High short interest (>20% of float) creates asymmetric upside potential when positive catalysts emerge. Short covering amplifies upward moves. However, high short interest alone is not a thesis -- it must be combined with strong fundamentals.
+
+---
+
+## Cross-Listed Comparable Discovery
+
+### When to Use
+For any company identified at a supply chain bottleneck (6-Criteria Score 4+/6), especially when the company's current financial metrics (margins, growth) appear distressed or disconnected from its physical asset base.
+
+### Method
+1. WebSearch: "[company's core product/process] manufacturer publicly listed" and "[company's core product/process] competitor [country]" for major markets (US, Taiwan, Japan, Korea, Europe)
+2. For each comparable found, collect: market cap, primary product overlap, key physical asset count (reactors, fabs, facilities), revenue, gross margin
+3. Calculate per-asset valuation: Market Cap ÷ Key Asset Count
+4. Compare per-asset valuations across all comparables
+5. A 5x+ per-asset valuation gap between similar companies = strong mispricing signal
+
+### Key Insight
+Markets often misprice companies burdened by legacy businesses when pure-play comparables trade at dramatically higher multiples for the same physical capability. The valuation gap IS the opportunity.
+
+---
+
+## Physical Asset Replacement Valuation
+
+### When to Use
+For companies with substantial physical equipment, manufacturing capacity, or infrastructure that may be undervalued by traditional financial metrics. Mandatory when: company has identifiable countable assets (reactors, fabs, MW capacity, mining permits) AND current financial metrics are distressed.
+
+### Method
+1. Identify key physical assets: MOCVD/MBE reactors, fab lines, MW capacity, specialized equipment, mining rights
+2. Count assets: WebSearch company filings, investor presentations, industry databases
+3. Estimate replacement cost per unit: WebSearch "[equipment type] cost", check recent industry capex per unit
+4. Calculate: Asset Count × Replacement Cost = Physical Asset Floor Value
+5. Add: qualified workforce value, customer relationships, IP portfolio (estimate conservatively)
+6. Compare Physical Asset Floor Value to market cap
+7. If floor value > 50% of market cap, the company has significant trapped asset value regardless of current P&L performance
+
+### SoP Trigger Extension
+Add to existing SoP mandatory triggers: "Company has substantial physical equipment inventory (>$50M replacement value) that could be repurposed, converted, or sold independently."
 
 ---
 

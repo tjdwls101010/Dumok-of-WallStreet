@@ -171,6 +171,18 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 7. **Valuation**: Apply appropriate method (SoP, Forward P/E, EV/Revenue, BOM economics, No-Growth Stress Test). **SoP is MANDATORY** when: 2+ independent business units exist, holdings/conglomerate structure, subsidiary has independent valuation, or non-core assets exceed 20% of market cap. See `valuation_fundamentals.md` SoP triggers.
 8. **Risk Assessment & Rating**: Supply chain risks, dilution, competition, geopolitical, macro. Assign conviction tier.
 
+### Restructuring Catalyst Checklist (for Trapped Asset Override condition c)
+
+When evaluating whether a distressed company has an active restructuring catalyst, check via WebSearch:
+- [ ] Strategic review or strategic alternatives announced (8-K filing)
+- [ ] Financial advisor appointed (Lazard, Goldman, Moelis, etc.)
+- [ ] Business unit sale process initiated (press release, 8-K)
+- [ ] Debt restructuring or refinancing announced
+- [ ] Management commentary on asset separation or business pivot
+- [ ] Board changes indicating activist or restructuring-focused directors
+
+At least one checked item with verifiable source = "active restructuring catalyst present." Zero items = override condition (c) not met.
+
 ### IO Quality Scale (1-10)
 - 9-10: Passive/index funds dominant (Vanguard, BlackRock, State Street)
 - 7-8: Long-only active managers (Fidelity, T. Rowe Price, Baron)
@@ -183,6 +195,8 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 #### Rating Tiers
 
 **Fire Sale**: Reserved for extreme drawdowns on highest-conviction names. Signals maximum accumulation. Used sparingly.
+
+**Moonshot (Binary Asymmetric)**: Reserved for trapped-asset or restructuring situations where: (a) confirmed supply chain bottleneck position (4+/6), (b) physical asset value significantly exceeds market cap, (c) identifiable restructuring catalyst that could unlock the value, BUT (d) failure scenario includes severe dilution or bankruptcy. Maximum position size: 5% of portfolio. This is NOT a typical buy — it is an explicit binary bet on restructuring success.
 
 **Strong Buy**: Requires ALL of: forward revenue growth 50%+ Y/Y with visibility, confirmed contracts from creditworthy counterparties, balance sheet strength, market cap below forward revenue trajectory, identifiable bottleneck position.
 
@@ -244,6 +258,16 @@ When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
 - Lead with the flagged gates before any valuation or rating discussion. A stock flagging on health gates cannot receive Strong Buy regardless of bottleneck score.
 - Health-gate flags: Bear-Bull Paradox (debt structure undermines growth thesis), Active Dilution (shares Q/Q change > 2%), No-Growth Fail (market cap exceeds zero-growth intrinsic value), Margin Collapse (gross or operating margin declining Q/Q and Y/Y).
 - A single flag reduces maximum rating by one tier. Two or more flags cap the rating at Hold.
+- **Trapped Asset Override**: The Hold cap from 2+ health gate flags can be overridden to Moonshot when ALL three conditions are met:
+  (a) Bottleneck Score 4+/6 — the company occupies a confirmed supply chain chokepoint despite its financial distress
+  (b) Physical Asset Floor Value > 50% of Market Cap — tangible assets provide a valuation floor independent of current P&L (use Physical Asset Replacement Valuation from `valuation_fundamentals.md`)
+  (c) Active Restructuring Catalyst — at least one of: strategic review announced, advisor (Lazard, Goldman, etc.) appointed, asset sale process initiated, debt restructuring filing, or management explicitly pursuing business unit separation (verify via WebSearch for SEC 8-K filings, press releases, or investor presentations)
+  When the override activates:
+  - Health gate flags are re-interpreted: "distressed metrics caused by legacy drag that restructuring will remove" rather than "fundamentally broken"
+  - Maximum rating is Moonshot (not Strong Buy — binary risk remains)
+  - Position sizing capped at 5% regardless of other factors
+  - Risk disclosure MUST explicitly state: "This is a binary asymmetric position. Success scenario: [X]. Failure scenario: severe dilution or [Y]."
+  - Report the override transparently: "Health gates flagged [N] issues, but Trapped Asset Override applies because [evidence for a, b, c]."
 - Explain to the user WHY each gate flagged using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
 - Flags are informational, not absolute blockers — a company in early-stage CapEx deployment may legitimately flag on dilution if the capital is productively deployed. The agent must contextualize.
 
