@@ -277,6 +277,42 @@ Track the XAU/XAG ratio as a leading indicator for global deleveraging and risk-
 
 ---
 
+## Model 11: VIX Call/Put Decomposition
+
+### Purpose
+Decompose the VIX index into its call-side and put-side contributions to determine whether VIX elevation is driven by fear (put premium) or FOMO (call premium). The "why" behind VIX levels carries distinct implications for forward risk.
+
+### Methodology
+1. The VIX formula weights each OTM option by 1/Ki², where Ki is the strike price
+2. Because put strikes are lower than call strikes at the same OTM distance, puts receive ~1.5x the weight of equivalent-distance calls
+3. Decompose total VIX into put-contributed VIX and call-contributed VIX
+4. Compute "등가 풋 VIX" (equivalent put VIX): normalize call contribution to put-equivalent weight for direct comparison
+5. Compare the current decomposition against historical norms to identify which side is driving the elevation
+
+### Interpretation
+| VIX Driver | Signal | Historical Context |
+|-----------|--------|-------------------|
+| Put-dominated VIX rise | Classic fear/hedging demand | Normal risk-off signal; VIX 30+ has ALWAYS been put-dominated in US 40-year history |
+| Call-dominated VIX rise | FOMO / speculative demand | Anomalous; no historical precedent of call-driven VIX 30+ in US data |
+| Both elevated equally | Broad uncertainty | Elevated implied volatility across the surface; regime uncertainty |
+| Put VIX falling while call VIX rising | Risk perception shifting from downside to upside | Potential regime transition from fear to greed; verify with other sentiment indicators |
+
+### Key Historical Benchmark
+In 40 years of US market data, every instance of VIX exceeding 30 has been put-premium dominated. A hypothetical call-FOMO-driven VIX 30+ would be historically unprecedented and would require entirely different interpretation frameworks — it would signal speculative excess rather than hedging demand.
+
+### Application
+When VIX is elevated, always ask "why is it high?" before interpreting:
+- **High VIX, put-dominated**: Standard risk-off playbook; hedge demand is genuine
+- **High VIX, call-dominated**: Speculative excess; risk-on signal despite high VIX reading
+- **VIX 25+ with unusual call/put balance**: Investigate — the character of volatility determines the appropriate response
+
+### Threshold Integration
+- VIX > 25: Decomposition becomes analytically significant
+- VIX > 30: Put-dominance is the historical norm; call-dominance would be anomalous
+- VIX term structure in backwardation + put-dominated: Confirmed stress regime
+
+---
+
 ## Model Convergence Framework
 
 No single model is sufficient. Signal strength increases when multiple models agree:

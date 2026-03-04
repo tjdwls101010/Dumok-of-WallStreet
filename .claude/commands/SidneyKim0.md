@@ -116,6 +116,7 @@ Near zero or negative ERP → equity multiple compression signal
 - **US10Y 4.3%**: Decision level (below = easing; above = higher-for-longer)
 - **US10Y 5%+**: Historical equity multiple rejection zone
 - **DXY 99-100**: EM trigger threshold
+- **ISM Manufacturing 바닥 턴 + 실업률 < 4%**: 양털깎기 사이클 개시 트리거 (causal trigger, not correlation)
 
 ---
 

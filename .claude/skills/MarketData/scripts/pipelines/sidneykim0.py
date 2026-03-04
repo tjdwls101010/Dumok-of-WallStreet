@@ -52,11 +52,16 @@ Returns:
 				"real_economy": dict
 			},
 			"regime_scores": {regime_name: float},
-			"missing_components": [str],
 			"hard_gate": {
 				"grey_zone": bool,
 				"reason": str or null
-			}
+			},
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
+			"missing_components": [str]
 		}
 
 	For divergence:
@@ -75,6 +80,11 @@ Returns:
 			"critical_divergences": int,
 			"supplementary": dict,
 			"regime_implication": str or null,
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
 			"missing_components": [str]
 		}
 
@@ -90,8 +100,13 @@ Returns:
 					"forward_10_90_range": [float, float]
 				}
 			],
-			"fan_chart_summary": dict,
-			"macro_condition_match": dict,
+			"fan_chart_summary": dict (includes "data_quality": "complete"|"unavailable",
+				"unavailable_reason": str if unavailable),
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
 			"missing_components": [str]
 		}
 
@@ -102,8 +117,12 @@ Returns:
 			"historical_percentile": float,
 			"zscore": float,
 			"trend": str,
-			"regime_interpretation": str,
 			"components": dict,
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
 			"missing_components": [str]
 		}
 
@@ -123,6 +142,11 @@ Returns:
 			],
 			"composite_signal": str,
 			"confidence": str,
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
 			"missing_components": [str]
 		}
 
@@ -132,6 +156,11 @@ Returns:
 			"regime_snapshot": dict,
 			"key_levels": dict,
 			"critical_signals": [str],
+			"data_quality": {
+				"required_missing": [str],
+				"optional_missing": [str],
+				"confidence_impact": str (none|degraded|severely_degraded)
+			},
 			"missing_components": [str]
 		}
 
@@ -303,6 +332,50 @@ def _safe_get(data, *keys, default=None):
 
 
 # ---------------------------------------------------------------------------
+# Data Quality and Indicator Tiering
+# ---------------------------------------------------------------------------
+
+# Required indicators: absence caps confidence at MEDIUM
+REQUIRED_INDICATORS = {"erp", "vix_curve", "dxy"}
+# Optional indicators: absence is noted but analysis continues
+OPTIONAL_INDICATORS = {"bdi", "fear_greed", "putcall", "cape", "net_liquidity"}
+
+
+def _build_data_quality(missing_components, required=None, optional=None):
+	"""Build structured data quality assessment.
+
+	Args:
+		missing_components: list of component names that failed
+		required: set of required indicator names (default: REQUIRED_INDICATORS)
+		optional: set of optional indicator names (default: OPTIONAL_INDICATORS)
+
+	Returns:
+		dict with required_missing, optional_missing, confidence_impact
+	"""
+	if required is None:
+		required = REQUIRED_INDICATORS
+	if optional is None:
+		optional = OPTIONAL_INDICATORS
+
+	missing_set = set(missing_components)
+	required_missing = sorted(missing_set & required)
+	optional_missing = sorted(missing_set & optional)
+
+	if required_missing:
+		impact = "severely_degraded"
+	elif optional_missing:
+		impact = "degraded"
+	else:
+		impact = "none"
+
+	return {
+		"required_missing": required_missing,
+		"optional_missing": optional_missing,
+		"confidence_impact": impact,
+	}
+
+
+# ---------------------------------------------------------------------------
 # Regime Classification Logic
 # ---------------------------------------------------------------------------
 
@@ -471,6 +544,8 @@ def cmd_regime(args):
 		("fear_greed", "analysis/sentiment/fear_greed.py", []),
 		("putcall", "analysis/putcall_ratio.py", ["SPY"]),
 		("cape", "valuation/cape.py", ["get-current"]),
+		("macro_residual", "macro/macro_inference.py", ["infer", "^GSPC"]),
+		("rates_curve", "data_advanced/fred/rates.py", ["yield-curve", "--maturities", "2y,10y", "--limit", "1"]),
 	]
 
 	if args.extended:
@@ -512,6 +587,31 @@ def cmd_regime(args):
 	if not cape_data.get("error"):
 		signals["cross_asset"]["cape"] = cape_data.get("cape")
 
+	# Model 1: Macro Residual Z-Score
+	macro_res = raw.get("macro_residual", {})
+	if not macro_res.get("error"):
+		signals["rate_regime"]["macro_residual_z"] = macro_res.get("current_residual_zscore")
+		signals["rate_regime"]["macro_model_estimate"] = macro_res.get("model_estimate")
+		signals["rate_regime"]["macro_r_squared"] = macro_res.get("r_squared")
+
+	# Model 5: Yield Spread and Curve Shape
+	rates_data = raw.get("rates_curve", {})
+	if not rates_data.get("error"):
+		dgs10 = _safe_get(rates_data, "data", "DGS10", default={})
+		dgs2 = _safe_get(rates_data, "data", "DGS2", default={})
+		if dgs10 and dgs2:
+			us10y_val = list(dgs10.values())[-1] if dgs10 else None
+			us2y_val = list(dgs2.values())[-1] if dgs2 else None
+			if us10y_val is not None and us2y_val is not None:
+				spread_10y2y = us10y_val - us2y_val
+				signals["rate_regime"]["spread_10y2y"] = round(spread_10y2y, 3)
+				if spread_10y2y < -0.1:
+					signals["rate_regime"]["curve_shape"] = "inverted"
+				elif spread_10y2y > 0.5:
+					signals["rate_regime"]["curve_shape"] = "steepening"
+				else:
+					signals["rate_regime"]["curve_shape"] = "flat"
+
 	# Cross-asset
 	fg_data = raw.get("fear_greed", {})
 	if not fg_data.get("error"):
@@ -538,6 +638,11 @@ def cmd_regime(args):
 	# Classify regime
 	classification = _classify_regime(signals)
 
+	# B3: Cap confidence when required indicators are missing
+	dq = _build_data_quality(missing)
+	if dq["confidence_impact"] == "severely_degraded" and classification["regime_confidence"] == "HIGH":
+		classification["regime_confidence"] = "MEDIUM"
+
 	output_json({
 		"regime": classification["regime"],
 		"regime_confidence": classification["regime_confidence"],
@@ -545,6 +650,7 @@ def cmd_regime(args):
 		"signals": signals,
 		"regime_scores": classification["regime_scores"],
 		"hard_gate": classification["hard_gate"],
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 
@@ -564,6 +670,7 @@ def cmd_divergence(args):
 		("sector_commodity", "analysis/divergence.py", ["sector-commodity", "--window", window]),
 		("vix_zscore", "statistics/zscore.py", ["^VIX"]),
 		("gold_zscore", "statistics/zscore.py", ["GC=F"]),
+		("silver_zscore", "statistics/zscore.py", ["SI=F"]),
 		("dxy_data", "data_sources/dxy.py", []),
 	]
 
@@ -623,6 +730,15 @@ def cmd_divergence(args):
 	if not gold_z.get("error"):
 		supplementary["gold_zscore"] = gold_z.get("z_score")
 
+	# Model 10: Gold/Silver Ratio
+	silver_z = raw.get("silver_zscore", {})
+	if not silver_z.get("error"):
+		supplementary["silver_zscore"] = silver_z.get("z_score")
+		gold_val = _safe_get(gold_z, "current_value") if not gold_z.get("error") else None
+		silver_val = silver_z.get("current_value")
+		if gold_val and silver_val and silver_val > 0:
+			supplementary["gold_silver_ratio"] = round(gold_val / silver_val, 2)
+
 	dxy = raw.get("dxy_data", {})
 	if not dxy.get("error"):
 		supplementary["dxy_value"] = dxy.get("current_value")
@@ -634,12 +750,19 @@ def cmd_divergence(args):
 	elif critical_count == 1:
 		regime_implication = "Single critical divergence detected — monitor for spread to other pairs"
 
+	dq = _build_data_quality(
+		missing,
+		required={"yield_equity", "safe_haven", "sector_commodity"},
+		optional={"vix_zscore", "gold_zscore", "silver_zscore", "dxy_data"},
+	)
+
 	output_json({
 		"pairs_analyzed": 3,
 		"divergences": divergences,
 		"critical_divergences": critical_count,
 		"supplementary": supplementary,
 		"regime_implication": regime_implication,
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 
@@ -682,21 +805,38 @@ def cmd_analog(args):
 	fc_data = raw.get("fanchart", {})
 	if not fc_data.get("error"):
 		fc_period = _safe_get(fc_data, "fan_chart", f"{forward}d", default={})
+		if fc_period and any(fc_period.get(k) is not None for k in ("mean", "median", "p25", "p75")):
+			fan_chart = {
+				"forward_days": int(forward),
+				"mean_return": fc_period.get("mean"),
+				"median_return": fc_period.get("median"),
+				"p25_return": fc_period.get("p25"),
+				"p75_return": fc_period.get("p75"),
+				"p10_return": fc_period.get("p10"),
+				"p90_return": fc_period.get("p90"),
+				"data_quality": "complete",
+			}
+		else:
+			fan_chart = {
+				"forward_days": int(forward),
+				"unavailable_reason": f"Fan chart data not found for {forward}d forward period",
+				"data_quality": "unavailable",
+			}
+	else:
 		fan_chart = {
 			"forward_days": int(forward),
-			"mean_return": fc_period.get("mean"),
-			"median_return": fc_period.get("median"),
-			"p25_return": fc_period.get("p25"),
-			"p75_return": fc_period.get("p75"),
-			"p10_return": fc_period.get("p10"),
-			"p90_return": fc_period.get("p90"),
+			"unavailable_reason": "Fan chart script failed or returned error",
+			"data_quality": "unavailable",
 		}
+
+	dq = _build_data_quality(missing, required={"pattern", "fanchart"}, optional=set())
 
 	output_json({
 		"target": target,
 		"window": int(window),
 		"top_analogs": top_analogs,
 		"fan_chart_summary": fan_chart,
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 
@@ -820,6 +960,10 @@ def cmd_deep_dive(args):
 		if not fg.get("error"):
 			current_value = _safe_get(fg, "current", "score")
 
+	# For deep-dive, all tasks are required since user explicitly asked for this indicator
+	task_names = {name for name, _, _ in tasks}
+	dq = _build_data_quality(missing, required=task_names, optional=set())
+
 	output_json({
 		"indicator": indicator,
 		"current_value": current_value,
@@ -827,6 +971,7 @@ def cmd_deep_dive(args):
 		"zscore": zscore,
 		"trend": trend,
 		"components": {k: v for k, v in raw.items() if not v.get("error")},
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 
@@ -849,6 +994,9 @@ def cmd_scenario(args):
 		("cape", "valuation/cape.py", ["get-current"]),
 		("dxy", "data_sources/dxy.py", []),
 		("bdi", "data_sources/bdi.py", []),
+		("macro_residual", "macro/macro_inference.py", ["infer", "^GSPC"]),
+		("rates_curve", "data_advanced/fred/rates.py", ["yield-curve", "--maturities", "2y,10y", "--limit", "1"]),
+		("spx_rsi", "technical/oscillators.py", ["rsi", "^GSPC"]),
 		# Divergence (3 typed subcommands)
 		("div_yield_equity", "analysis/divergence.py", ["yield-equity", "--window", "45"]),
 		("div_safe_haven", "analysis/divergence.py", ["safe-haven", "--window", "45"]),
@@ -906,6 +1054,36 @@ def cmd_scenario(args):
 	if not bdi_data.get("error"):
 		signals["real_economy"]["bdi_zscore"] = _safe_get(bdi_data, "statistics", "z_score", default=0)
 
+	# Model 1: Macro Residual Z-Score
+	macro_res = raw.get("macro_residual", {})
+	if not macro_res.get("error"):
+		signals["rate_regime"]["macro_residual_z"] = macro_res.get("current_residual_zscore")
+		signals["rate_regime"]["macro_model_estimate"] = macro_res.get("model_estimate")
+
+	# Model 5: Yield Spread and Curve Shape
+	rates_data = raw.get("rates_curve", {})
+	if not rates_data.get("error"):
+		dgs10 = _safe_get(rates_data, "data", "DGS10", default={})
+		dgs2 = _safe_get(rates_data, "data", "DGS2", default={})
+		if dgs10 and dgs2:
+			us10y_val = list(dgs10.values())[-1] if dgs10 else None
+			us2y_val = list(dgs2.values())[-1] if dgs2 else None
+			if us10y_val is not None and us2y_val is not None:
+				spread_10y2y = us10y_val - us2y_val
+				signals["rate_regime"]["spread_10y2y"] = round(spread_10y2y, 3)
+				if spread_10y2y < -0.1:
+					signals["rate_regime"]["curve_shape"] = "inverted"
+				elif spread_10y2y > 0.5:
+					signals["rate_regime"]["curve_shape"] = "steepening"
+				else:
+					signals["rate_regime"]["curve_shape"] = "flat"
+
+	# Model 3: S&P 500 RSI Percentile
+	rsi_data = raw.get("spx_rsi", {})
+	if not rsi_data.get("error"):
+		signals["cross_asset"]["spx_rsi"] = rsi_data.get("current_rsi")
+		signals["cross_asset"]["spx_rsi_percentile"] = _safe_get(rsi_data, "statistics", "percentile")
+
 	# Classify regime
 	regime_result = _classify_regime(signals)
 
@@ -942,8 +1120,16 @@ def cmd_scenario(args):
 	fc_data = raw.get("fanchart", {})
 	if not fc_data.get("error"):
 		fc_period = _safe_get(fc_data, "fan_chart", "60d", default={})
-		fan_chart["mean_return"] = fc_period.get("mean")
-		fan_chart["p25_75"] = [fc_period.get("p25"), fc_period.get("p75")]
+		if fc_period and any(fc_period.get(k) is not None for k in ("mean", "median", "p25", "p75")):
+			fan_chart["mean_return"] = fc_period.get("mean")
+			fan_chart["p25_75"] = [fc_period.get("p25"), fc_period.get("p75")]
+			fan_chart["data_quality"] = "complete"
+		else:
+			fan_chart["unavailable_reason"] = "Fan chart data not found for 60d forward period"
+			fan_chart["data_quality"] = "unavailable"
+	else:
+		fan_chart["unavailable_reason"] = "Fan chart script failed or returned error"
+		fan_chart["data_quality"] = "unavailable"
 
 	# Build scenarios (agent will refine these)
 	analog_direction = fan_chart.get("mean_return", 0)
@@ -1033,10 +1219,16 @@ def cmd_scenario(args):
 
 	composite = _determine_composite_signal(regime_result, critical_divs, analog_dir_label)
 
+	# B3: Cap confidence when required indicators are missing
+	dq = _build_data_quality(missing)
+	scenario_confidence = regime_result["regime_confidence"]
+	if dq["confidence_impact"] == "severely_degraded" and scenario_confidence == "HIGH":
+		scenario_confidence = "MEDIUM"
+
 	output_json({
 		"regime": {
 			"classification": regime_result["regime"],
-			"confidence": regime_result["regime_confidence"],
+			"confidence": scenario_confidence,
 			"sub_regime": regime_result["sub_regime"],
 			"scores": regime_result["regime_scores"],
 		},
@@ -1050,7 +1242,8 @@ def cmd_scenario(args):
 		},
 		"scenarios": scenarios,
 		"composite_signal": composite,
-		"confidence": regime_result["regime_confidence"],
+		"confidence": scenario_confidence,
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 
@@ -1124,6 +1317,12 @@ def cmd_dashboard(args):
 
 	regime = _classify_regime(signals)
 
+	dq = _build_data_quality(
+		missing,
+		required={"erp", "vix_curve"},
+		optional={"cape", "fear_greed", "putcall"},
+	)
+
 	output_json({
 		"timestamp": datetime.now().isoformat(),
 		"regime_snapshot": {
@@ -1133,6 +1332,7 @@ def cmd_dashboard(args):
 		},
 		"key_levels": key_levels,
 		"critical_signals": critical,
+		"data_quality": dq,
 		"missing_components": missing,
 	})
 

@@ -183,6 +183,29 @@ Monitor whether QT is still "safe" by checking:
 2. Reserve balance — when reserves approach the estimated "ample" threshold, QT stress begins
 3. Fed balance sheet trajectory vs. pre-announced plan — deviations signal stress awareness
 
+### Money Market Fund (MMF) Liquidity Transmission
+
+#### Core Rule: MMF → Market Rotation Requires Near-Zero Rates
+
+The $6T+ sitting in money market funds is frequently cited as "dry powder" for equity markets. Historical evidence strictly constrains when this rotation actually occurs:
+
+**Three Historical Precedents of MMF → Market Migration:**
+
+| Period | Fed Funds Rate | MMF Flow Direction | Market Impact |
+|--------|---------------|-------------------|---------------|
+| 2003-04 | 1.00% (historic low at time) | MMF → equities + credit | Fueled recovery rally |
+| 2009-10 | 0-0.25% (ZIRP) | MMF → equities + credit | Powered post-GFC bull |
+| 2020-21 | 0-0.25% (ZIRP) | MMF → equities + crypto + everything | Everything rally |
+
+**Critical Pattern**: In all three cases, the Fed Funds Rate was at or near zero. MMF rotation into risk assets occurred because money market yields became negligible, forcing yield-seeking behavior.
+
+**Counter-Example — Insurance Rate Cuts (2018-19):**
+During the 2018-19 "insurance cut" cycle (FFR from 2.50% to 1.75%), MMF balances actually **increased**. Rate cuts that maintain meaningful MMF yields do not trigger rotation — they may even attract more deposits as investors perceive safety with declining but still acceptable returns.
+
+**Current Implication**: With MMF balances exceeding $6T, the market narrative of "money on the sidelines" is misleading. Without a move to near-zero rates, this money earns 4-5% risk-free and has no incentive to rotate into equities. The MMF-to-market rotation thesis requires a rate environment that does not currently exist, and any "insurance cuts" to 3-4% would be insufficient to trigger the rotation.
+
+**Analytical Rule**: When evaluating liquidity tailwinds, do NOT count MMF balances as potential equity inflow unless the Fed Funds Rate is below 1% or trending rapidly toward zero.
+
 ---
 
 ## Credit Spread Analysis
@@ -215,6 +238,20 @@ BDI tracks real shipping rates for bulk dry goods — a real-time proxy for glob
 
 ### DXY-Adjusted Commodity Price Signal
 Raw commodity price changes are misleading without DXY adjustment. A commodity rising 5% while DXY falls 3% has only gained ~2% in real terms. Always adjust commodity moves for dollar changes before interpreting the signal. When commodities rise in DXY-adjusted terms, the demand signal is genuine.
+
+### Commodity Volatility → Inflation Transmission Mechanism
+
+The inflation signal from commodities comes from **volatility** (price variability), not **price level** (absolute cost).
+
+**Key Distinction:**
+- WTI $70-80 sideways (low volatility) → Non-inflationary. Businesses can plan around stable input costs. Pass-through to consumer prices is minimal.
+- WTI oscillating $60-90 (high volatility) → Inflationary. Price uncertainty forces frequent repricing, widens supplier margins, and creates hedging cost pass-throughs that elevate CPI.
+
+**Mechanism**: When commodity prices are stable at any level, businesses absorb costs into predictable margins. When prices swing, businesses must hedge (costly), reprice frequently (costly), or absorb margin variance (unsustainable). The hedging costs and repricing friction transmit as inflation regardless of the average price level.
+
+**Tracking Method**: Monitor the rolling standard deviation of commodity returns (e.g., 60-day rolling σ of WTI daily returns) as an inflation leading indicator, separate from the price level itself. When commodity return volatility exceeds its 75th percentile while the price level is unchanged, treat this as an inflation-forward signal that traditional commodity price indices will miss.
+
+**Application**: Before concluding "oil is stable, no inflation risk," check whether the **path** to the current price was smooth or turbulent. Same endpoint, different volatility = different inflation implication.
 
 ### Semiconductor Spot Prices
 DRAM and NAND spot prices function as a real-time semiconductor demand tracker:

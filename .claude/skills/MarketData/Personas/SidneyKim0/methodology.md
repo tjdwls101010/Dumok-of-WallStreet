@@ -134,6 +134,27 @@ The macro transmission mechanism follows a specific sequence:
 
 When analyzing "what more needs to happen for rates to fall?" ("뭘 더해야 금리가 빠질 수 있는가?"), trace this sequence from the beginning. If commodity prices haven't fallen, it's premature to expect CPI to drop, which means rate cuts are premature regardless of narrative.
 
+### Seasonal Inflation Calendar
+
+Structural seasonal patterns in inflation data create predictable noise that can mislead macro analysis. Apply this calendar as a filter before interpreting CPI data:
+
+| Period | Seasonal Effect | Mechanism |
+|--------|----------------|-----------|
+| June-August | Service + Energy price structural uplift | Travel season (airfares, hotels, rental cars) + driving season (gasoline demand peak) |
+| July-December | YoY CPI base effect deterioration | Prior year's favorable base effects roll off, making YoY headline appear worse even if MoM trend is flat |
+| September | Employment data seasonal adjustment noise | Back-to-school hiring creates noisy seasonal adjustments; NFP less reliable as regime signal |
+
+**Position Duration Framework — Seasonal Filter:**
+
+During unfavorable inflation seasons (June-December), even genuinely positive data (lower-than-expected CPI) may fail to durably improve rate expectations. The market discounts favorable prints as "one month doesn't make a trend" when seasonal headwinds are known.
+
+**Application rule**: In June-December, require **2 consecutive** favorable CPI prints to shift rate expectations, vs. **1 print** in January-May when seasonal tailwinds amplify favorable data. This asymmetry governs position duration for rate-sensitive positions:
+
+- **Jan-May (favorable season)**: A single positive CPI surprise can sustain rate-cut positioning for 4-6 weeks
+- **Jun-Dec (unfavorable season)**: A single positive CPI surprise sustains rate-cut positioning for only 2-3 weeks before seasonal skepticism erodes the thesis
+
+**Integration with HOPE Cycle**: When tracing the Commodity → PPI → CPI → Rate → Asset sequence, overlay the seasonal calendar. A commodity price decline in Q1 has higher probability of translating into a durable CPI improvement than the same decline in Q3, because Q3 seasonal effects will partially offset the commodity pass-through.
+
 ---
 
 ### Regime Transition Detection Rules
@@ -144,6 +165,20 @@ Regime transitions are identified through a systematic diagnostic:
 2. **Track the weak links**: HY bonds, EM equities, and speculative commodities crack first. If they weaken while leading assets hold, transition is underway.
 3. **Monitor cross-asset anomalies**: Assets not behaving as the current regime would predict are the highest-alpha signals for regime transition.
 4. **Regime flip moment**: "장기금리 상승 & 원화 하락을 시장 호재로 인식하다 악재로 바뀐 것" — when the same data point flips from being interpreted as good news to bad news, the regime has changed.
+
+### ISM Manufacturing as Cycle Trigger
+
+ISM Manufacturing Index serves as a **causal trigger** (not merely a correlating indicator) for specific macro regime transitions:
+
+**Wool-Shearing Cycle Initiation Trigger:**
+- **Condition**: ISM Manufacturing bottoms and turns upward + Unemployment rate sustained below 4%
+- **Interpretation**: Manufacturing recovery with tight labor = US economic engine reigniting while still absorbing global capacity
+- **Consequence**: Capital rotation from EM → US accelerates (양털깎기 개시)
+- **Historical pattern**: ISM trough-to-upturn combined with sub-4% unemployment has preceded every major EM-to-US liquidity rotation since 1997
+
+**Why causal, not correlative**: The ISM upturn signals that US manufacturing demand is recovering, which directly pulls (a) commodity demand toward US supply chains, (b) capital toward US industrial investment, and (c) labor market tightness toward wage-driven consumption. Each of these three channels mechanically drives capital repatriation from EM to US.
+
+**Implementation**: When tracking regime transitions (§ Regime Transition Detection Rules), check ISM bottom formation as a leading trigger. If ISM shows a bottom pattern while unemployment is below 4%, elevate the probability weight on the 유동성 쏠림 (Liquidity Flow) regime.
 
 ---
 
