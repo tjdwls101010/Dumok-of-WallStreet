@@ -7,14 +7,14 @@
   },
   "metadata": {
     "description": "월스트릿의 독목 - 금융 시장 분석 플러그인",
-    "version": "3.5.1"
+    "version": "3.6.0"
   },
   "plugins": [
     {
       "name": "invest",
       "source": "./.claude",
-      "version": "3.5.1",
-      "description": "Financial market data analysis with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), and Evolve meta-engineering tool",
+      "version": "3.6.0",
+      "description": "Financial market data analysis with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), Debate multi-expert orchestrator, and Evolve meta-engineering tool",
       "category": "finance",
       "skills": [
         "./.claude/skills/MarketData/SKILL.md"
@@ -25,7 +25,8 @@
         "./.claude/commands/Serenity.md",
         "./.claude/commands/SidneyKim0.md",
         "./.claude/commands/TraderLion.md",
-        "./.claude/commands/Williams.md"
+        "./.claude/commands/Williams.md",
+        "./.claude/commands/Debate.md"
       ]
     }
   ]

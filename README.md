@@ -189,6 +189,34 @@
 | CFTC | 선물 포지셔닝 (COT 리포트) |
 | CBOE | VIX, 풋/콜 비율, 변동성 커브 |
 
+## 🏛️Debate
+
+다중 전문가 토론 오케스트레이터입니다. "투자해도 돼?", "뭐 살까?"와 같은 넓은 질문을 받으면, 질문 유형에 맞는 2~4명의 전문가를 자동 선정하여 병렬로 독립 분석을 수행하고, 충돌 시 교차 검증 토론을 거쳐 종합 결론을 도출합니다.
+
+| 질문 유형 | 선정 전문가 | 각 전문가의 역할 |
+|----------|-----------|----------------|
+| 시장 타이밍 | SidneyKim0 + Minervini + Williams | 매크로 레짐 / 섹터 리더십 / 채권 필터+캘린더 |
+| 종목 심층분석 | Minervini + Serenity + TraderLion | SEPA 진단 / 공급망+밸류에이션 / 모멘텀+엣지 |
+| 종목 발굴 | Minervini + Serenity + TraderLion | 리더 스크리닝 / 병목 발굴 / SNIPE 필터 |
+| 리스크 점검 | SidneyKim0 + Minervini + Williams | 레짐+극단값 / 브로큰리더+브레스 / 채권+COT |
+| 매매 타이밍 | Minervini + Williams + TraderLion | VCP/피봇 / 변동성돌파 / 엔트리 전술 |
+| 종합 리뷰 | SidneyKim0 + Minervini + Serenity | 매크로 컨텍스트 / 포지션 점검 / 밸류에이션 |
+
+**이런 질문을 해보세요**
+
+| 질문 유형 | 예시 질문 |
+|----------|----------|
+| 시장 타이밍 | "지금 주식 투자해도 돼? 시장 상황이 어떤지 종합적으로 판단해줘" |
+| 종목 심층분석 | "NVDA를 여러 관점에서 종합 분석해줘" |
+| 종목 발굴 | "지금 뭐 사면 좋을까? 좋은 종목 추천해줘" |
+| 리스크 점검 | "시장이 고점인 것 같은데, 얼마나 위험한 상황이야?" |
+| 매매 타이밍 | "AAPL 지금 사도 돼? 진입 타이밍 맞아?" |
+| 종합 리뷰 | "전체적으로 포트폴리오 점검 좀 해줘" |
+
+**기대할 수 있는 분석**: 2~4명의 전문가가 각자의 방법론으로 독립 분석한 결과를 교차 검증하고, 합의 사항·논쟁 지점·종합 판정·실행 계획·통합 리스크 매트릭스를 포함한 다중 관점 종합 보고서를 받을 수 있습니다.
+
+---
+
 ## ♻️Evolve
 
 기존 전문가를 개선하거나 새로운 전문가를 추가하기 위한 메타-엔지니어링 도구입니다. Plan Mode에서 동작하며, 페르소나 파일·파이프라인·커맨드 생성을 체계적으로 안내합니다.
@@ -201,7 +229,7 @@ Dumok-of-WallStreet/
 │   └── marketplace.json
 ├── .claude/
 │   ├── .claude-plugin/plugin.json
-│   ├── commands/          # Evolve, Minervini, Serenity, SidneyKim0, TraderLion, Williams
+│   ├── commands/          # Debate, Evolve, Minervini, Serenity, SidneyKim0, TraderLion, Williams
 │   └── skills/MarketData/ # SKILL.md, Personas/, scripts/ (screening/, pipelines/), tools/
 ├── Docs/
 │   ├── Examples/          # 분석 결과 예시 (추후 추가 예정)
