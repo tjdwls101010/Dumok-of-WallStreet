@@ -134,7 +134,7 @@ import pandas as pd
 from analysis.analysis_utils import z_normalize
 
 
-def calculate_dtw_distance(series1: np.ndarray, series2: np.ndarray) -> float:
+def calculate_dtw_distance(series1: np.ndarray, series2: np.ndarray, band_radius: int = None) -> float:
 	"""Calculate Dynamic Time Warping distance between two normalized series.
 
 	DTW measures similarity between two sequences that may vary in timing or speed.
@@ -147,29 +147,60 @@ def calculate_dtw_distance(series1: np.ndarray, series2: np.ndarray) -> float:
 	   DTW[i,j] = cost[i,j] + min(DTW[i-1,j], DTW[i,j-1], DTW[i-1,j-1])
 	4. Return DTW[n,m] as final distance
 
+	When band_radius is specified, applies Sakoe-Chiba band constraint to limit
+	computation to diagonal ± radius cells per row, reducing cost from O(n*m) to
+	O(n * (2*radius+1)).
+
 	Args:
 		series1: First normalized price series (z-normalized recommended)
 		series2: Second normalized price series (z-normalized recommended)
+		band_radius: Sakoe-Chiba band radius. None = full DTW (backward compatible).
 
 	Returns:
 		float: DTW distance (lower = more similar; 0 = identical)
 	"""
 	n, m = len(series1), len(series2)
+	s1 = np.asarray(series1, dtype=float)
+	s2 = np.asarray(series2, dtype=float)
+	INF = np.inf
 
-	# Create cost matrix
-	dtw_matrix = np.full((n + 1, m + 1), np.inf)
-	dtw_matrix[0, 0] = 0
+	# Use two 1-D arrays (rolling rows) for better cache locality
+	prev = np.full(m + 1, INF)
+	curr = np.full(m + 1, INF)
+	prev[0] = 0.0
 
-	for i in range(1, n + 1):
-		for j in range(1, m + 1):
-			cost = abs(series1[i - 1] - series2[j - 1])
-			dtw_matrix[i, j] = cost + min(
-				dtw_matrix[i - 1, j],  # insertion
-				dtw_matrix[i, j - 1],  # deletion
-				dtw_matrix[i - 1, j - 1],  # match
-			)
+	_min = min
 
-	return dtw_matrix[n, m]
+	if band_radius is not None:
+		r = band_radius
+		for i in range(1, n + 1):
+			curr[:] = INF
+			j_start = max(1, i - r)
+			j_end = min(m, i + r)
+
+			# Vectorized: compute all costs and vertical minimums for this row
+			costs = np.abs(s1[i - 1] - s2[j_start - 1 : j_end])
+			vert_min = np.minimum(prev[j_start : j_end + 1], prev[j_start - 1 : j_end])
+
+			# Sequential sweep for left-path dependency (only 1 min per cell)
+			for k in range(len(costs)):
+				j = j_start + k
+				curr[j] = costs[k] + _min(vert_min[k], curr[j - 1])
+
+			prev, curr = curr, prev
+	else:
+		for i in range(1, n + 1):
+			curr[:] = INF
+			costs = np.abs(s1[i - 1] - s2)
+			vert_min = np.minimum(prev[1 : m + 1], prev[0:m])
+
+			for k in range(m):
+				j = k + 1
+				curr[j] = costs[k] + _min(vert_min[k], curr[j - 1])
+
+			prev, curr = curr, prev
+
+	return prev[m]
 
 
 def calculate_slope(prices: pd.Series, window: int = 20) -> pd.Series:
@@ -195,6 +226,46 @@ def calculate_slope(prices: pd.Series, window: int = 20) -> pd.Series:
 			slope = np.polyfit(x, window_prices, 1)[0]
 			slopes.append(slope)
 	return pd.Series(slopes, index=prices.index)
+
+
+def calculate_slope_vectorized(prices: pd.Series, window: int = 20) -> pd.Series:
+	"""Calculate rolling slope using vectorized convolution (O(n) instead of O(n*window)).
+
+	Closed-form rolling linear regression slope via numpy convolution:
+		slope = (n*Σxy - Σx*Σy) / (n*Σx² - (Σx)²)
+	where Σy and Σxy are computed as rolling sums using np.convolve.
+
+	Args:
+		prices: Price series (typically Close prices)
+		window: Rolling window for slope calculation (default: 20)
+
+	Returns:
+		pd.Series: Slope values (NaN for first window-1 periods)
+	"""
+	y = prices.values.astype(float)
+	n = window
+	x = np.arange(n, dtype=float)
+
+	# Constants for the window
+	sum_x = x.sum()
+	sum_x2 = (x * x).sum()
+	denom = n * sum_x2 - sum_x * sum_x
+
+	# Rolling sums via convolution with a window of ones
+	kernel = np.ones(n)
+	sum_y = np.convolve(y, kernel, mode="valid")  # length = len(y) - n + 1
+	# For Σxy, weight each element by its position in the window (0, 1, ..., n-1)
+	# We need reversed kernel because np.convolve flips the kernel
+	xy_kernel = x[::-1]
+	sum_xy = np.convolve(y, xy_kernel, mode="valid")
+
+	slopes_arr = (n * sum_xy - sum_x * sum_y) / denom
+
+	# Pad with NaN at the beginning
+	result = np.full(len(y), np.nan)
+	result[n - 1 :] = slopes_arr
+
+	return pd.Series(result, index=prices.index)
 
 
 def calculate_pattern_correlation(current_window: pd.Series, historical_window: pd.Series) -> float:
