@@ -238,3 +238,35 @@ def add_common_args(parser):
 	parser.add_argument("--start-date", default=None, help="Start date (YYYY-MM-DD format)")
 	parser.add_argument("--end-date", default=None, help="End date (YYYY-MM-DD format)")
 	parser.add_argument("--limit", type=int, default=None, help="Number of observations to return (most recent)")
+
+
+if __name__ == "__main__":
+	parser = argparse.ArgumentParser(description="FRED Inflation Data Commands")
+	subparsers = parser.add_subparsers(dest="command")
+
+	# CPI
+	cpi_parser = subparsers.add_parser("cpi", help="Get CPI data")
+	cpi_parser.add_argument("--series-type", default="headline", help="headline, core, or all")
+	add_common_args(cpi_parser)
+
+	# PCE
+	pce_parser = subparsers.add_parser("pce", help="Get PCE data")
+	pce_parser.add_argument("--series-type", default="headline", help="headline, core, or all")
+	add_common_args(pce_parser)
+
+	# Breakeven Inflation
+	be_parser = subparsers.add_parser("breakeven-inflation", help="Get Breakeven Inflation Rates")
+	be_parser.add_argument("--maturity", default="10y", help="5y, 10y, 5y_fwd_5y, or all")
+	add_common_args(be_parser)
+
+	# Michigan
+	mi_parser = subparsers.add_parser("michigan", help="Get Michigan Consumer Sentiment data")
+	mi_parser.add_argument("--indicator", default="all", help="consumer_sentiment, inflation_expectation, or all")
+	add_common_args(mi_parser)
+
+	args = parser.parse_args()
+	cmds = {"cpi": cmd_cpi, "pce": cmd_pce, "breakeven-inflation": cmd_breakeven_inflation, "michigan": cmd_michigan}
+	if args.command in cmds:
+		cmds[args.command](args)
+	else:
+		parser.print_help()

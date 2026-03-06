@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v3.8.0
+> 성진의 Claude 금융 시장 분석 플러그인 v4.0.0
 
 ![](Docs/Media/Main.png)
 
@@ -65,6 +65,14 @@
 - 5-Layer 공급망 분해(완제품 → 원재료)로 비직관적 병목 발견
 - 6기준 Bottleneck Scoring — 공급 집중도·증설 리드타임·지정학 리스크·대체재 유무 등
 - No-Growth Stress Test, Sum-of-Parts 밸류에이션으로 하방 시나리오 검증
+
+**서브커맨드**
+
+| 서브커맨드 | 설명 |
+|-----------|------|
+| recheck | Position monitoring with action signals and verdict |
+| discover | Automated theme discovery with bottleneck candidate validation |
+| cross-chain | Shared supplier detection via SEC entity cross-matching |
 
 **이런 질문을 해보세요**
 

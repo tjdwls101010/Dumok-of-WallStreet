@@ -147,6 +147,12 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	- L4 fundamental scripts are re-executed in `analyze` (expected — `compare` collects fewer fields than `analyze`)
 	- Present compare results first as an overview, then run `analyze` only on top candidates for deep-dive
 
+	The pipeline includes additional subcommands for position monitoring, theme discovery, and cross-chain supply chain analysis. Discover their arguments and return structures via `extract_docstring.py`.
+
+	- **Position Monitoring**: Track existing positions for deterioration signals — macro regime shifts, health gate degradation, thesis direction changes. Produces action signals and a management verdict. Use for Type E queries on existing holdings.
+	- **Theme Discovery**: Surface top industry groups with bottleneck candidate validation via sector_leaders + finviz cross-reference + asymmetry scoring. Use for Type C (Discovery, no ticker) queries. Feed top candidates into full 6-Level analysis for deep-dive.
+	- **Cross-Chain Analysis**: Detect shared supply chain dependencies across multiple tickers via SEC entity normalization and cross-matching. High overlap indicates systemic supply chain risk. Use for Type D queries or when evaluating portfolio-level supply chain concentration.
+
 	**Tool Hierarchy**:
 	- **Serenity Pipeline = PRIMARY** for all quantitative financial data. Pipeline-Complete — all methodology-required module calls are contained within the pipeline. L3 includes SEC 10-K/10-Q supply chain pre-extraction (suppliers, single-source dependencies, geographic concentration, capacity constraints, 8-K events) run in parallel with L4/L5.
 	- **WebSearch = for agent-driven context**: supply chain mapping (L2/L3), bottleneck identification, geopolitical dynamics, industry reports. Used AFTER pipeline data collection for qualitative enrichment.
@@ -238,6 +244,57 @@ Ratings are NOT static labels. Every rating must include price transition points
 - "I always give exact positions ahead of time, not retroactively"
 - "I will be wrong many more times in the future. Hopefully I will be right enough to outweigh when I'm wrong"
 
+### Composite Signal Interpretation
+
+The composite score aggregates all pipeline signals into a single actionable grade. The agent MUST confirm every rating before it is finalized — automated scores are inputs, not outputs.
+
+#### Grade Thresholds
+
+| Grade | Score Range | Description |
+|-------|------------|-------------|
+| STRONG_BUY | 80+ | All signals aligned — bottleneck confirmed, health gates pass, catalyst imminent |
+| BUY | 65-79 | Most signals positive — solid fundamentals with identifiable catalyst |
+| ACCUMULATE | 50-64 | Favorable setup but missing one or more confirmations |
+| HOLD | 35-49 | Thesis intact but near fair value or awaiting catalyst |
+| AVOID | <35 | Multiple red flags — health gate failures, no bottleneck, or broken thesis |
+| MOONSHOT | Trapped asset override | Binary asymmetric — Trapped Asset Override conditions met regardless of composite score |
+
+#### Score Breakdown (100 points total)
+
+| Component | Max Points | Description |
+|-----------|-----------|-------------|
+| bottleneck | 30 | 6-Criteria Bottleneck Score mapped to 0-30 scale |
+| health | 25 | Health gate pass rate (4/4 = 25, 3/4 = 18.75, etc.) |
+| thesis | 15 | Forward revenue trajectory, margin quality, competitive position |
+| catalyst | 10 | Real catalyst presence and proximity (contracts, policy, supply events) |
+| taxonomy | 10 | Evolution/Disruption/Bottleneck classification alignment |
+| valuation | 10 | Forward P/E, no-growth floor, PEG ratio attractiveness |
+
+The agent must always confirm the composite grade before issuing a final rating. Automated scoring provides the quantitative foundation; the agent adds qualitative thesis judgment (L2/L3/L6) that cannot be automated. No composite score is published without agent sign-off.
+
+### Position Sizing Reference
+
+Position sizing is grade-driven with macro regime adjustments. These are guidelines for Type E (Position & Risk) and Type F (Thematic Portfolio) responses.
+
+| Grade | Conviction | Size (% of portfolio) | Max Loss (% of portfolio) |
+|-------|-----------|----------------------|--------------------------|
+| STRONG_BUY | High | 5-7% | 1.5% |
+| BUY | Medium | 2-4% | 1.0% |
+| ACCUMULATE | Low | 1-2% | 0.5% |
+| HOLD | — | hold_existing | — |
+| AVOID | — | no_entry | — |
+| MOONSHOT | Special | max_5% | 2.5% |
+
+#### Regime Adjustments
+
+Position sizes are adjusted based on the current macro regime from L1 assessment:
+
+- **risk_off** regime: size × 0.5 (halve all position sizes)
+- **transitional** regime: size × 0.75 (reduce by 25%)
+- **risk_on** regime: no adjustment (use base sizes)
+
+Example: A STRONG_BUY in a risk_off regime → 5-7% × 0.5 = 2.5-3.5% max position size.
+
 ### WebSearch and Scenario Discovery (Type D)
 
 For Type D queries involving supply chain mapping or scenario analysis:
@@ -279,6 +336,34 @@ When the Serenity pipeline `analyze` returns any health gate as `FLAG`:
 - Explain to the user WHY each gate flagged using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
 - Flags are informational, not absolute blockers — a company in early-stage CapEx deployment may legitimately flag on dilution if the capital is productively deployed. The agent must contextualize.
 
+#### Health Gate Severity Spectrum
+
+Each health gate is assessed on a 3-level severity scale. The aggregate severity across all 4 gates ranges from 0.0 (all flags) to 4.0 (all pass).
+
+**Severity Levels**:
+
+| Level | Value | Meaning |
+|-------|-------|---------|
+| PASS | 1.0 | Gate condition fully satisfied — no concern |
+| CAUTION | 0.5 | Gate condition partially met or borderline — requires monitoring |
+| FLAG | 0.0 | Gate condition failed — material risk identified |
+
+**Gate Definitions**:
+
+| Gate | PASS (1.0) | CAUTION (0.5) | FLAG (0.0) |
+|------|-----------|---------------|-----------|
+| bear_bull_paradox | Debt structure supports growth thesis | Elevated debt but manageable with current cash flow | Debt structure fundamentally undermines growth thesis |
+| active_dilution | Shares outstanding stable Q/Q | Shares Q/Q change 1-2% (minor dilution) | Shares Q/Q change > 2% (active equity issuance) |
+| no_growth_fail | Market cap below zero-growth intrinsic value | Market cap within 20% of zero-growth value | Market cap exceeds zero-growth intrinsic value |
+| margin_collapse | Margins expanding or stable Q/Q and Y/Y | One of gross/operating margin declining | Both gross and operating margin declining Q/Q and Y/Y |
+
+**Severity Score Interpretation**:
+- **4.0**: Clean bill of health — all gates pass. No rating cap applied.
+- **3.0 - 3.5**: Minor concerns — one gate at CAUTION or FLAG. Monitor but no automatic rating reduction.
+- **2.0 - 2.5**: Material concerns — multiple gates triggered. Maximum rating reduced by one tier per FLAG.
+- **1.0 - 1.5**: Severe distress — majority of gates flagged. Rating capped at Hold unless Trapped Asset Override applies.
+- **0.0 - 0.5**: Critical — all or nearly all gates failed. Strong Sell territory unless override conditions are met.
+
 #### Fundamental Readiness Codes
 
 The pipeline `analyze` output includes `fundamental_readiness_codes` — a list of standardized codes summarizing the automated assessment for auditability:
@@ -306,6 +391,25 @@ When the pipeline `analyze` returns `L3_bottleneck` with `sec_status`:
 - **SEC_SC_unavailable**: No SEC filing accessible (foreign filer, new IPO, etc.). Full WebSearch-driven L3 as before.
 
 Confidence levels in SEC data: `high` (named entity + quantitative data), `medium` (relationship described without numbers), `low` (general risk language). Prioritize high-confidence matches for 6-Criteria Scoring evidence.
+
+#### Pre-Score Interpretation (Bottleneck Pre-Score from SEC Data)
+
+The pipeline L3 SEC supply chain extraction produces a **bottleneck pre-score** (max 4.5) based on automated analysis of 10-K/10-Q filings. This pre-score feeds into the 30-point bottleneck component of the Composite Signal.
+
+**Assessment Thresholds**:
+- **strong** (>= 3.0): Multiple bottleneck criteria confirmed from SEC filings. High confidence that the company occupies a supply chain chokepoint. Agent should cross-validate with WebSearch but can weight SEC evidence heavily.
+- **partial** (1.5 - 3.0): Some bottleneck indicators present but incomplete. Agent must supplement with WebSearch to determine if gaps are due to filing limitations or genuine absence of bottleneck characteristics.
+- **weak** (< 1.5): Minimal bottleneck evidence in SEC filings. Either the company is not a bottleneck, or the filing does not disclose supply chain details (common for software/services). Agent-driven L3 research via WebSearch is essential.
+
+**6 Pre-Score Criteria** (each scored 0.0 - 0.75, total max 4.5):
+1. **Supply concentration**: Evidence of sole-source or limited-source supplier relationships in filings
+2. **Capacity constraints**: Disclosed capacity limitations, long construction timelines, or supply shortages
+3. **Geopolitical risk**: Geographic concentration in geopolitically sensitive regions (China, Taiwan, rare earth sourcing)
+4. **Long lead times**: Disclosed extended lead times for critical inputs or equipment
+5. **No substitutes**: Explicit statements about lack of alternative suppliers or technologies
+6. **Cost insignificance**: The company's product is a small fraction of customer BOM but critical to function (pricing power indicator)
+
+**Stale Data**: When the SEC filing is more than 12 months old, the pre-score should be treated as directional only — supply chain structures may have shifted. Prioritize WebSearch for updated supply chain intelligence and note the data staleness in the analysis output.
 
 #### Pipeline Failure Fallback
 

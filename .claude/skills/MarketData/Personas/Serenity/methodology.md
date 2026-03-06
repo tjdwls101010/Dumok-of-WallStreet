@@ -142,6 +142,8 @@ Data not collectible via scripts (industry-specific data, government policies, c
 | Hold | Maintain existing | Thesis intact, near fair value |
 | Avoid/Sell | Exit | Broken thesis or overvalued |
 
+> **Pipeline Integration (v4.0)**: The pipeline now outputs position sizing guidance directly mapped from this table with macro regime adjustments (risk_off × 0.5, transitional × 0.75). Discover output structure via `extract_docstring.py`.
+
 ### Entry Methodology
 - "Best time to buy is on the extreme fear when retail are selling"
 - DCA approach: Buy 30% on first dip, 30% on next dip, 40% after confirmation
@@ -151,6 +153,8 @@ Data not collectible via scripts (industry-specific data, government policies, c
 ---
 
 Conviction tiers and rating assignment are defined in the Command's Conviction and Rating System section.
+
+> **Pipeline Integration (v4.0)**: The pipeline now includes automated conviction evolution monitoring (position recheck) and theme discovery. Recheck tracks macro regime shifts, health gate degradation, and thesis direction changes. Theme discovery automates sector scanning with bottleneck candidate validation. Discover subcommand details via `extract_docstring.py`.
 
 ---
 

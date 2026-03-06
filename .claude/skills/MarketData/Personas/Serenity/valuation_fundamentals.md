@@ -85,6 +85,8 @@ When SoP value of non-core assets approaches or exceeds market cap, the market i
 
 *Historical Application:* NBIS subsidiaries valued at $7.6B vs $21B market cap implied the core business was valued at only $13B for a $7-9B ARR business. *Apply this framework independently to the current analysis target. The above demonstrates the analytical process, not a recommendation.*
 
+> **Pipeline Integration (v4.0)**: The pipeline now automates SoP trigger detection — checking sector/industry classification, multi-segment description keywords, and cash-to-MC ratio. When triggers are found, the agent should proceed with Sum-of-Parts analysis. Discover output structure via `extract_docstring.py`.
+
 ---
 
 ## EV/Revenue and BOM Economics
@@ -164,6 +166,8 @@ Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 3. Calculate forward P/E at current price
 4. Review consensus earnings estimates
 5. WebSearch for earnings call commentary on supply constraints
+
+> **Pipeline Integration (v4.0)**: The pipeline now automates thesis validation — mapping L4/L5 data to strengthening signals (pricing power, execution, analyst revisions, institutional quality) and weakening signals (margin erosion, dilution, demand decline, institutional exit). Discover output structure via `extract_docstring.py`.
 
 ---
 

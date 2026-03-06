@@ -1,25 +1,37 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline (Pipeline-Complete): 6-Level analytical hierarchy automating
-supply chain bottleneck analysis with macro regime assessment, fundamental
-validation, and evidence chain verification.
+"""Serenity Pipeline v4.0.0 (Pipeline-Complete): 6-Level analytical hierarchy
+automating supply chain bottleneck analysis with macro regime assessment,
+fundamental validation, composite signal generation, and evidence chain
+verification.
 
 Orchestrates the complete Serenity analysis by running macro regime scripts,
 fundamental analysis tools, valuation models, and catalyst monitoring in
 parallel. Pipeline-Complete — all methodology-required module calls are contained
-within the pipeline; do not call individual modules to supplement. Levels 1/4/5/6
-are automated; Level 2 (CapEx Flow) includes company CapEx auto-extraction with
-supply chain cascade requiring agent context; Level 3 (Bottleneck) includes
-SEC filing supply chain pre-extraction (suppliers, single-source dependencies,
-geographic concentration, capacity constraints, 8-K events) with agent context
-for 6-Criteria scoring via WebSearch cross-validation.
+within the pipeline; do not call individual modules to supplement.
+
+L1 macro includes BDI/DXY/real rates always-on; L2 includes hyperscaler CapEx
+bridge signal; L3 includes SEC supply chain pre-extraction with 6-Criteria
+pre-scoring; L4 includes health gate severity spectrum (PASS/CAUTION/FLAG),
+thesis validation signals, SoP trigger detection, and trapped asset override;
+L6 includes rule-based auto-classification. Composite signal generation
+produces integrated investment grades with position sizing guidance.
 
 Commands:
-	macro: Level 1 macro regime assessment (6 parallel macro scripts → regime
+	macro: Level 1 macro regime assessment (10 parallel macro scripts → regime
 		classification as risk_on/risk_off/transitional with drain counting.
+		BDI/DXY z-scores and real rates always included.
 		ERP extracted via erp.current.erp, Fear&Greed via fear_greed.current.score)
-	analyze: Full 6-Level analysis for a single ticker (L1 macro + L3
-		SEC supply chain pre-extraction + L4 fundamentals with 12 scripts +
-		L5 catalysts with 5 scripts + health gates + valuation summary)
+	analyze: Full 6-Level analysis for a single ticker (L1 macro + L2 hyperscaler
+		CapEx bridge + L3 SEC supply chain pre-scoring + L4 fundamentals with
+		health gate severity spectrum + thesis signals + SoP triggers +
+		trapped asset override + L5 catalysts + L6 auto-classification +
+		composite signal with position sizing)
+	recheck: Position monitoring recheck (macro regime + health gates + thesis
+		signals against existing position with action signals and verdict)
+	discover: Automated theme discovery (sector_leaders + finviz cross-reference
+		+ bottleneck_scorer validation, grouped by industry theme)
+	cross-chain: Shared supplier detection across multiple tickers via SEC
+		supply chain entity normalization and cross-matching
 	evidence_chain: 6-Link evidence chain data availability check
 	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
 	screen: Sector-based bottleneck candidate screening
@@ -27,11 +39,25 @@ Commands:
 
 Args:
 	For macro:
-		--extended (bool): Include DXY and BDI analysis (default: false)
+		--extended (bool): Include raw DXY and BDI data (default: false)
 
 	For analyze:
 		ticker (str): Stock ticker symbol
 		--skip-macro (bool): Skip Level 1 macro assessment (default: false)
+
+	For recheck:
+		ticker (str): Stock ticker symbol
+		--entry-price (str): Entry price for position (required)
+		--entry-date (str): Entry date YYYY-MM-DD (informational, optional)
+
+	For discover:
+		--top-groups (int): Number of top industry groups (default: 5)
+		--max-mcap (str): Maximum market cap filter (default: "10B")
+		--limit (int): Maximum candidates per theme (default: 10)
+
+	For cross-chain:
+		tickers (list): 2+ stock ticker symbols
+		--form (str): SEC filing form type (default: "10-K")
 
 	For evidence_chain:
 		ticker (str): Stock ticker symbol
@@ -53,11 +79,15 @@ Returns:
 		drain_count (int), decision_rules (list[str] with actual values),
 		signals (dict with erp_pct, vix_spot, vix_regime, vix_structure,
 		net_liq_direction, net_liq_current, fear_greed,
-		fedwatch_next_meeting, fedwatch_probabilities;
+		fedwatch_next_meeting, fedwatch_probabilities,
+		bdi_z_score, bdi_demand, dxy_z_score, dxy_strength, real_rate;
 		when --extended: dxy (raw DXY data), bdi (raw BDI data))
 
 	For analyze:
 		dict with ticker, levels (L1_macro through L6_taxonomy),
+		health_gates (with severity spectrum), thesis_signals,
+		sop_triggers, trapped_asset_override, composite_signal
+		(with grade, score_breakdown, position_guidance),
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
 		margin_collapse — each PASS or FLAG), valuation_summary,
 		fundamental_readiness_codes (list of standardized audit codes).
@@ -162,8 +192,10 @@ import argparse
 import concurrent.futures
 import json
 import os
+import re
 import subprocess
 import sys
+from collections import Counter
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -202,16 +234,18 @@ def _run_script(script_path, args_list):
 # ---------------------------------------------------------------------------
 
 def _extract_health_gates(results):
-	"""Extract 4 health gates from L4 script results.
+	"""Extract 4 health gates from L4 script results with 3-level severity.
+
+	Severity levels: PASS (1.0), CAUTION (0.5), FLAG (0.0)
 
 	Gates:
-	1. Bear-Bull Paradox: debt quality D or interest coverage < 1.0
-	2. Active Dilution: dilution_flag == "active_dilution"
-	3. No-Growth Fail: upside_pct < -50
-	4. Margin Collapse: status contains "COLLAPSE"
+	1. Bear-Bull Paradox: debt grade + interest coverage
+	2. Active Dilution: shares change percentage
+	3. No-Growth Fail: margin of safety percentage
+	4. Margin Collapse: margin trajectory
 
 	Returns:
-		dict with gate statuses, total_pass, total_gates, flags
+		dict with gate statuses, severity_score (0-4.0), total_pass, total_gates, flags
 	"""
 	gates = {
 		"bear_bull_paradox": "PASS",
@@ -219,45 +253,77 @@ def _extract_health_gates(results):
 		"no_growth_fail": "PASS",
 		"margin_collapse": "PASS",
 	}
+	severity = {
+		"bear_bull_paradox": 1.0,
+		"active_dilution": 1.0,
+		"no_growth_fail": 1.0,
+		"margin_collapse": 1.0,
+	}
 	flags = []
 
-	# Bear-Bull Paradox
+	# Bear-Bull Paradox: PASS (A-B + coverage > 3x), CAUTION (C OR 1-3x), FLAG (D OR < 1x)
 	debt = results.get("debt_structure", {})
 	if not debt.get("error"):
-		if debt.get("debt_quality_grade") == "D" or (
-			debt.get("interest_coverage_ratio") is not None
-			and debt.get("interest_coverage_ratio") < 1.0
-		):
+		grade = str(debt.get("debt_quality_grade", "")).upper()[:1]
+		coverage = debt.get("interest_coverage_ratio")
+		if grade == "D" or (coverage is not None and coverage < 1.0):
 			gates["bear_bull_paradox"] = "FLAG"
+			severity["bear_bull_paradox"] = 0.0
 			flags.append("bear_bull_paradox")
+		elif grade == "C" or (coverage is not None and 1.0 <= coverage <= 3.0):
+			gates["bear_bull_paradox"] = "CAUTION"
+			severity["bear_bull_paradox"] = 0.5
 
-	# Active Dilution
+	# Active Dilution: PASS (< 1%), CAUTION (1-2%), FLAG (> 2%)
 	sbc = results.get("sbc_analyzer", {})
 	if not sbc.get("error"):
-		if sbc.get("dilution_flag") == "active_dilution":
+		shares_change = sbc.get("shares_change_qoq_pct")
+		if isinstance(shares_change, (int, float)):
+			if shares_change > 2:
+				gates["active_dilution"] = "FLAG"
+				severity["active_dilution"] = 0.0
+				flags.append("active_dilution")
+			elif shares_change > 1:
+				gates["active_dilution"] = "CAUTION"
+				severity["active_dilution"] = 0.5
+		elif sbc.get("dilution_flag") == "active_dilution":
 			gates["active_dilution"] = "FLAG"
+			severity["active_dilution"] = 0.0
 			flags.append("active_dilution")
 
-	# No-Growth Fail
+	# No-Growth Fail: PASS (MoS > 20%), CAUTION (0-20%), FLAG (< 0%)
 	ngv = results.get("no_growth_valuation", {})
 	if not ngv.get("error"):
 		mos = ngv.get("margin_of_safety_pct")
-		if mos is not None and mos < 0:
-			gates["no_growth_fail"] = "FLAG"
-			flags.append("no_growth_fail")
+		if mos is not None:
+			if mos < 0:
+				gates["no_growth_fail"] = "FLAG"
+				severity["no_growth_fail"] = 0.0
+				flags.append("no_growth_fail")
+			elif mos <= 20:
+				gates["no_growth_fail"] = "CAUTION"
+				severity["no_growth_fail"] = 0.5
 
-	# Margin Collapse
+	# Margin Collapse: PASS (expanding), CAUTION (stable/compression), FLAG (collapse)
 	margin = results.get("margin_tracker", {})
 	if not margin.get("error"):
-		if "COLLAPSE" in str(margin.get("flag", "")):
+		margin_flag = str(margin.get("flag", "")).upper()
+		if "COLLAPSE" in margin_flag:
 			gates["margin_collapse"] = "FLAG"
+			severity["margin_collapse"] = 0.0
 			flags.append("margin_collapse")
+		elif "COMPRESSION" in margin_flag or "CONTRACTING" in margin_flag or "STABLE" in margin_flag:
+			gates["margin_collapse"] = "CAUTION"
+			severity["margin_collapse"] = 0.5
 
+	severity_score = sum(severity.values())
 	total_pass = sum(1 for v in gates.values() if v == "PASS")
 
 	gates["total_pass"] = total_pass
 	gates["total_gates"] = 4
 	gates["flags"] = flags
+	gates["severity"] = severity
+	gates["severity_score"] = severity_score
 
 	return gates
 
@@ -478,7 +544,7 @@ def _summarize_holders(data):
 # Fundamental Readiness Codes
 # ---------------------------------------------------------------------------
 
-def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None, sec_sc_results=None):
+def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None, sec_sc_results=None, bottleneck_pre_score=None, composite_signal=None):
 	"""Build standardized fundamental readiness codes for auditability.
 
 	Returns:
@@ -488,6 +554,11 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 
 	# Health gates
 	codes.append(f"HEALTH_GATES_{health_gates['total_pass']}_{health_gates['total_gates']}")
+
+	# Health severity score
+	sev_score = health_gates.get("severity_score")
+	if sev_score is not None:
+		codes.append(f"HEALTH_SEVERITY_{sev_score}")
 
 	# Dilution status
 	sbc = l4_results.get("sbc_analyzer", {})
@@ -558,6 +629,19 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 		else:
 			codes.append("SEC_SC_unavailable")
 
+	# Bottleneck pre-score
+	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
+		bn_score = bottleneck_pre_score.get("pre_score", 0)
+		bn_max = bottleneck_pre_score.get("pre_score_max", 4.5)
+		codes.append(f"BOTTLENECK_PRE_{bn_score}_{bn_max}")
+
+	# Composite signal grade
+	if composite_signal and not composite_signal.get("error"):
+		grade = composite_signal.get("grade")
+		score = composite_signal.get("composite_score")
+		if grade:
+			codes.append(f"COMPOSITE_{grade}_{score}")
+
 	return codes
 
 
@@ -568,8 +652,9 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 def _summarize_sec_supply_chain(data):
 	"""Trim and cap SEC supply chain extraction for context efficiency.
 
-	- Truncates context fields to 200 chars
-	- Caps each category to 15 entries
+	- Keeps context fields at full 400 chars (source extraction length)
+	- Caps high-volume categories (geographic_concentration, supply_chain_risks) to 10 entries
+	- Caps other categories to 15 entries
 	"""
 	if not data or data.get("error") or not data.get("data"):
 		return data
@@ -578,23 +663,20 @@ def _summarize_sec_supply_chain(data):
 	if not sc:
 		return data
 
+	high_volume = ("geographic_concentration", "supply_chain_risks")
 	for category in ("suppliers", "customers", "single_source_dependencies",
 					"geographic_concentration", "capacity_constraints",
 					"supply_chain_risks"):
 		items = sc.get(category, [])
-		# Cap at 15
-		if len(items) > 15:
-			sc[category] = items[:15]
-		# Trim context
-		for item in sc[category]:
-			if "context" in item and len(item["context"]) > 200:
-				item["context"] = item["context"][:200] + "..."
+		cap = 10 if category in high_volume else 15
+		if len(items) > cap:
+			sc[category] = items[:cap]
 
 	return data
 
 
 def _build_l3_bottleneck(sec_sc_results):
-	"""Build L3 bottleneck output incorporating SEC supply chain data."""
+	"""Build L3 bottleneck output incorporating SEC supply chain data and pre-scoring."""
 	sec_sc_raw = sec_sc_results.get("sec_supply_chain", {})
 	sec_events_raw = sec_sc_results.get("sec_events", {})
 
@@ -613,9 +695,12 @@ def _build_l3_bottleneck(sec_sc_results):
 		and len(sec_events_raw.get("data", [])) > 0
 	)
 
+	# Pre-score bottleneck from SEC data
+	bottleneck_pre_score = None
 	if has_sc_data:
+		bottleneck_pre_score = _pre_score_bottleneck(sec_sc_raw)
 		sec_status = "SEC_SC_available"
-		note = ("SEC filing supply chain data pre-extracted. "
+		note = ("SEC filing supply chain data pre-extracted and pre-scored. "
 				"Agent completes 6-Criteria scoring via WebSearch cross-validation.")
 	elif sec_sc_data and sec_sc_data.get("data") is not None:
 		sec_status = "SEC_SC_partial"
@@ -626,13 +711,18 @@ def _build_l3_bottleneck(sec_sc_results):
 		note = ("SEC supply chain data unavailable. "
 				"Agent relies on WebSearch for L3.")
 
-	return {
+	result = {
 		"sec_supply_chain": sec_sc_data if not sec_sc_data.get("error") else None,
 		"sec_events": sec_events_raw if not sec_events_raw.get("error") else None,
 		"sec_status": sec_status,
 		"requires_context": True,
 		"note": note,
 	}
+
+	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
+		result["bottleneck_pre_score"] = bottleneck_pre_score
+
+	return result
 
 
 def _build_evidence_chain_l3(ticker):
@@ -658,6 +748,476 @@ def _build_evidence_chain_l3(ticker):
 		"sec_data_available": False,
 		"note": "Supply chain mapping requires WebSearch.",
 	}
+
+
+# ---------------------------------------------------------------------------
+# v4.0 Helpers: Bottleneck Pre-Scoring, Thesis Signals, SoP Triggers,
+# Trapped Asset Override, Auto-Classification, Composite Signal
+# ---------------------------------------------------------------------------
+
+def _pre_score_bottleneck(sec_sc_data):
+	"""Score SEC supply chain data against the 6-Criteria Bottleneck Framework."""
+	if sec_sc_data is None:
+		return {"error": "No SEC supply chain data available"}
+	if isinstance(sec_sc_data, dict) and "error" in sec_sc_data:
+		return {"error": "No SEC supply chain data available"}
+
+	try:
+		supply_chain = sec_sc_data["data"]["supply_chain"]
+	except (KeyError, TypeError):
+		return {"error": "No SEC supply chain data available"}
+
+	criteria = {}
+
+	# 1. Supply concentration (single_source_dependencies)
+	ssd = supply_chain.get("single_source_dependencies") or []
+	high_conf = [d for d in ssd if d.get("confidence") == "high"]
+	if len(high_conf) >= 2:
+		criteria["supply_concentration"] = {
+			"score": 1.0,
+			"evidence": f"{len(high_conf)} high-confidence single-source dependencies found",
+		}
+	elif len(ssd) >= 1:
+		criteria["supply_concentration"] = {
+			"score": 0.5,
+			"evidence": f"{len(ssd)} single-source dependenc{'y' if len(ssd) == 1 else 'ies'} found",
+		}
+	else:
+		criteria["supply_concentration"] = {"score": 0.0, "evidence": "No single-source dependencies found"}
+
+	# 2. Capacity constraints
+	cc = supply_chain.get("capacity_constraints") or []
+	if len(cc) >= 1:
+		criteria["capacity_constraints"] = {"score": 0.5, "evidence": f"{len(cc)} capacity constraint{'s' if len(cc) != 1 else ''} mentioned"}
+	else:
+		criteria["capacity_constraints"] = {"score": 0.0, "evidence": "No capacity constraints mentioned"}
+
+	# 3. Geopolitical risk (geographic concentration)
+	gc = supply_chain.get("geographic_concentration") or []
+	if gc:
+		locations = [entry.get("location", "") for entry in gc]
+		total = len(locations)
+		if total > 0:
+			loc_counts = Counter(loc.strip().lower() for loc in locations if loc)
+			most_common_loc, most_common_count = loc_counts.most_common(1)[0] if loc_counts else ("", 0)
+			if most_common_count / total > 0.5:
+				criteria["geopolitical_risk"] = {"score": 1.0, "evidence": f"Geographic concentration: '{most_common_loc}' in {most_common_count}/{total} entries"}
+			else:
+				criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present but dispersed across {len(loc_counts)} locations"}
+		else:
+			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
+	else:
+		criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
+
+	# 4. Long lead times (from capacity_constraints context)
+	lead_time_pattern = re.compile(r"lead\s*time|months|years|backlog", re.IGNORECASE)
+	lead_time_found = False
+	for entry in cc:
+		ctx = entry.get("context", "") or ""
+		constraint_text = entry.get("constraint", "") or ""
+		if lead_time_pattern.search(ctx) or lead_time_pattern.search(constraint_text):
+			lead_time_found = True
+			break
+	criteria["long_lead_times"] = {"score": 0.5, "evidence": "Lead time / backlog language found"} if lead_time_found else {"score": 0.0, "evidence": "No lead time indicators found"}
+
+	# 5. No substitutes (from supply_chain_risks context)
+	no_sub_pattern = re.compile(r"cannot\s.*?replace|no\s.*?alternative|sole\s.*?source|only\s.*?supplier", re.IGNORECASE)
+	no_sub_found = False
+	for entry in (supply_chain.get("supply_chain_risks") or []):
+		ctx = entry.get("context", "") or ""
+		risk_text = entry.get("risk", "") or ""
+		if no_sub_pattern.search(ctx) or no_sub_pattern.search(risk_text):
+			no_sub_found = True
+			break
+	criteria["no_substitutes"] = {"score": 0.5, "evidence": "Risk language indicates sole source"} if no_sub_found else {"score": 0.0, "evidence": "No sole-source language found"}
+
+	# 6. Cost insignificance — always 0
+	criteria["cost_insignificance"] = {"score": 0, "evidence": "Cannot determine from SEC data"}
+
+	pre_score = sum(c["score"] for c in criteria.values())
+	pre_score_max = 4.5
+
+	if pre_score >= 3.0:
+		assessment = "strong"
+	elif pre_score >= 1.5:
+		assessment = "partial"
+	else:
+		assessment = "weak"
+
+	filing_date_str = None
+	stale_warning = None
+	try:
+		filing_date_str = sec_sc_data["data"]["filing"]["filing_date"]
+		filing_dt = datetime.strptime(filing_date_str, "%Y-%m-%d")
+		if (datetime.now() - filing_dt).days > 365:
+			stale_warning = "Filing date > 12 months old"
+	except (KeyError, TypeError, ValueError):
+		pass
+
+	return {
+		"pre_score": pre_score, "pre_score_max": pre_score_max,
+		"criteria": criteria, "assessment": assessment,
+		"filing_date": filing_date_str, "stale_data_warning": stale_warning,
+	}
+
+
+def _build_thesis_signals(l4_results, l5_results):
+	"""Map L4/L5 results to thesis strengthening/weakening signals."""
+	l4 = l4_results or {}
+	l5 = l5_results or {}
+	strengthening = []
+	weakening = []
+
+	margin_tracker = l4.get("margin_tracker") or {}
+	earnings_acc = l4.get("earnings_acceleration") or {}
+	margin_flag = str(margin_tracker.get("flag", ""))
+
+	# Strengthening
+	if "EXPANDING" in margin_flag.upper() and earnings_acc.get("sales_accelerating") is True:
+		strengthening.append("pricing_power_confirmed")
+	earnings_surprise = l5.get("earnings_surprise") or {}
+	beats = earnings_surprise.get("consecutive_beats", 0)
+	if isinstance(beats, (int, float)) and beats >= 3:
+		strengthening.append("execution_validated")
+	analyst_rev = l5.get("analyst_revisions") or {}
+	if analyst_rev and not analyst_rev.get("error"):
+		rev_dir = analyst_rev.get("revisions_direction", "")
+		if isinstance(rev_dir, str) and rev_dir.lower() == "up":
+			strengthening.append("street_catching_up")
+		else:
+			for key in ("current_quarter", "next_quarter", "current_year", "next_year"):
+				val = analyst_rev.get(key)
+				if isinstance(val, dict):
+					val = val.get("change") or val.get("revision")
+				if isinstance(val, (int, float)) and val > 0:
+					strengthening.append("street_catching_up")
+					break
+	inst_quality = l4.get("institutional_quality") or {}
+	io_score = inst_quality.get("io_quality_score")
+	if isinstance(io_score, (int, float)) and io_score >= 7:
+		strengthening.append("smart_money_accumulating")
+
+	# Weakening
+	if "COLLAPSE" in margin_flag.upper():
+		weakening.append("pricing_power_eroding")
+	sbc = l4.get("sbc_analyzer") or {}
+	if str(sbc.get("flag", "")).lower() == "toxic" or str(sbc.get("dilution_flag", "")).lower() == "active_dilution":
+		weakening.append("dilution_destroying_value")
+	if earnings_acc.get("sales_accelerating") is False:
+		sgr = earnings_acc.get("sales_growth_rates")
+		if isinstance(sgr, list) and len(sgr) > 0 and isinstance(sgr[-1], (int, float)) and sgr[-1] < 0:
+			weakening.append("demand_weakening")
+	if isinstance(io_score, (int, float)) and io_score <= 3:
+		weakening.append("institutional_exit")
+
+	s_count, w_count = len(strengthening), len(weakening)
+	net_direction = "strengthening" if s_count > w_count else "weakening" if w_count > s_count else "neutral"
+
+	return {"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction, "conviction_delta": s_count - w_count}
+
+
+def _check_sop_triggers(l4_results):
+	"""Detect Sum-of-Parts valuation triggers from info and financials."""
+	l4 = l4_results or {}
+	info = l4.get("info") or {}
+	debt_structure = l4.get("debt_structure") or {}
+	triggers_found = []
+	notes_parts = []
+
+	conglomerate_keywords = ("conglomerate", "diversified", "holding", "industrial conglomerate")
+	sector = str(info.get("sector", "")).lower()
+	industry = str(info.get("industry", "")).lower()
+	for kw in conglomerate_keywords:
+		if kw in sector or kw in industry:
+			triggers_found.append("conglomerate_classification")
+			notes_parts.append("sector/industry classified as conglomerate or diversified")
+			break
+
+	summary = str(info.get("longBusinessSummary", ""))
+	segment_keywords = ("subsidiary", "subsidiaries", "division", "divisions", "segment", "segments", "business unit")
+	if sum(1 for kw in segment_keywords if kw in summary.lower()) >= 2:
+		triggers_found.append("multi_segment_description")
+		notes_parts.append("company description mentions multiple business segments")
+
+	market_cap = info.get("marketCap")
+	total_cash = info.get("totalCash") or debt_structure.get("total_cash")
+	if isinstance(market_cap, (int, float)) and market_cap > 0 and isinstance(total_cash, (int, float)):
+		cash_ratio = total_cash / market_cap
+		if cash_ratio > 0.20:
+			triggers_found.append("cash_exceeds_20pct_mc")
+			notes_parts.append(f"cash exceeds 20% of market cap ({cash_ratio:.0%})")
+
+	triggered = len(triggers_found) > 0
+	note = ("SoP analysis recommended — " + " and ".join(notes_parts) + ".") if triggered else "No SoP triggers detected."
+	return {"triggered": triggered, "triggers_found": triggers_found, "note": note}
+
+
+def _check_trapped_asset_override(l4_results, bottleneck_pre_score_result):
+	"""Check conditions for the Trapped Asset Override valuation path."""
+	if bottleneck_pre_score_result is None or (isinstance(bottleneck_pre_score_result, dict) and "error" in bottleneck_pre_score_result):
+		return {"conditions_met": 0, "condition_details": {}, "eligible": False, "note": "Cannot evaluate — no bottleneck pre-score available."}
+
+	l4 = l4_results or {}
+	info = l4.get("info") or {}
+	debt_structure = l4.get("debt_structure") or {}
+	condition_details = {}
+	conditions_met = 0
+
+	# Condition 1: Bottleneck pre_score >= 3.0
+	pre_score = bottleneck_pre_score_result.get("pre_score", 0)
+	bn_met = isinstance(pre_score, (int, float)) and pre_score >= 3.0
+	condition_details["bottleneck_score"] = {"met": bn_met, "value": pre_score, "threshold": 3.0}
+	if bn_met:
+		conditions_met += 1
+
+	# Condition 2: Physical asset floor > 50% of market cap
+	asset_ratio = None
+	asset_note = "Insufficient data"
+	market_cap = info.get("marketCap")
+	bv = info.get("bookValue")
+	shares = info.get("sharesOutstanding")
+	if isinstance(bv, (int, float)) and isinstance(shares, (int, float)) and isinstance(market_cap, (int, float)) and market_cap > 0:
+		asset_ratio = (bv * shares) / market_cap
+		asset_note = f"Book value / MC = {asset_ratio:.0%}"
+	else:
+		total_equity = debt_structure.get("book_value") or debt_structure.get("total_equity")
+		if isinstance(total_equity, (int, float)) and isinstance(market_cap, (int, float)) and market_cap > 0:
+			asset_ratio = total_equity / market_cap
+			asset_note = f"Total equity / MC = {asset_ratio:.0%}"
+
+	asset_met = isinstance(asset_ratio, (int, float)) and asset_ratio > 0.50
+	condition_details["physical_asset_floor"] = {"met": asset_met, "value": asset_ratio, "threshold": 0.50, "note": asset_note}
+	if asset_met:
+		conditions_met += 1
+
+	# Condition 3: Restructuring catalyst — requires WebSearch
+	condition_details["restructuring_catalyst"] = {"met": "unknown", "requires_websearch": True}
+
+	eligible = conditions_met >= 2
+	note = f"{conditions_met}/3 override conditions met. Restructuring catalyst requires WebSearch verification."
+	return {"conditions_met": conditions_met, "condition_details": condition_details, "eligible": eligible, "note": note}
+
+
+def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
+	"""Rule-based L6 taxonomy pre-classification."""
+	classification = "unclassified"
+	confidence = "low"
+	evidence = []
+
+	l4 = l4_results if isinstance(l4_results, dict) else {}
+	info = l4.get("info") or {}
+	if isinstance(info, dict) and info.get("error"):
+		info = {}
+	forward_pe = l4.get("forward_pe") or {}
+	if isinstance(forward_pe, dict) and forward_pe.get("error"):
+		forward_pe = {}
+	earnings_acc = l4.get("earnings_acceleration") or {}
+	if isinstance(earnings_acc, dict) and earnings_acc.get("error"):
+		earnings_acc = {}
+
+	market_cap = info.get("marketCap")
+	gross_margins = info.get("grossMargins")
+	revenue_growth = forward_pe.get("revenue_growth_yoy")
+	sales_accelerating = earnings_acc.get("sales_accelerating")
+
+	# Rule 1: Bottleneck
+	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else None
+	if bn:
+		ps = bn.get("pre_score", 0)
+		if isinstance(ps, (int, float)) and ps >= 3.0:
+			classification = "bottleneck"
+			evidence.append(f"bottleneck_pre_score {ps}/{bn.get('pre_score_max', 4.5)} >= 3.0")
+			confidence = "high" if ps >= 3.5 else "medium"
+
+	# Rule 2: Evolution
+	if classification == "unclassified" and isinstance(market_cap, (int, float)) and market_cap > 10e9:
+		growth_met = False
+		if isinstance(revenue_growth, (int, float)) and revenue_growth > 0.20:
+			growth_met = True
+			evidence.append(f"revenue_growth_yoy {revenue_growth:.2f} > 0.20")
+		if sales_accelerating is True:
+			growth_met = True
+			evidence.append("sales_accelerating")
+		if growth_met:
+			classification = "evolution"
+			evidence.append(f"marketCap {market_cap/1e9:.1f}B > 10B")
+			confidence = "high" if (isinstance(revenue_growth, (int, float)) and revenue_growth > 0.20 and sales_accelerating is True) else "medium"
+
+	# Rule 3: Disruption
+	if classification == "unclassified" and isinstance(market_cap, (int, float)) and market_cap < 10e9:
+		if isinstance(gross_margins, (int, float)) and gross_margins > 0.40 and isinstance(revenue_growth, (int, float)) and revenue_growth > 0.50:
+			classification = "disruption"
+			evidence.append(f"marketCap {market_cap/1e9:.1f}B < 10B, grossMargins {gross_margins:.2f}, revenue_growth {revenue_growth:.2f}")
+			confidence = "high" if gross_margins > 0.60 and revenue_growth > 0.80 else "medium"
+
+	if classification == "unclassified":
+		evidence.append("No rule matched")
+
+	return {"classification": classification, "confidence": confidence, "evidence": evidence, "requires_llm": True,
+		"note": "Rule-based pre-classification. Agent should verify and may override."}
+
+
+def _parse_days_to_earnings(l5_results):
+	"""Parse L5 earnings_dates and return days until the nearest future date."""
+	if not isinstance(l5_results, dict):
+		return None
+	ed = l5_results.get("earnings_dates")
+	if not isinstance(ed, dict) or ed.get("error"):
+		return None
+	dates_col = ed.get("Earnings Date", {})
+	if not isinstance(dates_col, dict):
+		return None
+	now = datetime.now()
+	min_days = None
+	for _idx, date_str in dates_col.items():
+		if not isinstance(date_str, str):
+			continue
+		for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
+			try:
+				dt = datetime.strptime(date_str.strip(), fmt)
+				delta = (dt - now).days
+				if delta >= 0 and (min_days is None or delta < min_days):
+					min_days = delta
+				break
+			except ValueError:
+				continue
+	return min_days
+
+
+def _generate_composite_signal(l1_result, l4_results, l5_results, health_severity_score,
+	bottleneck_pre_score, thesis_signals, auto_classification, trapped_asset_override):
+	"""Generate integrated investment grade from all pipeline data."""
+	score_breakdown = {}
+	total_score = 0.0
+
+	l1 = l1_result if isinstance(l1_result, dict) else {}
+	regime = l1.get("regime", "transitional")
+
+	# Component 1: Bottleneck (30 pts)
+	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else {}
+	bn_raw = bn.get("pre_score", 0) if bn else 0
+	if not isinstance(bn_raw, (int, float)):
+		bn_raw = 0
+	bn_points = (bn_raw / 4.5) * 30.0
+	score_breakdown["bottleneck"] = {"raw": bn_raw if bn else None, "max": 4.5, "points": round(bn_points, 2)}
+	total_score += bn_points
+
+	# Component 2: Health severity (25 pts)
+	if isinstance(health_severity_score, (int, float)):
+		hs_points = (health_severity_score / 4.0) * 25.0
+		score_breakdown["health"] = {"raw": health_severity_score, "max": 4.0, "points": round(hs_points, 2)}
+	else:
+		hs_points = 0.0
+		score_breakdown["health"] = {"raw": None, "max": 4.0, "points": 0.0, "note": "unavailable"}
+	total_score += hs_points
+
+	# Component 3: Thesis signals (15 pts)
+	ts = thesis_signals if isinstance(thesis_signals, dict) else {}
+	ts_dir = ts.get("net_direction", "neutral")
+	ts_points = 15.0 if ts_dir == "strengthening" else 7.5 if ts_dir == "neutral" else 0.0
+	score_breakdown["thesis"] = {"direction": ts_dir, "points": round(ts_points, 2)}
+	total_score += ts_points
+
+	# Component 4: Catalyst proximity (10 pts)
+	days = _parse_days_to_earnings(l5_results)
+	cat_points = 10.0 if (days is not None and days <= 30) else 5.0 if (days is not None and days <= 60) else 0.0
+	score_breakdown["catalyst"] = {"days_to_earnings": days, "points": round(cat_points, 2)}
+	total_score += cat_points
+
+	# Component 5: Taxonomy (10 pts)
+	ac = auto_classification if isinstance(auto_classification, dict) else {}
+	ac_class = ac.get("classification", "unclassified")
+	tax_points = 10.0 if ac_class in ("bottleneck", "disruption") else 7.0 if ac_class == "evolution" else 5.0
+	score_breakdown["taxonomy"] = {"classification": ac_class, "points": round(tax_points, 2)}
+	total_score += tax_points
+
+	# Component 6: Valuation MoS (10 pts)
+	l4 = l4_results if isinstance(l4_results, dict) else {}
+	ngv = l4.get("no_growth_valuation") or {}
+	if isinstance(ngv, dict) and ngv.get("error"):
+		ngv = {}
+	mos_pct = ngv.get("margin_of_safety_pct")
+	if isinstance(mos_pct, (int, float)):
+		val_points = 10.0 if mos_pct > 20 else 5.0 if mos_pct >= 0 else 0.0
+		score_breakdown["valuation"] = {"mos_pct": round(mos_pct, 2), "points": round(val_points, 2)}
+	else:
+		val_points = 0.0
+		score_breakdown["valuation"] = {"mos_pct": None, "points": 0.0, "note": "unavailable"}
+	total_score += val_points
+
+	# Regime cap & trapped asset override
+	regime_cap_applied = False
+	trapped_override_applied = False
+	ta = trapped_asset_override if isinstance(trapped_asset_override, dict) else {}
+	ta_eligible = ta.get("eligible") is True
+
+	if regime == "risk_off":
+		if ta_eligible:
+			trapped_override_applied = True
+		else:
+			if total_score > 49:
+				total_score = 49.0
+			regime_cap_applied = True
+
+	total_score = round(total_score, 2)
+
+	# Grade mapping
+	if trapped_override_applied and total_score >= 50:
+		grade = "MOONSHOT"
+	elif total_score >= 80:
+		grade = "STRONG_BUY"
+	elif total_score >= 65:
+		grade = "BUY"
+	elif total_score >= 50:
+		grade = "ACCUMULATE"
+	elif total_score >= 35:
+		grade = "HOLD"
+	else:
+		grade = "AVOID"
+
+	# Position sizing
+	pos_table = {
+		"STRONG_BUY": ("High", "5-7%", "1.5%"), "BUY": ("Medium", "2-4%", "1.0%"),
+		"ACCUMULATE": ("Low", "1-2%", "0.5%"), "HOLD": (None, "hold_existing", None),
+		"AVOID": (None, "no_entry", None), "MOONSHOT": ("Special", "max_5%", "2.5%"),
+	}
+	conviction, size, max_loss = pos_table.get(grade, (None, "no_entry", None))
+	regime_adj = "risk_off_0.5x" if regime == "risk_off" else "transitional_0.75x" if regime == "transitional" else "none"
+
+	return {
+		"composite_score": total_score, "grade": grade, "score_breakdown": score_breakdown,
+		"position_guidance": {"conviction_tier": conviction, "suggested_size_pct": size, "max_loss_pct": max_loss, "regime_adjustment": regime_adj},
+		"regime_cap_applied": regime_cap_applied, "trapped_asset_override_applied": trapped_override_applied,
+		"requires_agent_review": True, "note": "Automated composite signal. Agent must review before final rating assignment.",
+	}
+
+
+# ---------------------------------------------------------------------------
+# Sector Matching (for theme discovery)
+# ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Entity Normalization (for cross-chain analysis)
+# ---------------------------------------------------------------------------
+
+_ENTITY_SUFFIXES = re.compile(
+	r",?\s*\b(?:Inc\.?|Corp\.?|Corporation|LLC|Ltd\.?|Co\.?|Company|Group|Holdings)\b\.?\s*$",
+	re.IGNORECASE,
+)
+
+
+def _normalize_entity_name(name):
+	"""Normalize a company/entity name for fuzzy matching."""
+	if not name or not isinstance(name, str):
+		return ""
+	normalized = name.strip()
+	for _ in range(3):
+		prev = normalized
+		normalized = _ENTITY_SUFFIXES.sub("", normalized).strip()
+		if normalized == prev:
+			break
+	return normalized.lower().strip().rstrip(".,;:")
 
 
 # ---------------------------------------------------------------------------
@@ -775,6 +1335,40 @@ def _classify_macro_regime(macro_results):
 			else:
 				decision_rules.append("Yield curve normal")
 
+	# BDI signal (always included in v4.0)
+	bdi = macro_results.get("bdi", {})
+	if not bdi.get("error"):
+		bdi_z = bdi.get("statistics", {}).get("z_score")
+		if isinstance(bdi_z, (int, float)):
+			if bdi_z < -2:
+				drain_count += 1
+				decision_rules.append(f"BDI z-score {bdi_z:.2f} — extreme shipping demand weakness")
+			elif bdi_z < -1:
+				decision_rules.append(f"BDI z-score {bdi_z:.2f} — below-average shipping demand")
+			else:
+				decision_rules.append(f"BDI z-score {bdi_z:.2f} — shipping demand normal/elevated")
+
+	# DXY signal (always included in v4.0)
+	dxy = macro_results.get("dxy", {})
+	if not dxy.get("error"):
+		dxy_z = dxy.get("statistics", {}).get("z_score")
+		if isinstance(dxy_z, (int, float)):
+			if dxy_z > 2:
+				drain_count += 1
+				decision_rules.append(f"DXY z-score {dxy_z:.2f} — extremely strong dollar pressures risk assets")
+			elif dxy_z > 1:
+				decision_rules.append(f"DXY z-score {dxy_z:.2f} — strong dollar")
+			else:
+				decision_rules.append(f"DXY z-score {dxy_z:.2f} — dollar within normal range")
+
+	# Real rates signal
+	real_rate = macro_results.get("real_rate")
+	if isinstance(real_rate, (int, float)):
+		if real_rate < 0:
+			decision_rules.append(f"Real rate {real_rate:.2f}% — negative, liquidity supportive")
+		else:
+			decision_rules.append(f"Real rate {real_rate:.2f}% — positive, tighter conditions")
+
 	# Risk level
 	if drain_count == 0:
 		risk_level = "low"
@@ -811,11 +1405,11 @@ def cmd_macro(args):
 		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 		"erp": ("macro/erp.py", ["erp"]),
 		"fear_greed": ("analysis/sentiment/fear_greed.py", []),
+		"dxy": ("data_sources/dxy.py", []),
+		"bdi": ("data_sources/bdi.py", []),
+		"breakeven_inflation": ("data_advanced/fred/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
+		"nominal_rates": ("data_advanced/fred/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
 	}
-
-	if args.extended:
-		scripts["dxy"] = ("data_sources/dxy.py", [])
-		scripts["bdi"] = ("data_sources/bdi.py", [])
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 		futures = {
@@ -824,7 +1418,36 @@ def cmd_macro(args):
 		}
 		results = {name: future.result() for name, future in futures.items()}
 
-	# Classify regime
+	# Compute real rate from nominal - breakeven inflation (before regime classification)
+	real_rate = None
+	nominal_data = results.get("nominal_rates", {})
+	breakeven_data = results.get("breakeven_inflation", {})
+	try:
+		nominal_series = nominal_data.get("data", {})
+		breakeven_series = breakeven_data.get("data", {})
+		nominal_val = None
+		for _sid, vals in nominal_series.items():
+			if isinstance(vals, dict) and not vals.get("error"):
+				for _date, v in sorted(vals.items(), reverse=True):
+					if v is not None:
+						nominal_val = v
+						break
+				break
+		breakeven_val = None
+		for _sid, vals in breakeven_series.items():
+			if isinstance(vals, dict) and not vals.get("error"):
+				for _date, v in sorted(vals.items(), reverse=True):
+					if v is not None:
+						breakeven_val = v
+						break
+				break
+		if isinstance(nominal_val, (int, float)) and isinstance(breakeven_val, (int, float)):
+			real_rate = round(nominal_val - breakeven_val, 4)
+			results["real_rate"] = real_rate
+	except Exception:
+		pass
+
+	# Classify regime (after real_rate is available in results)
 	classification = _classify_macro_regime(results)
 
 	signals = {
@@ -841,14 +1464,23 @@ def cmd_macro(args):
 		"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
 	}
 
-	# Extended signals: DXY and BDI
-	if args.extended:
-		dxy = results.get("dxy", {})
-		if not dxy.get("error"):
-			signals["dxy"] = dxy
-		bdi = results.get("bdi", {})
-		if not bdi.get("error"):
+	# BDI/DXY always included (v4.0)
+	bdi = results.get("bdi", {})
+	if not bdi.get("error"):
+		signals["bdi_z_score"] = bdi.get("statistics", {}).get("z_score")
+		signals["bdi_demand"] = bdi.get("shipping_demand")
+		if args.extended:
 			signals["bdi"] = bdi
+	dxy = results.get("dxy", {})
+	if not dxy.get("error"):
+		signals["dxy_z_score"] = dxy.get("statistics", {}).get("z_score")
+		signals["dxy_strength"] = dxy.get("dollar_strength")
+		if args.extended:
+			signals["dxy"] = dxy
+
+	# Real rate
+	if real_rate is not None:
+		signals["real_rate"] = real_rate
 
 	output = {
 		"regime": classification["regime"],
@@ -882,6 +1514,10 @@ def cmd_analyze(args):
 			"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 			"erp": ("macro/erp.py", ["erp"]),
 			"fear_greed": ("analysis/sentiment/fear_greed.py", []),
+			"dxy": ("data_sources/dxy.py", []),
+			"bdi": ("data_sources/bdi.py", []),
+			"breakeven_inflation": ("data_advanced/fred/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
+			"nominal_rates": ("data_advanced/fred/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
 		}
 
 		with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -891,25 +1527,65 @@ def cmd_analyze(args):
 			}
 			macro_results = {name: future.result() for name, future in futures.items()}
 
+		# Compute real rate from nominal - breakeven inflation
+		real_rate = None
+		nominal_data = macro_results.get("nominal_rates", {})
+		breakeven_data = macro_results.get("breakeven_inflation", {})
+		try:
+			nominal_series = nominal_data.get("data", {})
+			breakeven_series = breakeven_data.get("data", {})
+			nominal_val = None
+			for _sid, vals in nominal_series.items():
+				if isinstance(vals, dict) and not vals.get("error"):
+					for _date, v in sorted(vals.items(), reverse=True):
+						if v is not None:
+							nominal_val = v
+							break
+					break
+			breakeven_val = None
+			for _sid, vals in breakeven_series.items():
+				if isinstance(vals, dict) and not vals.get("error"):
+					for _date, v in sorted(vals.items(), reverse=True):
+						if v is not None:
+							breakeven_val = v
+							break
+					break
+			if isinstance(nominal_val, (int, float)) and isinstance(breakeven_val, (int, float)):
+				real_rate = round(nominal_val - breakeven_val, 4)
+				macro_results["real_rate"] = real_rate
+		except Exception:
+			pass
+
 		classification = _classify_macro_regime(macro_results)
+		signals = {
+			"erp_pct": macro_results.get("erp", {}).get("current", {}).get("erp"),
+			"vix_spot": macro_results.get("vix_curve", {}).get("vix_spot"),
+			"vix_regime": macro_results.get("vix_curve", {}).get("regime"),
+			"vix_structure": macro_results.get("vix_curve", {}).get("structure_type"),
+			"net_liq_direction": macro_results.get("net_liquidity", {})
+				.get("net_liquidity", {}).get("direction"),
+			"net_liq_current": macro_results.get("net_liquidity", {})
+				.get("net_liquidity", {}).get("current"),
+			"fear_greed": macro_results.get("fear_greed", {}).get("current", {}).get("score"),
+			"fedwatch_next_meeting": macro_results.get("fedwatch", {}).get("next_meeting"),
+			"fedwatch_probabilities": macro_results.get("fedwatch", {}).get("probabilities"),
+		}
+		bdi = macro_results.get("bdi", {})
+		if not bdi.get("error"):
+			signals["bdi_z_score"] = bdi.get("statistics", {}).get("z_score")
+			signals["bdi_demand"] = bdi.get("shipping_demand")
+		dxy = macro_results.get("dxy", {})
+		if not dxy.get("error"):
+			signals["dxy_z_score"] = dxy.get("statistics", {}).get("z_score")
+			signals["dxy_strength"] = dxy.get("dollar_strength")
+		if real_rate is not None:
+			signals["real_rate"] = real_rate
 		l1_result = {
 			"regime": classification["regime"],
 			"risk_level": classification["risk_level"],
 			"drain_count": classification["drain_count"],
 			"decision_rules": classification["decision_rules"],
-			"signals": {
-				"erp_pct": macro_results.get("erp", {}).get("current", {}).get("erp"),
-				"vix_spot": macro_results.get("vix_curve", {}).get("vix_spot"),
-				"vix_regime": macro_results.get("vix_curve", {}).get("regime"),
-				"vix_structure": macro_results.get("vix_curve", {}).get("structure_type"),
-				"net_liq_direction": macro_results.get("net_liquidity", {})
-					.get("net_liquidity", {}).get("direction"),
-				"net_liq_current": macro_results.get("net_liquidity", {})
-					.get("net_liquidity", {}).get("current"),
-				"fear_greed": macro_results.get("fear_greed", {}).get("current", {}).get("score"),
-				"fedwatch_next_meeting": macro_results.get("fedwatch", {}).get("next_meeting"),
-				"fedwatch_probabilities": macro_results.get("fedwatch", {}).get("probabilities"),
-			},
+			"signals": signals,
 		}
 
 	# --- Level 4: Position Construction (Fundamentals) ---
@@ -956,11 +1632,19 @@ def cmd_analyze(args):
 		"sec_events": ("data_advanced/sec/supply_chain.py", ["events", ticker, "--limit", "5", "--days", "180"]),
 	}
 
-	# Run L4, L5, and SEC supply chain in parallel
+	# --- Hyperscaler CapEx Bridge (L2) ---
+	hyperscaler_tickers = ["MSFT", "GOOG", "META", "AMZN"]
+	hs_scripts = {
+		f"hs_capex_{t}": ("analysis/capex_tracker.py", ["track", t, "--quarters", "4"])
+		for t in hyperscaler_tickers
+	}
+
+	# Run L4, L5, SEC supply chain, and Hyperscaler CapEx in parallel
 	all_scripts = {}
 	all_scripts.update(l4_scripts)
 	all_scripts.update(l5_scripts)
 	all_scripts.update(sec_sc_scripts)
+	all_scripts.update(hs_scripts)
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 		futures = {
@@ -973,6 +1657,25 @@ def cmd_analyze(args):
 	l4_results = {k: all_results[k] for k in l4_scripts}
 	l5_results = {k: all_results[k] for k in l5_scripts}
 	sec_sc_results = {k: all_results[k] for k in sec_sc_scripts}
+
+	# Build Hyperscaler CapEx Bridge Signal (Change J)
+	hyperscaler_signal = None
+	hs_directions = []
+	for t in hyperscaler_tickers:
+		hs_result = all_results.get(f"hs_capex_{t}", {})
+		if not hs_result.get("error"):
+			symbols_data = hs_result.get("symbols", [])
+			sym_data = symbols_data[0] if symbols_data else {}
+			direction = sym_data.get("direction", "unknown")
+			if direction and direction != "unknown":
+				hs_directions.append(direction)
+	if hs_directions:
+		hs_inc = sum(1 for d in hs_directions if d.lower() in ("increasing", "up", "accelerating"))
+		hyperscaler_signal = {
+			"aggregate_direction": "increasing" if hs_inc > len(hs_directions) / 2 else "decreasing" if hs_inc == 0 else "mixed",
+			"increasing_count": hs_inc,
+			"total_count": len(hs_directions),
+		}
 
 	# Post-process: insider transactions summary
 	insider_raw = l4_results.get("insider_transactions")
@@ -1018,11 +1721,37 @@ def cmd_analyze(args):
 	# Valuation summary
 	valuation_summary = _build_valuation_summary(l4_results)
 
+	# L3 Bottleneck (call before output to get pre_score for downstream)
+	l3_data = _build_l3_bottleneck(sec_sc_results)
+	bottleneck_pre_score = l3_data.get("bottleneck_pre_score")
+
+	# Thesis signals (Change D)
+	thesis_signals = _build_thesis_signals(l4_results, l5_results)
+
+	# SoP triggers (Change E)
+	sop_triggers = _check_sop_triggers(l4_results)
+
+	# Trapped asset override (Change F)
+	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score)
+
+	# L6 auto-classification (Change G)
+	auto_classification = _auto_classify_taxonomy(l4_results, bottleneck_pre_score)
+
+	# Composite signal + position sizing (Change H+I)
+	composite_signal = _generate_composite_signal(
+		l1_result, l4_results, l5_results,
+		health_gates.get("severity_score"),
+		bottleneck_pre_score, thesis_signals,
+		auto_classification, trapped_asset_override,
+	)
+
 	# Fundamental readiness codes
 	readiness_codes = _build_readiness_codes(
 		health_gates, valuation_summary, l4_results,
 		l5_results=l5_results, sec_result=sec_filing_result,
 		sec_sc_results=sec_sc_results,
+		bottleneck_pre_score=bottleneck_pre_score,
+		composite_signal=composite_signal,
 	)
 
 	output = {
@@ -1031,23 +1760,431 @@ def cmd_analyze(args):
 			"L1_macro": l1_result if l1_result else {"skipped": True},
 			"L2_capex_flow": {
 				"company_capex": capex_data,
+				"hyperscaler_signal": hyperscaler_signal,
 				"cascade_requires_context": True,
-				"note": "Company CapEx auto-included. Supply chain cascade requires agent context.",
+				"note": "Company CapEx and Hyperscaler CapEx bridge signal auto-included. Supply chain cascade requires agent context.",
 			},
-			"L3_bottleneck": _build_l3_bottleneck(sec_sc_results),
+			"L3_bottleneck": l3_data,
 			"L4_fundamentals": l4_results,
 			"L5_catalysts": l5_results,
-			"L6_taxonomy": {
-				"requires_llm": True,
-				"note": "Agent classifies as Evolution / Disruption / Bottleneck.",
-			},
+			"L6_taxonomy": auto_classification,
 		},
 		"health_gates": health_gates,
+		"thesis_signals": thesis_signals,
+		"sop_triggers": sop_triggers,
+		"trapped_asset_override": trapped_asset_override,
+		"composite_signal": composite_signal,
 		"valuation_summary": valuation_summary,
 		"fundamental_readiness_codes": readiness_codes,
 	}
 
 	output_json(output)
+
+
+@safe_run
+def cmd_recheck(args):
+	"""Position Monitoring Recheck.
+
+	Runs macro regime, health gates, and thesis signal checks against an
+	existing position. Compares current state to expected healthy conditions
+	and generates action signals with a verdict.
+	"""
+	ticker = args.ticker.upper()
+	entry_price = float(args.entry_price)
+
+	# Step 1: Get current price and 52W range
+	price_result = _run_script(
+		"data_sources/info.py",
+		["get-info-fields", ticker, "currentPrice",
+		 "fiftyTwoWeekLow", "fiftyTwoWeekHigh"],
+	)
+
+	current_price = None
+	fifty_two_low = None
+	fifty_two_high = None
+	if not price_result.get("error"):
+		current_price = price_result.get("currentPrice")
+		fifty_two_low = price_result.get("fiftyTwoWeekLow")
+		fifty_two_high = price_result.get("fiftyTwoWeekHigh")
+
+	# Step 2: Run macro + L4/L5 scripts in parallel
+	macro_scripts = {
+		"erp": ("macro/erp.py", ["erp"]),
+		"vix_curve": ("macro/vix_curve.py", ["analyze"]),
+		"fear_greed": ("analysis/sentiment/fear_greed.py", []),
+		"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
+		"fedwatch": ("data_advanced/fed/fedwatch.py", []),
+		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
+	}
+
+	l4_scripts = {
+		"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
+		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
+		"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
+		"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
+		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
+		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
+		"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
+	}
+
+	l5_scripts = {
+		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
+		"analyst_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
+	}
+
+	all_scripts = {}
+	all_scripts.update(macro_scripts)
+	all_scripts.update(l4_scripts)
+	all_scripts.update(l5_scripts)
+
+	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+		futures = {
+			name: executor.submit(_run_script, path, a)
+			for name, (path, a) in all_scripts.items()
+		}
+		all_results = {name: future.result() for name, future in futures.items()}
+
+	macro_results = {k: all_results[k] for k in macro_scripts}
+	l4_results = {k: all_results[k] for k in l4_scripts}
+	l5_results = {k: all_results[k] for k in l5_scripts}
+
+	# Step 3: Classify macro regime
+	macro_classification = _classify_macro_regime(macro_results)
+
+	# Step 4: Extract health gates
+	health_gates = _extract_health_gates(l4_results)
+
+	# Step 5: Build thesis signals
+	thesis_signals = _build_thesis_signals(l4_results, l5_results)
+
+	# Step 6: Calculate return and 52W position
+	return_pct = None
+	if isinstance(current_price, (int, float)) and entry_price > 0:
+		return_pct = round((current_price - entry_price) / entry_price * 100, 2)
+
+	position_52w = None
+	if (
+		isinstance(current_price, (int, float))
+		and isinstance(fifty_two_low, (int, float))
+		and isinstance(fifty_two_high, (int, float))
+		and fifty_two_high > fifty_two_low
+	):
+		position_52w = round(
+			(current_price - fifty_two_low) / (fifty_two_high - fifty_two_low) * 100,
+			1,
+		)
+
+	# Step 7: Detect action signals
+	action_signals = []
+
+	if macro_classification.get("regime") == "risk_off":
+		action_signals.append("MACRO_REGIME_RISK_OFF")
+
+	for gate_name in ("bear_bull_paradox", "active_dilution",
+					  "no_growth_fail", "margin_collapse"):
+		if health_gates.get(gate_name) == "FLAG":
+			action_signals.append(f"{gate_name.upper()}_DEGRADED")
+
+	if thesis_signals.get("net_direction") == "weakening":
+		action_signals.append("THESIS_WEAKENING")
+
+	if health_gates.get("total_pass", 4) < 3:
+		action_signals.append("MULTIPLE_GATES_FLAGGED")
+
+	# Step 8: Verdict
+	signal_count = len(action_signals)
+	if signal_count == 0:
+		verdict = "MAINTAIN"
+		note = "No concerns detected. Position health is good."
+	elif signal_count == 1:
+		verdict = "HOLD_MONITOR"
+		note = f"1 concern detected: {action_signals[0]}. Monitor for further deterioration."
+	elif signal_count == 2:
+		verdict = "HOLD_REDUCE"
+		note = f"2 concerns detected: {', '.join(action_signals)}. Consider reducing position size."
+	else:
+		verdict = "CONSIDER_EXIT"
+		note = (f"{signal_count} concerns detected: {', '.join(action_signals)}. "
+				"Strongly consider exiting or hedging the position.")
+
+	output_json({
+		"ticker": ticker,
+		"entry_price": entry_price,
+		"current_price": current_price,
+		"return_pct": return_pct,
+		"position_52w": position_52w,
+		"macro_regime": {
+			"regime": macro_classification.get("regime"),
+			"risk_level": macro_classification.get("risk_level"),
+			"drain_count": macro_classification.get("drain_count"),
+		},
+		"health_gates": health_gates,
+		"thesis_signals": thesis_signals,
+		"action_signals": action_signals,
+		"verdict": verdict,
+		"note": note,
+	})
+
+
+@safe_run
+def cmd_discover(args):
+	"""Automated Theme Discovery — surface top industry groups with bottleneck candidates.
+
+	Phase 1: Runs sector_leaders scan to identify top industry groups by leader_count.
+	Phase 2: Runs finviz industry-screen for each top group in parallel to get
+	candidates with exact industry matching.
+	Phase 3: Applies max_mcap filter, then validates each candidate with
+	bottleneck_scorer. Groups results by theme/industry_group sorted by
+	asymmetry_score.
+	"""
+	top_groups = getattr(args, "top_groups", 5)
+	max_mcap = getattr(args, "max_mcap", "10B")
+	limit = getattr(args, "limit", 10)
+	max_mcap_val = _parse_mcap_string(max_mcap)
+
+	# Phase 1: Run sector_leaders scan
+	leaders_result = _run_script("screening/sector_leaders.py", ["scan"])
+	leaders_degraded = bool(leaders_result.get("error"))
+
+	# Extract top industry groups by leader_count
+	top_industry_groups = []
+	if not leaders_degraded:
+		leaders_list = leaders_result.get("leadership_dashboard", [])
+		leaders_list.sort(
+			key=lambda g: g.get("leader_count", 0) if isinstance(g.get("leader_count"), (int, float)) else 0,
+			reverse=True,
+		)
+		top_industry_groups = leaders_list[:top_groups]
+
+	if not top_industry_groups:
+		output_json({
+			"themes": [], "total_themes": 0, "total_candidates": 0,
+			"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
+			"requires_agent_review": False,
+			"note": "sector_leaders scan returned no groups." if leaders_degraded else "No industry groups found.",
+			"degraded": leaders_degraded,
+		})
+		return
+
+	# Phase 2: Run finviz industry-screen for each top group in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=len(top_industry_groups)) as executor:
+		fv_futures = {
+			group["industry_group"]: executor.submit(
+				_run_script, "screening/finviz.py",
+				["industry-screen", "--industry", group["industry_group"], "--limit", "30"],
+			)
+			for group in top_industry_groups
+		}
+		finviz_results = {name: f.result() for name, f in fv_futures.items()}
+
+	# Phase 3: Build theme candidates with mcap filter
+	theme_candidates = []
+	for group in top_industry_groups:
+		group_name = group["industry_group"]
+		leader_count = group.get("leader_count", 0)
+		leader_tickers = group.get("leader_tickers", [])
+
+		fv_result = finviz_results.get(group_name, {})
+		if fv_result.get("error"):
+			# Fallback to leader_tickers from sector_leaders
+			raw_candidates = [{"Ticker": t} for t in leader_tickers] if leader_tickers else []
+		else:
+			raw_candidates = fv_result.get("data", [])
+
+		# Apply mcap filter
+		filtered = []
+		for row in raw_candidates:
+			t = row.get("Ticker") or row.get("ticker")
+			if not t:
+				continue
+			raw_mcap = row.get("Market Cap") or row.get("market_cap")
+			mcap_str = str(raw_mcap) if raw_mcap else None
+			if max_mcap_val is not None and mcap_str:
+				row_mcap = _parse_mcap_string(mcap_str)
+				if row_mcap is not None and row_mcap > max_mcap_val:
+					continue
+			filtered.append((t, mcap_str))
+
+		if filtered:
+			theme_candidates.append({
+				"industry_group": group_name,
+				"sector": group.get("sector", "Unknown"),
+				"leader_count": leader_count,
+				"raw_tickers": filtered,
+			})
+
+	# Apply per-theme limit (--limit is per theme, not global)
+	all_tickers = []
+	seen = set()
+	for idx, theme in enumerate(theme_candidates):
+		count = 0
+		for t, mcap_str in theme["raw_tickers"]:
+			if t not in seen and count < limit:
+				all_tickers.append((idx, t, mcap_str))
+				seen.add(t)
+				count += 1
+
+	if not all_tickers:
+		output_json({
+			"themes": [], "total_themes": 0, "total_candidates": 0,
+			"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
+			"requires_agent_review": False,
+			"note": "No candidates passed mcap filter.",
+		})
+		return
+
+	# Phase 4: Validate with bottleneck_scorer in parallel
+	ticker_list = [entry[1] for entry in all_tickers]
+	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+		bn_futures = {
+			t: executor.submit(_run_script, "analysis/bottleneck_scorer.py", ["validate", t, "--bottleneck-score", "5"])
+			for t in ticker_list
+		}
+		bn_results = {t: f.result() for t, f in bn_futures.items()}
+
+	# Phase 5: Group results by theme and sort by asymmetry_score
+	group_candidates = {}
+	for group_idx, t, mcap_str in all_tickers:
+		validation = bn_results.get(t, {})
+		candidate = {"ticker": t, "market_cap": mcap_str}
+		if not validation.get("error"):
+			candidate["asymmetry_score"] = validation.get("asymmetry_score")
+			candidate["health_gates"] = validation.get("health_gates", {})
+		else:
+			candidate["asymmetry_score"] = None
+			candidate["health_gates"] = {"error": validation.get("error", "Validation failed")}
+		group_candidates.setdefault(group_idx, []).append(candidate)
+
+	for idx in group_candidates:
+		group_candidates[idx].sort(
+			key=lambda c: c.get("asymmetry_score") if c.get("asymmetry_score") is not None else -999,
+			reverse=True,
+		)
+
+	themes = []
+	for idx, theme in enumerate(theme_candidates):
+		candidates = group_candidates.get(idx, [])
+		if candidates:
+			themes.append({
+				"industry_group": theme["industry_group"],
+				"sector": theme["sector"],
+				"leader_count": theme["leader_count"],
+				"candidates": candidates,
+			})
+
+	output = {
+		"themes": themes,
+		"total_themes": len(themes),
+		"total_candidates": sum(len(t["candidates"]) for t in themes),
+		"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
+		"requires_agent_review": True,
+		"note": "Automated theme discovery. Agent should evaluate supply chain relevance and apply 6-Criteria Scoring to promising candidates.",
+	}
+
+	output_json(output)
+
+
+@safe_run
+def cmd_cross_chain(args):
+	"""Cross-analyze SEC supply chain data across multiple tickers to find shared suppliers.
+
+	Extracts supplier, customer, and single-source dependency entities from SEC
+	filings for each ticker, normalizes entity names, and identifies shared
+	entities referenced by 2+ tickers. Calculates supply chain overlap metrics.
+	"""
+	tickers = [t.upper() for t in args.tickers]
+	form_type = getattr(args, "form", "10-K")
+
+	# Step 1: Run SEC supply_chain extraction for each ticker in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
+		futures = {
+			t: executor.submit(
+				_run_script, "data_advanced/sec/supply_chain.py",
+				["supply-chain", t, "--form", form_type],
+			)
+			for t in tickers
+		}
+		sec_results = {t: f.result() for t, f in futures.items()}
+
+	# Step 2: Extract and normalize entities from each ticker
+	entity_map = {}
+	per_ticker_stats = {}
+	failed_tickers = []
+
+	for t in tickers:
+		result = sec_results[t]
+		if result.get("error"):
+			per_ticker_stats[t] = {"error": "SEC data unavailable"}
+			failed_tickers.append(t)
+			continue
+
+		try:
+			supply_chain = result["data"]["supply_chain"]
+		except (KeyError, TypeError):
+			per_ticker_stats[t] = {"error": "SEC data unavailable"}
+			failed_tickers.append(t)
+			continue
+
+		ticker_entities = {}
+
+		for category, role in [("suppliers", "supplier"), ("single_source_dependencies", "single_source"), ("customers", "customer")]:
+			entries = supply_chain.get(category) or []
+			for entry in entries:
+				if isinstance(entry, str):
+					name = entry
+				elif isinstance(entry, dict):
+					name = entry.get("supplier", "") or entry.get("name", "")
+				else:
+					continue
+				norm = _normalize_entity_name(name)
+				if not norm:
+					continue
+				if norm not in ticker_entities:
+					ticker_entities[norm] = {"roles": set(), "original_names": set()}
+				ticker_entities[norm]["roles"].add(role)
+				ticker_entities[norm]["original_names"].add(name.strip())
+
+		supplier_count = len([n for n, info in ticker_entities.items() if "supplier" in info["roles"] or "single_source" in info["roles"]])
+		per_ticker_stats[t] = {"supplier_count": supplier_count, "total_entities": len(ticker_entities)}
+
+		for norm, info in ticker_entities.items():
+			if norm not in entity_map:
+				entity_map[norm] = {}
+			entity_map[norm][t] = {"roles": info["roles"], "original_names": info["original_names"]}
+
+	# Step 3: Find shared entities (referenced by 2+ tickers)
+	shared_entities = []
+	for norm_name, ticker_refs in entity_map.items():
+		if len(ticker_refs) >= 2:
+			referenced_by = {}
+			for ref_ticker, ref_info in ticker_refs.items():
+				roles = sorted(ref_info["roles"])
+				confidence = "high" if "single_source" in roles or "supplier" in roles else "medium"
+				referenced_by[ref_ticker] = {"roles": roles, "confidence": confidence}
+			shared_entities.append({"entity": norm_name, "referenced_by": referenced_by})
+
+	shared_entities.sort(key=lambda e: len(e["referenced_by"]), reverse=True)
+
+	# Step 4: Calculate overlap metrics
+	total_unique = len(entity_map)
+	shared_count = len(shared_entities)
+	overlap_pct = round((shared_count / total_unique) * 100, 1) if total_unique > 0 else 0.0
+
+	for t in tickers:
+		if t in failed_tickers:
+			continue
+		unique_count = sum(1 for refs in entity_map.values() if t in refs and len(refs) == 1)
+		per_ticker_stats[t]["unique_to_ticker"] = unique_count
+
+	output_json({
+		"tickers": tickers,
+		"shared_supplier_nodes": shared_entities,
+		"per_ticker_suppliers": per_ticker_stats,
+		"supply_chain_overlap_pct": overlap_pct,
+		"total_unique_entities": total_unique,
+		"shared_entity_count": shared_count,
+		"note": "Cross-chain analysis based on SEC filing disclosures. Entity matching is name-based. Agent should verify shared relationships via WebSearch.",
+	})
 
 
 @safe_run
@@ -1705,7 +2842,7 @@ def main():
 		"--extended",
 		action="store_true",
 		default=False,
-		help="Include DXY and BDI analysis",
+		help="Include raw DXY and BDI data in output",
 	)
 	sp_macro.set_defaults(func=cmd_macro)
 
@@ -1756,6 +2893,49 @@ def main():
 		"tickers", nargs="+", help="2 or more stock ticker symbols"
 	)
 	sp_capex.set_defaults(func=cmd_capex_cascade)
+
+	# recheck
+	sp_recheck = sub.add_parser(
+		"recheck", help="Position monitoring recheck"
+	)
+	sp_recheck.add_argument("ticker", help="Stock ticker symbol")
+	sp_recheck.add_argument(
+		"--entry-price", required=True, help="Entry price for position"
+	)
+	sp_recheck.add_argument(
+		"--entry-date", default=None, help="Entry date (YYYY-MM-DD, informational)"
+	)
+	sp_recheck.set_defaults(func=cmd_recheck)
+
+	# discover
+	sp_discover = sub.add_parser(
+		"discover", help="Automated theme discovery with bottleneck candidates"
+	)
+	sp_discover.add_argument(
+		"--top-groups", type=int, default=5,
+		help="Number of top industry groups to surface (default: 5)",
+	)
+	sp_discover.add_argument(
+		"--max-mcap", default="10B",
+		help="Maximum market cap filter (default: 10B)",
+	)
+	sp_discover.add_argument(
+		"--limit", type=int, default=10,
+		help="Maximum candidates per theme (default: 10)",
+	)
+	sp_discover.set_defaults(func=cmd_discover)
+
+	# cross-chain
+	sp_cross = sub.add_parser(
+		"cross-chain", help="Shared supplier detection across tickers"
+	)
+	sp_cross.add_argument(
+		"tickers", nargs="+", help="2 or more stock ticker symbols"
+	)
+	sp_cross.add_argument(
+		"--form", default="10-K", help="SEC filing form type (default: 10-K)"
+	)
+	sp_cross.set_defaults(func=cmd_cross_chain)
 
 	args = parser.parse_args()
 	args.func(args)

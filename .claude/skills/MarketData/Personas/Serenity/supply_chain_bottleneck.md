@@ -122,6 +122,8 @@ This is the SINGLE authoritative scoring framework. Apply these six criteria to 
 
 Criterion 6 is the most asymmetric type: a $100 substrate in a $20B deployment can command $10,000 if supply is constrained, because delaying the deployment costs far more.
 
+> **Pipeline Integration (v4.0)**: The pipeline now automates pre-scoring of 5 out of 6 criteria from SEC supply chain data. Criterion 6 (cost insignificance) requires agent judgment. Assessment thresholds: strong (>= 3.0/4.5), partial (1.5-3.0), weak (< 1.5). Agent should validate and adjust via WebSearch cross-validation. Discover output structure via `extract_docstring.py`.
+
 ---
 
 ## Thematic Frameworks
