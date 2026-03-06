@@ -23,7 +23,7 @@ Fed policy, geopolitical risk, liquidity conditions. Determines market regime an
 Track capital expenditure cascading from hyperscalers through the supply chain. Mag7 capex announcements validate downstream revenue. Trace: Hyperscaler -> Neocloud -> Semiconductor -> Memory -> Substrates -> Materials. Each layer validates the next.
 
 ### Level 3: Supply Chain Bottleneck Layer (Core Alpha Generation)
-Map physical supply chains from end-products to raw materials. Find concentration points where supply is constrained. Apply the 6-Criteria Bottleneck Scoring framework. This is the primary alpha source. Details in `supply_chain_bottleneck.md`.
+Map physical supply chains from end-products to raw materials. Find concentration points where supply is constrained. Pipeline pre-extracts supply chain relationships from SEC 10-K/10-Q filings (suppliers, single-source dependencies, geographic concentration, capacity constraints) as a structured baseline. Agent completes the analysis via WebSearch cross-validation and Layer 3-4 multi-hop discovery, then applies the 6-Criteria Bottleneck Scoring framework. This is the primary alpha source. Details in `supply_chain_bottleneck.md`.
 
 ### Level 4: Position Construction (Execution)
 Build positions using shares + LEAPS + put selling + covered calls. Position sizing maps to conviction level. DCA into positions during fear, not all-at-once. Details below.
@@ -105,7 +105,7 @@ Data not collectible via scripts (industry-specific data, government policies, c
 | Analyst estimates, earnings | MarketData scripts | Analyst estimates, earnings acceleration data |
 | Screening, sector ranking | MarketData scripts | Screening tools, relative strength ranking |
 | Macro data (rates, Fed) | MarketData scripts | Yield/spread data, rate expectations |
-| Supply chain mapping | WebSearch/Deep-Research | Industry reports, SEC filings |
+| Supply chain mapping | SEC pipeline (L3) → WebSearch | SEC 10-K/10-Q pre-extracted (automated), WebSearch for cross-validation and Layer 3-4 depth |
 | Bottleneck discovery | WebSearch/Deep-Research | Export controls, capacity constraints |
 | Geopolitical analysis | WebSearch | Trade wars, tariffs, sanctions |
 | Industry-specific data | WebSearch | Commodity prices (SMM, LME), government procurement, demand forecasts |
@@ -194,7 +194,7 @@ Every stock recommendation must construct a 6-link evidence chain, each citing s
 
 1. **Macro Signal**: What macro condition creates opportunity? (cite: macro data -- rates, liquidity, or policy event)
 2. **Sector Opportunity**: Which industry group benefits? (cite: sector screening and industry group data)
-3. **Supply Chain Bottleneck**: Where is the constraint? (cite: 6-Criteria Score, supply concentration %, capacity lead time)
+3. **Supply Chain Bottleneck**: Where is the constraint? (cite: 6-Criteria Score, supply concentration %, capacity lead time; SEC 10-K source when available)
 4. **Specific Company**: Why THIS company? (cite: market share %, balance sheet and debt structure analysis)
 5. **Valuation Case**: Is it underpriced? (cite: forward P/E, no-growth valuation, IO quality score)
 6. **Catalyst Timeline**: What forces market recognition? (cite: earnings date, contract announcement, policy date)

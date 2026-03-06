@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v3.7.0
+> 성진의 Claude 금융 시장 분석 플러그인 v3.8.0
 
 ![](Docs/Media/Main.png)
 
@@ -184,7 +184,7 @@
 |-----------|-----------|
 | YFinance | 주가, 재무제표, 기관/내부자 보유, 옵션 체인 |
 | FRED | 금리, 인플레이션, 유동성, 매크로 지표 |
-| SEC EDGAR | 13F 기관 보고, 내부자 거래, FTD |
+| SEC EDGAR | 13F 기관 보고, 내부자 거래, FTD, 공급망 인텔리전스 (10-K/10-Q) |
 | Finviz | 스크리닝, 섹터 히트맵 |
 | CFTC | 선물 포지셔닝 (COT 리포트) |
 | CBOE | VIX, 풋/콜 비율, 변동성 커브 |

@@ -287,7 +287,7 @@ FedWatch Tool, FOMC calendar
 
 #### SEC
 
-Filings, insider trades, 13F, FTD
+Filings, insider trades, 13F, FTD, supply chain intelligence
 
 | Function | Description | Script |
 |----------|-------------|--------|
@@ -295,6 +295,8 @@ Filings, insider trades, 13F, FTD
 | `ftd` | SEC Failures to Deliver (FTD) and litigation releases data | `data_advanced/sec/ftd.py` |
 | `insider` | SEC Form 4 insider trading activity tracking | `data_advanced/sec/insider.py` |
 | `institutions` | SEC 13F filing lookup by company CIK (investment managers only, not stock ownership) | `data_advanced/sec/institutions.py` |
+| `supply_chain` | SEC 10-K/10-Q supply chain intelligence extraction: suppliers, customers, single-source dependencies, geographic concentration, capacity constraints, supply chain risks with confidence scoring | `data_advanced/sec/supply_chain.py` |
+| `events` | SEC 8-K supply chain event detection: material agreements, acquisitions, supply disruptions with relevance scoring | `data_advanced/sec/supply_chain.py` |
 
 ## How to Use
 

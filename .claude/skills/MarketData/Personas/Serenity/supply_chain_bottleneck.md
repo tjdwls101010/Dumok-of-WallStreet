@@ -6,6 +6,38 @@ When given a new sector, event, or query to analyze, the analyst MUST independen
 
 ---
 
+## SEC Filing as Discovery Starting Point
+
+When the pipeline provides `sec_supply_chain` data (sec_status = SEC_SC_available), use it as the structured foundation for supply chain mapping:
+
+### Anchoring Layer 1-2 from SEC Data
+- SEC Item 1 (Business) discloses key suppliers, customers, and supply chain relationships as legal requirements
+- SEC Item 1A (Risk Factors) discloses single-source dependencies, geographic concentration, and capacity constraints
+- Use these as verified Layer 1-2 anchors: named entities with their relationships and concentration data
+- High-confidence matches (entity + quantitative data) can be used directly as evidence for 6-Criteria Scoring
+
+### Mapping SEC Data to 6-Criteria Scoring
+| SEC Category | Maps to Criterion | Usage |
+|---|---|---|
+| single_source_dependencies | 1 (Supply concentration) | Direct evidence — sole/single source = high concentration |
+| geographic_concentration | 3 (Geopolitical risk) | Direct evidence — country-level production concentration |
+| capacity_constraints | 2 (Capacity constraints), 4 (Long lead times) | Lead time and backlog disclosures |
+| supply_chain_risks | 5 (No substitutes), 6 (Cost insignificance) | Risk language indicating substitutability and criticality |
+| suppliers | 1 (Supply concentration) | Named supplier relationships for concentration analysis |
+
+### Forced Multi-hop Discovery with SEC Baseline
+After establishing Layer 1-2 from SEC data, apply the Forced Multi-hop Discovery Rule for Layer 3-4:
+1. For each supplier named in SEC data, WebSearch: "[supplier name] key inputs", "[supplier name] raw materials"
+2. For each single-source dependency, WebSearch: "[component] alternative suppliers", "[component] global production"
+3. SEC data provides the STARTING POINT; WebSearch provides the DEPTH (Layer 3-4 multi-hop relationships)
+
+### Filing Freshness Check
+- Check `filing_date` in the SEC data — if >12 months old, treat extracted relationships as baseline only
+- WebSearch for: "[company] new supplier", "[company] supply chain change [current year]"
+- Check `sec_events` (8-K filings) for recent material agreements, acquisitions, or supply disruptions that may override 10-K data
+
+---
+
 ## 5-Layer Supply Chain Mapping Template
 
 ```

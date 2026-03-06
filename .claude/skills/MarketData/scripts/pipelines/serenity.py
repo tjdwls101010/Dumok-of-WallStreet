@@ -8,16 +8,18 @@ fundamental analysis tools, valuation models, and catalyst monitoring in
 parallel. Pipeline-Complete — all methodology-required module calls are contained
 within the pipeline; do not call individual modules to supplement. Levels 1/4/5/6
 are automated; Level 2 (CapEx Flow) includes company CapEx auto-extraction with
-supply chain cascade requiring agent context; Level 3 (Bottleneck) requires agent
-context for supply chain knowledge.
+supply chain cascade requiring agent context; Level 3 (Bottleneck) includes
+SEC filing supply chain pre-extraction (suppliers, single-source dependencies,
+geographic concentration, capacity constraints, 8-K events) with agent context
+for 6-Criteria scoring via WebSearch cross-validation.
 
 Commands:
 	macro: Level 1 macro regime assessment (6 parallel macro scripts → regime
 		classification as risk_on/risk_off/transitional with drain counting.
 		ERP extracted via erp.current.erp, Fear&Greed via fear_greed.current.score)
-	analyze: Full 6-Level analysis for a single ticker (L1 macro + L4
-		fundamentals with 12 scripts + L5 catalysts with 5 scripts + health
-		gates + valuation summary)
+	analyze: Full 6-Level analysis for a single ticker (L1 macro + L3
+		SEC supply chain pre-extraction + L4 fundamentals with 12 scripts +
+		L5 catalysts with 5 scripts + health gates + valuation summary)
 	evidence_chain: 6-Link evidence chain data availability check
 	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
 	screen: Sector-based bottleneck candidate screening
@@ -72,7 +74,12 @@ Returns:
 		L5_catalysts: earnings_dates (capped at 8 most recent),
 		earnings_surprise (post-ER reaction),
 		analyst_recommendations, analyst_price_targets, analyst_revisions.
-		L2/L3: cascade_requires_context (agent-driven). L6: requires_llm.
+		L3_bottleneck: sec_supply_chain (suppliers, customers,
+		single_source_dependencies, geographic_concentration,
+		capacity_constraints, supply_chain_risks — trimmed for context),
+		sec_events (recent 8-K supply chain events),
+		sec_status (SEC_SC_available/partial/unavailable).
+		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
 	For evidence_chain:
 		dict with ticker, chain_completeness (str "N/6"),
@@ -471,7 +478,7 @@ def _summarize_holders(data):
 # Fundamental Readiness Codes
 # ---------------------------------------------------------------------------
 
-def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None):
+def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None, sec_sc_results=None):
 	"""Build standardized fundamental readiness codes for auditability.
 
 	Returns:
@@ -539,7 +546,118 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 	# CapEx direction (from L2 company_capex if available)
 	# capex_data is passed separately as it's popped from l4_results
 
+	# SEC supply chain data availability
+	if sec_sc_results:
+		sc_data = sec_sc_results.get("sec_supply_chain", {})
+		if sc_data and not sc_data.get("error") and sc_data.get("data"):
+			matches = sc_data["data"].get("extraction_stats", {}).get("total_matches", 0)
+			if matches > 0:
+				codes.append("SEC_SC_available")
+			else:
+				codes.append("SEC_SC_partial")
+		else:
+			codes.append("SEC_SC_unavailable")
+
 	return codes
+
+
+# ---------------------------------------------------------------------------
+# SEC Supply Chain Post-processing (L3)
+# ---------------------------------------------------------------------------
+
+def _summarize_sec_supply_chain(data):
+	"""Trim and cap SEC supply chain extraction for context efficiency.
+
+	- Truncates context fields to 200 chars
+	- Caps each category to 15 entries
+	"""
+	if not data or data.get("error") or not data.get("data"):
+		return data
+
+	sc = data.get("data", {}).get("supply_chain")
+	if not sc:
+		return data
+
+	for category in ("suppliers", "customers", "single_source_dependencies",
+					"geographic_concentration", "capacity_constraints",
+					"supply_chain_risks"):
+		items = sc.get(category, [])
+		# Cap at 15
+		if len(items) > 15:
+			sc[category] = items[:15]
+		# Trim context
+		for item in sc[category]:
+			if "context" in item and len(item["context"]) > 200:
+				item["context"] = item["context"][:200] + "..."
+
+	return data
+
+
+def _build_l3_bottleneck(sec_sc_results):
+	"""Build L3 bottleneck output incorporating SEC supply chain data."""
+	sec_sc_raw = sec_sc_results.get("sec_supply_chain", {})
+	sec_events_raw = sec_sc_results.get("sec_events", {})
+
+	sec_sc_data = _summarize_sec_supply_chain(sec_sc_raw)
+
+	# Determine SEC data availability
+	has_sc_data = (
+		sec_sc_data
+		and not sec_sc_data.get("error")
+		and sec_sc_data.get("data")
+		and sec_sc_data["data"].get("extraction_stats", {}).get("total_matches", 0) > 0
+	)
+	has_events = (
+		sec_events_raw
+		and not sec_events_raw.get("error")
+		and len(sec_events_raw.get("data", [])) > 0
+	)
+
+	if has_sc_data:
+		sec_status = "SEC_SC_available"
+		note = ("SEC filing supply chain data pre-extracted. "
+				"Agent completes 6-Criteria scoring via WebSearch cross-validation.")
+	elif sec_sc_data and sec_sc_data.get("data") is not None:
+		sec_status = "SEC_SC_partial"
+		note = ("SEC filing found but limited supply chain matches. "
+				"Agent relies primarily on WebSearch for L3.")
+	else:
+		sec_status = "SEC_SC_unavailable"
+		note = ("SEC supply chain data unavailable. "
+				"Agent relies on WebSearch for L3.")
+
+	return {
+		"sec_supply_chain": sec_sc_data if not sec_sc_data.get("error") else None,
+		"sec_events": sec_events_raw if not sec_events_raw.get("error") else None,
+		"sec_status": sec_status,
+		"requires_context": True,
+		"note": note,
+	}
+
+
+def _build_evidence_chain_l3(ticker):
+	"""Build L3 evidence chain link with SEC data probe."""
+	sec_result = _run_script(
+		"data_advanced/sec/supply_chain.py", ["supply-chain", ticker],
+	)
+	if sec_result and not sec_result.get("error"):
+		matches = sec_result.get("data", {}).get("extraction_stats", {}).get("total_matches", 0)
+		if matches > 0:
+			return {
+				"status": "partial",
+				"sec_data_available": True,
+				"note": "SEC supply chain data extracted. Full scoring requires agent + WebSearch.",
+			}
+		return {
+			"status": "partial",
+			"sec_data_available": False,
+			"note": "SEC filing found but no supply chain matches. Requires WebSearch.",
+		}
+	return {
+		"status": "requires_research",
+		"sec_data_available": False,
+		"note": "Supply chain mapping requires WebSearch.",
+	}
 
 
 # ---------------------------------------------------------------------------
@@ -832,10 +950,17 @@ def cmd_analyze(args):
 		"analyst_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
 	}
 
-	# Run L4 and L5 in parallel
+	# --- SEC Supply Chain Intelligence (L3 pre-extraction) ---
+	sec_sc_scripts = {
+		"sec_supply_chain": ("data_advanced/sec/supply_chain.py", ["supply-chain", ticker]),
+		"sec_events": ("data_advanced/sec/supply_chain.py", ["events", ticker, "--limit", "5", "--days", "180"]),
+	}
+
+	# Run L4, L5, and SEC supply chain in parallel
 	all_scripts = {}
 	all_scripts.update(l4_scripts)
 	all_scripts.update(l5_scripts)
+	all_scripts.update(sec_sc_scripts)
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 		futures = {
@@ -847,6 +972,7 @@ def cmd_analyze(args):
 	# Split results
 	l4_results = {k: all_results[k] for k in l4_scripts}
 	l5_results = {k: all_results[k] for k in l5_scripts}
+	sec_sc_results = {k: all_results[k] for k in sec_sc_scripts}
 
 	# Post-process: insider transactions summary
 	insider_raw = l4_results.get("insider_transactions")
@@ -896,6 +1022,7 @@ def cmd_analyze(args):
 	readiness_codes = _build_readiness_codes(
 		health_gates, valuation_summary, l4_results,
 		l5_results=l5_results, sec_result=sec_filing_result,
+		sec_sc_results=sec_sc_results,
 	)
 
 	output = {
@@ -907,10 +1034,7 @@ def cmd_analyze(args):
 				"cascade_requires_context": True,
 				"note": "Company CapEx auto-included. Supply chain cascade requires agent context.",
 			},
-			"L3_bottleneck": {
-				"requires_context": True,
-				"note": "Supply chain mapping and 6-Criteria Bottleneck Scoring requires agent + WebSearch.",
-			},
+			"L3_bottleneck": _build_l3_bottleneck(sec_sc_results),
 			"L4_fundamentals": l4_results,
 			"L5_catalysts": l5_results,
 			"L6_taxonomy": {
@@ -998,10 +1122,7 @@ def cmd_evidence_chain(args):
 	links = {
 		"L1_macro": _link_status("l1", list(l1_scripts.keys())),
 		"L2_sector": _link_status("l2", list(l2_scripts.keys())),
-		"L3_bottleneck": {
-			"status": "requires_research",
-			"note": "Supply chain mapping requires WebSearch",
-		},
+		"L3_bottleneck": _build_evidence_chain_l3(ticker),
 		"L4_company": _link_status("l4", list(l4_scripts.keys())),
 		"L5_valuation": _link_status("l5", list(l5_scripts.keys())),
 		"L6_catalyst": _link_status("l6", list(l6_scripts.keys())),

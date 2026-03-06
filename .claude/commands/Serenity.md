@@ -148,7 +148,7 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	- Present compare results first as an overview, then run `analyze` only on top candidates for deep-dive
 
 	**Tool Hierarchy**:
-	- **Serenity Pipeline = PRIMARY** for all quantitative financial data. Pipeline-Complete — all methodology-required module calls are contained within the pipeline.
+	- **Serenity Pipeline = PRIMARY** for all quantitative financial data. Pipeline-Complete — all methodology-required module calls are contained within the pipeline. L3 includes SEC 10-K/10-Q supply chain pre-extraction (suppliers, single-source dependencies, geographic concentration, capacity constraints, 8-K events) run in parallel with L4/L5.
 	- **WebSearch = for agent-driven context**: supply chain mapping (L2/L3), bottleneck identification, geopolitical dynamics, industry reports. Used AFTER pipeline data collection for qualitative enrichment.
 	- **WebFetch = for detailed documents**: earnings transcripts, SEC filings (supplementary to pipeline), industry reports requiring deep extraction.
 	- **Post-Earnings Reaction Check**: Pipeline L5 earnings_surprise includes post-ER reaction data. Supplement with WebSearch only if additional narrative context is needed for extreme reactions (5d return <= -10% or >= +20%).
@@ -156,6 +156,14 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 *Steps 3-8 below combine pipeline output interpretation with agent-driven supply chain research. Steps marked (Agent-Level) require LLM reasoning, WebSearch, or Clear Thought beyond reading pipeline data.*
 
 3. **Supply Chain Mapping** (Agent-Level): Trace supply chain position -- customers, suppliers, bottleneck location.
+
+   **SEC-First Workflow**: Before WebSearch, read the pipeline L3 `sec_supply_chain` data:
+   - Use SEC-extracted suppliers and single-source dependencies as Layer 1-2 anchors
+   - Use geographic concentration data to pre-fill Criterion 3 (Geopolitical risk) of 6-Criteria Scoring
+   - Use capacity constraints and risk factors to inform Criteria 2 and 4
+   - Then WebSearch to: (a) cross-validate SEC findings, (b) fill gaps (Layer 3-4 suppliers not in filings), (c) discover multi-hop relationships, (d) check for changes since filing date
+   - Check `sec_events` for recent material agreements or supply disruptions from 8-K filings
+   - If SEC filing date is >12 months old, prioritize WebSearch for updated supply chain structure
 
    **Discovery Escalation (Type B only)**: If during supply chain mapping, the target company's position reveals ALL of:
    (a) It sits in a high-growth supply chain (hyperscaler capex-driven, government-funded, or technology transition-driven)
@@ -289,6 +297,16 @@ The pipeline `analyze` output includes `fundamental_readiness_codes` — a list 
 
 These codes enable transparent audit of the quantitative foundation. The agent's final rating adds qualitative thesis elements (L2/L3/L6) that the pipeline cannot automate.
 
+#### L3 SEC Supply Chain Data
+
+When the pipeline `analyze` returns `L3_bottleneck` with `sec_status`:
+
+- **SEC_SC_available**: Rich supply chain data extracted from SEC filing. Start L3 analysis from this data — it provides legally-mandated disclosures of supplier relationships, single-source risks, and geographic concentration. Cross-validate with WebSearch, don't just accept at face value (filings may be 3-14 months old).
+- **SEC_SC_partial**: Filing found but limited supply chain content. Common for software/services companies. Rely primarily on WebSearch for L3.
+- **SEC_SC_unavailable**: No SEC filing accessible (foreign filer, new IPO, etc.). Full WebSearch-driven L3 as before.
+
+Confidence levels in SEC data: `high` (named entity + quantitative data), `medium` (relationship described without numbers), `low` (general risk language). Prioritize high-confidence matches for 6-Criteria Scoring evidence.
+
 #### Pipeline Failure Fallback
 
 If the pipeline fails entirely, as a fallback only, run individual scripts separately. Discover their interfaces via `extract_docstring.py` before execution. This is a degraded mode — document which scripts were run individually in the response.
@@ -297,7 +315,7 @@ If the pipeline fails entirely, as a fallback only, run individual scripts separ
 
 Each analysis step is either automated via script or requires agent-level LLM reasoning:
 
-- **Pipeline-automated**: Serenity Pipeline (exclusive automated data source for all query types — L1 macro, L4 fundamentals, L5 catalysts, health gates, fundamental readiness codes, evidence chain, comparison, screening, CapEx cascade, conditional SEC filing verification). Bottleneck Financial Validation (asymmetry scoring, batch ranking).
+- **Pipeline-automated**: Serenity Pipeline (exclusive automated data source for all query types — L1 macro, L3 SEC filing supply chain pre-extraction (10-K/10-Q suppliers, single-source dependencies, geographic concentration, capacity constraints, 8-K supply chain events), L4 fundamentals, L5 catalysts, health gates, fundamental readiness codes, evidence chain, comparison, screening, CapEx cascade, conditional SEC filing verification). Bottleneck Financial Validation (asymmetry scoring, batch ranking).
 - **Agent-level inference**: L2 CapEx Flow Mapping (supply chain layer definition, cascade interpretation), L3 Bottleneck Identification (6-Criteria scoring via WebSearch, geographic concentration), L6 Taxonomy Classification (Evolution/Disruption/Bottleneck), Supply Chain Position Mapping, Forward Revenue Projection, Rating Assignment with Price-Dependent Adjustments, Bottleneck Relevance Assessment (Step 2b), Scenario Construction (Type D Phase 1).
 
 ### Reference Files

@@ -49,11 +49,13 @@ if __name__ == "__main__":
 	from data_advanced.sec.ftd import cmd_ftd, cmd_litigation
 	from data_advanced.sec.insider import cmd_insider
 	from data_advanced.sec.institutions import cmd_institutions
+	from data_advanced.sec.supply_chain import cmd_supply_chain_extract, cmd_events
 else:
 	from .filings import cmd_filings, cmd_mda
 	from .ftd import cmd_ftd, cmd_litigation
 	from .insider import cmd_insider
 	from .institutions import cmd_institutions
+	from .supply_chain import cmd_supply_chain_extract, cmd_events
 
 
 def main():
@@ -96,6 +98,20 @@ def main():
 	sp = sub.add_parser("litigation", help="Get SEC enforcement actions (RSS feed)")
 	sp.add_argument("--limit", type=int, default=20, help="Maximum number of items to return")
 	sp.set_defaults(func=cmd_litigation)
+
+	# supply-chain
+	sp = sub.add_parser("supply-chain", help="Extract supply chain structure from 10-K/10-Q")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument("--form", default="10-K", help="Form type (10-K or 10-Q)")
+	sp.add_argument("--max-chars", type=int, default=80000, help="Max characters per section")
+	sp.set_defaults(func=cmd_supply_chain_extract)
+
+	# events
+	sp = sub.add_parser("events", help="Extract supply-chain-related events from 8-K filings")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument("--limit", type=int, default=10, help="Max 8-K filings to check")
+	sp.add_argument("--days", type=int, default=180, help="Lookback window in days")
+	sp.set_defaults(func=cmd_events)
 
 	args = parser.parse_args()
 	args.func(args)
