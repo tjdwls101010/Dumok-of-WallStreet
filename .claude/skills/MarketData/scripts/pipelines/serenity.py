@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline v4.0.0 (Pipeline-Complete): 6-Level analytical hierarchy
+"""Serenity Pipeline v4.1.0 (Pipeline-Complete): 6-Level analytical hierarchy
 automating supply chain bottleneck analysis with macro regime assessment,
 fundamental validation, composite signal generation, and evidence chain
 verification.
@@ -31,7 +31,9 @@ Commands:
 	discover: Automated theme discovery (sector_leaders + finviz cross-reference
 		+ bottleneck_scorer validation, grouped by industry theme)
 	cross-chain: Shared supplier detection across multiple tickers via SEC
-		supply chain entity normalization and cross-matching
+		supply chain entity normalization and cross-matching, with
+		bottleneck_signal scoring (supplier_ref_pct, single_source_count,
+		assessment) for each shared entity
 	evidence_chain: 6-Link evidence chain data availability check
 	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
 	screen: Sector-based bottleneck candidate screening
@@ -54,6 +56,8 @@ Args:
 		--top-groups (int): Number of top industry groups (default: 5)
 		--max-mcap (str): Maximum market cap filter (default: "10B")
 		--limit (int): Maximum candidates per theme (default: 10)
+		--industry (str): Direct industry search — skips sector_leaders, goes
+			straight to finviz industry-screen (default: None)
 
 	For cross-chain:
 		tickers (list): 2+ stock ticker symbols
@@ -1936,11 +1940,96 @@ def cmd_discover(args):
 	Phase 3: Applies max_mcap filter, then validates each candidate with
 	bottleneck_scorer. Groups results by theme/industry_group sorted by
 	asymmetry_score.
+
+	When --industry is provided, skips Phase 1 (sector_leaders) and directly
+	runs finviz industry-screen for the specified industry. Useful for thematic
+	discovery where the agent already knows the target industry.
 	"""
 	top_groups = getattr(args, "top_groups", 5)
 	max_mcap = getattr(args, "max_mcap", "10B")
 	limit = getattr(args, "limit", 10)
+	industry = getattr(args, "industry", None)
 	max_mcap_val = _parse_mcap_string(max_mcap)
+
+	# Direct industry mode — skip sector_leaders, go straight to finviz
+	if industry:
+		fv_result = _run_script("screening/finviz.py",
+			["industry-screen", "--industry", industry, "--limit", "30"])
+
+		if fv_result.get("error"):
+			output_json({
+				"themes": [], "total_themes": 0, "total_candidates": 0,
+				"filters_applied": {"industry": industry, "max_mcap": max_mcap},
+				"requires_agent_review": False,
+				"note": f"finviz industry-screen failed for '{industry}'.",
+				"degraded": True,
+			})
+			return
+
+		raw_candidates = fv_result.get("data", [])
+		filtered = []
+		for row in raw_candidates:
+			t = row.get("Ticker") or row.get("ticker")
+			if not t:
+				continue
+			raw_mcap = row.get("Market Cap") or row.get("market_cap")
+			mcap_str = str(raw_mcap) if raw_mcap else None
+			if max_mcap_val is not None and mcap_str:
+				row_mcap = _parse_mcap_string(mcap_str)
+				if row_mcap is not None and row_mcap > max_mcap_val:
+					continue
+			filtered.append((t, mcap_str))
+
+		if not filtered:
+			output_json({
+				"themes": [], "total_themes": 0, "total_candidates": 0,
+				"filters_applied": {"industry": industry, "max_mcap": max_mcap},
+				"requires_agent_review": False,
+				"note": f"No candidates passed mcap filter for '{industry}'.",
+			})
+			return
+
+		filtered = filtered[:limit]
+
+		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+			bn_futures = {
+				t: executor.submit(_run_script, "analysis/bottleneck_scorer.py",
+					["validate", t, "--bottleneck-score", "5"])
+				for t, _ in filtered
+			}
+			bn_results = {t: f.result() for t, f in bn_futures.items()}
+
+		candidates = []
+		for t, mcap_str in filtered:
+			validation = bn_results.get(t, {})
+			candidate = {"ticker": t, "market_cap": mcap_str}
+			if not validation.get("error"):
+				candidate["asymmetry_score"] = validation.get("asymmetry_score")
+				candidate["health_gates"] = validation.get("health_gates", {})
+			else:
+				candidate["asymmetry_score"] = None
+				candidate["health_gates"] = {"error": validation.get("error", "Validation failed")}
+			candidates.append(candidate)
+
+		candidates.sort(
+			key=lambda c: c.get("asymmetry_score") if c.get("asymmetry_score") is not None else -999,
+			reverse=True,
+		)
+
+		output_json({
+			"themes": [{
+				"industry_group": industry,
+				"sector": "Direct Search",
+				"leader_count": None,
+				"candidates": candidates,
+			}],
+			"total_themes": 1,
+			"total_candidates": len(candidates),
+			"filters_applied": {"industry": industry, "max_mcap": max_mcap},
+			"requires_agent_review": True,
+			"note": f"Direct industry search for '{industry}'. Agent should evaluate supply chain relevance.",
+		})
+		return
 
 	# Phase 1: Run sector_leaders scan
 	leaders_result = _run_script("screening/sector_leaders.py", ["scan"])
@@ -2091,6 +2180,9 @@ def cmd_cross_chain(args):
 	Extracts supplier, customer, and single-source dependency entities from SEC
 	filings for each ticker, normalizes entity names, and identifies shared
 	entities referenced by 2+ tickers. Calculates supply chain overlap metrics.
+	Each shared entity is scored for bottleneck potential via bottleneck_signal
+	(supplier_ref_count, supplier_ref_pct, single_source_count, assessment).
+	Results sorted by supplier_ref_count descending.
 	"""
 	tickers = [t.upper() for t in args.tickers]
 	form_type = getattr(args, "form", "10-K")
@@ -2163,7 +2255,47 @@ def cmd_cross_chain(args):
 				referenced_by[ref_ticker] = {"roles": roles, "confidence": confidence}
 			shared_entities.append({"entity": norm_name, "referenced_by": referenced_by})
 
-	shared_entities.sort(key=lambda e: len(e["referenced_by"]), reverse=True)
+	# Step 3.5: Score each shared entity for bottleneck potential
+	total_tickers = len(tickers) - len(failed_tickers)
+	for entity in shared_entities:
+		refs = entity["referenced_by"]
+		supplier_refs = {}
+		for t, r in refs.items():
+			roles = r.get("roles", [])
+			if isinstance(roles, set):
+				roles = list(roles)
+			if any(role in ("supplier", "single_source") for role in roles):
+				supplier_refs[t] = r
+		supplier_count = len(supplier_refs)
+		single_source_count = sum(
+			1 for r in supplier_refs.values()
+			if "single_source" in (r.get("roles", []) if isinstance(r.get("roles", []), list) else list(r.get("roles", [])))
+		)
+		supplier_pct = round(supplier_count / total_tickers * 100, 1) if total_tickers > 0 else 0.0
+
+		if supplier_pct >= 50 and single_source_count > 0:
+			assessment = "strong_bottleneck_signal"
+		elif supplier_pct >= 50 or single_source_count > 0:
+			assessment = "moderate_bottleneck_signal"
+		elif supplier_pct >= 25:
+			assessment = "weak_signal"
+		else:
+			assessment = "low_signal"
+
+		entity["bottleneck_signal"] = {
+			"supplier_ref_count": supplier_count,
+			"supplier_ref_pct": supplier_pct,
+			"single_source_count": single_source_count,
+			"assessment": assessment,
+		}
+
+	shared_entities.sort(
+		key=lambda e: (
+			e.get("bottleneck_signal", {}).get("supplier_ref_count", 0),
+			e.get("bottleneck_signal", {}).get("single_source_count", 0),
+		),
+		reverse=True,
+	)
 
 	# Step 4: Calculate overlap metrics
 	total_unique = len(entity_map)
@@ -2922,6 +3054,10 @@ def main():
 	sp_discover.add_argument(
 		"--limit", type=int, default=10,
 		help="Maximum candidates per theme (default: 10)",
+	)
+	sp_discover.add_argument(
+		"--industry", default=None,
+		help="Direct industry search (skips sector_leaders). Partial name match supported.",
 	)
 	sp_discover.set_defaults(func=cmd_discover)
 

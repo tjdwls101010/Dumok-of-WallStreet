@@ -71,7 +71,9 @@ Target voice balance: 60% technical / 40% casual. Testing revealed the default o
 |------|------|-----------------|-------------|-------------------|
 | A | Market & Macro | "장 어때?", "시장", "금리", "유동성", "매크로" | MarketData-first | `macro_catalyst.md` |
 | B | Stock Diagnosis | "XX 어때?", "분석해줘", "실적", "earnings" | MarketData-first | `valuation_fundamentals.md` |
-| C | Discovery | "AI 관련주", "반도체", "XX vs YY", "비교", "어디가 좋아?", "다음 테마", "sector opportunity", "what's emerging?" | Mixed | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-1 | Discovery (with ticker) | "XX vs YY", "비교" | Mixed | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-2 | Discovery (no ticker, no theme) | "다음 유망 섹터?", "어디가 좋아?", "sector opportunity", "what's emerging?" | Mixed | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-3 | Discovery (thematic) | "AI → robotics 관련 유망주", "XX 산업 bottleneck", "AI 관련주", "반도체 공급망" | Mixed | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` + `methodology.md` |
 | D | Supply Chain & Bottleneck | "공급망", "병목", "supply chain", "bottleneck", "시나리오", "지정학", "what if" | Research-first, then MarketData | `supply_chain_bottleneck.md` + `macro_catalyst.md` |
 | E | Position & Risk | "언제 사?", "리스크", "포트", "포지션", "타이밍", "옵션" | MarketData-first | `methodology.md` |
 | F | Thematic Portfolio | "Evolution", "Disruption", "테마", "포트폴리오 구성" | Mixed | `methodology.md` + `supply_chain_bottleneck.md` |
@@ -136,8 +138,9 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 	Collect data through the Serenity pipeline. The pipeline provides dedicated subcommands for each analytical workflow — macro regime assessment, single-ticker 6-Level analysis, evidence chain verification, multi-ticker comparison, sector-based screening, and CapEx cascade tracking. Discover all available subcommands and their arguments via `extract_docstring.py`, then select the subcommand that best matches the query type's workflow. **The pipeline contains all methodology-required module calls (Pipeline-Complete); do not call individual modules to supplement.** WebSearch is used exclusively for agent-driven context: L2 supply chain cascade mapping, L3 bottleneck identification, L6 taxonomy classification, and qualitative research that cannot be automated via scripts. Route by query type:
 	- **Type A (Macro)**: Macro regime assessment — Fed policy, liquidity, VIX term structure, ERP
 	- **Type B (Stock)**: Full 6-Level analysis — L1/L4/L5 auto-executed, L2/L3 require agent context
-	- **Type C (Discovery, with ticker)**: Multi-ticker side-by-side comparison
-	- **Type C (Discovery, no ticker)**: Sector-based bottleneck candidate screening, then full analysis on top candidates
+	- **Type C-1 (Discovery, with ticker)**: Multi-ticker side-by-side comparison
+	- **Type C-2 (Discovery, no ticker)**: Sector-based bottleneck candidate screening, then full analysis on top candidates
+	- **Type C-3 (Discovery, thematic)**: Thematic Discovery Protocol (see below)
 	- **Type D (Supply Chain)**: Evidence chain completeness check + CapEx cascade tracking
 	- **Type E (Position)**: Full analysis, then apply position construction from `methodology.md`
 	- **Type F (Portfolio)**: Multi-ticker comparison across portfolio candidates
@@ -151,7 +154,23 @@ For every analysis, follow ALL steps in sequence. Do NOT skip any step.
 
 	- **Position Monitoring**: Track existing positions for deterioration signals — macro regime shifts, health gate degradation, thesis direction changes. Produces action signals and a management verdict. Use for Type E queries on existing holdings.
 	- **Theme Discovery**: Surface top industry groups with bottleneck candidate validation via sector_leaders + finviz cross-reference + asymmetry scoring. Use for Type C (Discovery, no ticker) queries. Feed top candidates into full 6-Level analysis for deep-dive.
-	- **Cross-Chain Analysis**: Detect shared supply chain dependencies across multiple tickers via SEC entity normalization and cross-matching. High overlap indicates systemic supply chain risk. Use for Type D queries or when evaluating portfolio-level supply chain concentration.
+	- **Cross-Chain Analysis**: Detect shared supply chain dependencies across multiple tickers via SEC entity normalization and cross-matching. Each shared entity is scored for bottleneck potential via `bottleneck_signal`. High overlap indicates systemic supply chain risk. Use for Type D queries or when evaluating portfolio-level supply chain concentration.
+
+	**Type C-3 Thematic Discovery Protocol**:
+	When a query specifies a theme, industry, or technology trend (e.g., "AI → robotics 유망주", "XX 산업 bottleneck"), classify as C-3 and execute this 6-step protocol in order:
+
+	1. **WebSearch/DeepResearch**: Theme domain understanding — technology trends, market size, key players, industry structure
+	2. **5-Layer Supply Chain Template**: Apply Layer 0~4 decomposition from `supply_chain_bottleneck.md`. At each layer, assess supplier count, geographic concentration, capacity lead times, substitutes
+	3. **cmd_discover --industry "X"**: Run for each relevant industry to screen candidates. Agent determines which industries map to the theme (a theme may span multiple industries — run multiple times)
+	4. **cmd_cross_chain TICKER1 ... TICKERN**: Feed 5+ candidates from Steps 2-3 into cross-chain analysis. Review `bottleneck_signal` scores: entities with `assessment: "strong_bottleneck_signal"` (supplier_ref_pct >= 50% AND single_source_count > 0) are prime bottleneck candidates. WebSearch to resolve entity names to tickers
+	5. **cmd_analyze**: Run full 6-Level analysis on top candidates from Step 3 + discovered common suppliers from Step 4
+	6. **Evidence Chain**: Construct 6-link evidence chain per `methodology.md` → final recommendation
+
+	**C-3 Agent Guidelines**:
+	- Step 4 entities with `assessment: "strong_bottleneck_signal"` MUST be investigated via WebSearch for ticker resolution
+	- Small-cap + high supplier_ref_pct = maximum asymmetric opportunity
+	- Only `supplier`/`single_source` roles generate bottleneck signals; `customer` roles indicate revenue concentration risk, not bottleneck potential
+	- A theme typically requires 2-3 `cmd_discover --industry` calls for different industries within the theme
 
 	**Tool Hierarchy**:
 	- **Serenity Pipeline = PRIMARY** for all quantitative financial data. Pipeline-Complete — all methodology-required module calls are contained within the pipeline. L3 includes SEC 10-K/10-Q supply chain pre-extraction (suppliers, single-source dependencies, geographic concentration, capacity constraints, 8-K events) run in parallel with L4/L5.
@@ -443,8 +462,9 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 |-----------|---------------|
 | A (Market & Macro) | `macro_catalyst.md` |
 | B (Stock Diagnosis) | `valuation_fundamentals.md` ; conditionally + `supply_chain_bottleneck.md` via Step 2b BRA |
-| C (Discovery, with ticker/sector) | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
-| C (Discovery, no ticker/sector) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-1 (Discovery, with ticker) | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-2 (Discovery, no ticker) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-3 (Discovery, thematic) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
 | D (Supply Chain & Bottleneck) | `supply_chain_bottleneck.md` + `macro_catalyst.md` |
 | E (Position & Risk) | `methodology.md` |
 | F (Thematic Portfolio) | `methodology.md` + `supply_chain_bottleneck.md` |

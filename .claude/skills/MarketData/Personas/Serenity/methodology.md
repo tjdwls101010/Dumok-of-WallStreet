@@ -69,9 +69,17 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 **Gate**: At least one layer identified with supply concentration (top 3 controlling >70%) or geographic concentration (>50% single country) or capacity lead time >3 years.
 
+### Phase 3.5: Reverse Cross-Chain Discovery
+
+**What to do**: Feed candidate tickers from Phase 3 into `cmd_cross_chain` to discover hidden common suppliers across the theme.
+
+**How to analyze**: Run `cross-chain TICKER1 TICKER2 ... TICKERN` with 5+ candidates. Review `bottleneck_signal` scores. Entities with `assessment: "strong_bottleneck_signal"` (supplier_ref_pct >= 50% AND single_source_count > 0) are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier_ref_pct represent maximum asymmetric opportunity.
+
+**Gate**: At least one shared supplier with "strong_bottleneck_signal" OR two with "moderate_bottleneck_signal" = proceed to Phase 4 with these as additional candidates.
+
 ### Phase 4: Bottleneck Screening
 
-**What to do**: Apply concentration analysis and the 6-Criteria Bottleneck Scoring to each stress point identified in Phase 3. Rank candidates by asymmetry.
+**What to do**: Apply concentration analysis and the 6-Criteria Bottleneck Scoring to each stress point identified in Phase 3 (and any additional candidates from Phase 3.5). Rank candidates by asymmetry.
 
 **How to analyze**: At each concentration point from Phase 3, apply the 6-Criteria framework from `supply_chain_bottleneck.md` (supply concentration, capacity constraints, geopolitical risk, long lead times, no substitutes, cost insignificance + deployment criticality). Screen for publicly traded companies at those chokepoints using financial data collection and screening capabilities. Collect institutional holder data and float analysis for each candidate. Prioritize by: (Supply Dominance / Market Cap) x Balance Sheet Factor x (1 - IO%).
 
