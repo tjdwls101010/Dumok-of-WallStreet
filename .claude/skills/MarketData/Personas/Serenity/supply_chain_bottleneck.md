@@ -27,6 +27,8 @@ When the pipeline provides `sec_supply_chain` data (sec_status = SEC_SC_availabl
 | revenue_concentration | 1 (Supply concentration) | Customer % data from Notes — revenue dependence quantification |
 | geographic_revenue | 3 (Geopolitical risk) | Quantitative geo-revenue % from Notes — overrides heuristic scoring |
 | purchase_obligations | 1, 2 (Supply conc., Capacity) | Named supplier obligations with dollar amounts and timeframes |
+| market_risk_disclosures | 3 (Geopolitical), 5 (No substitutes) | FX high-risk exposure → geo-risk reinforcement; commodity exposure → no-substitute boost |
+| inventory_composition | 2 (Capacity constraints) | Raw materials >50% or obsolescence → capacity constraint boost |
 
 ### Forced Multi-hop Discovery with SEC Baseline
 After establishing Layer 1-2 from SEC data, apply the Forced Multi-hop Discovery Rule for Layer 3-4:
@@ -125,7 +127,7 @@ This is the SINGLE authoritative scoring framework. Apply these six criteria to 
 
 Criterion 6 is the most asymmetric type: a $100 substrate in a $20B deployment can command $10,000 if supply is constrained, because delaying the deployment costs far more.
 
-> **Pipeline Integration (v4.5)**: The pipeline automates pre-scoring of 5 out of 6 criteria from SEC supply chain data, enhanced with Item 8 Notes quantitative data (revenue concentration %, geographic revenue %, purchase obligations). Criterion 6 (cost insignificance) requires agent judgment. Assessment thresholds: strong (>= 3.0/4.5), partial (1.5-3.0), weak (< 1.5). Agent should validate and adjust via WebSearch cross-validation. Discover output structure via `extract_docstring.py`.
+> **Pipeline Integration (v4.6)**: The pipeline automates pre-scoring of 5 out of 6 criteria from SEC supply chain data, enhanced with Item 7A (market risk disclosures: commodity/FX/interest rate), Item 8 Notes quantitative data (revenue concentration %, geographic revenue %, purchase obligations, inventory composition), and 20-F support for foreign private issuers (auto-fallback from 10-K). Criterion 6 (cost insignificance) requires agent judgment. Assessment thresholds: strong (>= 3.0/4.5), partial (1.5-3.0), weak (< 1.5). Agent should validate and adjust via WebSearch cross-validation. Discover output structure via `extract_docstring.py`.
 
 ---
 

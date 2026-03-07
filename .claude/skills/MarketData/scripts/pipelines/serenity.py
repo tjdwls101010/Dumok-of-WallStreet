@@ -672,7 +672,8 @@ def _summarize_sec_supply_chain(data):
 	for category in ("suppliers", "customers", "single_source_dependencies",
 					"geographic_concentration", "capacity_constraints",
 					"supply_chain_risks", "revenue_concentration",
-					"geographic_revenue", "purchase_obligations"):
+					"geographic_revenue", "purchase_obligations",
+					"market_risk_disclosures", "inventory_composition"):
 		items = sc.get(category, [])
 		cap = 10 if category in high_volume else 15
 		if len(items) > cap:
@@ -763,6 +764,12 @@ def _build_evidence_chain_l3(ticker):
 
 _HIGH_RISK_LOCATIONS = {"taiwan", "china", "hong kong", "mainland china"}
 _MEDIUM_RISK_LOCATIONS = {"south korea", "korea", "israel", "vietnam", "russia"}
+# Currency keywords → high-risk location mapping (for FX boost in _pre_score_bottleneck)
+_FX_HIGH_RISK_CURRENCIES = {
+	"nt dollar": "taiwan", "nt$": "taiwan", "new taiwan dollar": "taiwan", "twd": "taiwan",
+	"renminbi": "china", "rmb": "china", "cny": "china", "yuan": "china", "cnh": "china",
+	"hkd": "hong kong", "hong kong dollar": "hong kong",
+}
 
 
 def _pre_score_bottleneck(sec_sc_data):
@@ -783,14 +790,17 @@ def _pre_score_bottleneck(sec_sc_data):
 	all_texts = []
 	for cat_key in ("suppliers", "customers", "single_source_dependencies",
 		"geographic_concentration", "capacity_constraints", "supply_chain_risks",
-		"revenue_concentration", "geographic_revenue", "purchase_obligations"):
+		"revenue_concentration", "geographic_revenue", "purchase_obligations",
+		"market_risk_disclosures", "inventory_composition"):
 		for entry in (supply_chain.get(cat_key) or []):
 			if isinstance(entry, dict):
 				for field in ("context", "constraint", "risk", "relationship", "activity",
-					"component", "obligation_type", "amount", "timeframe"):
+					"component", "obligation_type", "amount", "timeframe",
+					"risk_type", "exposure", "sensitivity", "hedging",
+					"category", "pct_of_total"):
 					val = entry.get(field, "") or ""
 					if val:
-						all_texts.append(val)
+						all_texts.append(str(val))
 	all_text_blob = " ".join(all_texts)
 
 	# 1. Supply concentration (single_source_dependencies + purchase_obligations)
@@ -864,6 +874,20 @@ def _pre_score_bottleneck(sec_sc_data):
 		if is_resolving:
 			cc_score = min(cc_score, 0.25)
 			cc_evidence += " (resolving language detected — capped)"
+		# Inventory composition boost: raw materials >50% or obsolescence → capacity signal
+		inv_comp = supply_chain.get("inventory_composition") or []
+		if inv_comp:
+			raw_pct = 0.0
+			obsolescence_found = False
+			for inv_entry in inv_comp:
+				if inv_entry.get("category") == "raw_materials" and inv_entry.get("pct_of_total"):
+					raw_pct = max(raw_pct, inv_entry["pct_of_total"])
+				inv_ctx = (inv_entry.get("context", "") or "").lower()
+				if any(kw in inv_ctx for kw in ("obsolescen", "write-down", "write down", "impairment", "valuation adjustment")):
+					obsolescence_found = True
+			if raw_pct > 50 or obsolescence_found:
+				cc_score = min(1.0, cc_score + 0.15)
+				cc_evidence += f" + inventory signal (raw_materials={raw_pct:.0f}%, obsolescence={'yes' if obsolescence_found else 'no'})"
 		criteria["capacity_constraints"] = {"score": cc_score, "evidence": cc_evidence}
 	else:
 		criteria["capacity_constraints"] = {"score": 0.0, "evidence": "No capacity constraints mentioned"}
@@ -928,6 +952,25 @@ def _pre_score_bottleneck(sec_sc_data):
 		else:
 			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 
+	# FX market risk reinforcement: high-risk location FX exposure → geo-risk boost
+	mrd = supply_chain.get("market_risk_disclosures") or []
+	fx_high_risk = False
+	for mr_entry in mrd:
+		if (mr_entry.get("risk_type") or "").lower() == "fx":
+			exp_text = ((mr_entry.get("exposure", "") or "") + " " + (mr_entry.get("context", "") or "")).lower()
+			if any(loc in exp_text for loc in _HIGH_RISK_LOCATIONS):
+				fx_high_risk = True
+				break
+			if any(cur in exp_text for cur in _FX_HIGH_RISK_CURRENCIES):
+				fx_high_risk = True
+				break
+	if fx_high_risk and "geopolitical_risk" in criteria:
+		geo_score = criteria["geopolitical_risk"]["score"]
+		if geo_score > 0:
+			new_geo = min(1.0, geo_score + 0.15)
+			criteria["geopolitical_risk"]["score"] = new_geo
+			criteria["geopolitical_risk"]["evidence"] += " + FX high-risk location exposure (Item 7A)"
+
 	# 4. Long lead times (search all categories + numeric extraction)
 	lead_time_pattern = re.compile(r"lead\s*time|backlog|wait\s*time|delivery\s*delay|allocation|extended\s*lead", re.IGNORECASE)
 	lead_duration_pattern = re.compile(r"(\d+)\s*(?:month|week|year|quarter)", re.IGNORECASE)
@@ -972,6 +1015,15 @@ def _pre_score_bottleneck(sec_sc_data):
 		criteria["no_substitutes"] = {"score": 0.5, "evidence": "Sole source / no substitute language found"}
 	else:
 		criteria["no_substitutes"] = {"score": 0.0, "evidence": "No sole-source language found"}
+
+	# Commodity market risk reinforcement: commodity exposure + existing score → boost
+	commodity_found = any(
+		(mr.get("risk_type") or "").lower() == "commodity" for mr in mrd
+	)
+	if commodity_found and criteria["no_substitutes"]["score"] > 0:
+		ns_score = min(1.0, criteria["no_substitutes"]["score"] + 0.15)
+		criteria["no_substitutes"]["score"] = ns_score
+		criteria["no_substitutes"]["evidence"] += " + commodity price exposure (Item 7A)"
 
 	# 6. Cost insignificance — requires agent assessment
 	criteria["cost_insignificance"] = {"score": 0, "evidence": "Cannot determine from SEC data", "requires_agent_assessment": True}
@@ -3320,7 +3372,7 @@ def main():
 		"tickers", nargs="+", help="2 or more stock ticker symbols"
 	)
 	sp_cross.add_argument(
-		"--form", default="10-K", help="SEC filing form type (default: 10-K)"
+		"--form", default="10-K", help="SEC filing form type (default: 10-K, auto-fallback to 20-F)"
 	)
 	sp_cross.add_argument(
 		"--mode", choices=["regex", "llm"], default="llm",

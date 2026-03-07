@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
-"""SEC supply chain intelligence extraction from 10-K/10-Q and 8-K filings.
+"""SEC supply chain intelligence extraction from 10-K/10-Q/20-F and 8-K filings.
 
 Extracts supply chain relationships, single-source dependencies, geographic
 concentration, capacity constraints, revenue concentration, geographic revenue
-breakdown, and purchase obligations from SEC filings. Uses direct HTTP calls
-to SEC EDGAR (no disk I/O). Multi-stage regex + heuristic parsing with
-graceful degradation on section extraction failure. LLM mode additionally
-extracts Item 8 Notes (revenue/segment, commitments, concentration of risk)
-for quantitative supply chain data.
+breakdown, purchase obligations, market risk disclosures (Item 7A), and
+inventory composition from SEC filings. Uses direct HTTP calls to SEC EDGAR
+(no disk I/O). Multi-stage regex + heuristic parsing with graceful degradation
+on section extraction failure. LLM mode additionally extracts Item 7A (market
+risk), Item 8 Notes (revenue/segment, commitments, concentration of risk,
+inventory) for quantitative supply chain data. Supports 20-F filings for
+foreign private issuers (TSMC, ASML, etc.) with auto-fallback from 10-K.
 
 Commands:
-	supply-chain: Extract supply chain structure from latest 10-K or 10-Q
+	supply-chain: Extract supply chain structure from latest 10-K, 10-Q, or 20-F
 	events: Extract supply-chain-related events from recent 8-K filings
 
 Args:
 	For supply-chain:
-		symbol (str): Stock ticker symbol (e.g., "AAPL", "NVDA")
-		--form (str): Filing form type, "10-K" or "10-Q" (default: "10-K")
-		--max-chars (int): Max characters per section to process (default: 80000)
+		symbol (str): Stock ticker symbol (e.g., "AAPL", "NVDA", "TSM")
+		--form (str): Filing form type, "10-K", "10-Q", or "20-F" (default: "10-K", auto-fallback to 20-F)
+		--max-chars (int): Max characters per section to process (default: 500000)
 		--mode (str): Extraction mode - "llm" (default, Gemini structured output) or "regex" (free, no API key)
 
 	For events:
@@ -61,12 +63,19 @@ Returns:
 					"context": str}],
 				"purchase_obligations": [{"counterparty": str,
 					"obligation_type": str, "amount": str,
-					"timeframe": str, "context": str}]
+					"timeframe": str, "context": str}],
+				"market_risk_disclosures": [{"risk_type": str,
+					"exposure": str, "sensitivity": str,
+					"hedging": str, "context": str}],
+				"inventory_composition": [{"category": str,
+					"amount": str, "pct_of_total": float|None,
+					"context": str}]
 			},
 			"sections_extracted": {
 				"item_1_business": bool,
 				"item_1a_risk_factors": bool,
 				"item_7_mda": bool,
+				"item_7a_market_risk": bool,
 				"item_8_notes": bool
 			},
 			"extraction_stats": {
@@ -208,6 +217,8 @@ _RISK_PATTERNS = [
 # LLM-based extraction (Gemini structured output + Pydantic)
 # ---------------------------------------------------------------------------
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -267,6 +278,21 @@ class PurchaseObligationEntry(BaseModel):
 	context: str = Field(default="", description="1-3 sentences from Notes.")
 
 
+class MarketRiskEntry(BaseModel):
+	risk_type: Literal["commodity", "fx", "interest_rate"] = Field(description="Type: 'commodity', 'fx', or 'interest_rate'.")
+	exposure: str = Field(default="", description="Specific exposure (e.g., 'gold price', 'EUR/USD').")
+	sensitivity: str = Field(default="", description="Quantitative impact if disclosed (e.g., '10% increase = $50M COGS impact').")
+	hedging: str = Field(default="", description="Hedging strategy if disclosed.")
+	context: str = Field(default="", description="1-3 sentences from filing.")
+
+
+class InventoryCompositionEntry(BaseModel):
+	category: Literal["raw_materials", "work_in_progress", "finished_goods"] = Field(description="Category: 'raw_materials', 'work_in_progress', or 'finished_goods'.")
+	amount: str = Field(default="", description="Dollar amount if disclosed (e.g., '$1.2 billion').")
+	pct_of_total: float | None = Field(default=None, description="% of total inventory.")
+	context: str = Field(default="", description="1-3 sentences from Notes (valuation, aging, obsolescence).")
+
+
 class SupplyChainExtraction(BaseModel):
 	suppliers: list[SupplierEntry] = Field(default_factory=list, description="Companies that supply products, materials, or services to the filing company.")
 	customers: list[CustomerEntry] = Field(default_factory=list, description="Companies that purchase products or services from the filing company.")
@@ -278,6 +304,9 @@ class SupplyChainExtraction(BaseModel):
 	revenue_concentration: list[RevenueConcentrationEntry] = Field(default_factory=list, description="Customer/segment revenue concentration from Notes to Financial Statements (FASB ASC 280).")
 	geographic_revenue: list[GeographicRevenueEntry] = Field(default_factory=list, description="Revenue breakdown by country/region from Notes to Financial Statements.")
 	purchase_obligations: list[PurchaseObligationEntry] = Field(default_factory=list, description="Purchase commitments, capacity reservations, take-or-pay contracts from Notes.")
+	# Item 7A + Notes: Inventory (LLM mode only, regex returns empty)
+	market_risk_disclosures: list[MarketRiskEntry] = Field(default_factory=list, description="Market risk exposures from Item 7A: commodity, FX, and interest rate risks.")
+	inventory_composition: list[InventoryCompositionEntry] = Field(default_factory=list, description="Inventory breakdown (raw materials, WIP, finished goods) from Notes to Financial Statements.")
 
 
 _LLM_PROMPT = """\
@@ -313,6 +342,20 @@ Rules:
 12. Purchase obligations: From Notes (Commitments and Contingencies), extract
     purchase commitments, capacity reservations, take-or-pay contracts.
     Include dollar amounts and timeframes when disclosed.
+13. Market risk disclosures: From Item 7A, extract commodity price exposures
+    (specific commodities named), foreign exchange exposures (currencies and
+    country pairs), and interest rate risks. Classify risk_type as "commodity",
+    "fx", or "interest_rate". Include quantitative sensitivity data when
+    disclosed (e.g., "10% increase in gold prices would impact revenue by
+    $X million").
+14. Inventory composition: From Notes (Inventory), extract raw materials,
+    work-in-progress, and finished goods amounts and percentages. Classify
+    category as "raw_materials", "work_in_progress", or "finished_goods".
+    Note any inventory obsolescence, write-downs, or valuation adjustments.
+
+Section tags in the text: [ITEM_1_BUSINESS] = Item 1, [ITEM_1A_RISK_FACTORS] = Item 1A,
+[ITEM_7_MDA] = Item 7/MD&A, [ITEM_7A_MARKET_RISK] = Item 7A (market risk),
+[ITEM_8_NOTES_*] = Notes to Financial Statements (revenue, commitments, concentration, inventory).
 
 Filing company: {company_name}
 
@@ -383,6 +426,7 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		"capacity_constraints": [], "supply_chain_risks": [],
 		"revenue_concentration": [], "geographic_revenue": [],
 		"purchase_obligations": [],
+		"market_risk_disclosures": [], "inventory_composition": [],
 	}
 	entities = set()
 	_META = {"source_section": "llm_extraction", "confidence": "high"}
@@ -412,6 +456,10 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		if e.counterparty:
 			entities.add(e.counterparty)
 		supply_chain["purchase_obligations"].append({**e.model_dump(), **_META})
+	for e in extraction.market_risk_disclosures:
+		supply_chain["market_risk_disclosures"].append({**e.model_dump(), **_META})
+	for e in extraction.inventory_composition:
+		supply_chain["inventory_composition"].append({**e.model_dump(), **_META})
 
 	total_matches = sum(len(v) for v in supply_chain.values())
 	return supply_chain, total_matches, len(entities)
@@ -491,26 +539,28 @@ def _extract_section(content, start_patterns, end_patterns, max_chars):
 	"""Multi-stage section extraction with fallback.
 
 	Operates on pre-cleaned plain text (HTML already stripped).
-	Stage 1: Regex for section header markers
-	Stage 2: Broader keyword fallback
+	Tries all regex matches per pattern, skipping ToC entries (< 500 chars).
 	"""
-	# Stage 1: Direct regex match on cleaned text
-	# Try all matches of each pattern — skip ToC entries (short sections)
 	for pattern in start_patterns:
 		for match in re.finditer(pattern, content, re.IGNORECASE):
 			start = match.start()
-			# Find end
+			# Search for end marker starting just past the matched header text
+			search_offset = start + len(match.group(0))
+			best_end = None
 			for end_pattern in end_patterns:
-				end_match = re.search(end_pattern, content[start + 200:], re.IGNORECASE)
+				end_match = re.search(end_pattern, content[search_offset:], re.IGNORECASE)
 				if end_match:
-					end = start + 200 + end_match.start()
-					section = content[start:end]
-					# Skip ToC entries — real sections are > 500 chars
-					if len(section) < 500:
-						continue
-					if len(section) > max_chars:
-						section = section[:max_chars]
-					return section.strip()
+					candidate = search_offset + end_match.start()
+					if best_end is None or candidate < best_end:
+						best_end = candidate
+			if best_end is not None:
+				section = content[start:best_end]
+				# Skip ToC entries — real sections are > 500 chars
+				if len(section) < 500:
+					continue
+				if len(section) > max_chars:
+					section = section[:max_chars]
+				return section.strip()
 
 			# No end found — take max_chars from start (likely last section)
 			section = content[start:start + max_chars]
@@ -520,20 +570,27 @@ def _extract_section(content, start_patterns, end_patterns, max_chars):
 	return None
 
 
-def _extract_item8_notes(raw_html, max_chars):
-	"""Extract targeted Notes from Item 8 Financial Statements.
+def _extract_item8_notes(raw_html, max_chars, form="10-K"):
+	"""Extract targeted Notes from Financial Statements (Item 8 for 10-K, Item 18/19 for 20-F).
 
-	Extracts 3 specific Note sections relevant to supply chain quantitative
-	data: revenue/segment info, commitments/obligations, and concentration
-	of risk. Returns dict: note_name -> text. Empty dict on failure.
+	Extracts specific Note sections relevant to supply chain quantitative
+	data: revenue/segment info, commitments/obligations, concentration
+	of risk, and inventory composition. Returns dict: note_name -> text.
+	Empty dict on failure.
 	"""
 	content = _prepare_content(raw_html)
 
-	# Step 1: Item 8 시작 찾기
-	item8_patterns = [
-		r"Item\s+8\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
-		r"Item\s+8\.?\s*(?:—|–|-)?\s*Consolidated\s+Financial",
-	]
+	# Step 1: Financial Statements 시작 찾기 (form-dependent)
+	if form == "20-F":
+		item8_patterns = [
+			r"Item\s+18\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
+			r"Item\s+19\.?\s*(?:—|–|-)?\s*(?:Exhibits|Financial\s+Statements)",
+		]
+	else:
+		item8_patterns = [
+			r"Item\s+8\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
+			r"Item\s+8\.?\s*(?:—|–|-)?\s*Consolidated\s+Financial",
+		]
 	item8_start = None
 	for pat in item8_patterns:
 		for m in re.finditer(pat, content, re.IGNORECASE):
@@ -555,9 +612,12 @@ def _extract_item8_notes(raw_html, max_chars):
 		return {}
 	notes_start = item8_start + notes_match.start()
 
-	# Step 3: Item 9로 끝 범위 결정
-	item9_match = re.search(r"Item\s+9\.?\s", content[notes_start:], re.IGNORECASE)
-	notes_end = notes_start + item9_match.start() if item9_match else min(notes_start + max_chars * 3, len(content))
+	# Step 3: 끝 범위 결정 (form-dependent)
+	if form == "20-F":
+		end_match = re.search(r"Item\s+19\.?\s|SIGNATURES", content[notes_start:], re.IGNORECASE)
+	else:
+		end_match = re.search(r"Item\s+9\.?\s", content[notes_start:], re.IGNORECASE)
+	notes_end = notes_start + end_match.start() if end_match else min(notes_start + max_chars * 3, len(content))
 	notes_text = content[notes_start:notes_end]
 
 	# Step 4: 타겟 Note 추출
@@ -570,6 +630,9 @@ def _extract_item8_notes(raw_html, max_chars):
 		],
 		"concentration": [
 			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Concentration\s+of\s+(?:Credit\s+)?Risk|Significant\s+Customers?|Customer\s+Concentration)",
+		],
+		"inventory": [
+			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Inventor(?:y|ies)\b)",
 		],
 	}
 	result = {}
@@ -628,6 +691,15 @@ def _extract_10k_sections(raw_html, max_chars):
 		max_chars=max_chars,
 	)
 
+	# Item 7A: Quantitative and Qualitative Disclosures About Market Risk
+	sections["item_7a_market_risk"] = _extract_section(
+		content,
+		[r"Item\s+7A\.?\s*(?:—|–|-)?\s*Quantitative\s+and\s+Qualitative",
+		 r"Item\s+7A\.?\s*(?:—|–|-)?\s*Market\s+Risk"],
+		[r"Item\s+8\.?\s", r"Item\s+9\.?\s"],
+		max_chars,
+	)
+
 	return sections
 
 
@@ -664,6 +736,46 @@ def _extract_10q_sections(raw_html, max_chars):
 
 	# No Item 1 Business in 10-Q typically
 	sections["item_1_business"] = None
+
+	return sections
+
+
+def _extract_20f_sections(raw_html, max_chars):
+	"""Extract supply chain sections from 20-F (Foreign Private Issuer).
+
+	Maps to 10-K equivalent keys for downstream compatibility.
+	20-F structures vary widely (TSM, ASML, Samsung). Patterns ordered
+	from most specific to broadest fallback.
+	"""
+	content = _prepare_content(raw_html)
+	sections = {}
+
+	# Item 4/4B (Business Overview) → item_1_business
+	sections["item_1_business"] = _extract_section(content,
+		[r"Item\s+4\.?\s*(?:B\.?)?\s*(?:—|–|-)?\s*(?:Information\s+on\s+the\s+Company|Business\s+Overview)",
+		 r"Item\s+4\.?\s*(?:—|–|-)?\s*Information\s+on\s+the\s+Company",
+		 r"Item\s+4\b[^0-9]"],
+		[r"Item\s+4A\.?\s", r"Item\s+4C\.?\s", r"Item\s+5\.?\s"], max_chars)
+
+	# Item 3D (Risk Factors) → item_1a_risk_factors
+	# TSM uses "Item 3. Key Information ... D. Risk Factors" with text between 3 and D
+	sections["item_1a_risk_factors"] = _extract_section(content,
+		[r"Item\s+3\.?\s*D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
+		 r"Item\s+3D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
+		 r"D\.\s*Risk\s+Factors"],
+		[r"Item\s+4\.?\s", r"Item\s+4A\.?\s"], max_chars)
+
+	# Item 5 (Operating and Financial Review) → item_7_mda
+	sections["item_7_mda"] = _extract_section(content,
+		[r"Item\s+5\.?\s*(?:—|–|-)?\s*Operating\s+and\s+Financial\s+Review",
+		 r"Item\s+5\b[^0-9]"],
+		[r"Item\s+6\.?\s", r"Item\s+7\.?\s"], max_chars)
+
+	# Item 11 (Market Risk) → item_7a_market_risk
+	sections["item_7a_market_risk"] = _extract_section(content,
+		[r"Item\s+11\.?\s*(?:—|–|-)?\s*Quantitative\s+and\s+Qualitative",
+		 r"Item\s+11\b[^0-9]"],
+		[r"Item\s+12\.?\s"], max_chars)
 
 	return sections
 
@@ -736,6 +848,8 @@ def _build_supply_chain_data(sections):
 		"revenue_concentration": [],
 		"geographic_revenue": [],
 		"purchase_obligations": [],
+		"market_risk_disclosures": [],
+		"inventory_composition": [],
 	}
 	total_matches = 0
 	entities = set()
@@ -909,6 +1023,24 @@ def cmd_supply_chain_extract(args):
 			}
 			break
 
+	# Auto-fallback: 10-K not found → try 20-F for foreign filers
+	if not target_filing and form == "10-K":
+		for i in range(len(forms)):
+			if forms[i] == "20-F":
+				accession = accession_numbers[i]
+				primary_doc = primary_documents[i]
+				cik_int = int(cik)
+				filing_url = (
+					f"https://www.sec.gov/Archives/edgar/data/{cik_int}/"
+					f"{accession.replace('-', '')}/{primary_doc}"
+				)
+				target_filing = {
+					"form": "20-F", "filing_date": filing_dates[i],
+					"accession_number": accession, "filing_url": filing_url,
+				}
+				form = "20-F"  # Update for downstream routing
+				break
+
 	if not target_filing:
 		output_json({
 			"data": None,
@@ -935,22 +1067,26 @@ def cmd_supply_chain_extract(args):
 
 	# Extract supply chain data based on mode
 	if mode == "llm":
-		# Section-focused extraction: extract Item 1, 1A, 7 separately then
-		# send ALL sections to Gemini (no budget truncation). Gemini 2.5 Flash
-		# handles 1M tokens; typical 3-section text (~200K chars ≈ 50K tokens)
-		# is well within capacity. Sending complete sections ensures zero loss
-		# of supply chain intelligence vs. the old blind-truncation approach.
-		section_extractor = _extract_10q_sections if form == "10-Q" else _extract_10k_sections
+		# Section-focused extraction: extract Item 1, 1A, 7, 7A + Notes separately
+		# then send ALL sections to Gemini. Gemini 2.5 Flash handles 1M tokens;
+		# typical 4-section text + Notes (~400K chars ≈ 100K tokens) is well
+		# within capacity. Per-section guard (default 500K) prevents edge cases.
+		if form == "10-Q":
+			section_extractor = _extract_10q_sections
+		elif form == "20-F":
+			section_extractor = _extract_20f_sections
+		else:
+			section_extractor = _extract_10k_sections
 		sections = section_extractor(content, max_chars)
 		sections_extracted = {k: v is not None for k, v in sections.items()}
 		sections_found = sum(1 for v in sections.values() if v is not None)
 
-		# Extract Item 8 Notes (10-K only, LLM mode only)
-		item8_notes = {} if form == "10-Q" else _extract_item8_notes(content, max_chars)
+		# Extract Notes (10-K/20-F only, LLM mode only)
+		item8_notes = {} if form == "10-Q" else _extract_item8_notes(content, max_chars, form=form)
 		sections_extracted["item_8_notes"] = bool(item8_notes)
 
 		if sections_found > 0:
-			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda"]
+			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda", "item_7a_market_risk"]
 			section_parts = [
 				f"[{key.upper()}]\n{sections[key]}"
 				for key in section_keys if sections.get(key)
@@ -975,7 +1111,7 @@ def cmd_supply_chain_extract(args):
 						"total_matches": total_matches,
 						"unique_entities": unique_entities,
 						"sections_found": sections_found,
-						"sections_attempted": 3,
+						"sections_attempted": 4,
 						"mode": "llm",
 					},
 				},
@@ -993,6 +1129,8 @@ def cmd_supply_chain_extract(args):
 	# Regex mode (default)
 	if form == "10-Q":
 		sections = _extract_10q_sections(content, max_chars)
+	elif form == "20-F":
+		sections = _extract_20f_sections(content, max_chars)
 	else:
 		sections = _extract_10k_sections(content, max_chars)
 
@@ -1010,7 +1148,7 @@ def cmd_supply_chain_extract(args):
 				"total_matches": total_matches,
 				"unique_entities": unique_entities,
 				"sections_found": sections_found,
-				"sections_attempted": 3,
+				"sections_attempted": 4,
 				"mode": "regex",
 			},
 		},
@@ -1146,8 +1284,8 @@ def main():
 	# supply-chain
 	sp = sub.add_parser("supply-chain", help="Extract supply chain from 10-K/10-Q")
 	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--form", default="10-K", help="Form type (10-K or 10-Q)")
-	sp.add_argument("--max-chars", type=int, default=80000, help="Max chars per section")
+	sp.add_argument("--form", default="10-K", help="Form type (10-K, 10-Q, or 20-F)")
+	sp.add_argument("--max-chars", type=int, default=500000, help="Max chars per section")
 	sp.add_argument("--mode", choices=["regex", "llm"], default="llm",
 					help="Extraction mode: 'llm' (default, Gemini structured output) or 'regex' (free, no API key)")
 	sp.set_defaults(func=cmd_supply_chain_extract)
