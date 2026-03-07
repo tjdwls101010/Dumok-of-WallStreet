@@ -2,9 +2,12 @@
 """SEC supply chain intelligence extraction from 10-K/10-Q and 8-K filings.
 
 Extracts supply chain relationships, single-source dependencies, geographic
-concentration, and capacity constraints from SEC filings. Uses direct HTTP
-calls to SEC EDGAR (no disk I/O). Multi-stage regex + heuristic parsing
-with graceful degradation on section extraction failure.
+concentration, capacity constraints, revenue concentration, geographic revenue
+breakdown, and purchase obligations from SEC filings. Uses direct HTTP calls
+to SEC EDGAR (no disk I/O). Multi-stage regex + heuristic parsing with
+graceful degradation on section extraction failure. LLM mode additionally
+extracts Item 8 Notes (revenue/segment, commitments, concentration of risk)
+for quantitative supply chain data.
 
 Commands:
 	supply-chain: Extract supply chain structure from latest 10-K or 10-Q
@@ -49,12 +52,22 @@ Returns:
 					"context": str, "source_section": str,
 					"confidence": str}],
 				"supply_chain_risks": [{"risk": str, "context": str,
-					"source_section": str, "confidence": str}]
+					"source_section": str, "confidence": str}],
+				"revenue_concentration": [{"entity": str,
+					"revenue_pct": float|None, "revenue_amount": str,
+					"context": str}],
+				"geographic_revenue": [{"region": str,
+					"revenue_pct": float|None, "revenue_amount": str,
+					"context": str}],
+				"purchase_obligations": [{"counterparty": str,
+					"obligation_type": str, "amount": str,
+					"timeframe": str, "context": str}]
 			},
 			"sections_extracted": {
 				"item_1_business": bool,
 				"item_1a_risk_factors": bool,
-				"item_7_mda": bool
+				"item_7_mda": bool,
+				"item_8_notes": bool
 			},
 			"extraction_stats": {
 				"total_matches": int,
@@ -232,6 +245,28 @@ class SupplyChainRiskEntry(BaseModel):
 	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing this risk.")
 
 
+class RevenueConcentrationEntry(BaseModel):
+	entity: str = Field(description="Customer or segment name from filing.")
+	revenue_pct: float | None = Field(default=None, description="% of total revenue (e.g., 35.2).")
+	revenue_amount: str = Field(default="", description="Amount if disclosed (e.g., '$5.2 billion').")
+	context: str = Field(default="", description="1-3 sentences from Notes.")
+
+
+class GeographicRevenueEntry(BaseModel):
+	region: str = Field(description="Country or region (e.g., 'United States', 'China').")
+	revenue_pct: float | None = Field(default=None, description="% of total revenue.")
+	revenue_amount: str = Field(default="", description="Amount if disclosed.")
+	context: str = Field(default="", description="1-3 sentences from Notes.")
+
+
+class PurchaseObligationEntry(BaseModel):
+	counterparty: str = Field(default="", description="Supplier name if disclosed.")
+	obligation_type: str = Field(description="Type (e.g., 'inventory commitment', 'capacity reservation').")
+	amount: str = Field(default="", description="Dollar amount (e.g., '$2.5 billion').")
+	timeframe: str = Field(default="", description="Duration (e.g., 'through fiscal 2027').")
+	context: str = Field(default="", description="1-3 sentences from Notes.")
+
+
 class SupplyChainExtraction(BaseModel):
 	suppliers: list[SupplierEntry] = Field(default_factory=list, description="Companies that supply products, materials, or services to the filing company.")
 	customers: list[CustomerEntry] = Field(default_factory=list, description="Companies that purchase products or services from the filing company.")
@@ -239,6 +274,10 @@ class SupplyChainExtraction(BaseModel):
 	geographic_concentration: list[GeographicEntry] = Field(default_factory=list, description="Locations where manufacturing, production, or sourcing is concentrated.")
 	capacity_constraints: list[CapacityConstraintEntry] = Field(default_factory=list, description="Production capacity limitations, extended lead times, or backlogs.")
 	supply_chain_risks: list[SupplyChainRiskEntry] = Field(default_factory=list, description="Supply disruption risks including tariffs, shortages, geopolitical risks.")
+	# Item 8 Notes (LLM mode only, regex returns empty)
+	revenue_concentration: list[RevenueConcentrationEntry] = Field(default_factory=list, description="Customer/segment revenue concentration from Notes to Financial Statements (FASB ASC 280).")
+	geographic_revenue: list[GeographicRevenueEntry] = Field(default_factory=list, description="Revenue breakdown by country/region from Notes to Financial Statements.")
+	purchase_obligations: list[PurchaseObligationEntry] = Field(default_factory=list, description="Purchase commitments, capacity reservations, take-or-pay contracts from Notes.")
 
 
 _LLM_PROMPT = """\
@@ -266,6 +305,14 @@ Rules:
    Avoid vague descriptions like "supplier" or "customer".
 9. Only infer relationships where the filing text provides contextual support.
    Do not fabricate connections or guess identities not supported by the text.
+10. Revenue concentration: From Notes to Financial Statements, extract
+    customers/segments with specific % of revenue. Include exact percentage
+    as revenue_pct (e.g., 35.2 for "35.2%"). Each customer gets its own entry.
+11. Geographic revenue: From Notes, extract revenue by country/region with
+    exact percentages. Use standardized country names ("United States" not "domestic").
+12. Purchase obligations: From Notes (Commitments and Contingencies), extract
+    purchase commitments, capacity reservations, take-or-pay contracts.
+    Include dollar amounts and timeframes when disclosed.
 
 Filing company: {company_name}
 
@@ -334,6 +381,8 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		"suppliers": [], "customers": [],
 		"single_source_dependencies": [], "geographic_concentration": [],
 		"capacity_constraints": [], "supply_chain_risks": [],
+		"revenue_concentration": [], "geographic_revenue": [],
+		"purchase_obligations": [],
 	}
 	entities = set()
 	_META = {"source_section": "llm_extraction", "confidence": "high"}
@@ -353,6 +402,16 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		supply_chain["capacity_constraints"].append({**e.model_dump(), **_META})
 	for e in extraction.supply_chain_risks:
 		supply_chain["supply_chain_risks"].append({**e.model_dump(), **_META})
+	for e in extraction.revenue_concentration:
+		if e.entity:
+			entities.add(e.entity)
+		supply_chain["revenue_concentration"].append({**e.model_dump(), **_META})
+	for e in extraction.geographic_revenue:
+		supply_chain["geographic_revenue"].append({**e.model_dump(), **_META})
+	for e in extraction.purchase_obligations:
+		if e.counterparty:
+			entities.add(e.counterparty)
+		supply_chain["purchase_obligations"].append({**e.model_dump(), **_META})
 
 	total_matches = sum(len(v) for v in supply_chain.values())
 	return supply_chain, total_matches, len(entities)
@@ -459,6 +518,67 @@ def _extract_section(content, start_patterns, end_patterns, max_chars):
 				return section.strip()
 
 	return None
+
+
+def _extract_item8_notes(raw_html, max_chars):
+	"""Extract targeted Notes from Item 8 Financial Statements.
+
+	Extracts 3 specific Note sections relevant to supply chain quantitative
+	data: revenue/segment info, commitments/obligations, and concentration
+	of risk. Returns dict: note_name -> text. Empty dict on failure.
+	"""
+	content = _prepare_content(raw_html)
+
+	# Step 1: Item 8 시작 찾기
+	item8_patterns = [
+		r"Item\s+8\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
+		r"Item\s+8\.?\s*(?:—|–|-)?\s*Consolidated\s+Financial",
+	]
+	item8_start = None
+	for pat in item8_patterns:
+		for m in re.finditer(pat, content, re.IGNORECASE):
+			if len(content[m.start():m.start() + 1000]) > 500:  # Skip ToC
+				item8_start = m.start()
+				break
+		if item8_start:
+			break
+	if item8_start is None:
+		return {}
+
+	# Step 2: "Notes to Financial Statements" 시작 찾기
+	search_region = content[item8_start:item8_start + 500000]
+	notes_match = re.search(
+		r"Notes?\s+to\s+(?:the\s+)?(?:Consolidated\s+)?Financial\s+Statements",
+		search_region, re.IGNORECASE,
+	)
+	if not notes_match:
+		return {}
+	notes_start = item8_start + notes_match.start()
+
+	# Step 3: Item 9로 끝 범위 결정
+	item9_match = re.search(r"Item\s+9\.?\s", content[notes_start:], re.IGNORECASE)
+	notes_end = notes_start + item9_match.start() if item9_match else min(notes_start + max_chars * 3, len(content))
+	notes_text = content[notes_start:notes_end]
+
+	# Step 4: 타겟 Note 추출
+	note_patterns = {
+		"revenue_segment": [
+			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Revenue|Segment\s+Information|Operating\s+Segments?|Disaggregation\s+of\s+Revenue)",
+		],
+		"commitments": [
+			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Commitments?\s+and\s+Contingenc|Purchase\s+Obligations?|Purchase\s+Commitments?)",
+		],
+		"concentration": [
+			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Concentration\s+of\s+(?:Credit\s+)?Risk|Significant\s+Customers?|Customer\s+Concentration)",
+		],
+	}
+	result = {}
+	for name, patterns in note_patterns.items():
+		section = _extract_section(notes_text, patterns,
+			[r"Note\s+\d+\s*[-—–:.]"], max_chars)
+		if section:
+			result[name] = section
+	return result
 
 
 def _extract_10k_sections(raw_html, max_chars):
@@ -613,6 +733,9 @@ def _build_supply_chain_data(sections):
 		"geographic_concentration": [],
 		"capacity_constraints": [],
 		"supply_chain_risks": [],
+		"revenue_concentration": [],
+		"geographic_revenue": [],
+		"purchase_obligations": [],
 	}
 	total_matches = 0
 	entities = set()
@@ -822,12 +945,18 @@ def cmd_supply_chain_extract(args):
 		sections_extracted = {k: v is not None for k, v in sections.items()}
 		sections_found = sum(1 for v in sections.values() if v is not None)
 
+		# Extract Item 8 Notes (10-K only, LLM mode only)
+		item8_notes = {} if form == "10-Q" else _extract_item8_notes(content, max_chars)
+		sections_extracted["item_8_notes"] = bool(item8_notes)
+
 		if sections_found > 0:
 			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda"]
 			section_parts = [
 				f"[{key.upper()}]\n{sections[key]}"
 				for key in section_keys if sections.get(key)
 			]
+			for note_name, note_text in item8_notes.items():
+				section_parts.append(f"[ITEM_8_NOTES_{note_name.upper()}]\n{note_text}")
 			focused_text = "\n\n".join(section_parts)
 		else:
 			focused_text = _prepare_content(content)

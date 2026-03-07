@@ -668,10 +668,11 @@ def _summarize_sec_supply_chain(data):
 	if not sc:
 		return data
 
-	high_volume = ("geographic_concentration", "supply_chain_risks")
+	high_volume = ("geographic_concentration", "supply_chain_risks", "geographic_revenue")
 	for category in ("suppliers", "customers", "single_source_dependencies",
 					"geographic_concentration", "capacity_constraints",
-					"supply_chain_risks"):
+					"supply_chain_risks", "revenue_concentration",
+					"geographic_revenue", "purchase_obligations"):
 		items = sc.get(category, [])
 		cap = 10 if category in high_volume else 15
 		if len(items) > cap:
@@ -781,18 +782,21 @@ def _pre_score_bottleneck(sec_sc_data):
 	# Collect all text from all categories for broader search
 	all_texts = []
 	for cat_key in ("suppliers", "customers", "single_source_dependencies",
-		"geographic_concentration", "capacity_constraints", "supply_chain_risks"):
+		"geographic_concentration", "capacity_constraints", "supply_chain_risks",
+		"revenue_concentration", "geographic_revenue", "purchase_obligations"):
 		for entry in (supply_chain.get(cat_key) or []):
 			if isinstance(entry, dict):
-				for field in ("context", "constraint", "risk", "relationship", "activity", "component"):
+				for field in ("context", "constraint", "risk", "relationship", "activity",
+					"component", "obligation_type", "amount", "timeframe"):
 					val = entry.get(field, "") or ""
 					if val:
 						all_texts.append(val)
 	all_text_blob = " ".join(all_texts)
 
-	# 1. Supply concentration (single_source_dependencies)
+	# 1. Supply concentration (single_source_dependencies + purchase_obligations)
 	ssd = supply_chain.get("single_source_dependencies") or []
 	suppliers = supply_chain.get("suppliers") or []
+	purchase_obs = supply_chain.get("purchase_obligations") or []
 	high_conf = [d for d in ssd if d.get("confidence") == "high"]
 	# Check for sole/primary keywords in supplier relationships
 	sole_primary_pattern = re.compile(r"sole|primary|only|exclusive|single.?source|de\s*facto", re.IGNORECASE)
@@ -800,24 +804,36 @@ def _pre_score_bottleneck(sec_sc_data):
 		1 for s in suppliers
 		if sole_primary_pattern.search(s.get("relationship", "") or "")
 	)
+	# Named purchase obligations reinforce supply concentration
+	named_obligations = sum(1 for po in purchase_obs if po.get("counterparty"))
 	if len(high_conf) >= 2 or (len(ssd) >= 1 and sole_supplier_count >= 1):
 		criteria["supply_concentration"] = {
 			"score": 1.0,
-			"evidence": f"{len(high_conf)} high-conf SSD + {sole_supplier_count} sole/primary suppliers",
+			"evidence": f"{len(high_conf)} high-conf SSD + {sole_supplier_count} sole/primary suppliers" + (f" + {named_obligations} named purchase obligations" if named_obligations else ""),
 		}
-	elif len(ssd) >= 1 or sole_supplier_count >= 1:
+	elif len(ssd) >= 1 or sole_supplier_count >= 1 or named_obligations >= 2:
+		sc_score = 0.75 if named_obligations >= 2 else 0.5
 		criteria["supply_concentration"] = {
-			"score": 0.5,
-			"evidence": f"{len(ssd)} SSD, {sole_supplier_count} sole/primary supplier mentions",
+			"score": sc_score,
+			"evidence": f"{len(ssd)} SSD, {sole_supplier_count} sole/primary supplier mentions" + (f", {named_obligations} named purchase obligations" if named_obligations else ""),
 		}
 	else:
 		criteria["supply_concentration"] = {"score": 0.0, "evidence": "No single-source dependencies found"}
 
-	# 2. Capacity constraints (with duration extraction)
+	# 2. Capacity constraints (with duration extraction + purchase obligations)
 	cc = supply_chain.get("capacity_constraints") or []
-	if cc:
-		duration_pattern = re.compile(r"(\d+)\s*(?:month|year|quarter)", re.IGNORECASE)
-		resolving_pattern = re.compile(r"resolv|improv|eas|normaliz", re.IGNORECASE)
+	duration_pattern = re.compile(r"(\d+)\s*(?:month|year|quarter)", re.IGNORECASE)
+	resolving_pattern = re.compile(r"resolv|improv|eas|normaliz", re.IGNORECASE)
+	billion_pattern = re.compile(r"\$[\d.]+\s*billion", re.IGNORECASE)
+	multi_year_pattern = re.compile(r"(?:through|until|ending)\s+(?:fiscal\s+)?\d{4}|multi.?year|\d+\s*year", re.IGNORECASE)
+	# Check purchase obligations for multi-year billion-dollar commitments
+	large_obligations = 0
+	for po in purchase_obs:
+		amt = (po.get("amount", "") or "") + " " + (po.get("context", "") or "")
+		tf = (po.get("timeframe", "") or "") + " " + (po.get("context", "") or "")
+		if billion_pattern.search(amt) and multi_year_pattern.search(tf):
+			large_obligations += 1
+	if cc or large_obligations:
 		max_duration_months = 0
 		is_resolving = False
 		for entry in cc:
@@ -833,12 +849,18 @@ def _pre_score_bottleneck(sec_sc_data):
 				max_duration_months = max(max_duration_months, val)
 			if resolving_pattern.search(ctx):
 				is_resolving = True
-		if max_duration_months >= 12:
+		if max_duration_months >= 12 or large_obligations >= 1:
 			cc_score = 0.75
 			cc_evidence = f"{len(cc)} constraint(s), duration >= {max_duration_months} months"
-		else:
+			if large_obligations:
+				cc_score = min(1.0, cc_score + 0.25)
+				cc_evidence += f" + {large_obligations} multi-year billion-dollar purchase obligation(s)"
+		elif cc:
 			cc_score = 0.5
 			cc_evidence = f"{len(cc)} constraint(s) mentioned"
+		else:
+			cc_score = 0.5
+			cc_evidence = f"{large_obligations} large purchase obligation(s) indicate capacity commitment"
 		if is_resolving:
 			cc_score = min(cc_score, 0.25)
 			cc_evidence += " (resolving language detected — capped)"
@@ -846,34 +868,65 @@ def _pre_score_bottleneck(sec_sc_data):
 	else:
 		criteria["capacity_constraints"] = {"score": 0.0, "evidence": "No capacity constraints mentioned"}
 
-	# 3. Geopolitical risk (geographic concentration with risk tiers)
+	# 3. Geopolitical risk (geographic concentration with risk tiers + geographic_revenue override)
+	geo_rev = supply_chain.get("geographic_revenue") or []
 	gc = supply_chain.get("geographic_concentration") or []
-	if gc:
-		locations = [entry.get("location", "").strip().lower() for entry in gc if entry.get("location")]
-		total = len(locations)
-		if total > 0:
-			loc_counts = Counter(loc for loc in locations if loc)
-			high_risk_count = sum(c for loc, c in loc_counts.items() if loc in _HIGH_RISK_LOCATIONS)
-			medium_risk_count = sum(c for loc, c in loc_counts.items() if loc in _MEDIUM_RISK_LOCATIONS)
-			most_common_loc, most_common_count = loc_counts.most_common(1)[0] if loc_counts else ("", 0)
-			if high_risk_count > 0 and most_common_count / total > 0.3:
+	# Quantitative override: if geographic_revenue has % data, use it directly
+	geo_risk_override = False
+	if geo_rev:
+		high_risk_rev_pct = 0.0
+		high_risk_regions = []
+		for entry in geo_rev:
+			region = (entry.get("region", "") or "").strip().lower()
+			pct = entry.get("revenue_pct")
+			if pct and any(hr in region for hr in _HIGH_RISK_LOCATIONS):
+				high_risk_rev_pct += pct
+				high_risk_regions.append(entry.get("region", ""))
+		if high_risk_rev_pct > 0:
+			geo_risk_override = True
+			if high_risk_rev_pct >= 30:
 				criteria["geopolitical_risk"] = {
 					"score": 1.0,
-					"evidence": f"HIGH_RISK location concentration: {high_risk_count}/{total} entries in {', '.join(l for l in loc_counts if l in _HIGH_RISK_LOCATIONS)}",
+					"evidence": f"HIGH_RISK geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
 				}
-			elif medium_risk_count > 0 or most_common_count / total > 0.5:
+			elif high_risk_rev_pct >= 15:
 				criteria["geopolitical_risk"] = {
 					"score": 0.75,
-					"evidence": f"Geographic concentration in medium-risk or dominant location: '{most_common_loc}' ({most_common_count}/{total})",
+					"evidence": f"Moderate high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
 				}
-			elif total > 0:
-				criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present across {len(loc_counts)} locations"}
+			else:
+				criteria["geopolitical_risk"] = {
+					"score": 0.5,
+					"evidence": f"Low high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
+				}
+	# Heuristic fallback: use geographic_concentration activity count
+	if not geo_risk_override:
+		if gc:
+			locations = [entry.get("location", "").strip().lower() for entry in gc if entry.get("location")]
+			total = len(locations)
+			if total > 0:
+				loc_counts = Counter(loc for loc in locations if loc)
+				high_risk_count = sum(c for loc, c in loc_counts.items() if loc in _HIGH_RISK_LOCATIONS)
+				medium_risk_count = sum(c for loc, c in loc_counts.items() if loc in _MEDIUM_RISK_LOCATIONS)
+				most_common_loc, most_common_count = loc_counts.most_common(1)[0] if loc_counts else ("", 0)
+				if high_risk_count > 0 and most_common_count / total > 0.3:
+					criteria["geopolitical_risk"] = {
+						"score": 1.0,
+						"evidence": f"HIGH_RISK location concentration: {high_risk_count}/{total} entries in {', '.join(l for l in loc_counts if l in _HIGH_RISK_LOCATIONS)}",
+					}
+				elif medium_risk_count > 0 or most_common_count / total > 0.5:
+					criteria["geopolitical_risk"] = {
+						"score": 0.75,
+						"evidence": f"Geographic concentration in medium-risk or dominant location: '{most_common_loc}' ({most_common_count}/{total})",
+					}
+				elif total > 0:
+					criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present across {len(loc_counts)} locations"}
+				else:
+					criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 			else:
 				criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 		else:
 			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
-	else:
-		criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 
 	# 4. Long lead times (search all categories + numeric extraction)
 	lead_time_pattern = re.compile(r"lead\s*time|backlog|wait\s*time|delivery\s*delay|allocation|extended\s*lead", re.IGNORECASE)
@@ -2372,7 +2425,7 @@ def cmd_cross_chain(args):
 
 		ticker_entities = {}
 
-		for category, role in [("suppliers", "supplier"), ("single_source_dependencies", "single_source"), ("customers", "customer")]:
+		for category, role in [("suppliers", "supplier"), ("single_source_dependencies", "single_source"), ("customers", "customer"), ("revenue_concentration", "customer_concentrated")]:
 			entries = supply_chain.get(category) or []
 			for entry in entries:
 				if isinstance(entry, str):
@@ -2388,6 +2441,9 @@ def cmd_cross_chain(args):
 					ticker_entities[norm] = {"roles": set(), "original_names": set()}
 				ticker_entities[norm]["roles"].add(role)
 				ticker_entities[norm]["original_names"].add(name.strip())
+				# Store revenue_pct for customer_concentrated entries
+				if category == "revenue_concentration" and isinstance(entry, dict) and entry.get("revenue_pct"):
+					ticker_entities[norm]["revenue_pct"] = entry["revenue_pct"]
 
 		supplier_count = len([n for n, info in ticker_entities.items() if "supplier" in info["roles"] or "single_source" in info["roles"]])
 		per_ticker_stats[t] = {"supplier_count": supplier_count, "total_entities": len(ticker_entities)}
@@ -2460,12 +2516,28 @@ def cmd_cross_chain(args):
 		else:
 			assessment = "low_signal"
 
-		entity["bottleneck_signal"] = {
+		# Collect customer concentration % from revenue_concentration data
+		max_rev_pct = None
+		for t, r in refs.items():
+			roles = r.get("roles", [])
+			if isinstance(roles, set):
+				roles = list(roles)
+			if "customer_concentrated" in roles:
+				# Look up revenue_pct from entity_map
+				emap_entry = entity_map.get(entity["entity"], {}).get(t, {})
+				rpct = emap_entry.get("revenue_pct")
+				if rpct and (max_rev_pct is None or rpct > max_rev_pct):
+					max_rev_pct = rpct
+
+		signal = {
 			"supplier_ref_count": supplier_count,
 			"supplier_ref_pct": supplier_pct,
 			"single_source_count": single_source_count,
 			"assessment": assessment,
 		}
+		if max_rev_pct is not None:
+			signal["customer_concentration_pct"] = max_rev_pct
+		entity["bottleneck_signal"] = signal
 
 	shared_entities.sort(
 		key=lambda e: (
