@@ -209,7 +209,7 @@ from utils import output_json, safe_run
 SCRIPTS_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
-def _run_script(script_path, args_list):
+def _run_script(script_path, args_list, timeout=60):
 	"""Run a script and capture its JSON output."""
 	full_path = os.path.join(SCRIPTS_DIR, script_path)
 	cmd = [sys.executable, full_path] + args_list
@@ -219,7 +219,7 @@ def _run_script(script_path, args_list):
 			cmd,
 			capture_output=True,
 			text=True,
-			timeout=60,
+			timeout=timeout,
 			cwd=SCRIPTS_DIR,
 		)
 		if result.returncode == 0 and result.stdout.strip():
@@ -227,7 +227,7 @@ def _run_script(script_path, args_list):
 		else:
 			return {"error": result.stderr.strip() or "Script returned no output"}
 	except subprocess.TimeoutExpired:
-		return {"error": "Script timed out (60s)"}
+		return {"error": f"Script timed out ({timeout}s)"}
 	except json.JSONDecodeError:
 		return {"error": "Invalid JSON output from script"}
 	except Exception as e:
@@ -637,7 +637,7 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 	# Bottleneck pre-score
 	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
 		bn_score = bottleneck_pre_score.get("pre_score", 0)
-		bn_max = bottleneck_pre_score.get("pre_score_max", 4.5)
+		bn_max = bottleneck_pre_score.get("pre_score_max", 4.25)
 		codes.append(f"BOTTLENECK_PRE_{bn_score}_{bn_max}")
 
 	# Composite signal grade
@@ -733,7 +733,7 @@ def _build_l3_bottleneck(sec_sc_results):
 def _build_evidence_chain_l3(ticker):
 	"""Build L3 evidence chain link with SEC data probe."""
 	sec_result = _run_script(
-		"data_advanced/sec/supply_chain.py", ["supply-chain", ticker],
+		"data_advanced/sec/supply_chain.py", ["supply-chain", ticker], 120,
 	)
 	if sec_result and not sec_result.get("error"):
 		matches = sec_result.get("data", {}).get("extraction_stats", {}).get("total_matches", 0)
@@ -760,6 +760,10 @@ def _build_evidence_chain_l3(ticker):
 # Trapped Asset Override, Auto-Classification, Composite Signal
 # ---------------------------------------------------------------------------
 
+_HIGH_RISK_LOCATIONS = {"taiwan", "china", "hong kong", "mainland china"}
+_MEDIUM_RISK_LOCATIONS = {"south korea", "korea", "israel", "vietnam", "russia"}
+
+
 def _pre_score_bottleneck(sec_sc_data):
 	"""Score SEC supply chain data against the 6-Criteria Bottleneck Framework."""
 	if sec_sc_data is None:
@@ -774,73 +778,154 @@ def _pre_score_bottleneck(sec_sc_data):
 
 	criteria = {}
 
+	# Collect all text from all categories for broader search
+	all_texts = []
+	for cat_key in ("suppliers", "customers", "single_source_dependencies",
+		"geographic_concentration", "capacity_constraints", "supply_chain_risks"):
+		for entry in (supply_chain.get(cat_key) or []):
+			if isinstance(entry, dict):
+				for field in ("context", "constraint", "risk", "relationship", "activity", "component"):
+					val = entry.get(field, "") or ""
+					if val:
+						all_texts.append(val)
+	all_text_blob = " ".join(all_texts)
+
 	# 1. Supply concentration (single_source_dependencies)
 	ssd = supply_chain.get("single_source_dependencies") or []
+	suppliers = supply_chain.get("suppliers") or []
 	high_conf = [d for d in ssd if d.get("confidence") == "high"]
-	if len(high_conf) >= 2:
+	# Check for sole/primary keywords in supplier relationships
+	sole_primary_pattern = re.compile(r"sole|primary|only|exclusive|single.?source|de\s*facto", re.IGNORECASE)
+	sole_supplier_count = sum(
+		1 for s in suppliers
+		if sole_primary_pattern.search(s.get("relationship", "") or "")
+	)
+	if len(high_conf) >= 2 or (len(ssd) >= 1 and sole_supplier_count >= 1):
 		criteria["supply_concentration"] = {
 			"score": 1.0,
-			"evidence": f"{len(high_conf)} high-confidence single-source dependencies found",
+			"evidence": f"{len(high_conf)} high-conf SSD + {sole_supplier_count} sole/primary suppliers",
 		}
-	elif len(ssd) >= 1:
+	elif len(ssd) >= 1 or sole_supplier_count >= 1:
 		criteria["supply_concentration"] = {
 			"score": 0.5,
-			"evidence": f"{len(ssd)} single-source dependenc{'y' if len(ssd) == 1 else 'ies'} found",
+			"evidence": f"{len(ssd)} SSD, {sole_supplier_count} sole/primary supplier mentions",
 		}
 	else:
 		criteria["supply_concentration"] = {"score": 0.0, "evidence": "No single-source dependencies found"}
 
-	# 2. Capacity constraints
+	# 2. Capacity constraints (with duration extraction)
 	cc = supply_chain.get("capacity_constraints") or []
-	if len(cc) >= 1:
-		criteria["capacity_constraints"] = {"score": 0.5, "evidence": f"{len(cc)} capacity constraint{'s' if len(cc) != 1 else ''} mentioned"}
+	if cc:
+		duration_pattern = re.compile(r"(\d+)\s*(?:month|year|quarter)", re.IGNORECASE)
+		resolving_pattern = re.compile(r"resolv|improv|eas|normaliz", re.IGNORECASE)
+		max_duration_months = 0
+		is_resolving = False
+		for entry in cc:
+			ctx = (entry.get("context", "") or "") + " " + (entry.get("constraint", "") or "")
+			m = duration_pattern.search(ctx)
+			if m:
+				val = int(m.group(1))
+				unit_text = ctx[m.start():m.end()].lower()
+				if "year" in unit_text:
+					val *= 12
+				elif "quarter" in unit_text:
+					val *= 3
+				max_duration_months = max(max_duration_months, val)
+			if resolving_pattern.search(ctx):
+				is_resolving = True
+		if max_duration_months >= 12:
+			cc_score = 0.75
+			cc_evidence = f"{len(cc)} constraint(s), duration >= {max_duration_months} months"
+		else:
+			cc_score = 0.5
+			cc_evidence = f"{len(cc)} constraint(s) mentioned"
+		if is_resolving:
+			cc_score = min(cc_score, 0.25)
+			cc_evidence += " (resolving language detected — capped)"
+		criteria["capacity_constraints"] = {"score": cc_score, "evidence": cc_evidence}
 	else:
 		criteria["capacity_constraints"] = {"score": 0.0, "evidence": "No capacity constraints mentioned"}
 
-	# 3. Geopolitical risk (geographic concentration)
+	# 3. Geopolitical risk (geographic concentration with risk tiers)
 	gc = supply_chain.get("geographic_concentration") or []
 	if gc:
-		locations = [entry.get("location", "") for entry in gc]
+		locations = [entry.get("location", "").strip().lower() for entry in gc if entry.get("location")]
 		total = len(locations)
 		if total > 0:
-			loc_counts = Counter(loc.strip().lower() for loc in locations if loc)
+			loc_counts = Counter(loc for loc in locations if loc)
+			high_risk_count = sum(c for loc, c in loc_counts.items() if loc in _HIGH_RISK_LOCATIONS)
+			medium_risk_count = sum(c for loc, c in loc_counts.items() if loc in _MEDIUM_RISK_LOCATIONS)
 			most_common_loc, most_common_count = loc_counts.most_common(1)[0] if loc_counts else ("", 0)
-			if most_common_count / total > 0.5:
-				criteria["geopolitical_risk"] = {"score": 1.0, "evidence": f"Geographic concentration: '{most_common_loc}' in {most_common_count}/{total} entries"}
+			if high_risk_count > 0 and most_common_count / total > 0.3:
+				criteria["geopolitical_risk"] = {
+					"score": 1.0,
+					"evidence": f"HIGH_RISK location concentration: {high_risk_count}/{total} entries in {', '.join(l for l in loc_counts if l in _HIGH_RISK_LOCATIONS)}",
+				}
+			elif medium_risk_count > 0 or most_common_count / total > 0.5:
+				criteria["geopolitical_risk"] = {
+					"score": 0.75,
+					"evidence": f"Geographic concentration in medium-risk or dominant location: '{most_common_loc}' ({most_common_count}/{total})",
+				}
+			elif total > 0:
+				criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present across {len(loc_counts)} locations"}
 			else:
-				criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present but dispersed across {len(loc_counts)} locations"}
+				criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 		else:
 			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 	else:
 		criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
 
-	# 4. Long lead times (from capacity_constraints context)
-	lead_time_pattern = re.compile(r"lead\s*time|months|years|backlog", re.IGNORECASE)
-	lead_time_found = False
-	for entry in cc:
-		ctx = entry.get("context", "") or ""
-		constraint_text = entry.get("constraint", "") or ""
-		if lead_time_pattern.search(ctx) or lead_time_pattern.search(constraint_text):
-			lead_time_found = True
-			break
-	criteria["long_lead_times"] = {"score": 0.5, "evidence": "Lead time / backlog language found"} if lead_time_found else {"score": 0.0, "evidence": "No lead time indicators found"}
+	# 4. Long lead times (search all categories + numeric extraction)
+	lead_time_pattern = re.compile(r"lead\s*time|backlog|wait\s*time|delivery\s*delay|allocation|extended\s*lead", re.IGNORECASE)
+	lead_duration_pattern = re.compile(r"(\d+)\s*(?:month|week|year|quarter)", re.IGNORECASE)
+	lead_time_found = lead_time_pattern.search(all_text_blob) is not None
+	lead_duration_months = 0
+	if lead_time_found:
+		for m in lead_duration_pattern.finditer(all_text_blob):
+			val = int(m.group(1))
+			unit_text = all_text_blob[m.start():m.end()].lower()
+			if "year" in unit_text:
+				val *= 12
+			elif "quarter" in unit_text:
+				val *= 3
+			elif "week" in unit_text:
+				val = max(1, val // 4)
+			lead_duration_months = max(lead_duration_months, val)
+	if lead_duration_months >= 6:
+		criteria["long_lead_times"] = {"score": 0.75, "evidence": f"Lead time >= {lead_duration_months} months detected"}
+	elif lead_time_found:
+		criteria["long_lead_times"] = {"score": 0.5, "evidence": "Lead time / backlog language found"}
+	else:
+		criteria["long_lead_times"] = {"score": 0.0, "evidence": "No lead time indicators found"}
 
-	# 5. No substitutes (from supply_chain_risks context)
-	no_sub_pattern = re.compile(r"cannot\s.*?replace|no\s.*?alternative|sole\s.*?source|only\s.*?supplier", re.IGNORECASE)
-	no_sub_found = False
-	for entry in (supply_chain.get("supply_chain_risks") or []):
-		ctx = entry.get("context", "") or ""
-		risk_text = entry.get("risk", "") or ""
-		if no_sub_pattern.search(ctx) or no_sub_pattern.search(risk_text):
-			no_sub_found = True
-			break
-	criteria["no_substitutes"] = {"score": 0.5, "evidence": "Risk language indicates sole source"} if no_sub_found else {"score": 0.0, "evidence": "No sole-source language found"}
+	# 5. No substitutes (search all categories + expanded patterns)
+	no_sub_pattern = re.compile(
+		r"cannot\s.*?replace|no\s.*?alternative|sole\s.*?source|only\s.*?supplier|"
+		r"irreplaceable|no\s+viable\s+substitute|proprietary\s+process|"
+		r"unique\s+capability|no\s+second\s+source|limited\s+alternative",
+		re.IGNORECASE,
+	)
+	no_sub_found = no_sub_pattern.search(all_text_blob) is not None
+	# Also check single_source_dependencies entries
+	if not no_sub_found and ssd:
+		for entry in ssd:
+			ctx = (entry.get("context", "") or "") + " " + (entry.get("component", "") or "")
+			if no_sub_pattern.search(ctx):
+				no_sub_found = True
+				break
+	if no_sub_found and len(ssd) >= 1:
+		criteria["no_substitutes"] = {"score": 0.75, "evidence": "Sole source language + single-source dependencies confirmed"}
+	elif no_sub_found:
+		criteria["no_substitutes"] = {"score": 0.5, "evidence": "Sole source / no substitute language found"}
+	else:
+		criteria["no_substitutes"] = {"score": 0.0, "evidence": "No sole-source language found"}
 
-	# 6. Cost insignificance — always 0
-	criteria["cost_insignificance"] = {"score": 0, "evidence": "Cannot determine from SEC data"}
+	# 6. Cost insignificance — requires agent assessment
+	criteria["cost_insignificance"] = {"score": 0, "evidence": "Cannot determine from SEC data", "requires_agent_assessment": True}
 
+	# Max excludes cost_insignificance (agent-only)
 	pre_score = sum(c["score"] for c in criteria.values())
-	pre_score_max = 4.5
+	pre_score_max = 4.25
 
 	if pre_score >= 3.0:
 		assessment = "strong"
@@ -957,7 +1042,14 @@ def _check_sop_triggers(l4_results):
 	return {"triggered": triggered, "triggers_found": triggers_found, "note": note}
 
 
-def _check_trapped_asset_override(l4_results, bottleneck_pre_score_result):
+_RESTRUCTURING_KEYWORDS = re.compile(
+	r"restructur|strategic\s+review|activist|asset\s+sale|"
+	r"spin.?off|separation|divestiture|management\s+change",
+	re.IGNORECASE,
+)
+
+
+def _check_trapped_asset_override(l4_results, bottleneck_pre_score_result, sec_sc_results=None):
 	"""Check conditions for the Trapped Asset Override valuation path."""
 	if bottleneck_pre_score_result is None or (isinstance(bottleneck_pre_score_result, dict) and "error" in bottleneck_pre_score_result):
 		return {"conditions_met": 0, "condition_details": {}, "eligible": False, "note": "Cannot evaluate — no bottleneck pre-score available."}
@@ -995,11 +1087,26 @@ def _check_trapped_asset_override(l4_results, bottleneck_pre_score_result):
 	if asset_met:
 		conditions_met += 1
 
-	# Condition 3: Restructuring catalyst — requires WebSearch
-	condition_details["restructuring_catalyst"] = {"met": "unknown", "requires_websearch": True}
+	# Condition 3: Active Restructuring Catalyst (from SEC events)
+	restructuring_catalyst = False
+	catalyst_evidence = "No SEC events data available"
+	if sec_sc_results:
+		events_raw = sec_sc_results.get("sec_events", {})
+		events_data = events_raw.get("data", []) if not events_raw.get("error") else []
+		for event in events_data:
+			text = f"{event.get('event_type', '')} {event.get('context', '')}"
+			if _RESTRUCTURING_KEYWORDS.search(text):
+				restructuring_catalyst = True
+				catalyst_evidence = f"Restructuring signal found: {event.get('event_type', 'unknown')}"
+				break
+		if not restructuring_catalyst and events_data:
+			catalyst_evidence = f"Checked {len(events_data)} SEC events — no restructuring signals"
+	condition_details["restructuring_catalyst"] = {"met": restructuring_catalyst, "evidence": catalyst_evidence}
+	if restructuring_catalyst:
+		conditions_met += 1
 
-	eligible = conditions_met >= 2
-	note = f"{conditions_met}/3 override conditions met. Restructuring catalyst requires WebSearch verification."
+	eligible = conditions_met >= 3
+	note = f"{conditions_met}/3 override conditions met."
 	return {"conditions_met": conditions_met, "condition_details": condition_details, "eligible": eligible, "note": note}
 
 
@@ -1031,7 +1138,7 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 		ps = bn.get("pre_score", 0)
 		if isinstance(ps, (int, float)) and ps >= 3.0:
 			classification = "bottleneck"
-			evidence.append(f"bottleneck_pre_score {ps}/{bn.get('pre_score_max', 4.5)} >= 3.0")
+			evidence.append(f"bottleneck_pre_score {ps}/{bn.get('pre_score_max', 4.25)} >= 3.0")
 			confidence = "high" if ps >= 3.5 else "medium"
 
 	# Rule 2: Evolution
@@ -1103,8 +1210,9 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	bn_raw = bn.get("pre_score", 0) if bn else 0
 	if not isinstance(bn_raw, (int, float)):
 		bn_raw = 0
-	bn_points = (bn_raw / 4.5) * 30.0
-	score_breakdown["bottleneck"] = {"raw": bn_raw if bn else None, "max": 4.5, "points": round(bn_points, 2)}
+	bn_max = bn.get("pre_score_max", 4.25) if bn else 4.25
+	bn_points = (bn_raw / bn_max) * 30.0
+	score_breakdown["bottleneck"] = {"raw": bn_raw if bn else None, "max": bn_max, "points": round(bn_points, 2)}
 	total_score += bn_points
 
 	# Component 2: Health severity (25 pts)
@@ -1207,9 +1315,34 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 # ---------------------------------------------------------------------------
 
 _ENTITY_SUFFIXES = re.compile(
-	r",?\s*\b(?:Inc\.?|Corp\.?|Corporation|LLC|Ltd\.?|Co\.?|Company|Group|Holdings)\b\.?\s*$",
+	r",?\s*\b(?:Inc\.?|Corp\.?|Corporation|LLC|Ltd\.?|Limited|Co\.?|Company|"
+	r"Group|Holdings|Plc\.?|SE|N\.?V\.?|S\.?A\.?|A\.?G\.?|GmbH|KK|"
+	r"Kabushiki\s+Kaisha)\b\.?\s*$",
 	re.IGNORECASE,
 )
+
+_ENTITY_ALIAS_MAP = {
+	"tsmc": "taiwan semiconductor manufacturing",
+	"taiwan semiconductor manufacturing company": "taiwan semiconductor manufacturing",
+	"taiwan semiconductor": "taiwan semiconductor manufacturing",
+	"foxconn": "hon hai precision industry",
+	"hon hai": "hon hai precision industry",
+	"ibm": "international business machines",
+	"sk hynix inc": "sk hynix",
+	"micron technology inc": "micron technology",
+	"samsung electronics co": "samsung electronics",
+	"alphabet": "google",
+	"alphabet inc": "google",
+	"meta platforms": "meta",
+	"meta platforms inc": "meta",
+	"advanced micro devices": "amd",
+	"broadcom inc": "broadcom",
+	"texas instruments incorporated": "texas instruments",
+	"applied materials inc": "applied materials",
+	"lam research corp": "lam research",
+	"asml holding": "asml",
+	"tokyo electron": "tokyo electron",
+}
 
 
 def _normalize_entity_name(name):
@@ -1217,12 +1350,16 @@ def _normalize_entity_name(name):
 	if not name or not isinstance(name, str):
 		return ""
 	normalized = name.strip()
+	# Remove suffixes (up to 3 iterations for nested suffixes)
 	for _ in range(3):
 		prev = normalized
 		normalized = _ENTITY_SUFFIXES.sub("", normalized).strip()
 		if normalized == prev:
 			break
-	return normalized.lower().strip().rstrip(".,;:")
+	# Lowercase + whitespace normalization
+	normalized = re.sub(r"\s+", " ", normalized.lower().strip()).rstrip(".,;:")
+	# Apply alias mapping
+	return _ENTITY_ALIAS_MAP.get(normalized, normalized)
 
 
 # ---------------------------------------------------------------------------
@@ -1633,8 +1770,8 @@ def cmd_analyze(args):
 
 	# --- SEC Supply Chain Intelligence (L3 pre-extraction) ---
 	sec_sc_scripts = {
-		"sec_supply_chain": ("data_advanced/sec/supply_chain.py", ["supply-chain", ticker]),
-		"sec_events": ("data_advanced/sec/supply_chain.py", ["events", ticker, "--limit", "5", "--days", "180"]),
+		"sec_supply_chain": ("data_advanced/sec/supply_chain.py", ["supply-chain", ticker], 120),
+		"sec_events": ("data_advanced/sec/supply_chain.py", ["events", ticker, "--limit", "5", "--days", "180"], 120),
 	}
 
 	# --- Hyperscaler CapEx Bridge (L2) ---
@@ -1652,10 +1789,11 @@ def cmd_analyze(args):
 	all_scripts.update(hs_scripts)
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-		futures = {
-			name: executor.submit(_run_script, path, a)
-			for name, (path, a) in all_scripts.items()
-		}
+		futures = {}
+		for name, spec in all_scripts.items():
+			path, a = spec[0], spec[1]
+			t = spec[2] if len(spec) > 2 else 60
+			futures[name] = executor.submit(_run_script, path, a, t)
 		all_results = {name: future.result() for name, future in futures.items()}
 
 	# Split results
@@ -1737,7 +1875,7 @@ def cmd_analyze(args):
 	sop_triggers = _check_sop_triggers(l4_results)
 
 	# Trapped asset override (Change F)
-	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score)
+	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score, sec_sc_results)
 
 	# L6 auto-classification (Change G)
 	auto_classification = _auto_classify_taxonomy(l4_results, bottleneck_pre_score)
@@ -1843,10 +1981,11 @@ def cmd_recheck(args):
 	all_scripts.update(l5_scripts)
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-		futures = {
-			name: executor.submit(_run_script, path, a)
-			for name, (path, a) in all_scripts.items()
-		}
+		futures = {}
+		for name, spec in all_scripts.items():
+			path, a = spec[0], spec[1]
+			t = spec[2] if len(spec) > 2 else 60
+			futures[name] = executor.submit(_run_script, path, a, t)
 		all_results = {name: future.result() for name, future in futures.items()}
 
 	macro_results = {k: all_results[k] for k in macro_scripts}
@@ -2190,16 +2329,27 @@ def cmd_cross_chain(args):
 
 	mode = getattr(args, "mode", "regex")
 
-	# Step 1: Run SEC supply_chain extraction for each ticker in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
-		futures = {
-			t: executor.submit(
-				_run_script, "data_advanced/sec/supply_chain.py",
+	# Step 1: Run SEC supply_chain extraction for each ticker
+	# Sequential when LLM mode to respect Gemini API rate limits (TPM)
+	# LLM mode needs 480s timeout — large 10-K filings (e.g. NVDA) can take 6+ min
+	sec_results = {}
+	if mode == "llm":
+		for t in tickers:
+			sec_results[t] = _run_script(
+				"data_advanced/sec/supply_chain.py",
 				["supply-chain", t, "--form", form_type, "--mode", mode],
+				480,
 			)
-			for t in tickers
-		}
-		sec_results = {t: f.result() for t, f in futures.items()}
+	else:
+		with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
+			futures = {
+				t: executor.submit(
+					_run_script, "data_advanced/sec/supply_chain.py",
+					["supply-chain", t, "--form", form_type, "--mode", mode],
+				)
+				for t in tickers
+			}
+			sec_results = {t: f.result() for t, f in futures.items()}
 
 	# Step 2: Extract and normalize entities from each ticker
 	entity_map = {}
@@ -2246,6 +2396,31 @@ def cmd_cross_chain(args):
 			if norm not in entity_map:
 				entity_map[norm] = {}
 			entity_map[norm][t] = {"roles": info["roles"], "original_names": info["original_names"]}
+
+	# Step 2.5: Merge similar entity names across tickers (token-based)
+	merged = {}
+	all_norms = list(entity_map.keys())
+	for i, a in enumerate(all_norms):
+		canonical = merged.get(a, a)
+		tokens_a = set(canonical.split())
+		for b in all_norms[i + 1:]:
+			if b in merged:
+				continue
+			tokens_b = set(b.split())
+			overlap = len(tokens_a & tokens_b)
+			min_len = min(len(tokens_a), len(tokens_b))
+			if min_len > 0 and overlap / min_len >= 0.8:
+				merged[b] = canonical
+				for t, info in entity_map[b].items():
+					if t not in entity_map[canonical]:
+						entity_map[canonical][t] = info
+					else:
+						entity_map[canonical][t]["roles"] |= info["roles"]
+						entity_map[canonical][t]["original_names"] |= info["original_names"]
+
+	for old_name in merged:
+		if old_name in entity_map and old_name != merged[old_name]:
+			del entity_map[old_name]
 
 	# Step 3: Find shared entities (referenced by 2+ tickers)
 	shared_entities = []
@@ -2371,10 +2546,11 @@ def cmd_evidence_chain(args):
 	all_scripts.update({f"l6_{k}": v for k, v in l6_scripts.items()})
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-		futures = {
-			name: executor.submit(_run_script, path, a)
-			for name, (path, a) in all_scripts.items()
-		}
+		futures = {}
+		for name, spec in all_scripts.items():
+			path, a = spec[0], spec[1]
+			t = spec[2] if len(spec) > 2 else 60
+			futures[name] = executor.submit(_run_script, path, a, t)
 		all_results = {name: future.result() for name, future in futures.items()}
 
 	# Build link status

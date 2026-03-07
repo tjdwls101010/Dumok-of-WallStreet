@@ -251,6 +251,21 @@ Rules:
 3. If a category has no relevant data, return an empty list.
 4. Do NOT extract the filing company itself as its own supplier or customer.
 5. Focus on factual supply chain relationships — skip generic boilerplate.
+6. De facto single-source: If a supplier is described as the PRIMARY or ONLY provider
+   for a critical component category (e.g., leading-edge foundry, specific memory type)
+   and NO alternative supplier is mentioned for that same category, classify it as
+   single_source_dependencies. Use the component field to specify what is single-sourced.
+7. Customer extraction: Look for revenue concentration disclosures, named buyers,
+   segment customer mentions, and "accounted for X% of revenue" language.
+   Companies buying the filing company's primary products should be extracted
+   even if described indirectly (e.g., "cloud service providers" when context
+   makes the identity clear).
+8. Relationship specificity: Use precise relationship descriptions such as
+   "sole foundry for leading-edge GPUs", "memory supplier (HBM)",
+   "contract manufacturer for server products", "anchor customer >10% revenue".
+   Avoid vague descriptions like "supplier" or "customer".
+9. Only infer relationships where the filing text provides contextual support.
+   Do not fabricate connections or guess identities not supported by the text.
 
 Filing company: {company_name}
 
@@ -797,9 +812,28 @@ def cmd_supply_chain_extract(args):
 
 	# Extract supply chain data based on mode
 	if mode == "llm":
-		cleaned_text = _prepare_content(content)
+		# Section-focused extraction: extract Item 1, 1A, 7 separately then
+		# send ALL sections to Gemini (no budget truncation). Gemini 2.5 Flash
+		# handles 1M tokens; typical 3-section text (~200K chars ≈ 50K tokens)
+		# is well within capacity. Sending complete sections ensures zero loss
+		# of supply chain intelligence vs. the old blind-truncation approach.
+		section_extractor = _extract_10q_sections if form == "10-Q" else _extract_10k_sections
+		sections = section_extractor(content, max_chars)
+		sections_extracted = {k: v is not None for k, v in sections.items()}
+		sections_found = sum(1 for v in sections.values() if v is not None)
+
+		if sections_found > 0:
+			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda"]
+			section_parts = [
+				f"[{key.upper()}]\n{sections[key]}"
+				for key in section_keys if sections.get(key)
+			]
+			focused_text = "\n\n".join(section_parts)
+		else:
+			focused_text = _prepare_content(content)
+
 		llm_result = _extract_supply_chain_llm(
-			cleaned_text, company_name=company_name, max_chars=max_chars,
+			focused_text, company_name=company_name, max_chars=None,
 		)
 		if llm_result is not None:
 			supply_chain, total_matches, unique_entities = llm_result
@@ -807,15 +841,11 @@ def cmd_supply_chain_extract(args):
 				"data": {
 					"filing": target_filing,
 					"supply_chain": supply_chain,
-					"sections_extracted": {
-						"item_1_business": True,
-						"item_1a_risk_factors": True,
-						"item_7_mda": True,
-					},
+					"sections_extracted": sections_extracted,
 					"extraction_stats": {
 						"total_matches": total_matches,
 						"unique_entities": unique_entities,
-						"sections_found": 3,
+						"sections_found": sections_found,
 						"sections_attempted": 3,
 						"mode": "llm",
 					},
