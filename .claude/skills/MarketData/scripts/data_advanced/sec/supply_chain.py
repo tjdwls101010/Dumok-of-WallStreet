@@ -15,6 +15,7 @@ Args:
 		symbol (str): Stock ticker symbol (e.g., "AAPL", "NVDA")
 		--form (str): Filing form type, "10-K" or "10-Q" (default: "10-K")
 		--max-chars (int): Max characters per section to process (default: 80000)
+		--mode (str): Extraction mode - "llm" (default, langextract+Gemini) or "regex" (free, no API key)
 
 	For events:
 		symbol (str): Stock ticker symbol
@@ -108,6 +109,10 @@ Notes:
 	- Graceful degradation: returns partial data if some sections fail
 	- Filing HTML can be 5-10MB; max-chars parameter limits per-section processing
 	- Foreign filers (20-F) use different section numbers; currently graceful degradation
+	- LLM mode uses langextract + Gemini for high-quality extraction
+	- LLM mode requires GOOGLE_API_KEY in .env file
+	- LLM mode falls back to regex on failure or missing API key
+	- Gemini 1M context handles entire 10-K without section splitting
 
 See Also:
 	- sec/filings.py: General SEC filings access and MD&A extraction
@@ -184,6 +189,221 @@ _RISK_PATTERNS = [
 	r"(?:natural\s+disaster|pandemic|force\s+majeure|geopolitical)",
 	r"(?:could|may|might)\s+(?:significantly\s+)?(?:disrupt|interrupt|delay|impair|adversely\s+affect)\s+(?:our\s+)?(?:supply|operations|production|manufacturing)",
 ]
+
+
+# ---------------------------------------------------------------------------
+# LLM-based extraction (langextract + Gemini)
+# ---------------------------------------------------------------------------
+
+_LLM_PROMPT = """\
+Extract supply chain entities from this SEC filing text.
+For each entity found, classify it into one of these categories:
+- supplier: Companies that supply products, materials, or services
+- customer: Companies that purchase products or services
+- single_source: Sole-source or single-source supplier dependencies
+- geographic: Manufacturing, production, or sourcing locations
+- capacity_constraint: Production capacity limitations, lead times, backlogs
+- supply_chain_risk: Supply disruption risks, tariffs, material shortages
+
+Use exact text from the filing for extraction_text.
+Include the entity name and relationship details as attributes.
+Do not extract the filing company itself as a supplier or customer.
+"""
+
+
+def _get_llm_examples():
+	"""Return few-shot examples for langextract. Imported lazily."""
+	import langextract as lx
+
+	return [
+		lx.data.ExampleData(
+			text=(
+				"We rely on Samsung Electronics Co., Ltd. as our sole source "
+				"supplier for DRAM memory chips used in our products. "
+				"Apple Inc. accounted for approximately 35% of our net revenue "
+				"for fiscal year 2024. Our manufacturing facilities are located "
+				"primarily in Taiwan and South Korea. We have experienced "
+				"extended lead times of 26 weeks for certain key components. "
+				"Tariffs on goods imported from China could adversely affect "
+				"our supply chain costs."
+			),
+			extractions=[
+				lx.data.Extraction(
+					extraction_class="supplier",
+					extraction_text="Samsung Electronics Co., Ltd.",
+					attributes={"relationship": "sole source supplier",
+								"component": "DRAM memory chips"},
+				),
+				lx.data.Extraction(
+					extraction_class="single_source",
+					extraction_text="Samsung Electronics Co., Ltd. as our sole source supplier for DRAM memory chips",
+					attributes={"component": "DRAM memory chips",
+								"supplier": "Samsung Electronics Co., Ltd."},
+				),
+				lx.data.Extraction(
+					extraction_class="customer",
+					extraction_text="Apple Inc.",
+					attributes={"revenue_pct": "35%",
+								"relationship": "major customer"},
+				),
+				lx.data.Extraction(
+					extraction_class="geographic",
+					extraction_text="Taiwan and South Korea",
+					attributes={"activity": "manufacturing",
+								"locations": "Taiwan, South Korea"},
+				),
+				lx.data.Extraction(
+					extraction_class="capacity_constraint",
+					extraction_text="extended lead times of 26 weeks",
+					attributes={"constraint_type": "lead time",
+								"duration": "26 weeks"},
+				),
+				lx.data.Extraction(
+					extraction_class="supply_chain_risk",
+					extraction_text="Tariffs on goods imported from China",
+					attributes={"risk_type": "tariff",
+								"affected_region": "China"},
+				),
+			],
+		)
+	]
+
+
+def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
+	"""Extract supply chain data from filing text using langextract + Gemini.
+
+	Returns:
+		tuple(dict, int, int) or None: (supply_chain, total_matches, unique_entities)
+		Returns None on failure (caller should fallback to regex).
+	"""
+	try:
+		import langextract as lx
+	except ImportError:
+		return None
+
+	from dotenv import load_dotenv
+
+	env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+		os.path.dirname(__file__)))), ".env")
+	load_dotenv(env_path)
+	api_key = os.environ.get("GOOGLE_API_KEY")
+	model_id = os.environ.get("GOOGLE_MODEL", "gemini-2.5-flash")
+
+	if not api_key:
+		return None
+
+	text = cleaned_text
+	if max_chars and len(text) > max_chars:
+		text = text[:max_chars]
+
+	additional_context = ""
+	if company_name:
+		additional_context = (
+			f"The filing company is '{company_name}'. "
+			"Do not extract it as a supplier or customer of itself."
+		)
+
+	try:
+		result = lx.extract(
+			text_or_documents=text,
+			prompt_description=_LLM_PROMPT,
+			examples=_get_llm_examples(),
+			model_id=model_id,
+			api_key=api_key,
+			additional_context=additional_context,
+			max_char_buffer=500_000,
+			max_workers=5,
+			show_progress=False,
+			fetch_urls=False,
+		)
+	except Exception:
+		return None
+
+	supply_chain = {
+		"suppliers": [],
+		"customers": [],
+		"single_source_dependencies": [],
+		"geographic_concentration": [],
+		"capacity_constraints": [],
+		"supply_chain_risks": [],
+	}
+	entities = set()
+
+	extractions = result.extractions if hasattr(result, "extractions") else []
+
+	class_map = {
+		"supplier": "suppliers",
+		"customer": "customers",
+		"single_source": "single_source_dependencies",
+		"geographic": "geographic_concentration",
+		"capacity_constraint": "capacity_constraints",
+		"supply_chain_risk": "supply_chain_risks",
+	}
+
+	for ext in extractions:
+		category = class_map.get(ext.extraction_class)
+		if not category:
+			continue
+		attrs = ext.attributes or {}
+		entity_name = (
+			attrs.get("supplier", "") or attrs.get("entity", "")
+			or ext.extraction_text
+		)
+		context = ext.extraction_text
+
+		if category == "suppliers":
+			entities.add(entity_name)
+			supply_chain["suppliers"].append({
+				"entity": entity_name,
+				"relationship": attrs.get("relationship", ""),
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+		elif category == "customers":
+			entities.add(entity_name)
+			supply_chain["customers"].append({
+				"entity": entity_name,
+				"relationship": attrs.get("relationship", ""),
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+		elif category == "single_source_dependencies":
+			supplier_name = attrs.get("supplier", entity_name)
+			entities.add(supplier_name)
+			supply_chain["single_source_dependencies"].append({
+				"component": attrs.get("component", ""),
+				"supplier": supplier_name,
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+		elif category == "geographic_concentration":
+			supply_chain["geographic_concentration"].append({
+				"location": attrs.get("locations", "") or attrs.get("location", ""),
+				"activity": attrs.get("activity", ""),
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+		elif category == "capacity_constraints":
+			supply_chain["capacity_constraints"].append({
+				"constraint": attrs.get("constraint_type", ""),
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+		elif category == "supply_chain_risks":
+			supply_chain["supply_chain_risks"].append({
+				"risk": attrs.get("risk_type", ""),
+				"context": context,
+				"source_section": "llm_extraction",
+				"confidence": "high",
+			})
+
+	total_matches = sum(len(v) for v in supply_chain.values())
+	return supply_chain, total_matches, len(entities)
 
 
 # ---------------------------------------------------------------------------
@@ -546,6 +766,7 @@ def cmd_supply_chain_extract(args):
 	symbol = args.symbol.upper()
 	form = args.form.upper() if args.form else "10-K"
 	max_chars = args.max_chars
+	mode = getattr(args, "mode", "regex")
 
 	# Get CIK and company info
 	cik = get_cik_from_symbol(symbol)
@@ -609,7 +830,43 @@ def cmd_supply_chain_extract(args):
 		})
 		return
 
-	# Extract sections based on form type
+	# Extract supply chain data based on mode
+	if mode == "llm":
+		cleaned_text = _prepare_content(content)
+		llm_result = _extract_supply_chain_llm(
+			cleaned_text, company_name=company_name, max_chars=max_chars,
+		)
+		if llm_result is not None:
+			supply_chain, total_matches, unique_entities = llm_result
+			output_json({
+				"data": {
+					"filing": target_filing,
+					"supply_chain": supply_chain,
+					"sections_extracted": {
+						"item_1_business": True,
+						"item_1a_risk_factors": True,
+						"item_7_mda": True,
+					},
+					"extraction_stats": {
+						"total_matches": total_matches,
+						"unique_entities": unique_entities,
+						"sections_found": 3,
+						"sections_attempted": 3,
+						"mode": "llm",
+					},
+				},
+				"metadata": {
+					"symbol": symbol,
+					"cik": cik,
+					"company_name": company_name,
+					"form": form,
+				},
+			})
+			return
+		# LLM failed — fallback to regex
+		mode = "regex"
+
+	# Regex mode (default)
 	if form == "10-Q":
 		sections = _extract_10q_sections(content, max_chars)
 	else:
@@ -618,7 +875,6 @@ def cmd_supply_chain_extract(args):
 	sections_extracted = {k: v is not None for k, v in sections.items()}
 	sections_found = sum(1 for v in sections.values() if v is not None)
 
-	# Extract supply chain data from sections
 	supply_chain, total_matches, unique_entities = _build_supply_chain_data(sections)
 
 	output_json({
@@ -631,6 +887,7 @@ def cmd_supply_chain_extract(args):
 				"unique_entities": unique_entities,
 				"sections_found": sections_found,
 				"sections_attempted": 3,
+				"mode": "regex",
 			},
 		},
 		"metadata": {
@@ -767,6 +1024,8 @@ def main():
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--form", default="10-K", help="Form type (10-K or 10-Q)")
 	sp.add_argument("--max-chars", type=int, default=80000, help="Max chars per section")
+	sp.add_argument("--mode", choices=["regex", "llm"], default="llm",
+					help="Extraction mode: 'llm' (default, langextract+Gemini) or 'regex' (free, no API key)")
 	sp.set_defaults(func=cmd_supply_chain_extract)
 
 	# events

@@ -18,3 +18,6 @@ sec-edgar-downloader>=5.0.0
 
 # HTTP requests for CBOE/CFTC direct API
 requests>=2.31.0
+
+# LLM-based structured extraction (SEC supply chain)
+langextract>=1.1.0
