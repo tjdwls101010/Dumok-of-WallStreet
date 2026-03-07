@@ -15,7 +15,7 @@ Args:
 		symbol (str): Stock ticker symbol (e.g., "AAPL", "NVDA")
 		--form (str): Filing form type, "10-K" or "10-Q" (default: "10-K")
 		--max-chars (int): Max characters per section to process (default: 80000)
-		--mode (str): Extraction mode - "llm" (default, langextract+Gemini) or "regex" (free, no API key)
+		--mode (str): Extraction mode - "llm" (default, Gemini structured output) or "regex" (free, no API key)
 
 	For events:
 		symbol (str): Stock ticker symbol
@@ -109,7 +109,7 @@ Notes:
 	- Graceful degradation: returns partial data if some sections fail
 	- Filing HTML can be 5-10MB; max-chars parameter limits per-section processing
 	- Foreign filers (20-F) use different section numbers; currently graceful degradation
-	- LLM mode uses langextract + Gemini for high-quality extraction
+	- LLM mode uses Gemini structured output for high-quality extraction
 	- LLM mode requires GOOGLE_API_KEY in .env file
 	- LLM mode falls back to regex on failure or missing API key
 	- Gemini 1M context handles entire 10-K without section splitting
@@ -192,95 +192,82 @@ _RISK_PATTERNS = [
 
 
 # ---------------------------------------------------------------------------
-# LLM-based extraction (langextract + Gemini)
+# LLM-based extraction (Gemini structured output + Pydantic)
 # ---------------------------------------------------------------------------
 
-_LLM_PROMPT = """\
-Extract supply chain entities from this SEC filing text.
-For each entity found, classify it into one of these categories:
-- supplier: Companies that supply products, materials, or services
-- customer: Companies that purchase products or services
-- single_source: Sole-source or single-source supplier dependencies
-- geographic: Manufacturing, production, or sourcing locations
-- capacity_constraint: Production capacity limitations, lead times, backlogs
-- supply_chain_risk: Supply disruption risks, tariffs, material shortages
+from pydantic import BaseModel, Field
 
-Use exact text from the filing for extraction_text.
-Include the entity name and relationship details as attributes.
-Do not extract the filing company itself as a supplier or customer.
+
+class SupplierEntry(BaseModel):
+	entity: str = Field(description="Name of the supplier company. Use exact name from the filing.")
+	relationship: str = Field(default="", description="Nature of the supply relationship (e.g., 'sole source supplier', 'key component vendor').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing that supports this supplier relationship.")
+
+
+class CustomerEntry(BaseModel):
+	entity: str = Field(description="Name of the customer company. Use exact name from the filing.")
+	relationship: str = Field(default="", description="Nature of the customer relationship (e.g., 'major customer', 'accounted for 35% of revenue').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing that supports this customer relationship.")
+
+
+class SingleSourceEntry(BaseModel):
+	component: str = Field(default="", description="Component or material with single-source dependency (e.g., 'DRAM memory chips').")
+	supplier: str = Field(description="Name of the sole-source or single-source supplier.")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing this dependency.")
+
+
+class GeographicEntry(BaseModel):
+	location: str = Field(description="Country or region name (e.g., 'Taiwan', 'South Korea').")
+	activity: str = Field(default="", description="Type of activity at this location (e.g., 'manufacturing', 'assembly').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing geographic concentration.")
+
+
+class CapacityConstraintEntry(BaseModel):
+	constraint: str = Field(description="Type of capacity constraint (e.g., 'extended lead times', 'production capacity limitation').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing the constraint.")
+
+
+class SupplyChainRiskEntry(BaseModel):
+	risk: str = Field(description="Type of supply chain risk (e.g., 'tariff impact', 'raw material shortage').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing this risk.")
+
+
+class SupplyChainExtraction(BaseModel):
+	suppliers: list[SupplierEntry] = Field(default_factory=list, description="Companies that supply products, materials, or services to the filing company.")
+	customers: list[CustomerEntry] = Field(default_factory=list, description="Companies that purchase products or services from the filing company.")
+	single_source_dependencies: list[SingleSourceEntry] = Field(default_factory=list, description="Components with sole-source or single-source supplier dependencies.")
+	geographic_concentration: list[GeographicEntry] = Field(default_factory=list, description="Locations where manufacturing, production, or sourcing is concentrated.")
+	capacity_constraints: list[CapacityConstraintEntry] = Field(default_factory=list, description="Production capacity limitations, extended lead times, or backlogs.")
+	supply_chain_risks: list[SupplyChainRiskEntry] = Field(default_factory=list, description="Supply disruption risks including tariffs, shortages, geopolitical risks.")
+
+
+_LLM_PROMPT = """\
+You are a financial analyst extracting supply chain intelligence from SEC filings.
+Extract entities and relationships exactly as stated in the filing text.
+
+Rules:
+1. Use exact company names from the filing — do not paraphrase or invent.
+2. For context fields, copy 1-3 relevant sentences verbatim from the filing.
+3. If a category has no relevant data, return an empty list.
+4. Do NOT extract the filing company itself as its own supplier or customer.
+5. Focus on factual supply chain relationships — skip generic boilerplate.
+
+Filing company: {company_name}
+
+Extract all supply chain entities from this SEC filing text:
+
+{filing_text}
 """
 
 
-def _get_llm_examples():
-	"""Return few-shot examples for langextract. Imported lazily."""
-	import langextract as lx
-
-	return [
-		lx.data.ExampleData(
-			text=(
-				"We rely on Samsung Electronics Co., Ltd. as our sole source "
-				"supplier for DRAM memory chips used in our products. "
-				"Apple Inc. accounted for approximately 35% of our net revenue "
-				"for fiscal year 2024. Our manufacturing facilities are located "
-				"primarily in Taiwan and South Korea. We have experienced "
-				"extended lead times of 26 weeks for certain key components. "
-				"Tariffs on goods imported from China could adversely affect "
-				"our supply chain costs."
-			),
-			extractions=[
-				lx.data.Extraction(
-					extraction_class="supplier",
-					extraction_text="Samsung Electronics Co., Ltd.",
-					attributes={"relationship": "sole source supplier",
-								"component": "DRAM memory chips"},
-				),
-				lx.data.Extraction(
-					extraction_class="single_source",
-					extraction_text="Samsung Electronics Co., Ltd. as our sole source supplier for DRAM memory chips",
-					attributes={"component": "DRAM memory chips",
-								"supplier": "Samsung Electronics Co., Ltd."},
-				),
-				lx.data.Extraction(
-					extraction_class="customer",
-					extraction_text="Apple Inc.",
-					attributes={"revenue_pct": "35%",
-								"relationship": "major customer"},
-				),
-				lx.data.Extraction(
-					extraction_class="geographic",
-					extraction_text="Taiwan and South Korea",
-					attributes={"activity": "manufacturing",
-								"locations": "Taiwan, South Korea"},
-				),
-				lx.data.Extraction(
-					extraction_class="capacity_constraint",
-					extraction_text="extended lead times of 26 weeks",
-					attributes={"constraint_type": "lead time",
-								"duration": "26 weeks"},
-				),
-				lx.data.Extraction(
-					extraction_class="supply_chain_risk",
-					extraction_text="Tariffs on goods imported from China",
-					attributes={"risk_type": "tariff",
-								"affected_region": "China"},
-				),
-			],
-		)
-	]
-
-
 def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
-	"""Extract supply chain data from filing text using langextract + Gemini.
+	"""Extract supply chain data using Gemini structured output + Pydantic.
 
 	Returns:
 		tuple(dict, int, int) or None: (supply_chain, total_matches, unique_entities)
-		Returns None on failure (caller should fallback to regex).
+		Returns None on failure (caller falls back to regex).
 	"""
-	try:
-		import langextract as lx
-	except ImportError:
-		return None
-
+	from google import genai
 	from dotenv import load_dotenv
 
 	env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
@@ -296,111 +283,61 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 	if max_chars and len(text) > max_chars:
 		text = text[:max_chars]
 
-	additional_context = ""
-	if company_name:
-		additional_context = (
-			f"The filing company is '{company_name}'. "
-			"Do not extract it as a supplier or customer of itself."
-		)
+	prompt = _LLM_PROMPT.format(
+		company_name=company_name or "Unknown",
+		filing_text=text,
+	)
 
-	try:
-		result = lx.extract(
-			text_or_documents=text,
-			prompt_description=_LLM_PROMPT,
-			examples=_get_llm_examples(),
-			model_id=model_id,
-			api_key=api_key,
-			additional_context=additional_context,
-			max_char_buffer=500_000,
-			max_workers=5,
-			show_progress=False,
-			fetch_urls=False,
-		)
-	except Exception:
-		return None
+	# Retry with backoff — regex is the absolute last resort
+	client = genai.Client(api_key=api_key)
+	retries = 3
+	extraction = None
 
+	for attempt in range(1, retries + 1):
+		try:
+			response = client.models.generate_content(
+				model=model_id,
+				contents=prompt,
+				config={
+					"response_mime_type": "application/json",
+					"response_json_schema": SupplyChainExtraction.model_json_schema(),
+					"temperature": 0.1,
+				},
+			)
+			extraction = SupplyChainExtraction.model_validate_json(response.text)
+			break
+		except Exception as e:
+			print(f"[supply_chain] LLM attempt {attempt}/{retries} failed: {e}",
+				  file=sys.stderr)
+			if attempt < retries:
+				time.sleep(2 ** attempt)
+				continue
+			return None
+
+	# Post-process: convert to dict and add metadata
 	supply_chain = {
-		"suppliers": [],
-		"customers": [],
-		"single_source_dependencies": [],
-		"geographic_concentration": [],
-		"capacity_constraints": [],
-		"supply_chain_risks": [],
+		"suppliers": [], "customers": [],
+		"single_source_dependencies": [], "geographic_concentration": [],
+		"capacity_constraints": [], "supply_chain_risks": [],
 	}
 	entities = set()
+	_META = {"source_section": "llm_extraction", "confidence": "high"}
 
-	extractions = result.extractions if hasattr(result, "extractions") else []
-
-	class_map = {
-		"supplier": "suppliers",
-		"customer": "customers",
-		"single_source": "single_source_dependencies",
-		"geographic": "geographic_concentration",
-		"capacity_constraint": "capacity_constraints",
-		"supply_chain_risk": "supply_chain_risks",
-	}
-
-	for ext in extractions:
-		category = class_map.get(ext.extraction_class)
-		if not category:
-			continue
-		attrs = ext.attributes or {}
-		entity_name = (
-			attrs.get("supplier", "") or attrs.get("entity", "")
-			or ext.extraction_text
-		)
-		context = ext.extraction_text
-
-		if category == "suppliers":
-			entities.add(entity_name)
-			supply_chain["suppliers"].append({
-				"entity": entity_name,
-				"relationship": attrs.get("relationship", ""),
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
-		elif category == "customers":
-			entities.add(entity_name)
-			supply_chain["customers"].append({
-				"entity": entity_name,
-				"relationship": attrs.get("relationship", ""),
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
-		elif category == "single_source_dependencies":
-			supplier_name = attrs.get("supplier", entity_name)
-			entities.add(supplier_name)
-			supply_chain["single_source_dependencies"].append({
-				"component": attrs.get("component", ""),
-				"supplier": supplier_name,
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
-		elif category == "geographic_concentration":
-			supply_chain["geographic_concentration"].append({
-				"location": attrs.get("locations", "") or attrs.get("location", ""),
-				"activity": attrs.get("activity", ""),
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
-		elif category == "capacity_constraints":
-			supply_chain["capacity_constraints"].append({
-				"constraint": attrs.get("constraint_type", ""),
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
-		elif category == "supply_chain_risks":
-			supply_chain["supply_chain_risks"].append({
-				"risk": attrs.get("risk_type", ""),
-				"context": context,
-				"source_section": "llm_extraction",
-				"confidence": "high",
-			})
+	for e in extraction.suppliers:
+		entities.add(e.entity)
+		supply_chain["suppliers"].append({**e.model_dump(), **_META})
+	for e in extraction.customers:
+		entities.add(e.entity)
+		supply_chain["customers"].append({**e.model_dump(), **_META})
+	for e in extraction.single_source_dependencies:
+		entities.add(e.supplier)
+		supply_chain["single_source_dependencies"].append({**e.model_dump(), **_META})
+	for e in extraction.geographic_concentration:
+		supply_chain["geographic_concentration"].append({**e.model_dump(), **_META})
+	for e in extraction.capacity_constraints:
+		supply_chain["capacity_constraints"].append({**e.model_dump(), **_META})
+	for e in extraction.supply_chain_risks:
+		supply_chain["supply_chain_risks"].append({**e.model_dump(), **_META})
 
 	total_matches = sum(len(v) for v in supply_chain.values())
 	return supply_chain, total_matches, len(entities)
@@ -443,6 +380,34 @@ def _prepare_content(raw_html):
 	text = re.sub(r"&#\d+;", " ", text)
 	# Strip HTML tags
 	text = re.sub(r"<[^>]+>", " ", text)
+	# ── XBRL artifact cleaning ──
+	# 1. DEI (Document and Entity Information) block removal
+	text = re.sub(
+		r"(?:Entity\s+(?:Registrant\s+Name|Central\s+Index\s+Key|"
+		r"File\s+Number|Tax\s+Identification|"
+		r"Incorporation,?\s+State|Address.*?(?:Zip|Code)|"
+		r"Current\s+Reporting\s+Status|Filer\s+Category|"
+		r"(?:Public\s+)?Float|Common\s+Stock.*?Outstanding|"
+		r"Well.?known\s+Seasoned|Shell\s+Company|"
+		r"Voluntary\s+Filer|Emerging\s+Growth|"
+		r"Interactive\s+Data|Smaller\s+Reporting)\s*"
+		r"[^\n]{0,200})",
+		" ", text, flags=re.IGNORECASE,
+	)
+	# 2. Amendment/document metadata removal
+	text = re.sub(
+		r"(?:Amendment\s+Flag|Document\s+(?:Period|Type|Fiscal\s+"
+		r"(?:Year|Period))|Current\s+Fiscal\s+Year\s+End)\s*"
+		r"[^\n]{0,100}",
+		" ", text, flags=re.IGNORECASE,
+	)
+	# 3. Orphaned CIK / long numeric sequences (10+ digits)
+	text = re.sub(r"(?<!\$)(?<!\d[,.])\b\d{10,}\b", " ", text)
+	# 4. XBRL namespace prefix residues
+	text = re.sub(
+		r"\b(?:dei|us-gaap|srt|country|stpr|exch):[A-Za-z]+\b",
+		" ", text,
+	)
 	# Normalize whitespace
 	text = re.sub(r"\s+", " ", text)
 	return text
@@ -1025,7 +990,7 @@ def main():
 	sp.add_argument("--form", default="10-K", help="Form type (10-K or 10-Q)")
 	sp.add_argument("--max-chars", type=int, default=80000, help="Max chars per section")
 	sp.add_argument("--mode", choices=["regex", "llm"], default="llm",
-					help="Extraction mode: 'llm' (default, langextract+Gemini) or 'regex' (free, no API key)")
+					help="Extraction mode: 'llm' (default, Gemini structured output) or 'regex' (free, no API key)")
 	sp.set_defaults(func=cmd_supply_chain_extract)
 
 	# events

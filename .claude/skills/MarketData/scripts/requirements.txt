@@ -20,4 +20,5 @@ sec-edgar-downloader>=5.0.0
 requests>=2.31.0
 
 # LLM-based structured extraction (SEC supply chain)
-langextract>=1.1.0
+pydantic>=2.0.0
+google-genai>=1.56.0

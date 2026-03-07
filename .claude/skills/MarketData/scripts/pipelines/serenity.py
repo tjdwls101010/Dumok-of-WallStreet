@@ -62,7 +62,7 @@ Args:
 	For cross-chain:
 		tickers (list): 2+ stock ticker symbols
 		--form (str): SEC filing form type (default: "10-K")
-		--mode (str): SEC extraction mode - "llm" (default, langextract+Gemini) or "regex" (free, no API key)
+		--mode (str): SEC extraction mode - "llm" (default, Gemini structured output) or "regex" (free, no API key)
 
 	For evidence_chain:
 		ticker (str): Stock ticker symbol
@@ -3076,7 +3076,7 @@ def main():
 	)
 	sp_cross.add_argument(
 		"--mode", choices=["regex", "llm"], default="llm",
-		help="SEC extraction mode: 'llm' (default, langextract+Gemini) or 'regex' (free, no API key)",
+		help="SEC extraction mode: 'llm' (default, Gemini structured output) or 'regex' (free, no API key)",
 	)
 	sp_cross.set_defaults(func=cmd_cross_chain)
 
