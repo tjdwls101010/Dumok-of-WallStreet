@@ -539,30 +539,51 @@ def _extract_section(content, start_patterns, end_patterns, max_chars):
 	"""Multi-stage section extraction with fallback.
 
 	Operates on pre-cleaned plain text (HTML already stripped).
-	Tries all regex matches per pattern, skipping ToC entries (< 500 chars).
+	Tries all regex matches per pattern, skipping ToC entries (< 500 chars)
+	and inline cross-references ("Item 8 of this Form 10-K").
 	"""
+	_INLINE_REF = re.compile(r"Item\s+\d+[A-Za-z]?\.?\s+of\b", re.IGNORECASE)
+
 	for pattern in start_patterns:
 		for match in re.finditer(pattern, content, re.IGNORECASE):
 			start = match.start()
-			# Search for end marker starting just past the matched header text
+			# Skip quoted inline references: 'see "Item 11. Quantitative...'
+			if start > 0 and content[start - 1] in '"\'"\u201c':
+				continue
 			search_offset = start + len(match.group(0))
-			best_end = None
-			for end_pattern in end_patterns:
-				end_match = re.search(end_pattern, content[search_offset:], re.IGNORECASE)
-				if end_match:
-					candidate = search_offset + end_match.start()
-					if best_end is None or candidate < best_end:
-						best_end = candidate
-			if best_end is not None:
-				section = content[start:best_end]
-				# Skip ToC entries — real sections are > 500 chars
-				if len(section) < 500:
-					continue
-				if len(section) > max_chars:
-					section = section[:max_chars]
-				return section.strip()
 
-			# No end found — take max_chars from start (likely last section)
+			# Collect ALL end marker positions, sorted closest-first.
+			# Skip positions that are inline cross-references
+			# ("Item 8 of this Form", "Item 7 of the Company's Annual Report").
+			all_ends = set()
+			for end_pattern in end_patterns:
+				for em in re.finditer(end_pattern, content[search_offset:], re.IGNORECASE):
+					pos = search_offset + em.start()
+					snippet = content[pos:pos + 30]
+					if _INLINE_REF.match(snippet):
+						continue  # Skip inline reference
+					all_ends.add(pos)
+			sorted_ends = sorted(all_ends)
+
+			is_toc = False
+			for end_pos in sorted_ends:
+				section = content[start:end_pos]
+				if len(section) >= 500:
+					if len(section) > max_chars:
+						section = section[:max_chars]
+					return section.strip()
+				# Section too short — is this a ToC entry?
+				# ToC regions pack 4+ "Item N" headers within 500 chars.
+				nearby = content[start:start + 500]
+				item_count = len(re.findall(r"Item\s+\d+", nearby, re.IGNORECASE))
+				if item_count >= 4:
+					is_toc = True
+					break
+
+			if is_toc:
+				continue  # Skip ToC start match, try next start
+
+			# No valid end found — take max_chars from start (likely last section)
 			section = content[start:start + max_chars]
 			if len(section.strip()) > 500:
 				return section.strip()
@@ -751,31 +772,35 @@ def _extract_20f_sections(raw_html, max_chars):
 	sections = {}
 
 	# Item 4/4B (Business Overview) → item_1_business
+	# Broad fallback (Item 4[^0-9]) removed — catches shareholder meeting
+	# agenda items in ASML-style combined annual reports.
 	sections["item_1_business"] = _extract_section(content,
 		[r"Item\s+4\.?\s*(?:B\.?)?\s*(?:—|–|-)?\s*(?:Information\s+on\s+the\s+Company|Business\s+Overview)",
-		 r"Item\s+4\.?\s*(?:—|–|-)?\s*Information\s+on\s+the\s+Company",
-		 r"Item\s+4\b[^0-9]"],
+		 r"Item\s+4\.?\s*(?:—|–|-)?\s*Information\s+on\s+the\s+Company"],
 		[r"Item\s+4A\.?\s", r"Item\s+4C\.?\s", r"Item\s+5\.?\s"], max_chars)
 
 	# Item 3D (Risk Factors) → item_1a_risk_factors
-	# TSM uses "Item 3. Key Information ... D. Risk Factors" with text between 3 and D
+	# TSM uses "Risk Factors We wish to caution..." as standalone header.
+	# ASML uses "D. Risk Factors" in cross-reference table.
 	sections["item_1a_risk_factors"] = _extract_section(content,
 		[r"Item\s+3\.?\s*D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
 		 r"Item\s+3D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
-		 r"D\.\s*Risk\s+Factors"],
+		 r"D\.\s*Risk\s+Factors",
+		 r"Risk\s+Factors\s+(?:We|The|Our|In\s+addition)"],
 		[r"Item\s+4\.?\s", r"Item\s+4A\.?\s"], max_chars)
 
 	# Item 5 (Operating and Financial Review) → item_7_mda
 	sections["item_7_mda"] = _extract_section(content,
 		[r"Item\s+5\.?\s*(?:—|–|-)?\s*Operating\s+and\s+Financial\s+Review",
-		 r"Item\s+5\b[^0-9]"],
+		 r"Item\s+5\.?\s*(?:—|–|-)?\s*Operating\s+Results"],
 		[r"Item\s+6\.?\s", r"Item\s+7\.?\s"], max_chars)
 
 	# Item 11 (Market Risk) → item_7a_market_risk
+	# TSM uses "ITEM 12D." (no space after 12) — need [A-D]? to match
 	sections["item_7a_market_risk"] = _extract_section(content,
 		[r"Item\s+11\.?\s*(?:—|–|-)?\s*Quantitative\s+and\s+Qualitative",
-		 r"Item\s+11\b[^0-9]"],
-		[r"Item\s+12\.?\s"], max_chars)
+		 r"Item\s+11\.?\s*(?:—|–|-)?\s*Market\s+Risk"],
+		[r"Item\s+12[A-D]?\.?\s", r"PART\s+II"], max_chars)
 
 	return sections
 
@@ -1085,7 +1110,22 @@ def cmd_supply_chain_extract(args):
 		item8_notes = {} if form == "10-Q" else _extract_item8_notes(content, max_chars, form=form)
 		sections_extracted["item_8_notes"] = bool(item8_notes)
 
-		if sections_found > 0:
+		# 20-F filings (ASML, SAP, etc.) may use combined annual report format
+		# where section extraction largely fails. Fall back to raw text when
+		# too few sections are found to give Gemini the full document.
+		# Also detect false extractions: 2+ sections hitting max_chars limit
+		# suggests wrong section boundaries (e.g., shareholder meeting items).
+		truncated_count = sum(
+			1 for v in sections.values()
+			if v is not None and len(v) >= max_chars - 1
+		)
+		use_raw_fallback = (
+			sections_found == 0
+			or (form == "20-F" and sections_found <= 1 and not item8_notes)
+			or (form == "20-F" and truncated_count >= 2)
+		)
+
+		if not use_raw_fallback:
 			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda", "item_7a_market_risk"]
 			section_parts = [
 				f"[{key.upper()}]\n{sections[key]}"
@@ -1096,6 +1136,8 @@ def cmd_supply_chain_extract(args):
 			focused_text = "\n\n".join(section_parts)
 		else:
 			focused_text = _prepare_content(content)
+			if len(focused_text) > max_chars * 3:
+				focused_text = focused_text[:max_chars * 3]
 
 		llm_result = _extract_supply_chain_llm(
 			focused_text, company_name=company_name, max_chars=None,
