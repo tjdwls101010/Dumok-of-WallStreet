@@ -71,7 +71,7 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 ### Phase 3.5: Reverse Cross-Chain Discovery
 
-**What to do**: Feed candidate tickers from Phase 3 into `cmd_cross_chain` to discover hidden common suppliers across the theme.
+**What to do**: Feed candidate tickers from Phase 3 into the cross-chain subcommand to discover hidden common suppliers across the theme.
 
 **How to analyze**: Run `cross-chain TICKER1 TICKER2 ... TICKERN` with 5+ candidates. Review `bottleneck_signal` scores. Entities with `assessment: "strong_bottleneck_signal"` (supplier_ref_pct >= 50% AND single_source_count > 0) are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier_ref_pct represent maximum asymmetric opportunity.
 
@@ -193,6 +193,14 @@ For any new ticker entering the universe:
 4. **Valuation vs. peers**: Forward P/E, EV/Revenue compared to sector
 5. **Balance sheet stress test**: Cash vs. debt, interest burden, Bear-Bull Paradox check
 6. **Float analysis**: Short interest, IO quality score, IPO lockup, SBC dilution
+
+#### IO Quality Scale (1-10)
+- 9-10: Passive/index dominant (Vanguard, BlackRock, State Street)
+- 7-8: Long-only active (Fidelity, T. Rowe Price, Baron)
+- 5-6: Hedge fund long (Tiger Global, Coatue, D1)
+- 3-4: Quant/MM dominant (Jane Street, Citadel, Two Sigma)
+- 1-2: No institutional support or toxic composition
+
 7. **Macro sensitivity**: Rate impact, tariff exposure, geopolitical risk
 8. **Thematic alignment**: Evolution / Disruption / Bottleneck classification
 9. **Catalyst identification**: Upcoming events that could move the stock

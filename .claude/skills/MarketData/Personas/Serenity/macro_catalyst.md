@@ -80,7 +80,7 @@ When a macro catalyst is identified as REAL (material to forward earnings or sup
 
 ### Supply Chain Cascade
 Demand flows down; each layer validates the next:
-1. Hyperscaler capex -> 2. Neocloud deals (NBIS, CIFR, IREN) -> 3. Semiconductors (TSM, NVDA, AVGO) -> 4. Memory (MU, SK Hynix) -> 5. Substrates/optics (AXTI, LITE, COHR) -> 6. Raw materials (InP, Germanium, Indium)
+Hyperscaler capex → Neocloud deals → Semiconductors → Memory → Substrates/optics → Raw materials
 
 If hyperscaler capex accelerates, all downstream benefits. If it decelerates, re-evaluate the entire chain.
 

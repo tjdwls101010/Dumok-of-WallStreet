@@ -232,6 +232,18 @@ For companies with substantial physical equipment, manufacturing capacity, or in
 ### SoP Trigger Extension
 Add to existing SoP mandatory triggers: "Company has substantial physical equipment inventory (>$50M replacement value) that could be repurposed, converted, or sold independently."
 
+### Trapped Asset Override — Restructuring Catalyst Checklist
+
+When evaluating condition (c) for Trapped Asset Override, check via WebSearch:
+- [ ] Strategic review or strategic alternatives announced (8-K filing)
+- [ ] Financial advisor appointed (Lazard, Goldman, Moelis, etc.)
+- [ ] Business unit sale process initiated (press release, 8-K)
+- [ ] Debt restructuring or refinancing announced
+- [ ] Management commentary on asset separation or business pivot
+- [ ] Board changes indicating activist or restructuring-focused directors
+
+At least one checked item with verifiable source = "active restructuring catalyst present." Zero items = override condition (c) not met.
+
 ---
 
 ## Bearish Screening Framework

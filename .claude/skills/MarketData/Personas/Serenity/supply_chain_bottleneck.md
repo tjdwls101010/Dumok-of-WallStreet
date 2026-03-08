@@ -174,26 +174,6 @@ When a neocloud claims contracted or committed revenue, classify the counterpart
 **CRWV as Negative Benchmark:**
 Use CRWV (CrowdStrike rival/crypto-adjacent infrastructure) as a standing reference point for what "bad" looks like in neocloud balance sheets: toxic debt structure (8-10%+ implied interest rate), serial dilution history, pre-revenue inflation. When analyzing any neocloud, compare its debt quality grade and dilution metrics against CRWV as the lower bound. If a company's metrics approach CRWV levels, apply Bear-Bull Paradox filter from `valuation_fundamentals.md`.
 
-### Memory Supercycle
-
-AI demand creates sustained price hikes for DRAM/NAND, breaking the traditional boom/bust cycle. When forward P/Es compress to single digits despite massive revenue growth, the market is pricing cyclical reversion that may not come.
-
-**How to apply:** Monitor DRAM spot, NAND contract, HBM pricing. Compare forward P/Es to growth rates. Calculate gap between street estimates and actual pricing -- the excess flows directly to bottom line. Use the Walmart benchmark: memory companies growing 100%+ Y/Y at lower P/Es than a slow-growth retailer = strong mispricing signal.
-
-**Legacy Void sub-framework:** When major producers pivot to HBM/enterprise SSD, they abandon legacy products. Remaining suppliers inherit premium pricing power -- "selling water in a desert." Map which products are abandoned, find remaining suppliers, assess pricing power.
-
-### InP Chokepoint
-
-Supply bottleneck from limited Indium Phosphide substrate supply constraining photonics/optical interconnect production. A "bottleneck within a bottleneck."
-
-**How to apply:** Identify the constraining material. Map who controls global supply (Herfindahl-style: how many companies control 80%+?). Assess geopolitical risk from export controls. Calculate cost insignificance ratio (component cost vs total system cost). Evaluate historical analogies for price response magnitude. Find the publicly traded company with most leverage at the chokepoint. Reapply this lens to any new technology transition.
-
-### CapEx Funnel / Mag7
-
-Capital expenditure flow from the seven largest tech companies down through the supply chain. The master demand signal for the entire AI investment ecosystem.
-
-**How to apply:** Monitor quarterly capex guidance. Calculate total combined capex and Y/Y change. Trace layer by layer: Hyperscaler -> Neocloud -> Semiconductor -> Memory -> Substrates -> Materials -> Energy. Identify which layer sees the largest % demand increase relative to existing capacity. "If Mag7 is dependent on a company, the company will blow away expectations quarter after quarter."
-
 ### Bottleneck Investing (7-Step Framework)
 
 Serenity's signature framework for finding smallest public companies controlling critical supply chain bottlenecks.
