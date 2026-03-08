@@ -641,6 +641,7 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 	load_dotenv(env_path)
 	api_key = os.environ.get("GOOGLE_API_KEY")
 	model_id = os.environ.get("GOOGLE_MODEL", "gemini-2.5-flash")
+	thinking_level = os.environ.get("GOOGLE_THINKING_LEVEL", "")
 
 	if not api_key:
 		return None
@@ -654,6 +655,19 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		filing_text=text,
 	)
 
+	# Build config with optional thinking level
+	from google.genai import types
+
+	gen_config = {
+		"response_mime_type": "application/json",
+		"response_json_schema": SupplyChainExtraction.model_json_schema(),
+		"temperature": 0.1,
+	}
+	if thinking_level and thinking_level.lower() in ("low", "medium", "high", "minimal"):
+		gen_config["thinking_config"] = types.ThinkingConfig(
+			thinking_level=thinking_level.lower()
+		)
+
 	# Retry with backoff
 	client = genai.Client(api_key=api_key)
 	retries = 3
@@ -664,11 +678,7 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 			response = client.models.generate_content(
 				model=model_id,
 				contents=prompt,
-				config={
-					"response_mime_type": "application/json",
-					"response_json_schema": SupplyChainExtraction.model_json_schema(),
-					"temperature": 0.1,
-				},
+				config=gen_config,
 			)
 			extraction = SupplyChainExtraction.model_validate_json(response.text)
 			break
