@@ -245,7 +245,21 @@ def _extract_xbrl_supplements(filing):
 	conc = df[df["concept"].astype(str).str.contains(
 		"ConcentrationRiskPercentage", case=False, na=False)]
 	if len(conc) > 0:
+		# Filter to revenue benchmark only (exclude AR, asset-based benchmarks)
+		benchmark_col = "us-gaap:ConcentrationRiskByBenchmarkAxis"
+		if benchmark_col in conc.columns:
+			conc = conc[
+				conc[benchmark_col].astype(str).str.contains(
+					"Revenue", case=False, na=False)
+			]
+
+		# Filter to most recent period only
+		if "end_date" in conc.columns and len(conc) > 0:
+			latest_date = conc["end_date"].max()
+			conc = conc[conc["end_date"] == latest_date]
+
 		entries = []
+		seen_entities = set()
 		for _, row in conc.iterrows():
 			customer = str(row.get("srt:MajorCustomersAxis", ""))
 			if not customer or customer == "nan":
@@ -254,6 +268,19 @@ def _extract_xbrl_supplements(filing):
 			name = customer.split(":")[-1].replace("Member", "")
 			# Add spaces before capitals
 			name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+
+			# Skip geographic groupings (belongs in geographic_revenue)
+			_GEO_KEYWORDS = ("Based End Customers", "Region", "Country",
+			                 "Americas", "Europe", "Asia", "Pacific",
+			                 "United States", "China", "Japan")
+			if any(kw.lower() in name.lower() for kw in _GEO_KEYWORDS):
+				continue
+
+			# Deduplicate by entity name within XBRL
+			if name in seen_entities:
+				continue
+			seen_entities.add(name)
+
 			try:
 				pct = round(float(row["value"]) * 100, 2)
 			except (ValueError, TypeError):
