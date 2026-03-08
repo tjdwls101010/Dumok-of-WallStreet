@@ -62,7 +62,6 @@ Args:
 	For cross-chain:
 		tickers (list): 2+ stock ticker symbols
 		--form (str): SEC filing form type (default: "10-K")
-		--mode (str): SEC extraction mode - "llm" (default, Gemini structured output) or "regex" (free, no API key)
 
 	For evidence_chain:
 		ticker (str): Stock ticker symbol
@@ -2432,29 +2431,15 @@ def cmd_cross_chain(args):
 	tickers = [t.upper() for t in args.tickers]
 	form_type = getattr(args, "form", "10-K")
 
-	mode = getattr(args, "mode", "regex")
-
 	# Step 1: Run SEC supply_chain extraction for each ticker
-	# Sequential when LLM mode to respect Gemini API rate limits (TPM)
-	# LLM mode needs 480s timeout — large 10-K filings (e.g. NVDA) can take 6+ min
+	# Sequential to respect Gemini API rate limits (TPM)
 	sec_results = {}
-	if mode == "llm":
-		for t in tickers:
-			sec_results[t] = _run_script(
-				"data_advanced/sec/supply_chain.py",
-				["supply-chain", t, "--form", form_type, "--mode", mode],
-				480,
-			)
-	else:
-		with concurrent.futures.ThreadPoolExecutor(max_workers=len(tickers)) as executor:
-			futures = {
-				t: executor.submit(
-					_run_script, "data_advanced/sec/supply_chain.py",
-					["supply-chain", t, "--form", form_type, "--mode", mode],
-				)
-				for t in tickers
-			}
-			sec_results = {t: f.result() for t, f in futures.items()}
+	for t in tickers:
+		sec_results[t] = _run_script(
+			"data_advanced/sec/supply_chain.py",
+			["supply-chain", t, "--form", form_type],
+			300,
+		)
 
 	# Step 2: Extract and normalize entities from each ticker
 	entity_map = {}
@@ -3373,10 +3358,6 @@ def main():
 	)
 	sp_cross.add_argument(
 		"--form", default="10-K", help="SEC filing form type (default: 10-K, auto-fallback to 20-F)"
-	)
-	sp_cross.add_argument(
-		"--mode", choices=["regex", "llm"], default="llm",
-		help="SEC extraction mode: 'llm' (default, Gemini structured output) or 'regex' (free, no API key)",
 	)
 	sp_cross.set_defaults(func=cmd_cross_chain)
 
