@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v4.6.1
+> 성진의 Claude 금융 시장 분석 플러그인 v5.0.0
 
 ![](Docs/Media/Main.png)
 

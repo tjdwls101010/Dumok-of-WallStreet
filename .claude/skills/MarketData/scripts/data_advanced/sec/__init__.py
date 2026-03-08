@@ -100,10 +100,10 @@ def main():
 	sp.set_defaults(func=cmd_litigation)
 
 	# supply-chain
-	sp = sub.add_parser("supply-chain", help="Extract supply chain structure from 10-K/10-Q")
+	sp = sub.add_parser("supply-chain", help="Extract supply chain structure from 10-K/10-Q/20-F")
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--form", default="10-K", help="Form type (10-K, 10-Q, or 20-F)")
-	sp.add_argument("--max-chars", type=int, default=500000, help="Max characters per section")
+	sp.add_argument("--max-chars", type=int, default=2000000, help="Max chars for filing text")
 	sp.set_defaults(func=cmd_supply_chain_extract)
 
 	# events

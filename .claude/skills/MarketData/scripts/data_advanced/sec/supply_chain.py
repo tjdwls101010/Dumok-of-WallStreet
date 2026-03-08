@@ -4,12 +4,11 @@
 Extracts supply chain relationships, single-source dependencies, geographic
 concentration, capacity constraints, revenue concentration, geographic revenue
 breakdown, purchase obligations, market risk disclosures (Item 7A), and
-inventory composition from SEC filings. Uses direct HTTP calls to SEC EDGAR
-(no disk I/O). Multi-stage regex + heuristic parsing with graceful degradation
-on section extraction failure. LLM mode additionally extracts Item 7A (market
-risk), Item 8 Notes (revenue/segment, commitments, concentration of risk,
-inventory) for quantitative supply chain data. Supports 20-F filings for
-foreign private issuers (TSMC, ASML, etc.) with auto-fallback from 10-K.
+inventory composition from SEC filings. Uses edgartools for filing discovery
+and markdown conversion (tables preserved). Entire filing markdown sent to
+Gemini for structured extraction (no section pre-extraction). XBRL structured
+data supplements 4 quantitative categories: revenue concentration, geographic
+revenue, inventory composition, and purchase obligations.
 
 Commands:
 	supply-chain: Extract supply chain structure from latest 10-K, 10-Q, or 20-F
@@ -19,8 +18,7 @@ Args:
 	For supply-chain:
 		symbol (str): Stock ticker symbol (e.g., "AAPL", "NVDA", "TSM")
 		--form (str): Filing form type, "10-K", "10-Q", or "20-F" (default: "10-K", auto-fallback to 20-F)
-		--max-chars (int): Max characters per section to process (default: 500000)
-		--mode (str): Extraction mode - "llm" (default, Gemini structured output) or "regex" (free, no API key)
+		--max-chars (int): Max characters for entire filing markdown (default: 2000000)
 
 	For events:
 		symbol (str): Stock ticker symbol
@@ -71,23 +69,16 @@ Returns:
 					"amount": str, "pct_of_total": float|None,
 					"context": str}]
 			},
-			"sections_extracted": {
-				"item_1_business": bool,
-				"item_1a_risk_factors": bool,
-				"item_7_mda": bool,
-				"item_7a_market_risk": bool,
-				"item_8_notes": bool
-			},
 			"extraction_stats": {
 				"total_matches": int,
 				"unique_entities": int,
-				"sections_found": int,
-				"sections_attempted": int
+				"mode": "llm",
+				"xbrl_categories": list,
+				"xbrl_supplemented": bool
 			}
 		},
 		"metadata": {
 			"symbol": str,
-			"cik": str,
 			"company_name": str,
 			"form": str
 		}
@@ -115,7 +106,7 @@ Returns:
 
 Example:
 	>>> python supply_chain.py supply-chain AAPL
-	>>> python supply_chain.py supply-chain NVDA --form 10-Q
+	>>> python supply_chain.py supply-chain TSM
 	>>> python supply_chain.py events NVDA --limit 5 --days 180
 
 Use Cases:
@@ -125,16 +116,11 @@ Use Cases:
 	- Monitor 8-K events for supply chain disruptions or material agreements
 
 Notes:
-	- No API key required (public SEC EDGAR access)
-	- Rate limiting: 0.15s delay between requests
-	- Section extraction uses multi-stage fallback (regex → anchor → keyword → skip)
-	- Graceful degradation: returns partial data if some sections fail
-	- Filing HTML can be 5-10MB; max-chars parameter limits per-section processing
-	- Foreign filers (20-F) use different section numbers; currently graceful degradation
-	- LLM mode uses Gemini structured output for high-quality extraction
+	- Requires edgartools for filing discovery and markdown conversion
 	- LLM mode requires GOOGLE_API_KEY in .env file
-	- LLM mode falls back to regex on failure or missing API key
-	- Gemini 1M context handles entire 10-K without section splitting
+	- XBRL supplementation adds structured data for 4 quantitative categories
+	- Gemini 1M context handles entire filing markdown without section splitting
+	- edgartools handles SEC rate limiting automatically
 
 See Also:
 	- sec/filings.py: General SEC filings access and MD&A extraction
@@ -162,55 +148,327 @@ else:
 
 
 # ---------------------------------------------------------------------------
-# Keyword patterns for supply chain extraction
+# edgartools integration
 # ---------------------------------------------------------------------------
 
-_SUPPLIER_PATTERNS = [
-	r"(?:sole|single|primary|key|principal|critical|major)\s+(?:source|supplier|vendor|provider)",
-	r"(?:we|the\s+company)\s+(?:rely|relies|depend|depends)\s+on\s+(?:a\s+)?(?:single|sole|limited\s+number\s+of)",
-	r"(?:supplied|sourced|purchased|procured)\s+(?:exclusively|primarily|solely)\s+(?:from|by)",
-	r"(?:our|the)\s+(?:primary|principal|key)\s+(?:supplier|vendor|source)",
-]
+_MAX_MARKDOWN_CHARS = 2_000_000  # Gemini 1M token context
 
-_CUSTOMER_PATTERNS = [
-	r"(?:largest|major|significant|principal)\s+customer",
-	r"accounted\s+for\s+(?:approximately\s+)?\d+%",
-	r"(?:our|the)\s+(?:largest|top)\s+\d+\s+customers?\s+(?:accounted|represented|comprised)",
-	r"(?:significant|substantial)\s+(?:portion|percentage)\s+of\s+(?:our|total)\s+(?:revenue|sales|net\s+sales)",
-]
 
-_SINGLE_SOURCE_PATTERNS = [
-	r"sole\s+source",
-	r"single\s+source",
-	r"no\s+(?:alternative|other)\s+(?:source|supplier|vendor)",
-	r"only\s+(?:supplier|source|provider)",
-	r"(?:cannot|could\s+not)\s+(?:easily|readily)\s+(?:be\s+)?(?:replaced|substituted)",
-	r"limited\s+(?:number|availability)\s+of\s+(?:alternative\s+)?(?:suppliers?|sources?|vendors?)",
-]
+def _init_edgartools():
+	"""edgartools SEC identity initialization."""
+	from edgar import set_identity
+	from dotenv import load_dotenv
+	env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+		os.path.dirname(__file__)))), ".env")
+	load_dotenv(env_path)
+	identity = os.environ.get("EDGAR_IDENTITY",
+	                          "MarketData/1.0 contact@example.com")
+	set_identity(identity)
 
-_GEOGRAPHIC_PATTERNS = [
-	r"(?:manufactured|produced|fabricated|assembled|sourced|mined|processed)\s+(?:primarily\s+)?(?:in|at)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
-	r"(?:operations?|facilit(?:y|ies)|plant|factory|factories)\s+(?:in|located\s+in)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)",
-	r"(?:China|Taiwan|Japan|Korea|South\s+Korea|Germany|Israel|India|Mexico|Vietnam|Malaysia|Singapore|Thailand|Philippines|Indonesia)(?:\s+and\s+(?:China|Taiwan|Japan|Korea|South\s+Korea|Germany|Israel|India|Mexico|Vietnam|Malaysia|Singapore|Thailand|Philippines|Indonesia))*",
-	r"(?:geographically|regionally)\s+concentrated",
-]
 
-_CAPACITY_PATTERNS = [
-	r"(?:capacity|production)\s+constraint",
-	r"lead\s+time(?:s)?\s+of\s+(?:approximately\s+)?\d+",
-	r"(?:backlog|order\s+backlog)\s+(?:of|was|totaled|increased)",
-	r"(?:limited|constrained|insufficient)\s+(?:manufacturing\s+)?(?:capacity|supply|production)",
-	r"(?:expansion|capacity\s+expansion)\s+(?:is\s+)?expected\s+to\s+(?:be\s+)?(?:completed|operational)",
-	r"(?:long|extended)\s+lead\s+times?",
-]
+def _get_filing(symbol, form="10-K"):
+	"""Search latest filing via edgartools. Auto-fallback 10-K → 20-F.
 
-_RISK_PATTERNS = [
-	r"(?:supply\s+chain|supply)\s+(?:disruption|interruption|shortage|risk|constraint)",
-	r"(?:tariff|trade\s+restriction|export\s+control|sanction|embargo)",
-	r"(?:raw\s+material|critical\s+material|key\s+material)\s+(?:shortage|availability|price\s+(?:increase|volatility))",
-	r"(?:natural\s+disaster|pandemic|force\s+majeure|geopolitical)",
-	r"(?:could|may|might)\s+(?:significantly\s+)?(?:disrupt|interrupt|delay|impair|adversely\s+affect)\s+(?:our\s+)?(?:supply|operations|production|manufacturing)",
-]
+	Returns:
+		tuple: (filing, metadata_dict, company_name)
+	Raises:
+		ValueError: if no filing found after fallback
+	"""
+	from edgar import Company
+	_init_edgartools()
+	company = Company(symbol)
+
+	retries = 3
+	last_error = None
+	for attempt in range(1, retries + 1):
+		try:
+			filings = company.get_filings(form=form)
+			if len(filings) == 0 and form == "10-K":
+				filings = company.get_filings(form="20-F")
+				form = "20-F"
+			if len(filings) == 0:
+				raise ValueError(f"No {form} filing found for {symbol}")
+			filing = filings[0]
+			metadata = {
+				"form": form,
+				"filing_date": str(filing.filing_date),
+				"accession_number": filing.accession_number,
+				"filing_url": filing.filing_url,
+			}
+			return filing, metadata, company.name
+		except ValueError:
+			raise
+		except Exception as e:
+			last_error = e
+			print(f"[supply_chain] edgartools attempt {attempt}/{retries} failed: {e}",
+			      file=sys.stderr)
+			if attempt < retries:
+				time.sleep(2 ** attempt)
+				continue
+	raise RuntimeError(f"edgartools failed after {retries} attempts: {last_error}")
+
+
+def _get_filing_markdown(filing, max_chars=_MAX_MARKDOWN_CHARS):
+	"""Convert filing to markdown with safe truncation."""
+	md = filing.markdown()
+	if len(md) > max_chars:
+		md = md[:max_chars]
+	return md
+
+
+# ---------------------------------------------------------------------------
+# XBRL structured data extraction
+# ---------------------------------------------------------------------------
+
+def _extract_xbrl_supplements(filing):
+	"""Extract 4 quantitative categories from XBRL structured data.
+
+	Categories: revenue_concentration, geographic_revenue,
+	inventory_composition, purchase_obligations.
+	Returns empty dict if XBRL unavailable.
+	"""
+	try:
+		xbrl = filing.xbrl()
+		if xbrl is None:
+			return {}
+	except Exception:
+		return {}
+
+	supplements = {}
+
+	try:
+		df = xbrl.instance.facts.reset_index()
+	except Exception:
+		return {}
+
+	# --- Revenue Concentration ---
+	conc = df[df["concept"].astype(str).str.contains(
+		"ConcentrationRiskPercentage", case=False, na=False)]
+	if len(conc) > 0:
+		entries = []
+		for _, row in conc.iterrows():
+			customer = str(row.get("srt:MajorCustomersAxis", ""))
+			if not customer or customer == "nan":
+				continue
+			# Clean member name: "aapl:CustomerOneMember" → "Customer One"
+			name = customer.split(":")[-1].replace("Member", "")
+			# Add spaces before capitals
+			name = re.sub(r"([a-z])([A-Z])", r"\1 \2", name)
+			try:
+				pct = round(float(row["value"]) * 100, 2)
+			except (ValueError, TypeError):
+				pct = None
+			entries.append({
+				"entity": name,
+				"revenue_pct": pct,
+				"revenue_amount": "",
+				"context": f"XBRL: {row['concept']} ({row.get('end_date', '')})",
+				"source_section": "xbrl",
+				"confidence": "high",
+			})
+		if entries:
+			supplements["revenue_concentration"] = entries
+
+	# --- Geographic Revenue ---
+	geo_col = "srt:StatementGeographicalAxis"
+	if geo_col in df.columns:
+		geo = df[
+			(df[geo_col].notna()) &
+			(df["concept"].astype(str).str.contains(
+				"Revenue", case=False, na=False))
+		]
+		if len(geo) > 0:
+			# Get total revenue for percentage calculation.
+			# Multiple rows may exist (quarterly vs annual, segment breakdowns).
+			# Filter out TextBlock/Policy rows, convert to numeric, pick the max
+			# for the most recent end_date (= annual total).
+			# Find total revenue: try specific concept first, then broader
+			import pandas as pd
+			_rev_patterns = [
+				"RevenueFromContractWithCustomer",
+				r"^us-gaap:Revenues$",
+			]
+			total_rev = None
+			for _rev_pat in _rev_patterns:
+				total_rev_rows = df[
+					(df["concept"].astype(str).str.contains(
+						_rev_pat, case=False, na=False)) &
+					(~df["concept"].astype(str).str.contains(
+						"TextBlock|Policy|Description|Period|Percentage|Cost",
+						case=False, na=False)) &
+					(df[geo_col].isna()) &
+					(df["period_type"] == "duration")
+				].copy()
+				if len(total_rev_rows) > 0:
+					try:
+						total_rev_rows["_val"] = pd.to_numeric(
+							total_rev_rows["value"], errors="coerce")
+						total_rev_rows = total_rev_rows.dropna(subset=["_val"])
+						if len(total_rev_rows) > 0:
+							latest_date = total_rev_rows["end_date"].max()
+							latest = total_rev_rows[
+								total_rev_rows["end_date"] == latest_date]
+							total_rev = float(latest["_val"].max())
+							break
+					except Exception:
+						continue
+
+			entries = []
+			seen = set()
+			for _, row in geo.iterrows():
+				region_raw = str(row[geo_col])
+				# "country:US" → "United States", "country:CN" → "China"
+				region = region_raw.split(":")[-1].replace("Member", "")
+				region = re.sub(r"([a-z])([A-Z])", r"\1 \2", region)
+				_COUNTRY_MAP = {
+					"US": "United States", "CN": "China", "JP": "Japan",
+					"TW": "Taiwan", "KR": "South Korea", "DE": "Germany",
+					"GB": "United Kingdom", "IN": "India",
+				}
+				region = _COUNTRY_MAP.get(region, region)
+
+				try:
+					amount = float(row["value"])
+				except (ValueError, TypeError):
+					continue
+
+				end_date = str(row.get("end_date", ""))
+				dedup_key = f"{region}_{end_date}"
+				if dedup_key in seen:
+					continue
+				seen.add(dedup_key)
+
+				pct = round(amount / total_rev * 100, 2) if total_rev else None
+				amount_str = f"${amount / 1e9:.1f}B" if amount >= 1e9 else f"${amount / 1e6:.0f}M"
+				entries.append({
+					"region": region,
+					"revenue_pct": pct,
+					"revenue_amount": amount_str,
+					"context": f"XBRL: {row['concept']} ({end_date})",
+					"source_section": "xbrl",
+					"confidence": "high",
+				})
+			if entries:
+				# Keep only the most recent period
+				entries.sort(key=lambda x: x["context"], reverse=True)
+				# Group by unique period (take first batch)
+				if entries:
+					first_period = entries[0]["context"].split("(")[-1].rstrip(")")
+					entries = [e for e in entries
+					           if first_period in e["context"]]
+				supplements["geographic_revenue"] = entries
+
+	# --- Inventory Composition ---
+	inv_concepts = {
+		"InventoryRawMaterialsAndSupplies": "raw_materials",
+		"InventoryRawMaterials": "raw_materials",
+		"InventoryWorkInProcess": "work_in_progress",
+		"InventoryFinishedGoods": "finished_goods",
+		"InventoryFinishedGoodsAndWorkInProcess": "finished_goods",
+	}
+	inv_total_row = df[df["concept"].astype(str).str.contains(
+		r"^us-gaap:InventoryNet$", case=False, na=False)]
+	inv_total = None
+	if len(inv_total_row) > 0:
+		try:
+			inv_total = float(inv_total_row.iloc[0]["value"])
+		except (ValueError, TypeError):
+			pass
+
+	inv_entries = []
+	inv_component_total = 0.0
+	for concept_suffix, category in inv_concepts.items():
+		rows = df[df["concept"].astype(str).str.contains(
+			concept_suffix, case=False, na=False)]
+		if len(rows) > 0:
+			row = rows.iloc[0]
+			try:
+				amount = float(row["value"])
+			except (ValueError, TypeError):
+				continue
+			inv_component_total += amount
+			amount_str = f"${amount / 1e9:.1f}B" if amount >= 1e9 else f"${amount / 1e6:.0f}M"
+			inv_entries.append({
+				"category": category,
+				"amount": amount_str,
+				"_raw_amount": amount,
+				"context": f"XBRL: {row['concept']} ({row.get('end_date', '')})",
+				"source_section": "xbrl",
+				"confidence": "high",
+			})
+	if inv_entries:
+		# Use component sum as denominator if it exceeds InventoryNet (net of reserves)
+		denom = inv_total if inv_total and inv_component_total <= inv_total * 1.05 else inv_component_total
+		for e in inv_entries:
+			raw_amt = e.pop("_raw_amount")
+			e["pct_of_total"] = round(raw_amt / denom * 100, 2) if denom else None
+		supplements["inventory_composition"] = inv_entries
+
+	# --- Purchase Obligations ---
+	po_rows = df[df["concept"].astype(str).str.contains(
+		"UnrecordedUnconditionalPurchaseObligation", case=False, na=False)]
+	# Filter out text blocks
+	po_rows = po_rows[~po_rows["concept"].astype(str).str.contains(
+		"TextBlock|Policy", case=False, na=False)]
+	if len(po_rows) > 0:
+		po_entries = []
+		for _, row in po_rows.iterrows():
+			concept = str(row["concept"])
+			try:
+				amount = float(row["value"])
+			except (ValueError, TypeError):
+				continue
+			amount_str = f"${amount / 1e9:.1f}B" if amount >= 1e9 else f"${amount / 1e6:.0f}M"
+
+			# Determine timeframe from concept name
+			timeframe = ""
+			if "BalanceSheetAmount" in concept:
+				timeframe = "total"
+			elif "FirstAnniversary" in concept:
+				timeframe = "year 1"
+			elif "SecondAnniversary" in concept:
+				timeframe = "year 2"
+			elif "ThirdAnniversary" in concept:
+				timeframe = "year 3"
+			elif "FourthAnniversary" in concept:
+				timeframe = "year 4"
+			elif "FifthAnniversary" in concept:
+				timeframe = "year 5"
+			elif "AfterFiveYears" in concept:
+				timeframe = "after year 5"
+
+			po_entries.append({
+				"counterparty": "",
+				"obligation_type": "unconditional purchase obligation",
+				"amount": amount_str,
+				"timeframe": timeframe,
+				"context": f"XBRL: {concept} ({row.get('end_date', '')})",
+				"source_section": "xbrl",
+				"confidence": "high",
+			})
+		if po_entries:
+			supplements["purchase_obligations"] = po_entries
+
+	return supplements
+
+
+def _merge_xbrl_with_llm(llm_supply_chain, xbrl_data):
+	"""Merge XBRL supplements into LLM results. Supplement, never override.
+
+	XBRL entries are appended with source_section="xbrl" and confidence="high".
+	Both LLM and XBRL data preserved (duplicates allowed for downstream use).
+	"""
+	if not xbrl_data:
+		return llm_supply_chain, []
+
+	xbrl_categories = list(xbrl_data.keys())
+	for category, entries in xbrl_data.items():
+		if category in llm_supply_chain:
+			llm_supply_chain[category].extend(entries)
+		else:
+			llm_supply_chain[category] = entries
+
+	return llm_supply_chain, xbrl_categories
 
 
 # ---------------------------------------------------------------------------
@@ -300,11 +558,9 @@ class SupplyChainExtraction(BaseModel):
 	geographic_concentration: list[GeographicEntry] = Field(default_factory=list, description="Locations where manufacturing, production, or sourcing is concentrated.")
 	capacity_constraints: list[CapacityConstraintEntry] = Field(default_factory=list, description="Production capacity limitations, extended lead times, or backlogs.")
 	supply_chain_risks: list[SupplyChainRiskEntry] = Field(default_factory=list, description="Supply disruption risks including tariffs, shortages, geopolitical risks.")
-	# Item 8 Notes (LLM mode only, regex returns empty)
 	revenue_concentration: list[RevenueConcentrationEntry] = Field(default_factory=list, description="Customer/segment revenue concentration from Notes to Financial Statements (FASB ASC 280).")
 	geographic_revenue: list[GeographicRevenueEntry] = Field(default_factory=list, description="Revenue breakdown by country/region from Notes to Financial Statements.")
 	purchase_obligations: list[PurchaseObligationEntry] = Field(default_factory=list, description="Purchase commitments, capacity reservations, take-or-pay contracts from Notes.")
-	# Item 7A + Notes: Inventory (LLM mode only, regex returns empty)
 	market_risk_disclosures: list[MarketRiskEntry] = Field(default_factory=list, description="Market risk exposures from Item 7A: commodity, FX, and interest rate risks.")
 	inventory_composition: list[InventoryCompositionEntry] = Field(default_factory=list, description="Inventory breakdown (raw materials, WIP, finished goods) from Notes to Financial Statements.")
 
@@ -312,6 +568,15 @@ class SupplyChainExtraction(BaseModel):
 _LLM_PROMPT = """\
 You are a financial analyst extracting supply chain intelligence from SEC filings.
 Extract entities and relationships exactly as stated in the filing text.
+
+The filing text below is the complete SEC filing in markdown format.
+Identify relevant sections by their natural headings:
+- Item 1 (Business): suppliers, customers, single-source dependencies
+- Item 1A (Risk Factors): supply chain risks, geographic concentration
+- Item 7 (MD&A): capacity constraints, operating discussion
+- Item 7A (Market Risk): commodity/FX/interest rate exposures
+- Item 8 Notes: revenue segments, inventory, commitments, concentration
+For 20-F filings, look for equivalent items (Item 4, 3D, 5, 11, 18/19).
 
 Rules:
 1. Use exact company names from the filing — do not paraphrase or invent.
@@ -353,10 +618,6 @@ Rules:
     category as "raw_materials", "work_in_progress", or "finished_goods".
     Note any inventory obsolescence, write-downs, or valuation adjustments.
 
-Section tags in the text: [ITEM_1_BUSINESS] = Item 1, [ITEM_1A_RISK_FACTORS] = Item 1A,
-[ITEM_7_MDA] = Item 7/MD&A, [ITEM_7A_MARKET_RISK] = Item 7A (market risk),
-[ITEM_8_NOTES_*] = Notes to Financial Statements (revenue, commitments, concentration, inventory).
-
 Filing company: {company_name}
 
 Extract all supply chain entities from this SEC filing text:
@@ -370,7 +631,7 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 
 	Returns:
 		tuple(dict, int, int) or None: (supply_chain, total_matches, unique_entities)
-		Returns None on failure (caller falls back to regex).
+		Returns None on failure.
 	"""
 	from google import genai
 	from dotenv import load_dotenv
@@ -393,7 +654,7 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		filing_text=text,
 	)
 
-	# Retry with backoff — regex is the absolute last resort
+	# Retry with backoff
 	client = genai.Client(api_key=api_key)
 	retries = 3
 	extraction = None
@@ -466,10 +727,10 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 
 
 # ---------------------------------------------------------------------------
-# Section extraction from 10-K/10-Q HTML
+# HTML utility (used by cmd_events only)
 # ---------------------------------------------------------------------------
 
-def _clean_html(text):
+def _strip_html_tags(text):
 	"""Remove HTML tags and normalize whitespace."""
 	text = re.sub(r"<[^>]+>", " ", text)
 	text = re.sub(r"&nbsp;", " ", text)
@@ -479,498 +740,6 @@ def _clean_html(text):
 	text = re.sub(r"&#\d+;", " ", text)
 	text = re.sub(r"\s+", " ", text).strip()
 	return text
-
-
-def _prepare_content(raw_html):
-	"""Pre-process HTML content: normalize entities, strip tags, normalize whitespace.
-
-	Returns cleaned plain text suitable for section boundary detection and
-	keyword matching. Must be called ONCE before section extraction.
-	"""
-	text = raw_html
-	# Normalize HTML entities
-	text = text.replace("&#160;", " ")
-	text = text.replace("&nbsp;", " ")
-	text = text.replace("\xa0", " ")
-	text = text.replace("&#8217;", "'")
-	text = text.replace("&#8216;", "'")
-	text = text.replace("&#8220;", '"')
-	text = text.replace("&#8221;", '"')
-	text = text.replace("&amp;", "&")
-	text = text.replace("&lt;", "<")
-	text = text.replace("&gt;", ">")
-	text = re.sub(r"&#\d+;", " ", text)
-	# Strip HTML tags
-	text = re.sub(r"<[^>]+>", " ", text)
-	# ── XBRL artifact cleaning ──
-	# 1. DEI (Document and Entity Information) block removal
-	text = re.sub(
-		r"(?:Entity\s+(?:Registrant\s+Name|Central\s+Index\s+Key|"
-		r"File\s+Number|Tax\s+Identification|"
-		r"Incorporation,?\s+State|Address.*?(?:Zip|Code)|"
-		r"Current\s+Reporting\s+Status|Filer\s+Category|"
-		r"(?:Public\s+)?Float|Common\s+Stock.*?Outstanding|"
-		r"Well.?known\s+Seasoned|Shell\s+Company|"
-		r"Voluntary\s+Filer|Emerging\s+Growth|"
-		r"Interactive\s+Data|Smaller\s+Reporting)\s*"
-		r"[^\n]{0,200})",
-		" ", text, flags=re.IGNORECASE,
-	)
-	# 2. Amendment/document metadata removal
-	text = re.sub(
-		r"(?:Amendment\s+Flag|Document\s+(?:Period|Type|Fiscal\s+"
-		r"(?:Year|Period))|Current\s+Fiscal\s+Year\s+End)\s*"
-		r"[^\n]{0,100}",
-		" ", text, flags=re.IGNORECASE,
-	)
-	# 3. Orphaned CIK / long numeric sequences (10+ digits)
-	text = re.sub(r"(?<!\$)(?<!\d[,.])\b\d{10,}\b", " ", text)
-	# 4. XBRL namespace prefix residues
-	text = re.sub(
-		r"\b(?:dei|us-gaap|srt|country|stpr|exch):[A-Za-z]+\b",
-		" ", text,
-	)
-	# Normalize whitespace
-	text = re.sub(r"\s+", " ", text)
-	return text
-
-
-def _extract_section(content, start_patterns, end_patterns, max_chars):
-	"""Multi-stage section extraction with fallback.
-
-	Operates on pre-cleaned plain text (HTML already stripped).
-	Tries all regex matches per pattern, skipping ToC entries (< 500 chars)
-	and inline cross-references ("Item 8 of this Form 10-K").
-	"""
-	_INLINE_REF = re.compile(r"Item\s+\d+[A-Za-z]?\.?\s+of\b", re.IGNORECASE)
-
-	for pattern in start_patterns:
-		for match in re.finditer(pattern, content, re.IGNORECASE):
-			start = match.start()
-			# Skip quoted inline references: 'see "Item 11. Quantitative...'
-			if start > 0 and content[start - 1] in '"\'"\u201c':
-				continue
-			search_offset = start + len(match.group(0))
-
-			# Collect ALL end marker positions, sorted closest-first.
-			# Skip positions that are inline cross-references
-			# ("Item 8 of this Form", "Item 7 of the Company's Annual Report").
-			all_ends = set()
-			for end_pattern in end_patterns:
-				for em in re.finditer(end_pattern, content[search_offset:], re.IGNORECASE):
-					pos = search_offset + em.start()
-					snippet = content[pos:pos + 30]
-					if _INLINE_REF.match(snippet):
-						continue  # Skip inline reference
-					all_ends.add(pos)
-			sorted_ends = sorted(all_ends)
-
-			is_toc = False
-			for end_pos in sorted_ends:
-				section = content[start:end_pos]
-				if len(section) >= 500:
-					if len(section) > max_chars:
-						section = section[:max_chars]
-					return section.strip()
-				# Section too short — is this a ToC entry?
-				# ToC regions pack 4+ "Item N" headers within 500 chars.
-				nearby = content[start:start + 500]
-				item_count = len(re.findall(r"Item\s+\d+", nearby, re.IGNORECASE))
-				if item_count >= 4:
-					is_toc = True
-					break
-
-			if is_toc:
-				continue  # Skip ToC start match, try next start
-
-			# No valid end found — take max_chars from start (likely last section)
-			section = content[start:start + max_chars]
-			if len(section.strip()) > 500:
-				return section.strip()
-
-	return None
-
-
-def _extract_item8_notes(raw_html, max_chars, form="10-K"):
-	"""Extract targeted Notes from Financial Statements (Item 8 for 10-K, Item 18/19 for 20-F).
-
-	Extracts specific Note sections relevant to supply chain quantitative
-	data: revenue/segment info, commitments/obligations, concentration
-	of risk, and inventory composition. Returns dict: note_name -> text.
-	Empty dict on failure.
-	"""
-	content = _prepare_content(raw_html)
-
-	# Step 1: Financial Statements 시작 찾기 (form-dependent)
-	if form == "20-F":
-		item8_patterns = [
-			r"Item\s+18\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
-			r"Item\s+19\.?\s*(?:—|–|-)?\s*(?:Exhibits|Financial\s+Statements)",
-		]
-	else:
-		item8_patterns = [
-			r"Item\s+8\.?\s*(?:—|–|-)?\s*Financial\s+Statements",
-			r"Item\s+8\.?\s*(?:—|–|-)?\s*Consolidated\s+Financial",
-		]
-	item8_start = None
-	for pat in item8_patterns:
-		for m in re.finditer(pat, content, re.IGNORECASE):
-			if len(content[m.start():m.start() + 1000]) > 500:  # Skip ToC
-				item8_start = m.start()
-				break
-		if item8_start:
-			break
-	if item8_start is None:
-		return {}
-
-	# Step 2: "Notes to Financial Statements" 시작 찾기
-	search_region = content[item8_start:item8_start + 500000]
-	notes_match = re.search(
-		r"Notes?\s+to\s+(?:the\s+)?(?:Consolidated\s+)?Financial\s+Statements",
-		search_region, re.IGNORECASE,
-	)
-	if not notes_match:
-		return {}
-	notes_start = item8_start + notes_match.start()
-
-	# Step 3: 끝 범위 결정 (form-dependent)
-	if form == "20-F":
-		end_match = re.search(r"Item\s+19\.?\s|SIGNATURES", content[notes_start:], re.IGNORECASE)
-	else:
-		end_match = re.search(r"Item\s+9\.?\s", content[notes_start:], re.IGNORECASE)
-	notes_end = notes_start + end_match.start() if end_match else min(notes_start + max_chars * 3, len(content))
-	notes_text = content[notes_start:notes_end]
-
-	# Step 4: 타겟 Note 추출
-	note_patterns = {
-		"revenue_segment": [
-			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Revenue|Segment\s+Information|Operating\s+Segments?|Disaggregation\s+of\s+Revenue)",
-		],
-		"commitments": [
-			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Commitments?\s+and\s+Contingenc|Purchase\s+Obligations?|Purchase\s+Commitments?)",
-		],
-		"concentration": [
-			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Concentration\s+of\s+(?:Credit\s+)?Risk|Significant\s+Customers?|Customer\s+Concentration)",
-		],
-		"inventory": [
-			r"(?:Note\s+\d+\s*[-—–:.]?\s*)?(?:Inventor(?:y|ies)\b)",
-		],
-	}
-	result = {}
-	for name, patterns in note_patterns.items():
-		section = _extract_section(notes_text, patterns,
-			[r"Note\s+\d+\s*[-—–:.]"], max_chars)
-		if section:
-			result[name] = section
-	return result
-
-
-def _extract_10k_sections(raw_html, max_chars):
-	"""Extract Item 1, Item 1A, and Item 7 from a 10-K filing."""
-	# Pre-clean HTML once — all patterns work on plain text
-	content = _prepare_content(raw_html)
-	sections = {}
-
-	# Item 1: Business (patterns work on cleaned text, no HTML tags)
-	sections["item_1_business"] = _extract_section(
-		content,
-		start_patterns=[
-			r"Item\s+1\.?\s*(?:—|–|-)?\s*Business",
-			r"PART\s+I\s+Item\s+1",
-		],
-		end_patterns=[
-			r"Item\s+1A\.?\s",
-			r"Item\s+1B\.?\s",
-			r"Item\s+2\.?\s",
-		],
-		max_chars=max_chars,
-	)
-
-	# Item 1A: Risk Factors
-	sections["item_1a_risk_factors"] = _extract_section(
-		content,
-		start_patterns=[
-			r"Item\s+1A\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
-		],
-		end_patterns=[
-			r"Item\s+1B\.?\s",
-			r"Item\s+2\.?\s",
-		],
-		max_chars=max_chars,
-	)
-
-	# Item 7: MD&A
-	sections["item_7_mda"] = _extract_section(
-		content,
-		start_patterns=[
-			r"Item\s+7\.?\s*(?:—|–|-)?\s*Management'?s?\s+Discussion",
-		],
-		end_patterns=[
-			r"Item\s+7A\.?\s",
-			r"Item\s+8\.?\s",
-		],
-		max_chars=max_chars,
-	)
-
-	# Item 7A: Quantitative and Qualitative Disclosures About Market Risk
-	sections["item_7a_market_risk"] = _extract_section(
-		content,
-		[r"Item\s+7A\.?\s*(?:—|–|-)?\s*Quantitative\s+and\s+Qualitative",
-		 r"Item\s+7A\.?\s*(?:—|–|-)?\s*Market\s+Risk"],
-		[r"Item\s+8\.?\s", r"Item\s+9\.?\s"],
-		max_chars,
-	)
-
-	return sections
-
-
-def _extract_10q_sections(raw_html, max_chars):
-	"""Extract relevant sections from a 10-Q filing."""
-	content = _prepare_content(raw_html)
-	sections = {}
-
-	# Item 1A: Risk Factors (optional in 10-Q, but often included)
-	sections["item_1a_risk_factors"] = _extract_section(
-		content,
-		start_patterns=[
-			r"Item\s+1A\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
-		],
-		end_patterns=[
-			r"Item\s+2\.?\s",
-			r"Item\s+5\.?\s",
-		],
-		max_chars=max_chars,
-	)
-
-	# Item 2: MD&A (10-Q version)
-	sections["item_7_mda"] = _extract_section(
-		content,
-		start_patterns=[
-			r"Item\s+2\.?\s*(?:—|–|-)?\s*Management'?s?\s+Discussion",
-		],
-		end_patterns=[
-			r"Item\s+3\.?\s",
-			r"Item\s+4\.?\s",
-		],
-		max_chars=max_chars,
-	)
-
-	# No Item 1 Business in 10-Q typically
-	sections["item_1_business"] = None
-
-	return sections
-
-
-def _extract_20f_sections(raw_html, max_chars):
-	"""Extract supply chain sections from 20-F (Foreign Private Issuer).
-
-	Maps to 10-K equivalent keys for downstream compatibility.
-	20-F structures vary widely (TSM, ASML, Samsung). Patterns ordered
-	from most specific to broadest fallback.
-	"""
-	content = _prepare_content(raw_html)
-	sections = {}
-
-	# Item 4/4B (Business Overview) → item_1_business
-	# Broad fallback (Item 4[^0-9]) removed — catches shareholder meeting
-	# agenda items in ASML-style combined annual reports.
-	sections["item_1_business"] = _extract_section(content,
-		[r"Item\s+4\.?\s*(?:B\.?)?\s*(?:—|–|-)?\s*(?:Information\s+on\s+the\s+Company|Business\s+Overview)",
-		 r"Item\s+4\.?\s*(?:—|–|-)?\s*Information\s+on\s+the\s+Company"],
-		[r"Item\s+4A\.?\s", r"Item\s+4C\.?\s", r"Item\s+5\.?\s"], max_chars)
-
-	# Item 3D (Risk Factors) → item_1a_risk_factors
-	# TSM uses "Risk Factors We wish to caution..." as standalone header.
-	# ASML uses "D. Risk Factors" in cross-reference table.
-	sections["item_1a_risk_factors"] = _extract_section(content,
-		[r"Item\s+3\.?\s*D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
-		 r"Item\s+3D\.?\s*(?:—|–|-)?\s*Risk\s+Factors",
-		 r"D\.\s*Risk\s+Factors",
-		 r"Risk\s+Factors\s+(?:We|The|Our|In\s+addition)"],
-		[r"Item\s+4\.?\s", r"Item\s+4A\.?\s"], max_chars)
-
-	# Item 5 (Operating and Financial Review) → item_7_mda
-	sections["item_7_mda"] = _extract_section(content,
-		[r"Item\s+5\.?\s*(?:—|–|-)?\s*Operating\s+and\s+Financial\s+Review",
-		 r"Item\s+5\.?\s*(?:—|–|-)?\s*Operating\s+Results"],
-		[r"Item\s+6\.?\s", r"Item\s+7\.?\s"], max_chars)
-
-	# Item 11 (Market Risk) → item_7a_market_risk
-	# TSM uses "ITEM 12D." (no space after 12) — need [A-D]? to match
-	sections["item_7a_market_risk"] = _extract_section(content,
-		[r"Item\s+11\.?\s*(?:—|–|-)?\s*Quantitative\s+and\s+Qualitative",
-		 r"Item\s+11\.?\s*(?:—|–|-)?\s*Market\s+Risk"],
-		[r"Item\s+12[A-D]?\.?\s", r"PART\s+II"], max_chars)
-
-	return sections
-
-
-# ---------------------------------------------------------------------------
-# Keyword matching and context extraction
-# ---------------------------------------------------------------------------
-
-def _extract_matches(text, patterns, source_section, context_window=350):
-	"""Find pattern matches and extract surrounding context."""
-	matches = []
-	seen_contexts = set()
-
-	for pattern in patterns:
-		for m in re.finditer(pattern, text, re.IGNORECASE):
-			start = max(0, m.start() - context_window)
-			end = min(len(text), m.end() + context_window)
-			context = text[start:end].strip()
-
-			# Dedup by checking overlap
-			context_key = context[:100]
-			if context_key in seen_contexts:
-				continue
-			seen_contexts.add(context_key)
-
-			# Determine confidence
-			has_number = bool(re.search(r"\d+%|\$\d+|\d+\s+(?:million|billion)", context, re.IGNORECASE))
-			has_entity = bool(re.search(r"[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+", context))
-
-			if has_number and has_entity:
-				confidence = "high"
-			elif has_number or has_entity:
-				confidence = "medium"
-			else:
-				confidence = "low"
-
-			matches.append({
-				"matched_text": m.group(0)[:100],
-				"context": context[:400],
-				"source_section": source_section,
-				"confidence": confidence,
-			})
-
-	return matches
-
-
-def _extract_entity_from_context(context):
-	"""Try to extract a named entity from context text."""
-	# Look for company-like names (capitalized multi-word or known patterns)
-	patterns = [
-		r"([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+(?:\s+(?:Inc|Corp|Ltd|LLC|Co|Company|Group|Limited))\.?)",
-		r"([A-Z]{2,}(?:\s+[A-Z]{2,})*(?:\s+(?:Inc|Corp|Ltd|LLC))?\.?)",
-	]
-	for pat in patterns:
-		match = re.search(pat, context)
-		if match:
-			return match.group(1).strip()
-	return ""
-
-
-def _build_supply_chain_data(sections):
-	"""Extract structured supply chain data from filing sections."""
-	supply_chain = {
-		"suppliers": [],
-		"customers": [],
-		"single_source_dependencies": [],
-		"geographic_concentration": [],
-		"capacity_constraints": [],
-		"supply_chain_risks": [],
-		"revenue_concentration": [],
-		"geographic_revenue": [],
-		"purchase_obligations": [],
-		"market_risk_disclosures": [],
-		"inventory_composition": [],
-	}
-	total_matches = 0
-	entities = set()
-
-	for section_name, text in sections.items():
-		if not text:
-			continue
-
-		# Suppliers
-		matches = _extract_matches(text, _SUPPLIER_PATTERNS, section_name)
-		for m in matches:
-			entity = _extract_entity_from_context(m["context"])
-			if entity:
-				entities.add(entity)
-			supply_chain["suppliers"].append({
-				"entity": entity,
-				"relationship": m["matched_text"],
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-		# Customers
-		matches = _extract_matches(text, _CUSTOMER_PATTERNS, section_name)
-		for m in matches:
-			entity = _extract_entity_from_context(m["context"])
-			if entity:
-				entities.add(entity)
-			supply_chain["customers"].append({
-				"entity": entity,
-				"relationship": m["matched_text"],
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-		# Single source dependencies
-		matches = _extract_matches(text, _SINGLE_SOURCE_PATTERNS, section_name)
-		for m in matches:
-			entity = _extract_entity_from_context(m["context"])
-			if entity:
-				entities.add(entity)
-			supply_chain["single_source_dependencies"].append({
-				"component": m["matched_text"],
-				"supplier": entity,
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-		# Geographic concentration
-		matches = _extract_matches(text, _GEOGRAPHIC_PATTERNS, section_name)
-		for m in matches:
-			# Try to extract location
-			loc_match = re.search(
-				r"(?:China|Taiwan|Japan|Korea|South\s+Korea|Germany|Israel|India|"
-				r"Mexico|Vietnam|Malaysia|Singapore|Thailand|Philippines|Indonesia|"
-				r"United\s+States|U\.S\.|Europe|Asia|Southeast\s+Asia)",
-				m["context"], re.IGNORECASE,
-			)
-			location = loc_match.group(0) if loc_match else ""
-			supply_chain["geographic_concentration"].append({
-				"location": location,
-				"activity": m["matched_text"],
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-		# Capacity constraints
-		matches = _extract_matches(text, _CAPACITY_PATTERNS, section_name)
-		for m in matches:
-			supply_chain["capacity_constraints"].append({
-				"constraint": m["matched_text"],
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-		# Supply chain risks
-		matches = _extract_matches(text, _RISK_PATTERNS, section_name)
-		for m in matches:
-			supply_chain["supply_chain_risks"].append({
-				"risk": m["matched_text"],
-				"context": m["context"],
-				"source_section": m["source_section"],
-				"confidence": m["confidence"],
-			})
-		total_matches += len(matches)
-
-	return supply_chain, total_matches, len(entities)
 
 
 # ---------------------------------------------------------------------------
@@ -1004,201 +773,73 @@ _8K_SC_PATTERNS = [
 
 @safe_run
 def cmd_supply_chain_extract(args):
-	"""Extract supply chain structure from 10-K or 10-Q filing."""
+	"""Extract supply chain structure from 10-K, 10-Q, or 20-F filing."""
 	symbol = args.symbol.upper()
 	form = args.form.upper() if args.form else "10-K"
 	max_chars = args.max_chars
-	mode = getattr(args, "mode", "regex")
 
-	# Get CIK and company info
-	cik = get_cik_from_symbol(symbol)
-	data = get_company_info(cik)
-	company_name = data.get("name", "")
-
-	filings = data.get("filings", {}).get("recent", {})
-	if not filings:
-		output_json({
-			"data": None,
-			"metadata": {"symbol": symbol, "cik": cik, "company_name": company_name,
-						"form": form, "error": "No filings found"},
-		})
-		return
-
-	# Find the most recent matching filing
-	forms = filings.get("form", [])
-	filing_dates = filings.get("filingDate", [])
-	accession_numbers = filings.get("accessionNumber", [])
-	primary_documents = filings.get("primaryDocument", [])
-
-	target_filing = None
-	for i in range(len(forms)):
-		if forms[i] == form:
-			accession = accession_numbers[i] if i < len(accession_numbers) else ""
-			primary_doc = primary_documents[i] if i < len(primary_documents) else ""
-			cik_int = int(cik)
-			filing_url = (
-				f"https://www.sec.gov/Archives/edgar/data/{cik_int}/"
-				f"{accession.replace('-', '')}/{primary_doc}"
-			)
-			target_filing = {
-				"form": form,
-				"filing_date": filing_dates[i] if i < len(filing_dates) else None,
-				"accession_number": accession,
-				"filing_url": filing_url,
-			}
-			break
-
-	# Auto-fallback: 10-K not found → try 20-F for foreign filers
-	if not target_filing and form == "10-K":
-		for i in range(len(forms)):
-			if forms[i] == "20-F":
-				accession = accession_numbers[i]
-				primary_doc = primary_documents[i]
-				cik_int = int(cik)
-				filing_url = (
-					f"https://www.sec.gov/Archives/edgar/data/{cik_int}/"
-					f"{accession.replace('-', '')}/{primary_doc}"
-				)
-				target_filing = {
-					"form": "20-F", "filing_date": filing_dates[i],
-					"accession_number": accession, "filing_url": filing_url,
-				}
-				form = "20-F"  # Update for downstream routing
-				break
-
-	if not target_filing:
-		output_json({
-			"data": None,
-			"metadata": {"symbol": symbol, "cik": cik, "company_name": company_name,
-						"form": form, "error": f"No {form} filing found"},
-		})
-		return
-
-	# Fetch filing HTML
-	time.sleep(0.15)  # Rate limiting
+	# Step 1: Get filing via edgartools
 	try:
-		resp = requests.get(
-			target_filing["filing_url"], headers=SEC_HEADERS, timeout=120,
-		)
-		resp.raise_for_status()
-		content = resp.text
+		filing, metadata, company_name = _get_filing(symbol, form)
 	except Exception as e:
 		output_json({
 			"data": None,
-			"metadata": {"symbol": symbol, "cik": cik, "company_name": company_name,
-						"form": form, "error": f"Failed to fetch filing: {str(e)}"},
+			"metadata": {"symbol": symbol, "form": form,
+			             "error": f"Filing retrieval failed: {str(e)}"},
 		})
 		return
 
-	# Extract supply chain data based on mode
-	if mode == "llm":
-		# Section-focused extraction: extract Item 1, 1A, 7, 7A + Notes separately
-		# then send ALL sections to Gemini. Gemini 2.5 Flash handles 1M tokens;
-		# typical 4-section text + Notes (~400K chars ≈ 100K tokens) is well
-		# within capacity. Per-section guard (default 500K) prevents edge cases.
-		if form == "10-Q":
-			section_extractor = _extract_10q_sections
-		elif form == "20-F":
-			section_extractor = _extract_20f_sections
-		else:
-			section_extractor = _extract_10k_sections
-		sections = section_extractor(content, max_chars)
-		sections_extracted = {k: v is not None for k, v in sections.items()}
-		sections_found = sum(1 for v in sections.values() if v is not None)
+	# Step 2: Convert to markdown
+	try:
+		markdown_text = _get_filing_markdown(filing, max_chars)
+	except Exception as e:
+		output_json({
+			"data": None,
+			"metadata": {"symbol": symbol, "company_name": company_name,
+			             "form": metadata["form"],
+			             "error": f"Markdown conversion failed: {str(e)}"},
+		})
+		return
 
-		# Extract Notes (10-K/20-F only, LLM mode only)
-		item8_notes = {} if form == "10-Q" else _extract_item8_notes(content, max_chars, form=form)
-		sections_extracted["item_8_notes"] = bool(item8_notes)
+	# Step 3: LLM extraction
+	llm_result = _extract_supply_chain_llm(
+		markdown_text, company_name=company_name, max_chars=None,
+	)
+	if llm_result is None:
+		output_json({
+			"data": None,
+			"metadata": {"symbol": symbol, "company_name": company_name,
+			             "form": metadata["form"],
+			             "error": "GOOGLE_API_KEY not set. Use WebSearch to find supply chain information instead."},
+		})
+		return
 
-		# 20-F filings (ASML, SAP, etc.) may use combined annual report format
-		# where section extraction largely fails. Fall back to raw text when
-		# too few sections are found to give Gemini the full document.
-		# Also detect false extractions: 2+ sections hitting max_chars limit
-		# suggests wrong section boundaries (e.g., shareholder meeting items).
-		truncated_count = sum(
-			1 for v in sections.values()
-			if v is not None and len(v) >= max_chars - 1
-		)
-		use_raw_fallback = (
-			sections_found == 0
-			or (form == "20-F" and sections_found <= 1 and not item8_notes)
-			or (form == "20-F" and truncated_count >= 2)
-		)
+	supply_chain, total_matches, unique_entities = llm_result
 
-		if not use_raw_fallback:
-			section_keys = ["item_1_business", "item_1a_risk_factors", "item_7_mda", "item_7a_market_risk"]
-			section_parts = [
-				f"[{key.upper()}]\n{sections[key]}"
-				for key in section_keys if sections.get(key)
-			]
-			for note_name, note_text in item8_notes.items():
-				section_parts.append(f"[ITEM_8_NOTES_{note_name.upper()}]\n{note_text}")
-			focused_text = "\n\n".join(section_parts)
-		else:
-			focused_text = _prepare_content(content)
-			if len(focused_text) > max_chars * 3:
-				focused_text = focused_text[:max_chars * 3]
+	# Step 4: XBRL supplementation
+	xbrl_data = _extract_xbrl_supplements(filing)
+	supply_chain, xbrl_categories = _merge_xbrl_with_llm(supply_chain, xbrl_data)
 
-		llm_result = _extract_supply_chain_llm(
-			focused_text, company_name=company_name, max_chars=None,
-		)
-		if llm_result is not None:
-			supply_chain, total_matches, unique_entities = llm_result
-			output_json({
-				"data": {
-					"filing": target_filing,
-					"supply_chain": supply_chain,
-					"sections_extracted": sections_extracted,
-					"extraction_stats": {
-						"total_matches": total_matches,
-						"unique_entities": unique_entities,
-						"sections_found": sections_found,
-						"sections_attempted": 4,
-						"mode": "llm",
-					},
-				},
-				"metadata": {
-					"symbol": symbol,
-					"cik": cik,
-					"company_name": company_name,
-					"form": form,
-				},
-			})
-			return
-		# LLM failed — fallback to regex
-		mode = "regex"
+	# Recount after merge
+	total_matches = sum(len(v) for v in supply_chain.values())
 
-	# Regex mode (default)
-	if form == "10-Q":
-		sections = _extract_10q_sections(content, max_chars)
-	elif form == "20-F":
-		sections = _extract_20f_sections(content, max_chars)
-	else:
-		sections = _extract_10k_sections(content, max_chars)
-
-	sections_extracted = {k: v is not None for k, v in sections.items()}
-	sections_found = sum(1 for v in sections.values() if v is not None)
-
-	supply_chain, total_matches, unique_entities = _build_supply_chain_data(sections)
-
+	# Step 5: Output
 	output_json({
 		"data": {
-			"filing": target_filing,
+			"filing": metadata,
 			"supply_chain": supply_chain,
-			"sections_extracted": sections_extracted,
 			"extraction_stats": {
 				"total_matches": total_matches,
 				"unique_entities": unique_entities,
-				"sections_found": sections_found,
-				"sections_attempted": 4,
-				"mode": "regex",
+				"mode": "llm",
+				"xbrl_categories": xbrl_categories,
+				"xbrl_supplemented": bool(xbrl_categories),
 			},
 		},
 		"metadata": {
 			"symbol": symbol,
-			"cik": cik,
 			"company_name": company_name,
-			"form": form,
+			"form": metadata["form"],
 		},
 	})
 
@@ -1260,7 +901,7 @@ def cmd_events(args):
 				filing["filing_url"], headers=SEC_HEADERS, timeout=30,
 			)
 			resp.raise_for_status()
-			content = _clean_html(resp.text)
+			content = _strip_html_tags(resp.text)
 
 			# Check for supply chain relevance
 			relevance_matches = []
@@ -1324,12 +965,10 @@ def main():
 	sub = parser.add_subparsers(dest="command", required=True)
 
 	# supply-chain
-	sp = sub.add_parser("supply-chain", help="Extract supply chain from 10-K/10-Q")
+	sp = sub.add_parser("supply-chain", help="Extract supply chain from 10-K/10-Q/20-F")
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--form", default="10-K", help="Form type (10-K, 10-Q, or 20-F)")
-	sp.add_argument("--max-chars", type=int, default=500000, help="Max chars per section")
-	sp.add_argument("--mode", choices=["regex", "llm"], default="llm",
-					help="Extraction mode: 'llm' (default, Gemini structured output) or 'regex' (free, no API key)")
+	sp.add_argument("--max-chars", type=int, default=2000000, help="Max chars for filing text")
 	sp.set_defaults(func=cmd_supply_chain_extract)
 
 	# events
