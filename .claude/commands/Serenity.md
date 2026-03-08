@@ -123,11 +123,11 @@ Chain types sequentially when a query spans multiple intents:
 | Query Type | Primary Subcommand | Supplementary | Agent-Level Work |
 |------------|-------------------|---------------|-----------------|
 | A (Macro) | macro | — | Regime judgment → position adjustment guidance |
-| B (Stock) | analyze | evidence_chain | L2/L3 WebSearch, L6 taxonomy |
+| B (Stock) | analyze | — | L2/L3 WebSearch, L6 taxonomy |
 | C-1 (Compare) | compare | analyze (top N) | Relative strength narrative |
 | C-2 (Discover) | discover | analyze (top N) | Industry selection, candidate validation |
-| C-3 (Thematic) | WebSearch → discover → cross_chain → analyze | evidence_chain | 5-Layer Mapping, 6-Criteria (see `supply_chain_bottleneck.md`) |
-| D (Supply Chain) | evidence_chain + capex_cascade | cross_chain | Scenario (Clear Thought), 6-Criteria |
+| C-3 (Thematic) | WebSearch → discover → cross_chain → analyze | — | 5-Layer Mapping, 6-Criteria (see `supply_chain_bottleneck.md`) |
+| D (Supply Chain) | analyze + capex_cascade | cross_chain | Scenario (Clear Thought), 6-Criteria |
 | E (Position) | analyze + recheck | — | Position construction (`methodology.md`) |
 | F (Portfolio) | compare | — | E/D/B classification |
 

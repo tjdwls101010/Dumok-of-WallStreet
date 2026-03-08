@@ -412,7 +412,39 @@ def _build_validation(symbol, bottleneck_score):
 	if shares_note is not None:
 		health_gates["active_dilution_note"] = shares_note
 
-	gate_passes = sum(1 for v in health_gates.values() if v == "PASS")
+	# Raw data + classification thresholds for each gate
+	mos_pct = None
+	if no_growth_value is not None and market_cap is not None and market_cap > 0:
+		mos_pct = round((no_growth_value / market_cap - 1) * 100, 1)
+
+	health_gates["detail"] = {
+		"bear_bull_paradox": {
+			"total_debt": total_debt,
+			"market_cap": market_cap,
+			"interest_coverage": interest_coverage,
+			"debt_to_equity": debt_to_equity,
+			"thresholds": "FLAG: debt > 2x mcap OR coverage < 1x | PASS: otherwise",
+		},
+		"active_dilution": {
+			"shares_change_qoq_pct": shares_change_qoq,
+			"thresholds": "FLAG: > 2% | PASS: <= 2%",
+		},
+		"no_growth_fail": {
+			"no_growth_value": no_growth_value,
+			"market_cap": market_cap,
+			"margin_of_safety_pct": mos_pct,
+			"thresholds": "FLAG: ngv < 0.5x mcap | PASS: ngv >= 0.5x mcap",
+		},
+		"margin_collapse": {
+			"gross_margin": gross_margin,
+			"operating_margin": operating_margin,
+			"margin_trend": margin_trend,
+			"margin_yoy_change_pp": margin_yoy_change,
+			"thresholds": "FLAG: yoy_change < -5pp | PASS: yoy_change >= -5pp",
+		},
+	}
+
+	gate_passes = sum(1 for k, v in health_gates.items() if v == "PASS" and k not in ("detail", "active_dilution_note"))
 
 	# --- Asymmetry Score (0-100) ---
 	# Financial Health: 40 points = gate_passes * 10

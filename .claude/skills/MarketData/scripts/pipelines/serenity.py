@@ -34,7 +34,6 @@ Commands:
 		supply chain entity normalization and cross-matching, with
 		bottleneck_signal scoring (supplier_ref_pct, single_source_count,
 		assessment) for each shared entity
-	evidence_chain: 6-Link evidence chain data availability check
 	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
 	screen: Sector-based bottleneck candidate screening
 	capex-cascade: Supply chain CapEx cascade tracking across multiple tickers
@@ -62,9 +61,6 @@ Args:
 	For cross-chain:
 		tickers (list): 2+ stock ticker symbols
 		--form (str): SEC filing form type (default: "10-K")
-
-	For evidence_chain:
-		ticker (str): Stock ticker symbol
 
 	For compare:
 		tickers (list): 2+ stock ticker symbols
@@ -115,10 +111,6 @@ Returns:
 		sec_status (SEC_SC_available/partial/unavailable).
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
-	For evidence_chain:
-		dict with ticker, chain_completeness (str "N/6"),
-		links (L1-L6 status), missing_links (list).
-
 	For compare:
 		dict with tickers, comparative_table (forward_pe,
 		no_growth_upside_pct, margin_status, io_quality_score,
@@ -147,9 +139,6 @@ Example:
 
 	>>> python serenity.py analyze NBIS --skip-macro
 	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
-
-	>>> python serenity.py evidence_chain AXTI
-	{"ticker": "AXTI", "chain_completeness": "5/6", ...}
 
 	>>> python serenity.py compare AXTI AEHR FORM
 	{"tickers": [...], "comparative_table": {"forward_pe": {...}, "market_cap": {...}, "revenue_growth_yoy": {...}, ...}, ...}
@@ -267,9 +256,19 @@ def _extract_health_gates(results):
 
 	# Bear-Bull Paradox: PASS (A-B + coverage > 3x), CAUTION (C OR 1-3x), FLAG (D OR < 1x)
 	debt = results.get("debt_structure", {})
+	bbp_detail = {}
 	if not debt.get("error"):
 		grade = str(debt.get("debt_quality_grade", "")).upper()[:1]
 		coverage = debt.get("interest_coverage_ratio")
+		bbp_detail = {
+			"debt_quality_grade": debt.get("debt_quality_grade"),
+			"interest_coverage_ratio": coverage,
+			"total_debt": debt.get("total_debt"),
+			"cash_and_equivalents": debt.get("cash_and_equivalents"),
+			"net_debt": debt.get("net_debt"),
+			"debt_to_equity": debt.get("debt_to_equity"),
+			"thresholds": "FLAG: grade D or coverage < 1x | CAUTION: grade C or 1-3x | PASS: grade A-B and coverage > 3x",
+		}
 		if grade == "D" or (coverage is not None and coverage < 1.0):
 			gates["bear_bull_paradox"] = "FLAG"
 			severity["bear_bull_paradox"] = 0.0
@@ -280,8 +279,16 @@ def _extract_health_gates(results):
 
 	# Active Dilution: PASS (< 1%), CAUTION (1-2%), FLAG (> 2%)
 	sbc = results.get("sbc_analyzer", {})
+	ad_detail = {}
 	if not sbc.get("error"):
 		shares_change = sbc.get("shares_change_qoq_pct")
+		ad_detail = {
+			"shares_change_qoq_pct": shares_change,
+			"dilution_flag": sbc.get("dilution_flag"),
+			"sbc_pct_revenue": sbc.get("sbc_pct_revenue"),
+			"total_dilution_annual_pct": sbc.get("total_dilution_annual_pct"),
+			"thresholds": "FLAG: > 2% or active_dilution | CAUTION: 1-2% | PASS: < 1%",
+		}
 		if isinstance(shares_change, (int, float)):
 			if shares_change > 2:
 				gates["active_dilution"] = "FLAG"
@@ -297,8 +304,17 @@ def _extract_health_gates(results):
 
 	# No-Growth Fail: PASS (MoS > 20%), CAUTION (0-20%), FLAG (< 0%)
 	ngv = results.get("no_growth_valuation", {})
+	ngf_detail = {}
 	if not ngv.get("error"):
 		mos = ngv.get("margin_of_safety_pct")
+		ngf_detail = {
+			"margin_of_safety_pct": mos,
+			"no_growth_fair_value": ngv.get("no_growth_fair_value"),
+			"current_market_cap": ngv.get("current_market_cap"),
+			"implied_earnings": ngv.get("implied_earnings"),
+			"net_margin_pct": ngv.get("net_margin_pct"),
+			"thresholds": "FLAG: MoS < 0% | CAUTION: 0-20% | PASS: > 20%",
+		}
 		if mos is not None:
 			if mos < 0:
 				gates["no_growth_fail"] = "FLAG"
@@ -310,8 +326,19 @@ def _extract_health_gates(results):
 
 	# Margin Collapse: PASS (expanding), CAUTION (stable/compression), FLAG (collapse)
 	margin = results.get("margin_tracker", {})
+	mc_detail = {}
 	if not margin.get("error"):
 		margin_flag = str(margin.get("flag", "")).upper()
+		latest_q = margin.get("latest_quarter", {})
+		mc_detail = {
+			"flag": margin.get("flag"),
+			"gross_margin": latest_q.get("gross_margin") if isinstance(latest_q, dict) else None,
+			"operating_margin": latest_q.get("operating_margin") if isinstance(latest_q, dict) else None,
+			"net_margin": latest_q.get("net_margin") if isinstance(latest_q, dict) else None,
+			"gross_margin_qoq_change": margin.get("gross_margin_qoq_change"),
+			"operating_margin_qoq_change": margin.get("operating_margin_qoq_change"),
+			"thresholds": "FLAG: collapse | CAUTION: stable/compression/contracting | PASS: expanding",
+		}
 		if "COLLAPSE" in margin_flag:
 			gates["margin_collapse"] = "FLAG"
 			severity["margin_collapse"] = 0.0
@@ -328,6 +355,12 @@ def _extract_health_gates(results):
 	gates["flags"] = flags
 	gates["severity"] = severity
 	gates["severity_score"] = severity_score
+	gates["detail"] = {
+		"bear_bull_paradox": bbp_detail,
+		"active_dilution": ad_detail,
+		"no_growth_fail": ngf_detail,
+		"margin_collapse": mc_detail,
+	}
 
 	return gates
 
@@ -731,31 +764,6 @@ def _build_l3_bottleneck(sec_sc_results):
 	return result
 
 
-def _build_evidence_chain_l3(ticker):
-	"""Build L3 evidence chain link with SEC data probe."""
-	sec_result = _run_script(
-		"data_advanced/sec/supply_chain.py", ["supply-chain", ticker], 120,
-	)
-	if sec_result and not sec_result.get("error"):
-		matches = sec_result.get("data", {}).get("extraction_stats", {}).get("total_matches", 0)
-		if matches > 0:
-			return {
-				"status": "partial",
-				"sec_data_available": True,
-				"note": "SEC supply chain data extracted. Full scoring requires agent + WebSearch.",
-			}
-		return {
-			"status": "partial",
-			"sec_data_available": False,
-			"note": "SEC filing found but no supply chain matches. Requires WebSearch.",
-		}
-	return {
-		"status": "requires_research",
-		"sec_data_available": False,
-		"note": "Supply chain mapping requires WebSearch.",
-	}
-
-
 # ---------------------------------------------------------------------------
 # v4.0 Helpers: Bottleneck Pre-Scoring, Thesis Signals, SoP Triggers,
 # Trapped Asset Override, Auto-Classification, Composite Signal
@@ -1107,7 +1115,18 @@ def _build_thesis_signals(l4_results, l5_results):
 	s_count, w_count = len(strengthening), len(weakening)
 	net_direction = "strengthening" if s_count > w_count else "weakening" if w_count > s_count else "neutral"
 
-	return {"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction, "conviction_delta": s_count - w_count}
+	# Raw data for agent reasoning
+	detail = {
+		"margin_flag": margin_flag or None,
+		"sales_accelerating": earnings_acc.get("sales_accelerating"),
+		"sales_growth_rates": earnings_acc.get("sales_growth_rates"),
+		"consecutive_beats": beats if isinstance(beats, (int, float)) else None,
+		"revisions_direction": analyst_rev.get("revisions_direction") if not analyst_rev.get("error") else None,
+		"io_quality_score": io_score,
+		"sbc_flag": sbc.get("flag") or sbc.get("dilution_flag"),
+	}
+
+	return {"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction, "conviction_delta": s_count - w_count, "detail": detail}
 
 
 def _check_sop_triggers(l4_results):
@@ -2136,7 +2155,7 @@ def cmd_recheck(args):
 	if thesis_signals.get("net_direction") == "weakening":
 		action_signals.append("THESIS_WEAKENING")
 
-	if health_gates.get("total_pass", 4) < 3:
+	if len(health_gates.get("flags", [])) >= 2:
 		action_signals.append("MULTIPLE_GATES_FLAGGED")
 
 	# Step 8: Verdict
@@ -2155,9 +2174,11 @@ def cmd_recheck(args):
 		note = (f"{signal_count} concerns detected: {', '.join(action_signals)}. "
 				"Strongly consider exiting or hedging the position.")
 
+	entry_date = getattr(args, "entry_date", None)
 	output_json({
 		"ticker": ticker,
 		"entry_price": entry_price,
+		"entry_date": entry_date,
 		"current_price": current_price,
 		"return_pct": return_pct,
 		"position_52w": position_52w,
@@ -2217,7 +2238,7 @@ def cmd_discover(args):
 			if not t:
 				continue
 			raw_mcap = row.get("Market Cap") or row.get("market_cap")
-			mcap_str = str(raw_mcap) if raw_mcap else None
+			mcap_str = str(int(round(float(raw_mcap)))) if raw_mcap else None
 			if max_mcap_val is not None and mcap_str:
 				row_mcap = _parse_mcap_string(mcap_str)
 				if row_mcap is not None and row_mcap > max_mcap_val:
@@ -2331,7 +2352,7 @@ def cmd_discover(args):
 			if not t:
 				continue
 			raw_mcap = row.get("Market Cap") or row.get("market_cap")
-			mcap_str = str(raw_mcap) if raw_mcap else None
+			mcap_str = str(int(round(float(raw_mcap)))) if raw_mcap else None
 			if max_mcap_val is not None and mcap_str:
 				row_mcap = _parse_mcap_string(mcap_str)
 				if row_mcap is not None and row_mcap > max_mcap_val:
@@ -2604,108 +2625,6 @@ def cmd_cross_chain(args):
 		"shared_entity_count": shared_count,
 		"note": "Cross-chain analysis based on SEC filing disclosures. Entity matching is name-based. Agent should verify shared relationships via WebSearch.",
 	})
-
-
-@safe_run
-def cmd_evidence_chain(args):
-	"""6-Link Evidence Chain Verification.
-
-	Checks data availability for each of the 6 evidence chain links.
-	L1 (macro), L2 (sector), L4 (company), L5 (valuation), L6 (catalyst)
-	are auto-verified. L3 (bottleneck) always requires research.
-	"""
-	ticker = args.ticker.upper()
-
-	# L1: Macro
-	l1_scripts = {
-		"erp": ("macro/erp.py", ["erp"]),
-		"fedwatch": ("data_advanced/fed/fedwatch.py", []),
-	}
-
-	# L2: Sector
-	l2_scripts = {
-		"sector_leaders": ("screening/sector_leaders.py", ["scan"]),
-	}
-
-	# L4: Company
-	l4_scripts = {
-		"info": ("data_sources/info.py", ["get-info", ticker]),
-		"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
-		"holders": ("data_sources/holders.py", ["get-institutional-holders", ticker]),
-	}
-
-	# L5: Valuation
-	l5_scripts = {
-		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
-		"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
-		"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
-	}
-
-	# L6: Catalyst
-	l6_scripts = {
-		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker]),
-	}
-
-	# Run all in parallel
-	all_scripts = {}
-	all_scripts.update({f"l1_{k}": v for k, v in l1_scripts.items()})
-	all_scripts.update({f"l2_{k}": v for k, v in l2_scripts.items()})
-	all_scripts.update({f"l4_{k}": v for k, v in l4_scripts.items()})
-	all_scripts.update({f"l5_{k}": v for k, v in l5_scripts.items()})
-	all_scripts.update({f"l6_{k}": v for k, v in l6_scripts.items()})
-
-	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-		futures = {}
-		for name, spec in all_scripts.items():
-			path, a = spec[0], spec[1]
-			t = spec[2] if len(spec) > 2 else 60
-			futures[name] = executor.submit(_run_script, path, a, t)
-		all_results = {name: future.result() for name, future in futures.items()}
-
-	# Build link status
-	def _link_status(prefix, script_keys):
-		"""Determine link status from results with given prefix."""
-		data = {}
-		has_error = True
-		for k in script_keys:
-			key = f"{prefix}_{k}"
-			result = all_results.get(key, {"error": "not run"})
-			data[k] = result
-			if not result.get("error"):
-				has_error = False
-		status = "available" if not has_error else "partial" if data else "unavailable"
-		return {"status": status, "data": data}
-
-	links = {
-		"L1_macro": _link_status("l1", list(l1_scripts.keys())),
-		"L2_sector": _link_status("l2", list(l2_scripts.keys())),
-		"L3_bottleneck": _build_evidence_chain_l3(ticker),
-		"L4_company": _link_status("l4", list(l4_scripts.keys())),
-		"L5_valuation": _link_status("l5", list(l5_scripts.keys())),
-		"L6_catalyst": _link_status("l6", list(l6_scripts.keys())),
-	}
-
-	# Count completeness
-	missing = []
-	available_count = 0
-	for link_name, link_data in links.items():
-		if link_data["status"] == "available":
-			available_count += 1
-		elif link_data["status"] == "requires_research":
-			missing.append(link_name)
-		elif link_data["status"] == "partial":
-			available_count += 1  # partial still counts
-		else:
-			missing.append(link_name)
-
-	output = {
-		"ticker": ticker,
-		"chain_completeness": f"{available_count}/6",
-		"links": links,
-		"missing_links": missing,
-	}
-
-	output_json(output)
 
 
 @safe_run
@@ -3276,13 +3195,6 @@ def main():
 		help="Skip Level 1 macro assessment",
 	)
 	sp_analyze.set_defaults(func=cmd_analyze)
-
-	# evidence_chain
-	sp_evidence = sub.add_parser(
-		"evidence_chain", help="6-Link evidence chain verification"
-	)
-	sp_evidence.add_argument("ticker", help="Stock ticker symbol")
-	sp_evidence.set_defaults(func=cmd_evidence_chain)
 
 	# compare
 	sp_compare = sub.add_parser(

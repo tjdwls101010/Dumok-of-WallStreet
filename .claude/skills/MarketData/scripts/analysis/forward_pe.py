@@ -150,20 +150,24 @@ def _calculate_forward_pe(symbol):
 
 	# Get forward EPS estimates
 	# yfinance returns DataFrame with index=['0q','+1q','0y','+1y'] and columns=['avg','low','high',...]
+	# Mapping: 0y (current FY) → forward_1y, +1y (next FY) → forward_2y
 	forward_1y_eps = None
 	forward_2y_eps = None
 	try:
 		earnings_est = ticker.get_earnings_estimate()
 		if earnings_est is not None and not earnings_est.empty:
-			if "+1y" in earnings_est.index and "avg" in earnings_est.columns:
-				val = earnings_est.loc["+1y", "avg"]
+			if "0y" in earnings_est.index and "avg" in earnings_est.columns:
+				val = earnings_est.loc["0y", "avg"]
 				if val == val:  # NaN check
 					forward_1y_eps = float(val)
-			# Use '0y' (current year) as forward_1y if '+1y' not available
-			if forward_1y_eps is None and "0y" in earnings_est.index and "avg" in earnings_est.columns:
-				val = earnings_est.loc["0y", "avg"]
+			if "+1y" in earnings_est.index and "avg" in earnings_est.columns:
+				val = earnings_est.loc["+1y", "avg"]
 				if val == val:
-					forward_1y_eps = float(val)
+					forward_2y_eps = float(val)
+			# Fallback: if 0y unavailable, use +1y for forward_1y
+			if forward_1y_eps is None and forward_2y_eps is not None:
+				forward_1y_eps = forward_2y_eps
+				forward_2y_eps = None
 	except Exception:
 		pass
 
