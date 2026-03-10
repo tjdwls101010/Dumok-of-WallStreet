@@ -108,6 +108,89 @@ The goal is to discover companies that AI models don't naturally associate with 
 - Exception: If the target is a pure-service or pure-software company with no physical supply chain, document why Layer 4 is not applicable and skip
 - When mapping multiple supply chain cascades, apply the Depth Gate to EACH cascade independently. Do not compensate for a shallow secondary cascade by going deeper on the primary. Each cascade is a separate discovery opportunity
 
+### Forced Multi-hop Discovery Execution Protocol
+
+The Forced Multi-hop Discovery Rule above establishes the WHAT and WHY. This protocol defines the HOW — a concrete 4-hop execution template that transforms the rule into a traceable, repeatable process. The goal is to move beyond the obvious layer and systematically discover upstream bottleneck candidates that are invisible to surface-level analysis.
+
+#### 4-Hop Execution Template
+
+**Hop 0 (Anchor): Start from the End Product or Known Bottleneck**
+- Identify the end product, deployment, or known bottleneck company that anchors the supply chain.
+- Extract supply chain relationships from SEC 10-K/10-Q filings (Item 1, Item 1A). Use the `sec_supply_chain` pipeline output when available.
+- Document: What does this company make? Who are its customers? What are its key inputs?
+- Output: A list of named suppliers, single-source dependencies, geographic concentrations, and capacity constraints — all sourced from regulatory filings.
+
+**Hop 1 (Tier 1 Suppliers): Direct Supplier Investigation**
+- For each supplier identified in Hop 0, investigate independently:
+  - Check SEC filings for the supplier (if publicly traded) to extract ITS supply chain relationships
+  - Determine if the supplier is single-source or part of an oligopoly for its product
+  - Apply the 6-Criteria initial scan: Does this supplier show concentration signals (top 3 >70% share)? Geographic concentration? Capacity constraints?
+- WebSearch to supplement: "[supplier name] competitors", "[supplier product] market share", "[supplier product] alternative sources"
+- Output for each Tier 1 supplier: name, supply chain role, concentration assessment, SEC data availability, preliminary bottleneck potential (high / medium / low).
+
+**Hop 2 (Tier 2 Suppliers): Supplier-of-Supplier Discovery**
+- For suppliers identified in Hop 1 as having bottleneck potential (medium or high), trace THEIR suppliers.
+- SEC filings are often unavailable at this depth. WebSearch becomes the primary tool:
+  - "[Tier 1 supplier product] key inputs"
+  - "[Tier 1 supplier product] raw materials"
+  - "[Tier 1 supplier product] substrate supplier"
+  - "[Tier 1 supplier] supply chain dependencies"
+- For each Tier 2 supplier discovered, immediately search: "[supplier name] publicly listed", "[supplier name] stock ticker"
+- Apply the 6-Criteria scan again. Cross-chain utilization check: does this Tier 2 supplier appear in multiple downstream chains?
+- Output for each Tier 2 supplier: name, supply chain role, concentration level, SEC data availability (often "none" at this tier), preliminary bottleneck assessment.
+
+**Hop 3 (Raw Material / Feedstock): Upstream Terminus**
+- Continue upstream from Hop 2 until reaching commodity inputs or specialized feedstock.
+- This is often where the hidden bottleneck lives — the material or process that everyone depends on but few analysts trace back to.
+- WebSearch focus shifts to production geography and capacity:
+  - "[material] production by country"
+  - "[material] global supply market share"
+  - "[material] capacity expansion timeline"
+  - "[feedstock] manufacturers"
+- Geographic concentration at this level is often extreme (single country controlling >80% of production).
+- Output: material/feedstock identification, production geography, supplier names (if identifiable), concentration ratio, capacity lead time.
+
+#### Per-Hop Validation Checklist
+
+At each hop, apply the following checks:
+
+1. **6-Criteria Scoring**: Apply the Bottleneck 6-Criteria Scoring Framework to every entity with concentration signals. Score need not be complete at every hop — partial evidence is expected at deeper tiers.
+2. **Cross-chain utilization**: Check whether the same supplier appears in multiple downstream chains. A shared supplier across 3+ end-product chains is a compounding bottleneck signal.
+3. **Geographic concentration check**: Flag any hop where >50% of production is in a single country. This reinforces Criterion 3 (geopolitical risk) and amplifies disruption impact.
+4. **Capacity constraint timeline**: For each bottleneck candidate, estimate time to add meaningful new capacity. Constraints measured in years (reactors, fabs, mines) are structural; constraints measured in months (assembly lines, software licenses) are transient.
+
+#### Stopping Conditions
+
+Do not trace indefinitely. Stop the multi-hop traversal when:
+
+1. **Reached commodity level**: The upstream input is a broadly traded commodity (silicon, copper, aluminum, rare earth oxides). Commodity-level bottlenecks follow different dynamics — they are driven by mining permits, refining capacity, and geopolitical controls rather than company-specific concentration. Document the commodity and its geographic concentration, but do not continue hopping.
+2. **Persistent data gaps**: 3 consecutive hops where SEC data is unavailable AND WebSearch cannot identify specific suppliers or production data. At this point, the supply chain is too opaque for evidence-based analysis.
+3. **Supply chain diffusion**: The supply base becomes too fragmented — more than 10 suppliers at the same tier, none controlling more than 5% of supply. Fragmented tiers do not produce bottleneck candidates.
+
+#### Discovery Quality Indicators
+
+Assess the quality of each multi-hop discovery effort against these tiers:
+
+| Quality | Criteria |
+|---|---|
+| **Excellent** | Traced to raw material/feedstock level (Hop 3) with 3+ investable bottleneck candidates identified at different tiers. Full evidence chain from end product to upstream terminus. |
+| **Good** | Traced 2+ hops beyond the anchor with at least 1 non-obvious bottleneck candidate (not the company everyone already knows). Evidence chain has minor gaps but overall direction is clear. |
+| **Minimum** | Completed at least 1 hop beyond the obvious layer. Identified at least one supplier relationship that was not immediately apparent from the anchor company's analyst coverage. |
+| **Insufficient** | Stayed at the obvious company level (Hop 0-1 only). Did not discover any relationship beyond what is available from a standard analyst report. This does not meet the Forced Multi-hop Discovery Rule. |
+
+Every discovery effort should target "Good" or above. "Minimum" is acceptable only when data gaps genuinely prevent deeper tracing (per stopping condition 2). "Insufficient" indicates that the Depth Gate has not been satisfied.
+
+#### Per-Hop Output Structure
+
+For each hop, document:
+- **Supplier/entity name**: The company or material identified
+- **Supply chain role**: What it provides to the downstream hop (substrate, feedstock, component, service)
+- **Concentration level**: Monopoly (>70%), oligopoly (40-70%), competitive (<40%), or unknown
+- **SEC data availability**: Available (with filing date) / unavailable / not applicable (private company, commodity)
+- **Preliminary bottleneck assessment**: High potential (multiple 6-Criteria signals) / medium potential (1-2 signals) / low potential (no concentration signals) / insufficient data
+
+Reference BM02 (multi_hop_bottleneck_discovery) benchmark behavior: the expectation is to NOT stop at the obvious component layer but to trace upstream to substrates, specialized materials, and feedstock sources. The benchmark specifically rewards discovering entities at Hop 2-3 that are invisible from the anchor company's level — the kind of supplier-of-supplier relationships that require 3+ inference hops to uncover.
+
 ---
 
 ## Bottleneck 6-Criteria Scoring Framework

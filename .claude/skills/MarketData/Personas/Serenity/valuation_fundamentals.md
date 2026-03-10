@@ -302,3 +302,68 @@ Incredible technology but terrible financials. Test: would you invest if this we
 
 ### Filter 6: Broken Economics or Fundamental Thesis Change
 For crypto/platform companies: verify the token/platform captures value (check for value leakage, absent burn mechanisms). For all positions: when external changes invalidate the original thesis (government policy, new competitors, SBC revealing illusory FCF, technological obsolescence), re-evaluate regardless of price action.
+
+---
+
+## Options as Thesis Expression Layer
+
+Options are not a separate analytical domain. They are a VEHICLE for expressing the supply chain thesis with appropriate risk/reward calibration. The choice between shares, LEAPS, cash-secured puts, and covered calls is a function of two variables: implied volatility regime and conviction level.
+
+### Core Principle
+
+The thesis comes first. The expression vehicle comes second. The analyst first determines conviction (from the Evidence Chain and 6-Criteria Scoring) and then selects the instrument that best captures the asymmetry given current market conditions. Selecting an options strategy without a thesis is speculation, not investing.
+
+### Expression Vehicle Selection Matrix
+
+Two dimensions determine the appropriate vehicle: IV regime (where is implied volatility relative to its historical range?) and conviction level (how strong is the evidence chain?).
+
+| | IV Depressed (<30th percentile) | IV Normal (30th-70th percentile) | IV Elevated (>70th percentile) |
+|---|---|---|---|
+| **High Conviction (Strong Buy+)** | LEAPS calls — leverage cheap vol on a high-confidence thesis | Shares — standard expression | Cash-Secured Puts — get paid to wait for a better entry on a name you want to own |
+| **Moderate Conviction (Buy)** | Shares — LEAPS require higher conviction to justify total-loss risk | Shares — standard expression | Covered calls — collect income while holding through elevated vol |
+| **Low Conviction (Hold)** | Shares only — no leverage on low conviction | Shares or reduce position | Covered calls or reduce position |
+
+### When to Use Each Vehicle
+
+**Shares (Default Expression)**
+The standard vehicle for all conviction levels. No vol edge required, no expiration risk, simplest risk management. When in doubt, shares are the correct expression. The majority of positions should be share-based.
+
+**LEAPS (Long-Dated Calls, 270+ DTE)**
+Use when ALL three conditions are met:
+1. IV is depressed (below 30th percentile of its own history) — you are buying cheap optionality
+2. Conviction is high (Strong Buy or above) — the evidence chain is complete with 6 supported links
+3. Forward visibility is sufficient — the thesis has a clear catalyst timeline within the LEAPS duration (minimum 12 months)
+
+LEAPS provide leveraged upside with defined risk. The key insight is that you are buying TIME for the thesis to play out while paying a low premium for that time. When IV is depressed, the market is underpricing the potential for large moves — which is exactly when supply chain catalysts tend to be underappreciated.
+
+**Cash-Secured Puts (CSP)**
+Use when ALL three conditions are met:
+1. IV is elevated (above 70th percentile) — you are selling expensive premium
+2. Thesis is bullish — you want to own the stock at a lower price
+3. Strike selection references the no-growth floor value — the put strike should be at or near the defensive valuation anchor from the Dual-Valuation framework
+
+CSPs express the thesis as: "I want to own this company, and the market is paying me a premium to commit to buying at my target entry price." The elevated IV means the premium collected is substantial, improving the effective cost basis. If assigned, you own the stock at a price you already validated as attractive. If not assigned, you keep the premium as income.
+
+**Covered Calls**
+Use when ALL three conditions are met:
+1. Already holding a share position
+2. IV is elevated — premium is worth collecting
+3. Thesis is intact but no near-term catalyst expected — you are in a holding phase, not an inflection phase
+
+Covered calls collect income during periods of elevated volatility when the thesis is intact but the next major catalyst is distant. Avoid selling calls through known catalyst dates (earnings, contract announcements, regulatory decisions) — the thesis may realize during that window.
+
+### Pipeline Connection
+
+The analyze pipeline output includes `expression_layer` with `iv_percentile`, `iv_regime`, `recommended_vehicle`, and `reasoning`. Use this as the starting recommendation, then apply agent judgment to override when warranted:
+
+- **Sector-specific IV dynamics**: Pre-earnings IV crush, binary FDA/regulatory events, and index rebalance volatility can temporarily distort IV percentile readings. If the elevated IV is entirely attributable to an imminent event that will resolve (earnings in 2 days), the post-event IV will collapse — factor this into CSP/covered call timing.
+- **Position sizing constraints**: LEAPS carry total-loss risk on the premium paid. The position size must reflect this — never allocate to LEAPS an amount whose total loss would exceed the portfolio risk budget for that position.
+- **Liquidity requirements**: Options on small-cap bottleneck companies often have wide bid-ask spreads and thin open interest. If the spread exceeds 5% of the premium, the execution cost may negate the strategy's edge. In illiquid names, shares are the only practical expression regardless of IV regime and conviction.
+
+### Interaction with Other Framework Components
+
+- **Dual-Valuation Framework**: The no-growth floor from `valuation_fundamentals.md` serves as the CSP strike reference. The growth-case fair value serves as the LEAPS upside target. The gap between floor and upside IS the asymmetry that the options expression is designed to capture.
+- **Thesis Mutation Decision Framework**: When the thesis state transitions from "intact" to "weakened," any outstanding options positions must be re-evaluated. LEAPS on a weakened thesis carry elevated risk because the catalyst timeline may have extended beyond the option's duration. Covered calls on a weakening thesis may limit upside recovery if the thesis re-strengthens.
+- **Position Sizing by Conviction**: The conviction tier from `methodology.md` feeds directly into the matrix above. A conviction downgrade from Strong Buy to Buy should trigger a vehicle reassessment (e.g., close LEAPS, convert to shares).
+
+Reference BM04 (options_volatility_expression) benchmark behavior: the expectation is to connect IV regime, structural volatility characteristics, and thesis conviction into a coherent expression vehicle selection — not to treat options as a standalone analytical topic.

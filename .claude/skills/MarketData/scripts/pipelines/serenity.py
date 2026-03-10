@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline v5.2.0 (Pipeline-Complete): 6-Level analytical hierarchy
+"""Serenity Pipeline v5.3.0 (Pipeline-Complete): 6-Level analytical hierarchy
 automating supply chain bottleneck analysis with macro regime assessment,
-fundamental validation, composite signal generation, and evidence chain
-verification.
+fundamental validation, composite signal generation, control layer outputs,
+and evidence chain verification.
 
 Orchestrates the complete Serenity analysis by running macro regime scripts,
 fundamental analysis tools, valuation models, and catalyst monitoring in
@@ -19,6 +19,18 @@ auto-classification. Composite signal generation produces integrated
 investment grades with position sizing guidance. Valuation summary includes
 dual_valuation (no-growth floor + growth upside).
 
+Control layer outputs (analyze): materiality_signals (supply chain exposure,
+margin sensitivity, earnings materiality, SEC events), causal_bridge_data
+(macro→supply chain→financials→valuation pre-filled chain),
+priced_in_assessment (8-signal composite score 0-100 + 3-tier verdict),
+institutional_flow (insider direction, IO quality, IV signal, flow assessment),
+expression_layer (IV regime × conviction → recommended vehicle).
+
+Discover includes lightweight macro stress check (VIX, Fear&Greed, net
+liquidity) with stress/euphoria detection and discovery workflow guidance note.
+Recheck includes rotation_assessment (forward PE risk, no-growth check,
+opportunity cost flag, MAINTAIN_BUT_SCAN verdict).
+
 Commands:
 	macro: Level 1 macro regime assessment (10 parallel macro scripts → regime
 		classification as risk_on/risk_off/transitional with drain counting.
@@ -28,11 +40,15 @@ Commands:
 		CapEx bridge + L3 SEC supply chain pre-scoring + L4 fundamentals with
 		health gate severity spectrum + thesis signals + SoP triggers +
 		trapped asset override + L5 catalysts + L6 auto-classification +
-		composite signal with position sizing)
+		composite signal with position sizing + control layer:
+		materiality_signals, causal_bridge_data, priced_in_assessment,
+		institutional_flow, expression_layer)
 	recheck: Position monitoring recheck (macro regime + health gates + thesis
-		signals against existing position with action signals and verdict)
-	discover: Automated theme discovery (sector_leaders + finviz cross-reference
-		+ bottleneck_scorer validation, grouped by industry theme)
+		signals + rotation_assessment against existing position with action
+		signals and verdict including MAINTAIN_BUT_SCAN)
+	discover: Automated theme discovery (lightweight macro stress check +
+		sector_leaders + finviz cross-reference + bottleneck_scorer validation,
+		grouped by industry theme, with macro_context and discovery workflow note)
 	cross-chain: Shared supplier detection across multiple tickers via SEC
 		supply chain entity normalization and cross-matching, with
 		bottleneck_signal scoring (supplier_ref_pct, single_source_count,
@@ -60,6 +76,7 @@ Args:
 		--limit (int): Maximum candidates per theme (default: 10)
 		--industry (str): Direct industry search — skips sector_leaders, goes
 			straight to finviz industry-screen (default: None)
+		--skip-macro (bool): Skip lightweight macro stress check (default: false)
 
 	For cross-chain:
 		tickers (list): 2+ stock ticker symbols
@@ -88,6 +105,16 @@ Returns:
 
 	For analyze:
 		dict with ticker, levels (L1_macro through L6_taxonomy),
+		materiality_signals (supply_chain_exposure, margin_sensitivity,
+		earnings_materiality, recent_sec_events, exposure_summary),
+		causal_bridge_data (macro_context, supply_chain_position,
+		financial_transmission, valuation_gap),
+		priced_in_assessment (signals with 8 fields, risk_score 0-100,
+		assessment: fully_priced_in/partially_priced_in/not_priced_in),
+		institutional_flow (insider_net_direction, io_quality_score,
+		iv_percentile, flow_assessment: positive/negative/neutral),
+		expression_layer (iv_percentile, iv_regime, recommended_vehicle:
+		shares/leaps/csp/covered_calls, reasoning),
 		health_gates (with severity spectrum), thesis_signals,
 		sop_triggers, trapped_asset_override, composite_signal
 		(with grade, score_breakdown, position_guidance),
@@ -116,6 +143,22 @@ Returns:
 		absence_evidence_flags (list of absence type signals),
 		bottleneck_pre_score.sole_western_flag (bool).
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
+
+	For recheck:
+		dict with ticker, entry_price, current_price, return_pct,
+		position_52w, macro_regime, health_gates, thesis_signals,
+		rotation_assessment (forward_pe, no_growth_upside_pct,
+		return_since_entry_pct, rotation_flags, opportunity_cost_elevated,
+		suggestion: scan_alternatives/consider_trim/maintain),
+		action_signals, verdict (MAINTAIN/MAINTAIN_BUT_SCAN/HOLD_MONITOR/
+		HOLD_REDUCE/CONSIDER_EXIT), note.
+
+	For discover:
+		dict with macro_context (vix_regime, fear_greed, net_liq_direction,
+		stress_note — skipped when --skip-macro), themes (list of
+		industry_group with candidates sorted by asymmetry_score),
+		total_themes, total_candidates, filters_applied,
+		requires_agent_review, discovery_workflow_note.
 
 	For compare:
 		dict with tickers, comparative_table (forward_pe,
@@ -1190,6 +1233,442 @@ def _pre_score_bottleneck(sec_sc_data):
 	}
 
 
+def _build_materiality_signals(l3_data, l4_results, l5_results, sec_sc_results):
+	"""Compute materiality-relevant signals from existing pipeline data.
+
+	Surfaces structured data for agent materiality classification.
+	Does NOT classify materiality itself — that requires event context
+	the pipeline cannot know. Provides the quantitative foundation.
+	"""
+	l4 = l4_results or {}
+	info = l4.get("info") or {}
+
+	# 1. Supply Chain Exposure (from L3)
+	l3 = l3_data or {}
+	sec_sc = l3.get("sec_supply_chain") or {}
+	suppliers = sec_sc.get("suppliers") or []
+	customers = sec_sc.get("customers") or []
+	single_source = sec_sc.get("single_source_dependencies") or []
+	geo_conc = sec_sc.get("geographic_concentration") or []
+
+	supply_chain_exposure = {
+		"supplier_count": len(suppliers),
+		"customer_count": len(customers),
+		"single_source_count": len(single_source),
+		"geographic_risk_count": len(geo_conc),
+		"has_sec_data": l3.get("sec_status") == "SEC_SC_available",
+		"exposure_level": (
+			"high" if len(single_source) >= 2 or len(geo_conc) >= 2
+			else "moderate" if len(single_source) >= 1
+			else "low"
+		),
+	}
+
+	# 2. Margin Sensitivity (from L4 margin_tracker)
+	margin = l4.get("margin_tracker") or {}
+	gross_margin = info.get("grossMargins")
+	op_margin = info.get("operatingMargins")
+	margin_flag = str(margin.get("flag", ""))
+
+	margin_sensitivity = {
+		"gross_margin_pct": round(gross_margin * 100, 1) if isinstance(gross_margin, (int, float)) else None,
+		"operating_margin_pct": round(op_margin * 100, 1) if isinstance(op_margin, (int, float)) else None,
+		"margin_trend": margin_flag or "unknown",
+		"operating_leverage": (
+			"high" if isinstance(gross_margin, (int, float)) and isinstance(op_margin, (int, float))
+			and gross_margin > 0 and (gross_margin - op_margin) / gross_margin > 0.5
+			else "moderate" if isinstance(gross_margin, (int, float)) and gross_margin > 0.4
+			else "low"
+		),
+	}
+
+	# 3. Earnings Materiality (from L4/L5)
+	ea = l4.get("earnings_acceleration") or {}
+	surprise = l5_results.get("earnings_surprise") or {} if l5_results else {}
+	rev_traj = l4.get("revenue_trajectory") or {}
+
+	latest_rev_growth = None
+	quarters = rev_traj.get("quarters") or []
+	if len(quarters) >= 2:
+		q_latest = quarters[-1].get("revenue")
+		q_prev = quarters[-2].get("revenue")
+		if isinstance(q_latest, (int, float)) and isinstance(q_prev, (int, float)) and q_prev > 0:
+			latest_rev_growth = round((q_latest - q_prev) / q_prev * 100, 1)
+
+	earnings_materiality = {
+		"consecutive_beats": surprise.get("consecutive_beats"),
+		"sales_accelerating": ea.get("sales_accelerating"),
+		"latest_rev_growth_qoq_pct": latest_rev_growth,
+		"sales_growth_rates": ea.get("sales_growth_rates"),
+	}
+
+	# 4. Recent SEC Events (from sec_sc_results)
+	sec_events_raw = (sec_sc_results or {}).get("sec_events") or {}
+	events = []
+	if not sec_events_raw.get("error"):
+		for ev in (sec_events_raw.get("data") or [])[:5]:
+			events.append({
+				"type": ev.get("event_type"),
+				"date": ev.get("filing_date"),
+				"context": (ev.get("context") or "")[:200],
+			})
+
+	# 5. Exposure Summary (one-line for quick scan)
+	parts = []
+	if supply_chain_exposure["single_source_count"] > 0:
+		parts.append(f"{supply_chain_exposure['single_source_count']} single-source dependencies")
+	if supply_chain_exposure["geographic_risk_count"] > 0:
+		parts.append(f"{supply_chain_exposure['geographic_risk_count']} geographic concentration risks")
+	if margin_sensitivity["operating_leverage"] == "high":
+		parts.append("high operating leverage (margin-sensitive)")
+	exposure_summary = "; ".join(parts) if parts else "Low supply chain exposure detected"
+
+	return {
+		"supply_chain_exposure": supply_chain_exposure,
+		"margin_sensitivity": margin_sensitivity,
+		"earnings_materiality": earnings_materiality,
+		"recent_sec_events": events,
+		"exposure_summary": exposure_summary,
+	}
+
+
+def _summarize_rev_trajectory_brief(rev_traj):
+	"""One-line summary of revenue trajectory from 8-quarter data."""
+	quarters = rev_traj.get("quarters") or []
+	if len(quarters) < 2:
+		return "insufficient_data"
+	revenues = [q.get("revenue") for q in quarters if isinstance(q.get("revenue"), (int, float))]
+	if len(revenues) < 2:
+		return "insufficient_data"
+	latest, earliest = revenues[-1], revenues[0]
+	if earliest > 0:
+		total_growth = (latest - earliest) / earliest * 100
+		direction = "accelerating" if len(revenues) >= 3 and latest > revenues[-2] > revenues[-3] else "growing"
+		return f"{direction} ({total_growth:+.0f}% over {len(revenues)}Q)"
+	return "unknown"
+
+
+def _build_causal_bridge_data(l1_result, l3_data, l4_results, l5_results, capex_data):
+	"""Pre-fill the causal bridge chain with available pipeline data.
+
+	Output: structured data for each causal bridge layer.
+	Agent completes the bridge by connecting layers with causal reasoning.
+	"""
+	l1 = l1_result if isinstance(l1_result, dict) else {}
+	l4 = l4_results or {}
+	l3 = l3_data or {}
+	info = l4.get("info") or {}
+
+	# Layer 1: Macro Context
+	macro_context = {
+		"regime": l1.get("regime", "unknown"),
+		"risk_level": l1.get("risk_level", "unknown"),
+		"key_signals": [],
+	}
+	signals = l1.get("signals") or {}
+	if signals.get("vix_regime"):
+		macro_context["key_signals"].append(f"VIX regime: {signals['vix_regime']}")
+	if signals.get("net_liq_direction"):
+		macro_context["key_signals"].append(f"Net liquidity: {signals['net_liq_direction']}")
+	if signals.get("real_rate") is not None:
+		macro_context["key_signals"].append(f"Real rate: {signals['real_rate']}%")
+
+	# Layer 2: Supply Chain Position
+	bn_pre = l3.get("bottleneck_pre_score") or {}
+	supply_chain_position = {
+		"sector": info.get("sector"),
+		"industry": info.get("industry"),
+		"bottleneck_pre_score": bn_pre.get("pre_score"),
+		"key_dependencies": [],
+		"sec_available": l3.get("sec_status") == "SEC_SC_available",
+	}
+	sec_sc = l3.get("sec_supply_chain") or {}
+	for dep in (sec_sc.get("single_source_dependencies") or [])[:3]:
+		if isinstance(dep, dict):
+			supply_chain_position["key_dependencies"].append(dep.get("supplier") or dep.get("name") or str(dep))
+		elif isinstance(dep, str):
+			supply_chain_position["key_dependencies"].append(dep)
+
+	# Layer 3: Financial Transmission
+	margin = l4.get("margin_tracker") or {}
+	rev_traj = l4.get("revenue_trajectory") or {}
+	capex = capex_data or {}
+
+	financial_transmission = {
+		"revenue_trajectory": _summarize_rev_trajectory_brief(rev_traj),
+		"margin_trend": str(margin.get("flag", "unknown")),
+		"capex_direction": capex.get("direction") if isinstance(capex, dict) else "unknown",
+		"capex_trend_quarters": capex.get("quarters_count") if isinstance(capex, dict) else None,
+	}
+
+	# Layer 4: Valuation Gap
+	ngv = l4.get("no_growth_valuation") or {}
+	fpe = l4.get("forward_pe") or {}
+	current_price = info.get("currentPrice")
+
+	no_growth_floor = ngv.get("intrinsic_value") or ngv.get("no_growth_value")
+	forward_pe_val = fpe.get("forward_pe")
+
+	valuation_gap = {
+		"current_price": current_price,
+		"no_growth_floor": no_growth_floor,
+		"no_growth_gap_pct": (
+			round((current_price - no_growth_floor) / no_growth_floor * 100, 1)
+			if isinstance(current_price, (int, float)) and isinstance(no_growth_floor, (int, float)) and no_growth_floor > 0
+			else None
+		),
+		"forward_pe": forward_pe_val,
+		"growth_upside": ngv.get("margin_of_safety_pct"),
+	}
+
+	return {
+		"macro_context": macro_context,
+		"supply_chain_position": supply_chain_position,
+		"financial_transmission": financial_transmission,
+		"valuation_gap": valuation_gap,
+		"note": "Causal bridge data pre-filled from pipeline. Agent must connect layers with event-specific causal reasoning.",
+	}
+
+
+def _build_priced_in_assessment(l4_results, l5_results):
+	"""Compute priced-in risk assessment from L4/L5 data.
+
+	Composite score 0-100:
+	- Higher score = more priced in (less upside)
+	- Lower score = less priced in (more opportunity)
+	"""
+	l4 = l4_results or {}
+	l5 = l5_results or {}
+	info = l4.get("info") or {}
+
+	signals = {}
+	risk_score = 0.0
+
+	# Signal 1: 52W Range Position (0-100)
+	current = info.get("currentPrice")
+	low52 = info.get("fiftyTwoWeekLow")
+	high52 = info.get("fiftyTwoWeekHigh")
+	range_pct = None
+	if all(isinstance(v, (int, float)) for v in [current, low52, high52]) and high52 > low52:
+		range_pct = round((current - low52) / (high52 - low52) * 100, 1)
+		signals["52w_range_pct"] = range_pct
+		if range_pct > 80:
+			risk_score += 18
+		elif range_pct > 60:
+			risk_score += 10
+		elif range_pct < 20:
+			risk_score -= 5
+	else:
+		signals["52w_range_pct"] = None
+
+	# Signal 2: Price vs 50d MA
+	ma50 = info.get("fiftyDayAverage")
+	if isinstance(current, (int, float)) and isinstance(ma50, (int, float)) and ma50 > 0:
+		ma50_gap = round((current - ma50) / ma50 * 100, 1)
+		signals["price_vs_50d_ma_pct"] = ma50_gap
+		if ma50_gap > 20:
+			risk_score += 12
+		elif ma50_gap > 10:
+			risk_score += 6
+	else:
+		signals["price_vs_50d_ma_pct"] = None
+
+	# Signal 3: Price vs 200d MA
+	ma200 = info.get("twoHundredDayAverage")
+	if isinstance(current, (int, float)) and isinstance(ma200, (int, float)) and ma200 > 0:
+		ma200_gap = round((current - ma200) / ma200 * 100, 1)
+		signals["price_vs_200d_ma_pct"] = ma200_gap
+		if ma200_gap > 30:
+			risk_score += 15
+		elif ma200_gap > 15:
+			risk_score += 8
+	else:
+		signals["price_vs_200d_ma_pct"] = None
+
+	# Signal 4: Short Interest
+	si = info.get("shortPercentOfFloat")
+	signals["short_interest_pct"] = round(si * 100, 1) if isinstance(si, (int, float)) else None
+	if isinstance(si, (int, float)):
+		if si < 0.03:
+			risk_score += 8
+		elif si > 0.15:
+			risk_score -= 5
+
+	# Signal 5: Analyst Price Target Gap
+	pt_data = l5.get("analyst_price_targets") or {}
+	mean_target = pt_data.get("mean") or pt_data.get("targetMeanPrice")
+	if isinstance(current, (int, float)) and isinstance(mean_target, (int, float)) and current > 0:
+		target_gap = round((mean_target - current) / current * 100, 1)
+		signals["analyst_target_gap_pct"] = target_gap
+		if target_gap < 5:
+			risk_score += 18
+		elif target_gap < 15:
+			risk_score += 10
+		elif target_gap > 40:
+			risk_score -= 5
+	else:
+		signals["analyst_target_gap_pct"] = None
+
+	# Signal 6: Revision Direction
+	rev_data = l5.get("analyst_revisions") or {}
+	rev_dir = rev_data.get("revisions_direction", "unknown") if not rev_data.get("error") else "unknown"
+	signals["revision_direction"] = rev_dir
+	if rev_dir == "up":
+		risk_score += 12
+	elif rev_dir == "down":
+		risk_score -= 8
+
+	# Signal 7: Revision Magnitude (if available)
+	rev_magnitude = None
+	for key in ("current_year", "next_year"):
+		val = rev_data.get(key)
+		if isinstance(val, dict):
+			change = val.get("change") or val.get("revision")
+			if isinstance(change, (int, float)):
+				rev_magnitude = change
+				break
+		elif isinstance(val, (int, float)):
+			rev_magnitude = val
+			break
+	signals["revision_magnitude"] = rev_magnitude
+
+	# Signal 8: IO Quality Score
+	io_data = l4.get("institutional_quality") or {}
+	io_score = io_data.get("io_quality_score")
+	signals["io_quality_score"] = io_score
+	if isinstance(io_score, (int, float)):
+		if io_score >= 8:
+			risk_score += 12
+		elif io_score >= 6:
+			risk_score += 6
+		elif io_score <= 3:
+			risk_score -= 5
+
+	# Clamp and classify
+	risk_score = max(0, min(100, round(risk_score)))
+
+	if risk_score >= 55:
+		assessment = "fully_priced_in"
+	elif risk_score >= 30:
+		assessment = "partially_priced_in"
+	else:
+		assessment = "not_priced_in"
+
+	return {
+		"signals": signals,
+		"risk_score": risk_score,
+		"assessment": assessment,
+		"note": f"Priced-in risk score {risk_score}/100 -> {assessment}. Agent must contextualize with sector/event awareness.",
+	}
+
+
+def _build_institutional_flow(l4_results):
+	"""Extract institutional flow signals from L4 data."""
+	l4 = l4_results or {}
+
+	# Insider direction
+	insider = l4.get("insider_transactions") or {}
+	insider_summary = insider.get("summary") or {}
+	insider_direction = insider_summary.get("net_direction", "unknown")
+	insider_net_value = insider_summary.get("net_value")
+
+	# IO quality
+	io = l4.get("institutional_quality") or {}
+	io_score = io.get("io_quality_score")
+	io_assessment = (
+		"strong_accumulation" if isinstance(io_score, (int, float)) and io_score >= 8
+		else "healthy" if isinstance(io_score, (int, float)) and io_score >= 5
+		else "weak" if isinstance(io_score, (int, float))
+		else "unknown"
+	)
+
+	# IV signal
+	iv = l4.get("iv_context") or {}
+	iv_percentile = iv.get("iv_percentile") or iv.get("percentile") or iv.get("iv_rank")
+	iv_regime = (
+		"elevated" if isinstance(iv_percentile, (int, float)) and iv_percentile > 70
+		else "depressed" if isinstance(iv_percentile, (int, float)) and iv_percentile < 30
+		else "normal" if isinstance(iv_percentile, (int, float))
+		else "unknown"
+	)
+
+	# Composite flow assessment
+	flow_signals = []
+	if insider_direction == "buying":
+		flow_signals.append("insider_accumulation")
+	if insider_direction == "selling":
+		flow_signals.append("insider_distribution")
+	if io_assessment == "strong_accumulation":
+		flow_signals.append("institutional_conviction")
+	if io_assessment == "weak":
+		flow_signals.append("institutional_exit_risk")
+
+	return {
+		"insider_net_direction": insider_direction,
+		"insider_net_value": insider_net_value,
+		"io_quality_score": io_score,
+		"io_assessment": io_assessment,
+		"iv_percentile": iv_percentile,
+		"iv_regime": iv_regime,
+		"flow_signals": flow_signals,
+		"flow_assessment": (
+			"positive" if "insider_accumulation" in flow_signals or "institutional_conviction" in flow_signals
+			else "negative" if "insider_distribution" in flow_signals and "institutional_exit_risk" in flow_signals
+			else "neutral"
+		),
+	}
+
+
+def _build_expression_layer(l4_results, composite_signal):
+	"""Recommend thesis expression vehicle based on IV and conviction."""
+	l4 = l4_results or {}
+	iv = l4.get("iv_context") or {}
+
+	iv_percentile = iv.get("iv_percentile") or iv.get("percentile") or iv.get("iv_rank")
+	iv_rank = iv.get("iv_rank")
+
+	# Conviction from composite signal
+	cs = composite_signal if isinstance(composite_signal, dict) else {}
+	grade = cs.get("grade", "HOLD")
+	conviction = cs.get("position_guidance", {}).get("conviction_tier")
+
+	# Expression logic
+	if not isinstance(iv_percentile, (int, float)):
+		recommended = "shares"
+		reasoning = "IV data unavailable — default to shares"
+	elif iv_percentile > 70:
+		if grade in ("STRONG_BUY", "BUY", "ACCUMULATE"):
+			recommended = "csp"
+			reasoning = f"IV elevated ({iv_percentile}th pctl) + bullish thesis -> sell puts for better entry"
+		else:
+			recommended = "covered_calls"
+			reasoning = f"IV elevated ({iv_percentile}th pctl) + neutral/weak thesis -> write calls for income"
+	elif iv_percentile < 30:
+		if grade in ("STRONG_BUY", "BUY"):
+			recommended = "leaps"
+			reasoning = f"IV depressed ({iv_percentile}th pctl) + high conviction -> buy LEAPS for leverage"
+		else:
+			recommended = "shares"
+			reasoning = f"IV depressed ({iv_percentile}th pctl) + moderate conviction -> shares (LEAPS need higher conviction)"
+	else:
+		recommended = "shares"
+		reasoning = f"IV neutral ({iv_percentile}th pctl) -> shares (no clear vol edge)"
+
+	return {
+		"iv_percentile": iv_percentile,
+		"iv_rank": iv_rank,
+		"iv_regime": (
+			"elevated" if isinstance(iv_percentile, (int, float)) and iv_percentile > 70
+			else "depressed" if isinstance(iv_percentile, (int, float)) and iv_percentile < 30
+			else "normal" if isinstance(iv_percentile, (int, float))
+			else "unknown"
+		),
+		"conviction_tier": conviction,
+		"recommended_vehicle": recommended,
+		"reasoning": reasoning,
+	}
+
+
 def _build_thesis_signals(l4_results, l5_results):
 	"""Map L4/L5 results to thesis strengthening/weakening signals."""
 	l4 = l4_results or {}
@@ -2147,6 +2626,13 @@ def cmd_analyze(args):
 		composite_signal=composite_signal,
 	)
 
+	# === Control Layer outputs ===
+	materiality_signals = _build_materiality_signals(l3_data, l4_results, l5_results, sec_sc_results)
+	causal_bridge_data = _build_causal_bridge_data(l1_result, l3_data, l4_results, l5_results, capex_data)
+	priced_in_assessment = _build_priced_in_assessment(l4_results, l5_results)
+	institutional_flow = _build_institutional_flow(l4_results)
+	expression_layer = _build_expression_layer(l4_results, composite_signal)
+
 	output = {
 		"ticker": ticker,
 		"levels": {
@@ -2162,6 +2648,11 @@ def cmd_analyze(args):
 			"L5_catalysts": l5_results,
 			"L6_taxonomy": auto_classification,
 		},
+		"materiality_signals": materiality_signals,
+		"causal_bridge_data": causal_bridge_data,
+		"priced_in_assessment": priced_in_assessment,
+		"institutional_flow": institutional_flow,
+		"expression_layer": expression_layer,
 		"health_gates": health_gates,
 		"thesis_signals": thesis_signals,
 		"sop_triggers": sop_triggers,
@@ -2285,11 +2776,50 @@ def cmd_recheck(args):
 	if len(health_gates.get("flags", [])) >= 2:
 		action_signals.append("MULTIPLE_GATES_FLAGGED")
 
+	# Step 7.5: Rotation Assessment
+	forward_pe_data = l4_results.get("forward_pe") or {}
+	ngv_data = l4_results.get("no_growth_valuation") or {}
+
+	fpe_val = forward_pe_data.get("forward_pe")
+	ngv_upside = ngv_data.get("margin_of_safety_pct")
+
+	rotation_flags = []
+	if isinstance(fpe_val, (int, float)) and fpe_val > 50:
+		rotation_flags.append("extreme_forward_pe")
+	if isinstance(ngv_upside, (int, float)) and ngv_upside < -30:
+		rotation_flags.append("deep_below_no_growth_floor")
+	if isinstance(return_pct, (int, float)) and return_pct > 100:
+		rotation_flags.append("position_doubled_check_asymmetry")
+	if isinstance(return_pct, (int, float)) and return_pct < -30 and thesis_signals.get("net_direction") == "weakening":
+		rotation_flags.append("losing_position_thesis_weakening")
+
+	opportunity_cost_elevated = len(rotation_flags) >= 2
+
+	rotation_assessment = {
+		"forward_pe": fpe_val,
+		"no_growth_upside_pct": ngv_upside,
+		"return_since_entry_pct": return_pct,
+		"rotation_flags": rotation_flags,
+		"opportunity_cost_elevated": opportunity_cost_elevated,
+		"suggestion": (
+			"scan_alternatives" if opportunity_cost_elevated
+			else "consider_trim" if len(rotation_flags) == 1
+			else "maintain"
+		),
+	}
+
+	if opportunity_cost_elevated:
+		action_signals.append("OPPORTUNITY_COST_ELEVATED")
+
 	# Step 8: Verdict
 	signal_count = len(action_signals)
 	if signal_count == 0:
-		verdict = "MAINTAIN"
-		note = "No concerns detected. Position health is good."
+		if opportunity_cost_elevated:
+			verdict = "MAINTAIN_BUT_SCAN"
+			note = "Position healthy but opportunity cost may be elevated. Scan for better asymmetry."
+		else:
+			verdict = "MAINTAIN"
+			note = "No concerns detected. Position health is good."
 	elif signal_count == 1:
 		verdict = "HOLD_MONITOR"
 		note = f"1 concern detected: {action_signals[0]}. Monitor for further deterioration."
@@ -2316,6 +2846,7 @@ def cmd_recheck(args):
 		},
 		"health_gates": health_gates,
 		"thesis_signals": thesis_signals,
+		"rotation_assessment": rotation_assessment,
 		"action_signals": action_signals,
 		"verdict": verdict,
 		"note": note,
@@ -2341,7 +2872,39 @@ def cmd_discover(args):
 	max_mcap = getattr(args, "max_mcap", "10B")
 	limit = getattr(args, "limit", 10)
 	industry = getattr(args, "industry", None)
+	skip_macro = getattr(args, "skip_macro", False)
 	max_mcap_val = _parse_mcap_string(max_mcap)
+
+	# Lightweight macro stress check (3 scripts only)
+	macro_context = None
+	if not skip_macro:
+		mini_scripts = {
+			"vix": ("macro/vix_curve.py", ["analyze"]),
+			"fear_greed": ("analysis/sentiment/fear_greed.py", []),
+			"net_liq": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "5"]),
+		}
+		with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
+			futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in mini_scripts.items()}
+			mini_macro = {k: f.result() for k, f in futs.items()}
+
+		vix_regime = mini_macro.get("vix", {}).get("regime")
+		fg_score = mini_macro.get("fear_greed", {}).get("current", {}).get("score")
+		net_liq_dir = mini_macro.get("net_liq", {}).get("net_liquidity", {}).get("direction")
+
+		stress_note = None
+		if vix_regime in ("elevated", "crisis") or (isinstance(fg_score, (int, float)) and fg_score < 25):
+			stress_note = "Market stress detected. Discovery should prioritize defensive/counter-cyclical sectors."
+		elif vix_regime == "low" and isinstance(fg_score, (int, float)) and fg_score > 75:
+			stress_note = "Euphoria regime. Discovery should check priced-in risk on popular themes."
+
+		macro_context = {
+			"vix_regime": vix_regime,
+			"fear_greed": fg_score,
+			"net_liq_direction": net_liq_dir,
+			"stress_note": stress_note,
+		}
+	else:
+		macro_context = {"skipped": True}
 
 	# Direct industry mode — skip sector_leaders, go straight to finviz
 	if industry:
@@ -2409,6 +2972,7 @@ def cmd_discover(args):
 		)
 
 		output_json({
+			"macro_context": macro_context,
 			"themes": [{
 				"industry_group": industry,
 				"sector": "Direct Search",
@@ -2420,6 +2984,12 @@ def cmd_discover(args):
 			"filters_applied": {"industry": industry, "max_mcap": max_mcap},
 			"requires_agent_review": True,
 			"note": f"Direct industry search for '{industry}'. Agent should evaluate supply chain relevance.",
+			"discovery_workflow_note": (
+				"WORKFLOW GUIDANCE: This output is candidate pool generation (Step 4 of 5). "
+				"Serenity-faithful discovery follows: (1) macro stress check [included above], "
+				"(2) supply chain stress mapping [agent WebSearch], (3) bottleneck hypothesis, "
+				"(4) candidate generation [this output], (5) validation via analyze."
+			),
 		})
 		return
 
@@ -2554,12 +3124,19 @@ def cmd_discover(args):
 			})
 
 	output = {
+		"macro_context": macro_context,
 		"themes": themes,
 		"total_themes": len(themes),
 		"total_candidates": sum(len(t["candidates"]) for t in themes),
 		"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
 		"requires_agent_review": True,
 		"note": "Automated theme discovery. Agent should evaluate supply chain relevance and apply 6-Criteria Scoring to promising candidates.",
+		"discovery_workflow_note": (
+			"WORKFLOW GUIDANCE: This output is candidate pool generation (Step 4 of 5). "
+			"Serenity-faithful discovery follows: (1) macro stress check [included above], "
+			"(2) supply chain stress mapping [agent WebSearch], (3) bottleneck hypothesis, "
+			"(4) candidate generation [this output], (5) validation via analyze."
+		),
 	}
 
 	output_json(output)
@@ -3385,6 +3962,10 @@ def main():
 	sp_discover.add_argument(
 		"--industry", default=None,
 		help="Direct industry search (skips sector_leaders). Partial name match supported.",
+	)
+	sp_discover.add_argument(
+		"--skip-macro", action="store_true", default=False,
+		help="Skip lightweight macro stress check (default: false)",
 	)
 	sp_discover.set_defaults(func=cmd_discover)
 

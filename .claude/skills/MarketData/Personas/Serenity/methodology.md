@@ -265,3 +265,133 @@ Missing or weak links reduce conviction by one tier. For bottleneck-category sto
 - **Technical analysis / sell-side as primary driver**: "Float & fundamentals > lines on a chart." Sell-side analysts trail the move; they don't lead it.
 - **Sentiment/narrative-following without data**: "IGNORE the sentiment since it's usually wrong." Every thesis must be backed by specific financial data, not compelling stories alone.
 - **Paywall/course-selling culture**: "Real traders will always make money off the markets. Not off their followers."
+
+---
+
+## Thesis Mutation Decision Framework
+
+Every open position carries a thesis. That thesis exists in one of four states, and the analyst must periodically classify it. This framework encodes the decision logic for when to hold, when to rotate, and when to exit.
+
+### 4-State Thesis Model
+
+| State | Definition | Action |
+|---|---|---|
+| **Intact** | Original thesis drivers unchanged. Supply chain position, forward revenue trajectory, and catalyst timeline remain valid. | Hold. Maintain conviction level. |
+| **Weakened** | One or more thesis legs degraded but not broken. Examples: capacity expansion announced by a competitor (bottleneck loosening), gross margin compression for one quarter (execution wobble), secondary catalyst delayed. | Reduce conviction by one tier. Tighten monitoring frequency. |
+| **Broken** | Core thesis driver invalidated. Examples: single-source dependency resolved by customer diversification, regulatory change eliminating pricing power, management pivot abandoning the segment that justified the position, balance sheet deteriorating past Bear-Bull Paradox threshold. | Exit. Acknowledge what changed and extract a lesson. |
+| **Better Asymmetry Elsewhere** | Thesis intact but the remaining risk/reward has been substantially consumed, while a superior alternative exists. The position has done its job. | Rotate capital to the higher-asymmetry opportunity. |
+
+### Distinguishing "Thesis Changed" vs "Price Changed"
+
+This is the single most important discrimination the analyst must make. Price movement alone does NOT change the thesis state.
+
+**Thesis Change (may warrant state transition):**
+- Supply chain disruption that alters the company's bottleneck position
+- Regulatory or policy change affecting the company's structural advantage
+- Management pivot away from the segment that justified the investment
+- Competitive dynamics shift (new entrant with credible capacity, customer diversification away from single-source)
+- Balance sheet deterioration (debt quality downgrade, dilution acceleration)
+
+**Price Change (does NOT change the thesis state):**
+- Market-wide sentiment shifts (risk-off rotation, VIX spikes)
+- Sector rotation without fundamental cause
+- Macro volatility (rate expectations repricing, geopolitical noise without physical supply chain impact)
+- Short-term trading volume anomalies
+
+When price drops on no fundamental change, the correct response is to re-evaluate entry attractiveness, not to question the thesis. Conversely, when price rises substantially, the correct response is to check whether the original asymmetry has been consumed, not to increase conviction simply because the position is profitable.
+
+### Relative Asymmetry Comparison
+
+When holding a position, periodically compare its remaining asymmetry against the best available alternative:
+
+1. **Quantify remaining upside**: Current price vs growth-case fair value from the Dual-Valuation framework. How much of the original gap has been closed?
+2. **Quantify alternative asymmetry**: Apply the same valuation framework to the best candidate in the pipeline. What is its floor-to-upside gap?
+3. **Comparison threshold**: If the alternative offers materially better risk/reward (approximately 2x or greater gap) on comparable conviction quality, rotation is warranted.
+4. **Consumed asymmetry check**: When a position has doubled or more from entry, explicitly assess whether the no-growth floor now approaches the current price. If the floor-to-price margin of safety has disappeared, the defensive anchor is gone even if the growth case remains.
+
+Rotation is NOT about chasing returns. It is about capital efficiency — deploying finite capital where the forward asymmetry is greatest.
+
+### Self-Correction Protocol
+
+Thesis mutations must be handled transparently:
+
+1. **Acknowledge explicitly**: State what the original thesis was and what new information changed it. Do not quietly shift the narrative.
+2. **Track the mutation chain**: Original thesis → what changed → revised thesis (or exit rationale). This audit trail prevents rationalization drift.
+3. **Update conviction level transparently**: If facts change, conviction changes. A downgrade from Strong Buy to Hold is not failure — it is discipline.
+4. **Extract transferable lessons**: Every broken thesis teaches something about the methodology's blind spots. Document the lesson for future application.
+
+> "If the facts change, I change my mind." The analyst who cannot acknowledge a wrong thesis will compound the error by holding too long.
+
+### Pipeline Connection
+
+The recheck pipeline output includes `rotation_assessment` with `rotation_flags`, `opportunity_cost_elevated`, and `suggestion`. Use these data points to trigger this decision framework:
+
+- When `suggestion` is "scan_alternatives" → run the relative asymmetry comparison above. The pipeline has detected that the position's remaining upside is compressing relative to macro or sector conditions.
+- When `suggestion` is "consider_trim" → evaluate whether the thesis state is "weakened" or "intact but priced in." If weakened, reduce. If intact but priced in, check for better asymmetry elsewhere.
+- When `suggestion` is "maintain" → no action required unless new thesis-changing information arrives from outside the pipeline's data scope (e.g., breaking news, regulatory announcement, earnings call commentary).
+
+Reference BM03 (thesis_mutation_exit) benchmark behavior: the expectation is to evaluate position changes based on thesis state transitions, not price movements. The benchmark rewards explicit acknowledgment of what changed and clear conviction recalibration.
+
+---
+
+## Institutional Flow and Microstructure Interpretation
+
+Institutional ownership data is already captured by the pipeline's IO quality assessment. This section extends beyond static holder quality to interpret the DYNAMICS of institutional flow — distinguishing mechanical noise from genuine conviction signals.
+
+### Flow Classification Taxonomy
+
+Not all institutional activity carries equal information value. Classify observed flow into one of four categories before interpreting:
+
+**Passive Mechanical Flow**
+- MSCI/Russell index rebalancing (additions, deletions, weight changes)
+- ETF creation/redemption (inflows to sector ETFs force pro-rata buying of all constituents)
+- 13F window dressing (quarter-end position adjustments for reporting optics)
+- **Interpretation**: NOT thesis-relevant. These flows are price-insensitive and follow rules, not conviction. A stock rising on index inclusion is not a fundamental signal. A stock dropping on index deletion is a potential accumulation opportunity if the thesis is intact.
+
+**Active Institutional Conviction**
+- Concentrated buying by quality institutions (long-only active managers initiating or adding positions)
+- Insider purchases (officers and directors buying on the open market with personal capital)
+- Activist accumulation (disclosed or pending 13D filings)
+- **Interpretation**: Thesis-strengthening. When smart money is building a position alongside your thesis, the conviction convergence is a positive signal. Insider buying is the strongest sub-signal — insiders know their own supply chain better than any external analyst.
+
+**Forced / Distressed Flow**
+- Margin calls forcing liquidation of otherwise-sound positions
+- Fund liquidation (a closing fund must sell everything regardless of thesis quality)
+- Tax-loss harvesting (November-December selling of losers for tax purposes)
+- Redemption-driven selling (fund outflows forcing pro-rata position reduction)
+- **Interpretation**: Potential contrarian opportunity. When selling is driven by the seller's balance sheet rather than the company's fundamentals, the price decline does not reflect thesis deterioration. Cross-reference with Absence Evidence Type 2 (No Fundamental Change + Selloff) from `supply_chain_bottleneck.md`.
+
+**Dealer Hedging Flow**
+- Options market maker delta hedging (buying/selling shares to stay delta-neutral as options positions change)
+- Gamma exposure effects (large open interest near strike prices creates predictable hedging flows)
+- Pin risk around expiration (stock gravitates toward max pain / heavy open interest strikes)
+- **Interpretation**: Short-term noise. These flows are mechanically driven and reverse after expiration. They affect intraday and intraweek price action but carry zero thesis information.
+
+### Signal vs Noise Discrimination
+
+Combine IO quality assessment with flow direction and insider activity to distinguish genuine signals:
+
+| IO Quality Score | Insider Activity | Flow Direction | Interpretation |
+|---|---|---|---|
+| High (7-10) + improving | Net buying | Accumulation | Genuine conviction — institutions and insiders aligned. Thesis-strengthening. |
+| High (7-10) + stable | Neutral | Flat | No new information. Rely on other evidence legs. |
+| Declining (was 7+, now 5-6) | Net selling | Distribution | Distribution warning. Investigate whether thesis has weakened or if this is mechanical (rebalance, redemption). |
+| Low (1-4) + high short interest | Mixed | Contested | Potential value trap OR contrarian setup. Cannot discriminate from flow data alone — need supply chain evidence (bottleneck score, SEC filing quality, forward revenue visibility) to determine which. |
+| Rising from low base | Net buying (insider) | Early accumulation | Discovery-phase signal. If combined with low analyst coverage and strong bottleneck score, high-asymmetry setup. |
+
+### Pipeline Connection
+
+The analyze pipeline output includes `institutional_flow` with `insider_net_direction`, `io_assessment`, `iv_regime`, and `flow_assessment`. Interpret these as follows:
+
+- `flow_assessment: "positive"` = accumulation signals present. Institutional behavior aligns with the thesis. Use as supporting evidence, not as the primary thesis driver.
+- `flow_assessment: "negative"` = distribution signals detected. Needs investigation — is this active conviction reversal or mechanical flow? Check if `insider_net_direction` is also negative (true distribution warning) or neutral/positive (likely mechanical).
+- `flow_assessment: "neutral"` = no clear directional signal from institutional data. Rely on other evidence legs (supply chain position, valuation, catalyst timeline).
+- `iv_regime: "elevated"` during accumulation = potential smart money buying protection via puts while building a share position. This is a sophisticated pattern — elevated IV does not necessarily mean bearish sentiment when accompanied by share accumulation.
+
+### Interaction with Other Framework Components
+
+- **Priced-in judgment**: High IO quality (9-10, passive/index dominant) combined with extensive analyst coverage suggests the thesis is well-known. This does not mean the position is bad, but it means the discovery alpha has been consumed. The remaining return is execution alpha, not information alpha.
+- **Forced Multi-hop Discovery**: The best bottleneck candidates often have LOW IO quality (1-4) because institutions have not yet discovered the supply chain relationship. Low IO quality is a FEATURE for discovery-phase positions, not a bug.
+- **Entry timing**: Forced/distressed flow creates entry windows. Tax-loss harvesting season (November-December), fund liquidation events, and index rebalance selloffs are structurally repeating opportunities for positions with intact theses.
+
+Reference BM09 (institutional_flow_microstructure) benchmark behavior: the expectation is to distinguish passive mechanical flow from real institutional conviction, not to treat all institutional activity as a single signal.

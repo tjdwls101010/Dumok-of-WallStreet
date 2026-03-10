@@ -127,15 +127,24 @@ Chain types sequentially when a query spans multiple intents:
 | Query Type | Primary Subcommand | Supplementary | Agent-Level Work |
 |------------|-------------------|---------------|-----------------|
 | A (Macro) | macro | — | Regime judgment → position adjustment guidance |
-| B (Stock) | analyze | — | L2/L3 WebSearch, L6 taxonomy |
-| C-1 (Compare) | compare | analyze (top N) | Relative strength narrative |
-| C-2 (Discover) | discover | analyze (top N) | Industry selection, candidate validation |
-| C-3 (Thematic) | WebSearch → discover → cross_chain → analyze | — | 5-Layer Mapping, 6-Criteria (see `supply_chain_bottleneck.md`) |
-| D (Supply Chain) | analyze + capex_cascade | cross_chain | Scenario (Clear Thought), 6-Criteria |
-| E (Position) | analyze + recheck | — | Position construction (`methodology.md`) |
+| B (Stock) | analyze | — | Control layer interpretation (materiality→causality→priced-in), L2/L3 WebSearch, L6 taxonomy |
+| C-1 (Compare) | compare | analyze (top N) | Relative strength narrative, priced-in comparison |
+| C-2 (Discover) | discover | analyze (top N) | Macro stress → industry selection → candidate validation (follow discovery_workflow_note) |
+| C-3 (Thematic) | WebSearch → discover → cross_chain → analyze | — | 5-Layer Mapping, multi-hop protocol (see `supply_chain_bottleneck.md`), 6-Criteria |
+| D (Supply Chain) | analyze + capex_cascade | cross_chain | Scenario (Clear Thought), 6-Criteria, causal bridge reasoning |
+| E (Position) | analyze + recheck | — | Position construction (`methodology.md`), rotation assessment, expression layer |
 | F (Portfolio) | compare | — | E/D/B classification |
 
 **Pipeline-Complete**: All methodology-required module calls are contained within the pipeline. Do not call individual modules to supplement. WebSearch is for agent-driven context: L2 cascade mapping, L3 bottleneck identification, L6 taxonomy, qualitative research.
+
+**Control Layer Protocol**: After receiving pipeline output, apply the control layer interpretation sequence before writing the analysis:
+1. **Materiality check**: Is the event/question material to this company's forward earnings via its specific supply chain? (Use `materiality_signals` output)
+2. **Causal bridge**: Trace the chain: macro → supply chain → financial transmission → valuation. Do not skip layers. (Use `causal_bridge_data` output)
+3. **Priced-in assessment**: Has the market already digested this thesis? (Use `priced_in_assessment` output + agent sector context)
+4. **Institutional flow**: Is smart money accumulating or distributing? (Use `institutional_flow` output)
+5. **Expression**: What is the optimal vehicle to express this thesis? (Use `expression_layer` output)
+
+See `control_layer.md` for detailed interpretation frameworks for each step.
 
 **Cross-Subcommand Optimization**: When chaining `compare` then `analyze` for overlapping tickers, use `--skip-macro` for `analyze`. Present compare results first as overview, then `analyze` only top candidates for deep-dive.
 
@@ -201,8 +210,10 @@ Every response that includes a specific stock must contain at minimum:
 - Forward revenue trajectory (growth rate, key contracts, revenue drivers)
 - Margin quality assessment (gross margin level, operating leverage potential)
 - Dual valuation: no-growth floor value + growth upside value (both required)
+- Priced-in assessment (use pipeline priced_in_assessment score + agent contextualization)
+- Materiality classification for any event-driven analysis (use pipeline materiality_signals)
 - Key risk factors (supply chain risks, dilution, competition)
-- Rating with conviction level
+- Rating with conviction level + expression vehicle recommendation (shares/LEAPS/CSP/CC)
 - Evidence chain (6 links: Macro -> Sector -> Bottleneck -> Company -> Valuation -> Catalyst) per `methodology.md`
 
 Every response that includes a market-level assessment must contain at minimum:
@@ -221,11 +232,12 @@ This is nonnegotiable regardless of query type.
 | File | When to Load |
 |------|-------------|
 | `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands. |
-| `methodology.md` | 6-Level hierarchy, information priority hierarchy, position construction, MarketData-first principle, evidence chain template |
-| `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, absence evidence checklist, bear case checklist, crash triage, thematic frameworks, historical case studies |
-| `valuation_fundamentals.md` | Dual-valuation rule, SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening |
+| `methodology.md` | 6-Level hierarchy, information priority hierarchy, position construction, MarketData-first principle, evidence chain template, thesis mutation decision framework, institutional flow interpretation |
+| `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, absence evidence checklist, bear case checklist, crash triage, thematic frameworks, forced multi-hop discovery execution protocol |
+| `valuation_fundamentals.md` | Dual-valuation rule, SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening, options expression layer |
 | `macro_catalyst.md` | Fed policy, geopolitical risk, contrarian trigger detection, CapEx flow tracking, seasonal patterns, liquidity analysis |
-| `tactical_patterns.md` | Cross-sector patterns, sector heuristics, thesis lifecycle, contagion isolation mapping |
+| `tactical_patterns.md` | Cross-sector patterns, sector heuristics (defense, healthcare, crypto, utilities, space), thesis lifecycle, contagion isolation mapping |
+| `control_layer.md` | Control layer interpretation: materiality classification, causal bridge reasoning, priced-in assessment protocol, discovery workflow order, question framing discipline |
 
 ### Progressive Disclosure Loading Map
 
@@ -234,12 +246,12 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 | Query Type | Files to Load |
 |-----------|---------------|
 | A (Market & Macro) | `macro_catalyst.md` ; + `tactical_patterns.md` when crash/contagion analysis needed |
-| B (Stock Diagnosis) | `valuation_fundamentals.md` ; conditionally + `supply_chain_bottleneck.md` via BRA. For earnings triggers ("실적", "earnings"), additionally reference "Earnings as Supply Chain Thesis Validation" in `valuation_fundamentals.md` |
-| C-1 (Discovery, with ticker) | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
-| C-2 (Discovery, no ticker) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
-| C-3 (Discovery, thematic) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` + `tactical_patterns.md` |
-| D (Supply Chain & Bottleneck) | `supply_chain_bottleneck.md` + `macro_catalyst.md` + `tactical_patterns.md` |
-| E (Position & Risk) | `methodology.md` |
+| B (Stock Diagnosis) | `control_layer.md` + `valuation_fundamentals.md` ; conditionally + `supply_chain_bottleneck.md` via BRA. For earnings triggers ("실적", "earnings"), additionally reference "Earnings as Supply Chain Thesis Validation" in `valuation_fundamentals.md` |
+| C-1 (Discovery, with ticker) | `control_layer.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-2 (Discovery, no ticker) | `control_layer.md` + `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
+| C-3 (Discovery, thematic) | `control_layer.md` + `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` + `tactical_patterns.md` |
+| D (Supply Chain & Bottleneck) | `control_layer.md` + `supply_chain_bottleneck.md` + `macro_catalyst.md` + `tactical_patterns.md` (+ `tactical_patterns.md` healthcare/crypto/utilities/space sections for those domain queries) |
+| E (Position & Risk) | `methodology.md` (+ `control_layer.md` for priced-in assessment and expression layer) |
 | F (Thematic Portfolio) | `methodology.md` + `supply_chain_bottleneck.md` + `tactical_patterns.md` |
 | Script details | Use `extract_docstring.py` |
 

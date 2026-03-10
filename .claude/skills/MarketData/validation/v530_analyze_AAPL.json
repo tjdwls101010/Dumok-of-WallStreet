@@ -1,0 +1,1303 @@
+{
+  "ticker": "AAPL",
+  "levels": {
+    "L1_macro": {
+      "regime": "transitional",
+      "risk_level": "elevated",
+      "drain_count": 2,
+      "decision_rules": [
+        "ERP at -1.58% — below healthy threshold (>3%)",
+        "VIX in backwardation — elevated near-term fear",
+        "Net liquidity expanding — supportive for risk assets",
+        "Sentiment at 29 — within normal range",
+        "Fed rate path data available for context",
+        "BDI z-score 0.42 — shipping demand normal/elevated",
+        "DXY z-score -0.92 — dollar within normal range",
+        "Real rate 1.81% — positive, tighter conditions"
+      ],
+      "signals": {
+        "erp_pct": -1.5813,
+        "vix_spot": 24.83,
+        "vix_regime": "anxious",
+        "vix_structure": "backwardation",
+        "net_liq_direction": "expanding",
+        "net_liq_current": 5796840.67,
+        "fear_greed": 28.92,
+        "fedwatch_next_meeting": "2026-03-18",
+        "fedwatch_probabilities": {
+          "cut": 0.6,
+          "hold": 99.4,
+          "hike": 0.0
+        },
+        "bdi_z_score": 0.4212,
+        "bdi_demand": "Normal",
+        "dxy_z_score": -0.9168,
+        "dxy_strength": "Normal",
+        "real_rate": 1.81
+      }
+    },
+    "L2_capex_flow": {
+      "company_capex": {
+        "command": "track",
+        "quarters_requested": 8,
+        "symbols": [
+          {
+            "symbol": "AAPL",
+            "quarters": [
+              {
+                "period": "2025-Q4",
+                "capex": 2373000000,
+                "qoq_change_pct": -26.8,
+                "yoy_change_pct": -19.29
+              },
+              {
+                "period": "2025-Q3",
+                "capex": 3242000000,
+                "qoq_change_pct": -6.35,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2025-Q2",
+                "capex": 3462000000,
+                "qoq_change_pct": 12.73,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2025-Q1",
+                "capex": 3071000000,
+                "qoq_change_pct": 4.46,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2024-Q4",
+                "capex": 2940000000,
+                "qoq_change_pct": null,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2024-Q3",
+                "capex": null,
+                "qoq_change_pct": null,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2024-Q2",
+                "capex": null,
+                "qoq_change_pct": null,
+                "yoy_change_pct": null
+              }
+            ],
+            "direction": "decelerating",
+            "latest_capex": 2373000000,
+            "avg_capex": 3017600000
+          }
+        ]
+      },
+      "hyperscaler_signal": {
+        "aggregate_direction": "increasing",
+        "increasing_count": 4,
+        "total_count": 4
+      },
+      "cascade_requires_context": true,
+      "note": "Company CapEx and Hyperscaler CapEx bridge signal auto-included. Supply chain cascade requires agent context."
+    },
+    "L3_bottleneck": {
+      "sec_supply_chain": {
+        "data": {
+          "filing": {
+            "form": "10-K",
+            "filing_date": "2025-10-31",
+            "accession_number": "0000320193-25-000079",
+            "filing_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm"
+          },
+          "supply_chain": {
+            "suppliers": [
+              {
+                "entity": "Google LLC",
+                "relationship": "licensing arrangement for search services",
+                "context": "The Company earns revenue from licensing arrangements with Google LLC (“Google”) and other companies to offer their search services on the Company’s platforms and applications, and certain of these arrangements are currently subject to government investigations and legal proceedings.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Unknown"
+              }
+            ],
+            "customers": [
+              {
+                "entity": "Google LLC",
+                "relationship": "licensing arrangement for search distribution",
+                "context": "The Company earns revenue from licensing arrangements with Google LLC (“Google”) and other companies to offer their search services on the Company’s platforms and applications, and certain of these arrangements are currently subject to government investigations and legal proceedings.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "third-party cellular network carriers",
+                "relationship": "indirect distribution channel",
+                "context": "The Company also employs a variety of indirect distribution channels, such as third-party cellular network carriers and other resellers, for the sale of its products and certain of its services.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "single_source_dependencies": [
+              {
+                "component": "custom components",
+                "supplier": "single source",
+                "context": "The Company’s new products often utilize custom components available from only one source.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Western"
+              },
+              {
+                "component": "final assembly",
+                "supplier": "partners primarily located in Asia",
+                "context": "The Company... relies on... partners primarily located in Asia, for final assembly of substantially all of the Company’s hardware products.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Unknown"
+              }
+            ],
+            "geographic_concentration": [
+              {
+                "location": "China mainland",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "India",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "Japan",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "South Korea",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "Taiwan",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "Vietnam",
+                "activity": "manufacturing and assembly",
+                "context": "A significant majority of the Company’s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam, in addition to sourcing from partners and facilities located in the U.S.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "capacity_constraints": [
+              {
+                "constraint": "initial capacity constraints",
+                "context": "When a component or product uses new technologies, initial capacity constraints may exist until the suppliers’ yields have matured or their manufacturing capacities have increased.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "supply_chain_risks": [
+              {
+                "risk": "U.S. Tariffs",
+                "context": "Beginning in the second quarter of 2025, new tariffs were announced on imports to the U.S. (“U.S. Tariffs”), including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the European Union (“EU”), among others.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "risk": "semiconductor shortages",
+                "context": "For example, the global semiconductor industry has in the past experienced high demand and shortages of supply, which adversely affected the Company’s ability to obtain sufficient quantities of components and products on commercially reasonable terms, or at all.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "risk": "geopolitical risk",
+                "context": "Global supply chains can be highly concentrated, and an escalation of geopolitical tensions or conflict could result in significant disruptions.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "revenue_concentration": [
+              {
+                "entity": "Americas",
+                "revenue_pct": 42.9,
+                "revenue_amount": "$178,353 million",
+                "context": "Americas net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone and Services.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Europe",
+                "revenue_pct": 26.7,
+                "revenue_amount": "$111,032 million",
+                "context": "Europe net sales increased during 2025 compared to 2024 primarily due to higher net sales of Services, iPhone and Mac.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Greater China",
+                "revenue_pct": 15.5,
+                "revenue_amount": "$64,377 million",
+                "context": "Greater China net sales decreased during 2025 compared to 2024 primarily due to lower net sales of iPhone, partially offset by higher net sales of Mac.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Japan",
+                "revenue_pct": 6.9,
+                "revenue_amount": "$28,703 million",
+                "context": "Japan net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone, Services and iPad.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Rest of Asia Pacific",
+                "revenue_pct": 8.1,
+                "revenue_amount": "$33,696 million",
+                "context": "Rest of Asia Pacific net sales increased during 2025 compared to 2024 primarily due to higher net sales of iPhone, Services and Mac.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "geographic_revenue": [
+              {
+                "region": "United States",
+                "revenue_pct": 36.5,
+                "revenue_amount": "$151,790 million",
+                "context": "U.S. net sales... $151,790 [million].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "region": "China",
+                "revenue_pct": 15.5,
+                "revenue_amount": "$64,377 million",
+                "context": "China includes Hong Kong and Taiwan... $64,377 [million].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "region": "United States",
+                "revenue_pct": 36.47,
+                "revenue_amount": "$151.8B",
+                "context": "XBRL: us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "region": "China",
+                "revenue_pct": 15.47,
+                "revenue_amount": "$64.4B",
+                "context": "XBRL: us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "region": "Other Countries",
+                "revenue_pct": 48.06,
+                "revenue_amount": "$200.0B",
+                "context": "XBRL: us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              }
+            ],
+            "purchase_obligations": [
+              {
+                "counterparty": "not disclosed",
+                "obligation_type": "manufacturing purchase obligations",
+                "amount": "$56.2 billion",
+                "timeframe": "within 12 months",
+                "context": "As of September 27, 2025, the Company had manufacturing purchase obligations of $56.2 billion, with $55.4 billion payable within 12 months.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "not disclosed",
+                "obligation_type": "unconditional purchase obligations",
+                "amount": "$13.308 billion",
+                "timeframe": "remaining term in excess of one year",
+                "context": "The Company’s unconditional purchase obligations primarily consist of supplier arrangements, licensed intellectual property and content, and distribution rights.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$523M",
+                "timeframe": "total",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceSheetAmount (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$4.8B",
+                "timeframe": "year 1",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceOnFirstAnniversary (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$3.7B",
+                "timeframe": "year 2",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceOnSecondAnniversary (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$2.0B",
+                "timeframe": "year 3",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceOnThirdAnniversary (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$1.3B",
+                "timeframe": "year 4",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceOnFourthAnniversary (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$788M",
+                "timeframe": "year 5",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceOnFifthAnniversary (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$773M",
+                "timeframe": "after year 5",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationDueAfterFiveYears (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "",
+                "obligation_type": "unconditional purchase obligation",
+                "amount": "$13.3B",
+                "timeframe": "total",
+                "context": "XBRL: us-gaap:UnrecordedUnconditionalPurchaseObligationBalanceSheetAmount (2025-09-27)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              }
+            ],
+            "market_risk_disclosures": [
+              {
+                "risk_type": "interest_rate",
+                "exposure": "U.S. interest rates",
+                "sensitivity": "100 basis points increase = $2,416M decline in fair value of investment portfolio",
+                "hedging": "derivative instruments, offset interest rate–sensitive assets and liabilities, or control duration",
+                "context": "The following table sets forth potential impacts on the Company’s investment portfolio... that would result from a hypothetical increase in relevant interest rates... 100 basis points, all tenors... Decline in fair value... $2,416 [million].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "risk_type": "fx",
+                "exposure": "non–U.S. dollar–denominated sales, cost of sales and operating expenses",
+                "sensitivity": "maximum one-day loss in fair value of $590 million",
+                "hedging": "derivative instruments, such as foreign currency forward and option contracts",
+                "context": "Based on the results of the model, the Company estimates, with 95% confidence, a maximum one-day loss in fair value of $590 million and $538 million as of September 27, 2025 and September 28, 2024, respectively.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "inventory_composition": []
+          },
+          "extraction_stats": {
+            "total_matches": 37,
+            "unique_entities": 10,
+            "mode": "llm",
+            "xbrl_categories": [
+              "geographic_revenue",
+              "purchase_obligations"
+            ],
+            "xbrl_supplemented": true
+          },
+          "data_coverage": {
+            "suppliers": "extracted",
+            "customers": "extracted",
+            "single_source_dependencies": "extracted",
+            "geographic_concentration": "extracted",
+            "capacity_constraints": "extracted",
+            "supply_chain_risks": "extracted",
+            "revenue_concentration": "extracted",
+            "geographic_revenue": "extracted",
+            "purchase_obligations": "extracted",
+            "market_risk_disclosures": "extracted",
+            "inventory_composition": "insufficient_context"
+          }
+        },
+        "metadata": {
+          "symbol": "AAPL",
+          "company_name": "Apple Inc.",
+          "form": "10-K"
+        }
+      },
+      "sec_events": {
+        "data": [],
+        "metadata": {
+          "symbol": "AAPL",
+          "cik": "0000320193",
+          "company_name": "Apple Inc.",
+          "filings_checked": 5,
+          "supply_chain_events_found": 0
+        }
+      },
+      "sec_status": "SEC_SC_available",
+      "requires_context": true,
+      "note": "SEC filing supply chain data pre-extracted and pre-scored. Agent completes 6-Criteria scoring via WebSearch cross-validation.",
+      "absence_evidence_flags": [
+        {
+          "type": "no_fundamental_change_selloff",
+          "signal": "potential_entry",
+          "note": "No recent SEC event filings (8-K) detected. If stock has declined significantly, selling may be mechanical (tax harvesting, MM pinning, algo rebalancing), not fundamental — verify via WebSearch."
+        }
+      ],
+      "bottleneck_pre_score": {
+        "pre_score": 3.0,
+        "pre_score_max": 4.25,
+        "criteria": {
+          "supply_concentration": {
+            "score": 1.0,
+            "evidence": "2 high-conf SSD + 0 sole/primary suppliers + 2 named purchase obligations"
+          },
+          "capacity_constraints": {
+            "score": 0.25,
+            "evidence": "1 constraint(s) mentioned (resolving language detected — capped)"
+          },
+          "geopolitical_risk": {
+            "score": 1.0,
+            "evidence": "HIGH_RISK geographic revenue: 31.0% in China, China (Notes quantitative data)"
+          },
+          "long_lead_times": {
+            "score": 0.0,
+            "evidence": "No lead time indicators found"
+          },
+          "no_substitutes": {
+            "score": 0.75,
+            "evidence": "Sole source language + single-source dependencies confirmed"
+          },
+          "cost_insignificance": {
+            "score": 0,
+            "evidence": "Cannot determine from SEC data",
+            "requires_agent_assessment": true
+          }
+        },
+        "assessment": "strong",
+        "filing_date": "2025-10-31",
+        "stale_data_warning": null,
+        "sole_western_flag": false
+      }
+    },
+    "L4_fundamentals": {
+      "info": {
+        "sector": "Technology",
+        "industry": "Consumer Electronics",
+        "marketCap": 3787508416512,
+        "enterpriseValue": 3838936612864,
+        "fullTimeEmployees": 150000,
+        "longBusinessSummary": "Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories comprising AirPods, Apple Vision Pro, Apple TV, Apple Watch, Beats products, and HomePod, as well as Apple branded and third-party accessories. It also provides AppleCare support and cloud services; and operates various platforms, including the App Store that allow customers to discover and download applications and digital content, such as books, music, video, games, and podcasts, as well as advertising services include third-party licensing arrangements and its own advertising platforms. In addition, the company offers various subscription-based services, such as Apple Arcade, a game subscription service; Apple Fitness+, a personalized fitness service; Apple Music, which offers users a curated listening experience with on-demand radio stations; Apple News+, a subscription news and magazine service; Apple TV, which offers exclusive original content and live sports; Apple Card, a co-branded credit card; and Apple Pay, a cashless payment service, as well as licenses its intellectual property. The company serves consumers, and small and mid-sized businesses; and the education, enterprise, and government markets. It distributes third-party applications for its products through the App Store. The company also sells its products through its retail and online stores, and direct sales force; and third-party cellular network carriers and resellers. The company was formerly known as Apple Computer, Inc. and changed its name to Apple Inc. in January 2007. Apple Inc. was founded in 1976 and is headquartered in Cupertino, California.",
+        "financialCurrency": "USD",
+        "fiftyTwoWeekLow": 169.21,
+        "fiftyTwoWeekHigh": 288.62,
+        "beta": 1.116,
+        "currentPrice": 257.69,
+        "forwardPE": 27.731562,
+        "priceToSalesTrailing12Months": 8.694584,
+        "sharesOutstanding": 14681140000,
+        "floatShares": 14656182062,
+        "shortPercentOfFloat": 0.0091,
+        "previousClose": 259.88,
+        "fiftyDayAverage": 264.0382,
+        "twoHundredDayAverage": 244.44135,
+        "grossMargins": 0.47325,
+        "operatingMargins": 0.35374,
+        "heldPercentInsiders": 0.01637,
+        "heldPercentInstitutions": 0.65212
+      },
+      "holders": {
+        "top_holders": [
+          {
+            "holder": "Vanguard Group Inc",
+            "pctHeld": 0.097200006,
+            "shares": 1426283914
+          },
+          {
+            "holder": "Blackrock Inc.",
+            "pctHeld": 0.078600004,
+            "shares": 1154665731
+          },
+          {
+            "holder": "State Street Corporation",
+            "pctHeld": 0.041100003,
+            "shares": 604056505
+          },
+          {
+            "holder": "Geode Capital Management, LLC",
+            "pctHeld": 0.024400001,
+            "shares": 358032517
+          },
+          {
+            "holder": "FMR, LLC",
+            "pctHeld": 0.0209,
+            "shares": 307397264
+          }
+        ],
+        "total_reported": 10
+      },
+      "insider_transactions": {
+        "summary": {
+          "total_transactions": 0,
+          "buy_count": 0,
+          "sell_count": 0,
+          "buy_amount": 0.0,
+          "sell_amount": 0.0,
+          "net_direction": "mixed"
+        },
+        "transactions": []
+      },
+      "earnings_acceleration": {
+        "symbol": "AAPL",
+        "code33_status": "FAIL",
+        "eps_accelerating": false,
+        "sales_accelerating": false,
+        "margin_expanding": true,
+        "eps_growth_rates": [
+          18.33,
+          90.72,
+          12.14
+        ],
+        "sales_growth_rates": [],
+        "data_quality": "minimal"
+      },
+      "sbc_analyzer": {
+        "symbol": "AAPL",
+        "sbc_annual": 12863000000,
+        "sbc_pct_revenue": 3.1,
+        "reported_fcf": 98767000000,
+        "real_fcf": 85904000000,
+        "flag": "healthy",
+        "shares_outstanding_current": 14681140000,
+        "shares_outstanding_prior_quarter": null,
+        "shares_change_qoq_pct": null,
+        "dilution_flag": "normal",
+        "total_dilution_annual_pct": 3.1
+      },
+      "forward_pe": {
+        "symbol": "AAPL",
+        "current_price": 257.69,
+        "forward_1y_eps": 8.49852,
+        "forward_2y_eps": 9.33701,
+        "forward_1y_pe": 30.3,
+        "forward_2y_pe": 27.6,
+        "revenue_growth_yoy": 6.7,
+        "walmart_pe_benchmark": 45,
+        "valuation_gap": "Forward P/E (30.3x) moderately below WMT benchmark (45x)",
+        "assessment": "fairly_valued",
+        "forward_revenue_0y": 465004035670.0,
+        "forward_revenue_1y": 496122941770.0,
+        "gross_margin_pct": 47.33,
+        "forward_gross_profit": 234790182193.0,
+        "revenue_based_fair_value_low": 2632477941326.0,
+        "revenue_based_fair_value_high": 3509970588434.0,
+        "primary_valuation_method": "forward_revenue_x_margin"
+      },
+      "debt_structure": {
+        "symbol": "AAPL",
+        "total_debt": 98657000000,
+        "cash_and_equivalents": 35934000000,
+        "net_debt": 62723000000,
+        "market_cap": 3787508416512,
+        "net_debt_to_mcap": 0.0166,
+        "total_revenue": 416161000000,
+        "interest_expense": null,
+        "interest_pct_revenue": null,
+        "debt_to_equity": 1.338,
+        "debt_health": "unknown",
+        "implied_interest_rate": null,
+        "debt_quality_grade": null,
+        "interest_coverage_ratio": null,
+        "interest_coverage_metric": "EBIT"
+      },
+      "institutional_quality": {
+        "symbol": "AAPL",
+        "io_quality_score": 9.0,
+        "total_institutional_holders": 10,
+        "classified_breakdown": {
+          "passive_pct": 71.9,
+          "long_only_pct": 13.1,
+          "hedge_pct": 0.0,
+          "quant_mm_pct": 0.0,
+          "unclassified_pct": 15.0
+        },
+        "top_holders_classified": [
+          {
+            "name": "Vanguard Group Inc",
+            "shares": 1426283914,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "Blackrock Inc.",
+            "shares": 1154665731,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "State Street Corporation",
+            "shares": 604056505,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "Geode Capital Management, LLC",
+            "shares": 358032517,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "FMR, LLC",
+            "shares": 307397264,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "Morgan Stanley",
+            "shares": 230483035,
+            "type": "LONG_ONLY"
+          },
+          {
+            "name": "Berkshire Hathaway, Inc",
+            "shares": 227917808,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "JPMORGAN CHASE & CO",
+            "shares": 225419111,
+            "type": "LONG_ONLY"
+          },
+          {
+            "name": "Price (T.Rowe) Associates Inc",
+            "shares": 203499482,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "NORGES BANK",
+            "shares": 192255086,
+            "type": "LONG_ONLY"
+          }
+        ],
+        "interpretation": "Excellent: dominated by passive/index and quality active managers"
+      },
+      "no_growth_valuation": {
+        "symbol": "AAPL",
+        "current_revenue": 416161000000,
+        "net_margin_pct": 26.92,
+        "implied_earnings": 112010000000,
+        "no_growth_pe_multiple": 15,
+        "no_growth_fair_value": 1680150000000,
+        "current_market_cap": 3787508416512,
+        "margin_of_safety_pct": -55.6,
+        "stress_test": "fail"
+      },
+      "margin_tracker": {
+        "symbol": "AAPL",
+        "quarters_analyzed": 5,
+        "latest_quarter": {
+          "gross_margin": 48.16,
+          "operating_margin": 35.37,
+          "net_margin": 29.28
+        },
+        "gross_margin_qoq_change": 0.98,
+        "operating_margin_qoq_change": 3.72,
+        "gross_margin_yoy_change": 1.28,
+        "operating_margin_yoy_change": 0.91,
+        "trajectory": [
+          {
+            "period": "2025-Q4",
+            "gross": 48.16,
+            "operating": 35.37,
+            "net": 29.28
+          },
+          {
+            "period": "2025-Q3",
+            "gross": 47.18,
+            "operating": 31.65,
+            "net": 26.8
+          },
+          {
+            "period": "2025-Q2",
+            "gross": 46.49,
+            "operating": 29.99,
+            "net": 24.92
+          },
+          {
+            "period": "2025-Q1",
+            "gross": 47.05,
+            "operating": 31.03,
+            "net": 25.99
+          },
+          {
+            "period": "2024-Q4",
+            "gross": 46.88,
+            "operating": 34.46,
+            "net": 29.23
+          }
+        ],
+        "flag": "STABLE"
+      },
+      "iv_context": {
+        "symbol": "AAPL",
+        "current_price": 258.89,
+        "iv30": 27.3,
+        "iv30_annual_high": 64.14,
+        "iv30_annual_low": 17.03,
+        "iv_rank": 21.81,
+        "hv30_annual_high": 68.73,
+        "hv30_annual_low": 10.29,
+        "iv_vs_hv_spread": -12.21,
+        "interpretation": "cheap"
+      },
+      "revenue_trajectory": {
+        "revenue_by_quarter": [
+          {
+            "quarter": "2025-12-31 00:00:00",
+            "revenue": 143756000000.0
+          },
+          {
+            "quarter": "2025-09-30 00:00:00",
+            "revenue": 102466000000.0
+          },
+          {
+            "quarter": "2025-06-30 00:00:00",
+            "revenue": 94036000000.0
+          },
+          {
+            "quarter": "2025-03-31 00:00:00",
+            "revenue": 95359000000.0
+          },
+          {
+            "quarter": "2024-12-31 00:00:00",
+            "revenue": 124300000000.0
+          }
+        ]
+      }
+    },
+    "L5_catalysts": {
+      "earnings_dates": {
+        "EPS Estimate": {
+          "2026-04-30 16:00:00-04:00": 1.95,
+          "2026-01-29 16:00:00-05:00": 2.67,
+          "2025-10-30 16:00:00-04:00": 1.77,
+          "2025-07-31 16:00:00-04:00": 1.43,
+          "2025-05-01 16:00:00-04:00": 1.62,
+          "2025-01-30 16:00:00-05:00": 2.34,
+          "2024-10-31 16:00:00-04:00": 0.95,
+          "2024-08-01 16:00:00-04:00": 1.34
+        },
+        "Reported EPS": {
+          "2026-04-30 16:00:00-04:00": null,
+          "2026-01-29 16:00:00-05:00": 2.84,
+          "2025-10-30 16:00:00-04:00": 1.85,
+          "2025-07-31 16:00:00-04:00": 1.57,
+          "2025-05-01 16:00:00-04:00": 1.65,
+          "2025-01-30 16:00:00-05:00": 2.4,
+          "2024-10-31 16:00:00-04:00": 0.97,
+          "2024-08-01 16:00:00-04:00": 1.4
+        },
+        "Surprise(%)": {
+          "2026-04-30 16:00:00-04:00": null,
+          "2026-01-29 16:00:00-05:00": 6.34,
+          "2025-10-30 16:00:00-04:00": 4.52,
+          "2025-07-31 16:00:00-04:00": 10.12,
+          "2025-05-01 16:00:00-04:00": 1.69,
+          "2025-01-30 16:00:00-05:00": 2.52,
+          "2024-10-31 16:00:00-04:00": 2.48,
+          "2024-08-01 16:00:00-04:00": 4.36
+        }
+      },
+      "earnings_surprise": {
+        "symbol": "AAPL",
+        "surprise_history": [
+          {
+            "date": "2025-12-31",
+            "estimate": 2.6708,
+            "actual": 2.84,
+            "surprise_pct": 6.34,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": 0.15,
+            "post_er_return_1d": -0.31,
+            "post_er_return_5d": -4.72
+          },
+          {
+            "date": "2025-09-30",
+            "estimate": 1.76993,
+            "actual": 1.85,
+            "surprise_pct": 4.52,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": 0.16,
+            "post_er_return_1d": 0.32,
+            "post_er_return_5d": 0.73
+          },
+          {
+            "date": "2025-06-30",
+            "estimate": 1.42572,
+            "actual": 1.57,
+            "surprise_pct": 10.12,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": 0.73,
+            "post_er_return_1d": 1.29,
+            "post_er_return_5d": 2.36
+          },
+          {
+            "date": "2025-03-31",
+            "estimate": 1.62253,
+            "actual": 1.65,
+            "surprise_pct": 1.69,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": -1.04,
+            "post_er_return_1d": 0.48,
+            "post_er_return_5d": -18.31
+          }
+        ],
+        "consecutive_beats": 4,
+        "avg_surprise_pct": 5.67,
+        "avg_surprise_method": "simple_mean",
+        "cockroach_effect": "strong",
+        "total_quarters_analyzed": 4
+      },
+      "analyst_recommendations": {
+        "period": {
+          "0": "0m",
+          "1": "-1m",
+          "2": "-2m",
+          "3": "-3m"
+        },
+        "strongBuy": {
+          "0": 6,
+          "1": 5,
+          "2": 6,
+          "3": 5
+        },
+        "buy": {
+          "0": 25,
+          "1": 25,
+          "2": 24,
+          "3": 24
+        },
+        "hold": {
+          "0": 15,
+          "1": 16,
+          "2": 15,
+          "3": 15
+        },
+        "sell": {
+          "0": 1,
+          "1": 1,
+          "2": 1,
+          "3": 1
+        },
+        "strongSell": {
+          "0": 1,
+          "1": 1,
+          "2": 2,
+          "3": 3
+        }
+      },
+      "analyst_price_targets": {
+        "current": 257.7,
+        "high": 350.0,
+        "low": 205.0,
+        "mean": 295.43536,
+        "median": 300.0
+      },
+      "analyst_revisions": {
+        "symbol": "AAPL",
+        "eps_revisions": {
+          "upLast7days": {
+            "0q": 3,
+            "+1q": 0,
+            "0y": 2,
+            "+1y": 3
+          },
+          "upLast30days": {
+            "0q": 3,
+            "+1q": 0,
+            "0y": 4,
+            "+1y": 6
+          },
+          "downLast30days": {
+            "0q": 1,
+            "+1q": 2,
+            "0y": 1,
+            "+1y": 0
+          },
+          "downLast7Days": {
+            "0q": 0,
+            "+1q": 1,
+            "0y": 1,
+            "+1y": 0
+          }
+        },
+        "eps_trend": {
+          "current": {
+            "0q": 1.95454,
+            "+1q": 1.72488,
+            "0y": 8.49852,
+            "+1y": 9.33701
+          },
+          "7daysAgo": {
+            "0q": 1.95289,
+            "+1q": 1.73246,
+            "0y": 8.50696,
+            "+1y": 9.32731
+          },
+          "30daysAgo": {
+            "0q": 1.9523,
+            "+1q": 1.73073,
+            "0y": 8.48389,
+            "+1y": 9.29333
+          },
+          "60daysAgo": {
+            "0q": 1.84245,
+            "+1q": 1.70764,
+            "0y": 8.26396,
+            "+1y": 9.13429
+          },
+          "90daysAgo": {
+            "0q": 1.8429,
+            "+1q": 1.70809,
+            "0y": 8.25771,
+            "+1y": 9.1144
+          }
+        },
+        "growth_estimates": {
+          "stockTrend": {
+            "0q": 0.185,
+            "+1q": 0.0991,
+            "0y": 0.1393,
+            "+1y": 0.0933,
+            "LTG": null
+          },
+          "indexTrend": {
+            "0q": 0.1328,
+            "+1q": 0.1122,
+            "0y": 0.15100001,
+            "+1y": 0.16209999,
+            "LTG": 0.122
+          }
+        },
+        "interpretation": {
+          "upward_revisions": "Positive - analysts raising estimates indicates strengthening fundamentals",
+          "downward_revisions": "Negative - analysts cutting estimates signals potential weakness",
+          "significance_threshold": "5%+ revision is meaningful per Minervini methodology"
+        }
+      }
+    },
+    "L6_taxonomy": {
+      "classification": "bottleneck",
+      "confidence": "medium",
+      "evidence": [
+        "bottleneck_pre_score 3.0/4.25 >= 3.0"
+      ],
+      "requires_llm": true,
+      "note": "Rule-based pre-classification. Agent should verify and may override."
+    }
+  },
+  "materiality_signals": {
+    "supply_chain_exposure": {
+      "supplier_count": 0,
+      "customer_count": 0,
+      "single_source_count": 0,
+      "geographic_risk_count": 0,
+      "has_sec_data": true,
+      "exposure_level": "low"
+    },
+    "margin_sensitivity": {
+      "gross_margin_pct": 47.3,
+      "operating_margin_pct": 35.4,
+      "margin_trend": "STABLE",
+      "operating_leverage": "moderate"
+    },
+    "earnings_materiality": {
+      "consecutive_beats": 4,
+      "sales_accelerating": false,
+      "latest_rev_growth_qoq_pct": null,
+      "sales_growth_rates": []
+    },
+    "recent_sec_events": [],
+    "exposure_summary": "Low supply chain exposure detected"
+  },
+  "causal_bridge_data": {
+    "macro_context": {
+      "regime": "transitional",
+      "risk_level": "elevated",
+      "key_signals": [
+        "VIX regime: anxious",
+        "Net liquidity: expanding",
+        "Real rate: 1.81%"
+      ]
+    },
+    "supply_chain_position": {
+      "sector": "Technology",
+      "industry": "Consumer Electronics",
+      "bottleneck_pre_score": 3.0,
+      "key_dependencies": [],
+      "sec_available": true
+    },
+    "financial_transmission": {
+      "revenue_trajectory": "insufficient_data",
+      "margin_trend": "STABLE",
+      "capex_direction": null,
+      "capex_trend_quarters": null
+    },
+    "valuation_gap": {
+      "current_price": 257.69,
+      "no_growth_floor": null,
+      "no_growth_gap_pct": null,
+      "forward_pe": null,
+      "growth_upside": -55.6
+    },
+    "note": "Causal bridge data pre-filled from pipeline. Agent must connect layers with event-specific causal reasoning."
+  },
+  "priced_in_assessment": {
+    "signals": {
+      "52w_range_pct": 74.1,
+      "price_vs_50d_ma_pct": -2.4,
+      "price_vs_200d_ma_pct": 5.4,
+      "short_interest_pct": 0.9,
+      "analyst_target_gap_pct": 14.6,
+      "revision_direction": "unknown",
+      "revision_magnitude": null,
+      "io_quality_score": 9.0
+    },
+    "risk_score": 40,
+    "assessment": "partially_priced_in",
+    "note": "Priced-in risk score 40/100 -> partially_priced_in. Agent must contextualize with sector/event awareness."
+  },
+  "institutional_flow": {
+    "insider_net_direction": "mixed",
+    "insider_net_value": null,
+    "io_quality_score": 9.0,
+    "io_assessment": "strong_accumulation",
+    "iv_percentile": 21.81,
+    "iv_regime": "depressed",
+    "flow_signals": [
+      "institutional_conviction"
+    ],
+    "flow_assessment": "positive"
+  },
+  "expression_layer": {
+    "iv_percentile": 21.81,
+    "iv_rank": 21.81,
+    "iv_regime": "depressed",
+    "conviction_tier": "Low",
+    "recommended_vehicle": "shares",
+    "reasoning": "IV depressed (21.81th pctl) + moderate conviction -> shares (LEAPS need higher conviction)"
+  },
+  "health_gates": {
+    "bear_bull_paradox": "PASS",
+    "active_dilution": "PASS",
+    "no_growth_fail": "FLAG",
+    "margin_collapse": "CAUTION",
+    "io_quality_concern": "PASS",
+    "total_pass": 3,
+    "total_gates": 5,
+    "flags": [
+      "no_growth_fail"
+    ],
+    "severity": {
+      "bear_bull_paradox": 1.0,
+      "active_dilution": 1.0,
+      "no_growth_fail": 0.0,
+      "margin_collapse": 0.5,
+      "io_quality_concern": 1.0
+    },
+    "severity_score": 3.5,
+    "detail": {
+      "bear_bull_paradox": {
+        "debt_quality_grade": null,
+        "interest_coverage_ratio": null,
+        "total_debt": 98657000000,
+        "cash_and_equivalents": 35934000000,
+        "net_debt": 62723000000,
+        "debt_to_equity": 1.338,
+        "thresholds": "FLAG: grade D or coverage < 1x | CAUTION: grade C or 1-3x | PASS: grade A-B and coverage > 3x"
+      },
+      "active_dilution": {
+        "shares_change_qoq_pct": null,
+        "dilution_flag": "normal",
+        "sbc_pct_revenue": 3.1,
+        "total_dilution_annual_pct": 3.1,
+        "thresholds": "FLAG: > 2% or active_dilution | CAUTION: 1-2% | PASS: < 1%"
+      },
+      "no_growth_fail": {
+        "margin_of_safety_pct": -55.6,
+        "no_growth_fair_value": 1680150000000,
+        "current_market_cap": 3787508416512,
+        "implied_earnings": 112010000000,
+        "net_margin_pct": 26.92,
+        "thresholds": "FLAG: MoS < 0% | CAUTION: 0-20% | PASS: > 20%"
+      },
+      "margin_collapse": {
+        "flag": "STABLE",
+        "gross_margin": 48.16,
+        "operating_margin": 35.37,
+        "net_margin": 29.28,
+        "gross_margin_qoq_change": 0.98,
+        "operating_margin_qoq_change": 3.72,
+        "thresholds": "FLAG: collapse | CAUTION: stable/compression/contracting | PASS: expanding"
+      },
+      "io_quality_concern": {
+        "io_quality_score": 9.0,
+        "quant_mm_pct": null,
+        "thresholds": "CAUTION: quant_mm_pct > 30% or io_score <= 3 | PASS: otherwise | never FLAG"
+      }
+    }
+  },
+  "thesis_signals": {
+    "strengthening": [
+      "execution_validated",
+      "smart_money_accumulating"
+    ],
+    "weakening": [],
+    "net_direction": "strengthening",
+    "conviction_delta": 2,
+    "detail": {
+      "margin_flag": "STABLE",
+      "sales_accelerating": false,
+      "sales_growth_rates": [],
+      "consecutive_beats": 4,
+      "revisions_direction": null,
+      "io_quality_score": 9.0,
+      "sbc_flag": "healthy"
+    }
+  },
+  "sop_triggers": {
+    "triggered": false,
+    "triggers_found": [],
+    "note": "No SoP triggers detected."
+  },
+  "trapped_asset_override": {
+    "conditions_met": 1,
+    "condition_details": {
+      "bottleneck_score": {
+        "met": true,
+        "value": 3.0,
+        "threshold": 3.0
+      },
+      "physical_asset_floor": {
+        "met": false,
+        "value": null,
+        "threshold": 0.5,
+        "note": "Insufficient data"
+      },
+      "restructuring_catalyst": {
+        "met": false,
+        "evidence": "No SEC events data available"
+      }
+    },
+    "eligible": false,
+    "note": "1/3 override conditions met."
+  },
+  "composite_signal": {
+    "composite_score": 63.68,
+    "grade": "ACCUMULATE",
+    "score_breakdown": {
+      "bottleneck": {
+        "raw": 3.0,
+        "max": 4.25,
+        "points": 21.18
+      },
+      "health": {
+        "raw": 3.5,
+        "max": 5.0,
+        "points": 17.5
+      },
+      "thesis": {
+        "direction": "strengthening",
+        "points": 15.0
+      },
+      "catalyst": {
+        "days_to_earnings": null,
+        "points": 0.0
+      },
+      "taxonomy": {
+        "classification": "bottleneck",
+        "points": 10.0
+      },
+      "valuation": {
+        "mos_pct": -55.6,
+        "points": 0.0
+      }
+    },
+    "position_guidance": {
+      "conviction_tier": "Low",
+      "suggested_size_pct": "1-2%",
+      "max_loss_pct": "0.5%",
+      "regime_adjustment": "transitional_0.75x"
+    },
+    "regime_cap_applied": false,
+    "trapped_asset_override_applied": false,
+    "requires_agent_review": true,
+    "note": "Automated composite signal. Agent must review before final rating assignment."
+  },
+  "valuation_summary": {
+    "forward_pe": 30.3,
+    "no_growth_upside_pct": -55.6,
+    "margin_status": "STABLE",
+    "io_quality_score": 9.0,
+    "debt_quality_grade": null,
+    "dual_valuation": {
+      "no_growth_floor": {
+        "fair_value": 1680150000000,
+        "market_cap": 3787508416512,
+        "margin_of_safety_pct": -55.6
+      },
+      "growth_upside": {
+        "forward_1y_pe": 30.3,
+        "forward_2y_pe": 27.6,
+        "revenue_based_fair_value_low": 2632477941326.0,
+        "revenue_based_fair_value_high": 3509970588434.0,
+        "primary_valuation_method": "forward_revenue_x_margin",
+        "assessment": "fairly_valued"
+      }
+    }
+  },
+  "fundamental_readiness_codes": [
+    "HEALTH_GATES_3_5",
+    "HEALTH_SEVERITY_3.5",
+    "DILUTION_normal",
+    "VALUATION_FLOOR_-56PCT",
+    "FWD_PE_30.3",
+    "MARGIN_STABLE",
+    "IO_QUALITY_9.0",
+    "CODE33_FAIL",
+    "BEATS_4",
+    "SBC_healthy",
+    "SEC_SC_available",
+    "BOTTLENECK_PRE_3.0_4.25",
+    "COMPOSITE_ACCUMULATE_63.68"
+  ]
+}

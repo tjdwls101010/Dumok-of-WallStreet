@@ -1,0 +1,1234 @@
+{
+  "ticker": "NBIS",
+  "levels": {
+    "L1_macro": {
+      "regime": "transitional",
+      "risk_level": "elevated",
+      "drain_count": 2,
+      "decision_rules": [
+        "ERP at -1.58% — below healthy threshold (>3%)",
+        "VIX in backwardation — elevated near-term fear",
+        "Net liquidity expanding — supportive for risk assets",
+        "Sentiment at 29 — within normal range",
+        "Fed rate path data available for context",
+        "BDI z-score 0.42 — shipping demand normal/elevated",
+        "DXY z-score -0.92 — dollar within normal range",
+        "Real rate 1.81% — positive, tighter conditions"
+      ],
+      "signals": {
+        "erp_pct": -1.5813,
+        "vix_spot": 24.83,
+        "vix_regime": "anxious",
+        "vix_structure": "backwardation",
+        "net_liq_direction": "expanding",
+        "net_liq_current": 5796840.67,
+        "fear_greed": 28.92,
+        "fedwatch_next_meeting": "2026-03-18",
+        "fedwatch_probabilities": {
+          "cut": 0.6,
+          "hold": 99.4,
+          "hike": 0.0
+        },
+        "bdi_z_score": 0.4212,
+        "bdi_demand": "Normal",
+        "dxy_z_score": -0.9168,
+        "dxy_strength": "Normal",
+        "real_rate": 1.81
+      }
+    },
+    "L2_capex_flow": {
+      "company_capex": {
+        "command": "track",
+        "quarters_requested": 8,
+        "symbols": [
+          {
+            "symbol": "NBIS",
+            "quarters": [
+              {
+                "period": "2025-Q3",
+                "capex": 955500000,
+                "qoq_change_pct": 128.75,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2024-Q4",
+                "capex": 417700000,
+                "qoq_change_pct": 142.71,
+                "yoy_change_pct": null
+              },
+              {
+                "period": "2024-Q3",
+                "capex": 172100000,
+                "qoq_change_pct": null,
+                "yoy_change_pct": null
+              }
+            ],
+            "direction": "accelerating",
+            "latest_capex": 955500000,
+            "avg_capex": 515100000
+          }
+        ]
+      },
+      "hyperscaler_signal": {
+        "aggregate_direction": "increasing",
+        "increasing_count": 4,
+        "total_count": 4
+      },
+      "cascade_requires_context": true,
+      "note": "Company CapEx and Hyperscaler CapEx bridge signal auto-included. Supply chain cascade requires agent context."
+    },
+    "L3_bottleneck": {
+      "sec_supply_chain": {
+        "data": {
+          "filing": {
+            "form": "20-F",
+            "filing_date": "2025-04-30",
+            "accession_number": "0001558370-25-005991",
+            "filing_url": "https://www.sec.gov/Archives/edgar/data/1513845/000155837025005991/nbis-20241231x20f.htm"
+          },
+          "supply_chain": {
+            "suppliers": [
+              {
+                "entity": "Nvidia",
+                "relationship": "sole source for GPU chips",
+                "context": "We currently rely on Nvidia for the GPU chips we use and on a limited number of other suppliers for other key components in our infrastructure.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Western"
+              },
+              {
+                "entity": "ClickHouse, Inc.",
+                "relationship": "technical support services provider",
+                "context": "The Group considered technical support services received from ClickHouse, Inc. in the amount of $0.6 for the year ended December 31, 2022 as transactions with a related party.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Western"
+              }
+            ],
+            "customers": [
+              {
+                "entity": "Amazon",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Anthropic",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Microsoft",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Poolside",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Recraft",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "ServiceNow",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Shopify",
+                "relationship": "customer of Toloka AI data business",
+                "context": "Toloka’s focus on innovation has enabled it to serve as a trusted data partner to many global technology leaders— including Amazon, Anthropic, Avride, Microsoft, Nebius, Poolside, Recraft, ServiceNow, Shopify and many others supporting them with high quality data for AI training and evaluation.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Uber",
+                "relationship": "partner for autonomous vehicle deployment",
+                "context": "In 2024, Avride signed a multiyear partnership with Uber to deploy its autonomous vehicles and delivery robots on Uber and Uber Eats in the US.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Grubhub",
+                "relationship": "partner for autonomous delivery robots",
+                "context": "Avride has also partnered with Grubhub, deploying its sidewalk robots for last-mile deliveries at the Ohio State University campus.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Rakuten",
+                "relationship": "commercial partner for autonomous delivery robots",
+                "context": "In February 2025, following the receipt of certification for its delivery robots in Japan in December 2024, Avride entered into a commercial partnership with Rakuten, Japan’s largest e-commerce player, to deploy Avride’s autonomous robots for restaurant and grocery deliveries in central Tokyo.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Hyundai",
+                "relationship": "strategic partner for autonomous driving platform development",
+                "context": "In March 2025, Avride entered a strategic partnership with Hyundai for the joint development of an autonomous driving platform and the expansion of its fleet.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Customer A",
+                "relationship": "major customer (21% of revenue)",
+                "context": "The following customers accounted for 10% or more of the Company’s revenue for the years ended December 31, 2022, 2023, and 2024: ... Customer A ... 21% [in 2024].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Customer B",
+                "relationship": "major customer (17% of revenue)",
+                "context": "The following customers accounted for 10% or more of the Company’s revenue for the years ended December 31, 2022, 2023, and 2024: ... Customer B ... 17% [in 2024].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "single_source_dependencies": [
+              {
+                "component": "GPU chips",
+                "supplier": "Nvidia",
+                "context": "We currently rely on Nvidia for the GPU chips we use and on a limited number of other suppliers for other key components in our infrastructure.",
+                "source_section": "llm_extraction",
+                "confidence": "high",
+                "supplier_geography": "Western"
+              }
+            ],
+            "geographic_concentration": [
+              {
+                "location": "Finland",
+                "activity": "owned greenfield data center operations",
+                "context": "We own and operate a data center in Finland... Our Finland data center is a greenfield facility.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "France",
+                "activity": "co-location data center operations",
+                "context": "We... also operate co-location sites in France and Iceland.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "Iceland",
+                "activity": "co-location data center operations",
+                "context": "We... also operate co-location sites in France and Iceland.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "location": "United States",
+                "activity": "data center development and co-location",
+                "context": "In early 2025, we commissioned our first US-based co-location site in Kansas City, Missouri and began construction of a build-to-suit facility in Vineland, New Jersey.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "capacity_constraints": [
+              {
+                "constraint": "access to electrical power",
+                "context": "The potential risks and uncertainties that could cause actual results to differ from the results predicted or implied by such statements include, among others, our ability to: ... obtain cost-effective and reliable access to electrical power for such sites, to implement our business plans.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "constraint": "supplies of hardware",
+                "context": "The potential risks and uncertainties that could cause actual results to differ from the results predicted or implied by such statements include, among others, our ability to: ... continue to successfully obtain required supplies of hardware on acceptable terms.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "constraint": "data center equipment availability",
+                "context": "Various factors, many of which are beyond our control, can adversely affect the performance, availability, and delivery of our services to our customers including: ... lack of availability and delays for data center equipment, including items such as server racks, generators and switchgear.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "supply_chain_risks": [
+              {
+                "risk": "export controls and tariffs",
+                "context": "The use of protectionist policies including, but not limited to tariffs, reciprocal tariffs, sanctions and export controls, may impact the cost and availability of GPU chips or other hardware.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "risk": "supplier concentration",
+                "context": "We are currently dependent on a limited number of suppliers and our business may be adversely affected if we are unable to source and acquire sophisticated hardware on acceptable terms and on time.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "revenue_concentration": [
+              {
+                "entity": "Customer A",
+                "revenue_pct": 21.0,
+                "revenue_amount": "Not disclosed",
+                "context": "The following customers accounted for 10% or more of the Company’s revenue for the years ended December 31, 2022, 2023, and 2024: ... Customer A ... 21% [in 2024].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Customer B",
+                "revenue_pct": 17.0,
+                "revenue_amount": "Not disclosed",
+                "context": "The following customers accounted for 10% or more of the Company’s revenue for the years ended December 31, 2022, 2023, and 2024: ... Customer B ... 17% [in 2024].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "entity": "Customera",
+                "revenue_pct": 21.0,
+                "revenue_amount": "",
+                "context": "XBRL: us-gaap:ConcentrationRiskPercentage1 (2024-12-31)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              },
+              {
+                "entity": "Customerb",
+                "revenue_pct": 17.0,
+                "revenue_amount": "",
+                "context": "XBRL: us-gaap:ConcentrationRiskPercentage1 (2024-12-31)",
+                "source_section": "xbrl",
+                "confidence": "high"
+              }
+            ],
+            "geographic_revenue": [
+              {
+                "region": "United States",
+                "revenue_pct": 90.0,
+                "revenue_amount": "Not disclosed",
+                "context": "Revenue disaggregated by geography, based on the legal or invoicing addresses of our customers, indicates that more than 90% is generated from customers based in the United States.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "purchase_obligations": [
+              {
+                "counterparty": "Not disclosed",
+                "obligation_type": "power and utilities for co-location",
+                "amount": "$29.4 million",
+                "timeframe": "through 2029",
+                "context": "The Group has entered into purchase commitments for power and utilities of rented data center facilities (co-location agreements) with future payments (net of VAT) amounting to $29.4 [total].",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "counterparty": "Not disclosed",
+                "obligation_type": "operating lease obligations",
+                "amount": "$47.6 million",
+                "timeframe": "through 2029",
+                "context": "Maturities of lease liabilities as of December 31, 2024 were as follows: ... Total lease payments $47.6.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "market_risk_disclosures": [
+              {
+                "risk_type": "fx",
+                "exposure": "EUR/USD",
+                "sensitivity": "10% change = $6.9M impact",
+                "hedging": "Not disclosed",
+                "context": "For example, if the euro had been stronger/weaker by 10% relative to the value of the U.S. dollar as of December 31, 2024 we would have recognized additional foreign exchange gains/losses before tax of $6.9 million.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              },
+              {
+                "risk_type": "fx",
+                "exposure": "Israeli shekel",
+                "sensitivity": "Not disclosed",
+                "hedging": "Not disclosed",
+                "context": "Our principal currency exposures include the euro and, to a lesser extent, the Israeli shekel.",
+                "source_section": "llm_extraction",
+                "confidence": "high"
+              }
+            ],
+            "inventory_composition": []
+          },
+          "extraction_stats": {
+            "total_matches": 34,
+            "unique_entities": 16,
+            "mode": "llm",
+            "xbrl_categories": [
+              "revenue_concentration"
+            ],
+            "xbrl_supplemented": true
+          },
+          "data_coverage": {
+            "suppliers": "extracted",
+            "customers": "extracted",
+            "single_source_dependencies": "extracted",
+            "geographic_concentration": "extracted",
+            "capacity_constraints": "extracted",
+            "supply_chain_risks": "extracted",
+            "revenue_concentration": "extracted",
+            "geographic_revenue": "extracted",
+            "purchase_obligations": "extracted",
+            "market_risk_disclosures": "extracted",
+            "inventory_composition": "insufficient_context"
+          }
+        },
+        "metadata": {
+          "symbol": "NBIS",
+          "company_name": "Nebius Group N.V.",
+          "form": "20-F"
+        }
+      },
+      "sec_events": {
+        "data": [],
+        "metadata": {
+          "symbol": "NBIS",
+          "cik": "0001513845",
+          "company_name": "Nebius Group N.V.",
+          "filings_checked": 0,
+          "supply_chain_events_found": 0
+        }
+      },
+      "sec_status": "SEC_SC_available",
+      "requires_context": true,
+      "note": "SEC filing supply chain data pre-extracted and pre-scored. Agent completes 6-Criteria scoring via WebSearch cross-validation.",
+      "absence_evidence_flags": [
+        {
+          "type": "no_fundamental_change_selloff",
+          "signal": "potential_entry",
+          "note": "No recent SEC event filings (8-K) detected. If stock has declined significantly, selling may be mechanical (tax harvesting, MM pinning, algo rebalancing), not fundamental — verify via WebSearch."
+        }
+      ],
+      "bottleneck_pre_score": {
+        "pre_score": 2.75,
+        "pre_score_max": 4.25,
+        "criteria": {
+          "supply_concentration": {
+            "score": 1.0,
+            "evidence": "1 high-conf SSD + 1 sole/primary suppliers + 2 named purchase obligations"
+          },
+          "capacity_constraints": {
+            "score": 0.5,
+            "evidence": "3 constraint(s) mentioned"
+          },
+          "geopolitical_risk": {
+            "score": 0.5,
+            "evidence": "Geographic data present across 4 locations"
+          },
+          "long_lead_times": {
+            "score": 0.0,
+            "evidence": "No lead time indicators found"
+          },
+          "no_substitutes": {
+            "score": 0.75,
+            "evidence": "Sole source language + single-source dependencies confirmed"
+          },
+          "cost_insignificance": {
+            "score": 0,
+            "evidence": "Cannot determine from SEC data",
+            "requires_agent_assessment": true
+          }
+        },
+        "assessment": "partial",
+        "filing_date": "2025-04-30",
+        "stale_data_warning": null,
+        "sole_western_flag": false
+      }
+    },
+    "L4_fundamentals": {
+      "info": {
+        "sector": "Communication Services",
+        "industry": "Internet Content & Information",
+        "marketCap": 24579334144,
+        "enterpriseValue": 25231532032,
+        "longBusinessSummary": "Nebius Group N.V., a technology company, engages in building full-stack infrastructure to service the global AI industry in the Netherlands, Europe, North America, and Israel. The company offers Nebius builds full-stack infrastructure for AI, including large-scale GPU clusters, cloud platforms, and tools and services for developers. It also provides Toloka, a data partner for various stages of generative AI development; TripleTen, an edtech platform for re-skilling individuals for careers in technolgy; and Avride, which develops autonomous driving technology for self-driving cars and delivery robotics. The company was formerly known as Yandex N.V. and changed its name to Nebius Group N.V. in August 2024. Nebius Group N.V. was founded in 1989 and is headquartered in Amsterdam, the Netherlands.",
+        "financialCurrency": "USD",
+        "fiftyTwoWeekLow": 18.31,
+        "fiftyTwoWeekHigh": 141.1,
+        "beta": 1.16,
+        "currentPrice": 97.145,
+        "forwardPE": -69.09317,
+        "priceToSalesTrailing12Months": 46.39361,
+        "sharesOutstanding": 219465088,
+        "floatShares": 211939666,
+        "shortPercentOfFloat": 0.18090001,
+        "previousClose": 94.94,
+        "fiftyDayAverage": 94.841,
+        "twoHundredDayAverage": 83.0822,
+        "grossMargins": 0.6863,
+        "operatingMargins": -1.02986,
+        "heldPercentInsiders": 0.037219997,
+        "heldPercentInstitutions": 0.48452
+      },
+      "holders": {
+        "top_holders": [
+          {
+            "holder": "Blackrock Inc.",
+            "pctHeld": 0.0432,
+            "shares": 9431400
+          },
+          {
+            "holder": "Fred Alger Management, LLC",
+            "pctHeld": 0.0364,
+            "shares": 7937903
+          },
+          {
+            "holder": "UBS Group AG",
+            "pctHeld": 0.021,
+            "shares": 4581803
+          },
+          {
+            "holder": "Accel Leaders 4 Associates L.P.                          ",
+            "pctHeld": 0.021,
+            "shares": 4580952
+          },
+          {
+            "holder": "Morgan Stanley",
+            "pctHeld": 0.017,
+            "shares": 3704659
+          }
+        ],
+        "total_reported": 10
+      },
+      "insider_transactions": [],
+      "earnings_acceleration": {
+        "symbol": "NBIS",
+        "code33_status": "FAIL",
+        "eps_accelerating": false,
+        "sales_accelerating": false,
+        "margin_expanding": false,
+        "eps_growth_rates": [
+          167.57,
+          -313.64,
+          -916.67
+        ],
+        "sales_growth_rates": [],
+        "data_quality": "minimal"
+      },
+      "sbc_analyzer": {
+        "symbol": "NBIS",
+        "sbc_annual": 56600000,
+        "sbc_pct_revenue": 48.2,
+        "reported_fcf": -562100000,
+        "real_fcf": -618700000,
+        "flag": "toxic",
+        "shares_outstanding_current": 219465088,
+        "shares_outstanding_prior_quarter": null,
+        "shares_change_qoq_pct": null,
+        "dilution_flag": "normal",
+        "total_dilution_annual_pct": 48.2
+      },
+      "forward_pe": {
+        "symbol": "NBIS",
+        "current_price": 97.14,
+        "forward_1y_eps": -2.89714,
+        "forward_2y_eps": -3.86833,
+        "forward_1y_pe": null,
+        "forward_2y_pe": null,
+        "revenue_growth_yoy": 181.4,
+        "walmart_pe_benchmark": 45,
+        "valuation_gap": "Insufficient data for valuation gap analysis",
+        "assessment": "insufficient_data",
+        "forward_revenue_0y": 3346904870.0,
+        "forward_revenue_1y": 9418216650.0,
+        "gross_margin_pct": 68.63,
+        "forward_gross_profit": 6463722087.0,
+        "revenue_based_fair_value_low": null,
+        "revenue_based_fair_value_high": null,
+        "primary_valuation_method": "analyst_eps_fallback"
+      },
+      "debt_structure": {
+        "symbol": "NBIS",
+        "total_debt": 49700000,
+        "cash_and_equivalents": 2449600000,
+        "net_debt": -2399900000,
+        "market_cap": 24579334144,
+        "net_debt_to_mcap": -0.0976,
+        "total_revenue": 117500000,
+        "interest_expense": null,
+        "interest_pct_revenue": null,
+        "debt_to_equity": 0.0153,
+        "debt_health": "unknown",
+        "implied_interest_rate": null,
+        "debt_quality_grade": null,
+        "interest_coverage_ratio": null,
+        "interest_coverage_metric": "EBIT"
+      },
+      "institutional_quality": {
+        "symbol": "NBIS",
+        "io_quality_score": 6.9,
+        "total_institutional_holders": 10,
+        "classified_breakdown": {
+          "passive_pct": 27.3,
+          "long_only_pct": 17.9,
+          "hedge_pct": 0.0,
+          "quant_mm_pct": 0.0,
+          "unclassified_pct": 54.9
+        },
+        "top_holders_classified": [
+          {
+            "name": "Blackrock Inc.",
+            "shares": 9431400,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "Fred Alger Management, LLC",
+            "shares": 7937903,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "UBS Group AG",
+            "shares": 4581803,
+            "type": "LONG_ONLY"
+          },
+          {
+            "name": "Accel Leaders 4 Associates L.P.                          ",
+            "shares": 4580952,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "Morgan Stanley",
+            "shares": 3704659,
+            "type": "LONG_ONLY"
+          },
+          {
+            "name": "Clear Street Group Inc.",
+            "shares": 3511656,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "Orbis Allan Gray Ltd",
+            "shares": 3335358,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "Value Aligned Research Advisors, LLC                          ",
+            "shares": 3305776,
+            "type": "UNCLASSIFIED"
+          },
+          {
+            "name": "State Street Corporation",
+            "shares": 3219326,
+            "type": "PASSIVE"
+          },
+          {
+            "name": "Janus Henderson Group PLC",
+            "shares": 2804820,
+            "type": "UNCLASSIFIED"
+          }
+        ],
+        "interpretation": "Strong passive/index fund support with quality active managers"
+      },
+      "no_growth_valuation": {
+        "symbol": "NBIS",
+        "current_revenue": 117500000,
+        "net_margin_pct": -545.87,
+        "implied_earnings": -641400000,
+        "no_growth_pe_multiple": 15,
+        "no_growth_fair_value": -9621000000,
+        "current_market_cap": 24579334144,
+        "margin_of_safety_pct": -139.1,
+        "stress_test": "fail",
+        "negative_earnings": true
+      },
+      "margin_tracker": {
+        "symbol": "NBIS",
+        "quarters_analyzed": 7,
+        "latest_quarter": {
+          "gross_margin": null,
+          "operating_margin": null,
+          "net_margin": null
+        },
+        "gross_margin_qoq_change": null,
+        "operating_margin_qoq_change": null,
+        "gross_margin_yoy_change": null,
+        "operating_margin_yoy_change": null,
+        "trajectory": [
+          {
+            "period": "2025-Q4",
+            "gross": null,
+            "operating": null,
+            "net": null
+          },
+          {
+            "period": "2025-Q3",
+            "gross": 70.64,
+            "operating": -89.12,
+            "net": -81.86
+          },
+          {
+            "period": "2025-Q2",
+            "gross": 74.88,
+            "operating": -101.29,
+            "net": 580.44
+          },
+          {
+            "period": "2025-Q1",
+            "gross": 46.65,
+            "operating": -234.18,
+            "net": -205.42
+          },
+          {
+            "period": "2024-Q4",
+            "gross": 27.44,
+            "operating": -393.93,
+            "net": -351.45
+          },
+          {
+            "period": "2024-Q3",
+            "gross": 69.16,
+            "operating": -251.09,
+            "net": -293.46
+          },
+          {
+            "period": "2024-Q2",
+            "gross": null,
+            "operating": null,
+            "net": null
+          }
+        ],
+        "flag": "INSUFFICIENT_DATA"
+      },
+      "iv_context": {
+        "symbol": "NBIS",
+        "current_price": 96.8,
+        "iv30": 90.84,
+        "iv30_annual_high": 126.96,
+        "iv30_annual_low": 64.27,
+        "iv_rank": 42.4,
+        "hv30_annual_high": 180.12,
+        "hv30_annual_low": 70.09,
+        "iv_vs_hv_spread": -34.26,
+        "interpretation": "fair"
+      },
+      "revenue_trajectory": {
+        "revenue_by_quarter": [
+          {
+            "quarter": "2025-09-30 00:00:00",
+            "revenue": 146100000.0
+          },
+          {
+            "quarter": "2025-06-30 00:00:00",
+            "revenue": 100700000.0
+          },
+          {
+            "quarter": "2025-03-31 00:00:00",
+            "revenue": 55300000.0
+          },
+          {
+            "quarter": "2024-12-31 00:00:00",
+            "revenue": 37900000.0
+          },
+          {
+            "quarter": "2024-09-30 00:00:00",
+            "revenue": 32100000.0
+          }
+        ]
+      }
+    },
+    "L5_catalysts": {
+      "earnings_dates": {
+        "EPS Estimate": {
+          "2026-04-29 08:00:00-04:00": -0.87,
+          "2026-02-12 08:00:00-05:00": -0.6,
+          "2025-11-11 08:00:00-05:00": -0.39,
+          "2025-08-07 08:00:00-04:00": -0.41,
+          "2025-05-20 12:00:00-04:00": -0.44,
+          "2025-02-20 08:00:00-05:00": -0.39,
+          "2022-11-03 07:00:00-04:00": 0.19,
+          "2022-04-27 06:00:00-04:00": 0.04
+        },
+        "Reported EPS": {
+          "2026-04-29 08:00:00-04:00": null,
+          "2026-02-12 08:00:00-05:00": -0.99,
+          "2025-11-11 08:00:00-05:00": -0.47,
+          "2025-08-07 08:00:00-04:00": 2.45,
+          "2025-05-20 12:00:00-04:00": -0.39,
+          "2025-02-20 08:00:00-05:00": -0.37,
+          "2022-11-03 07:00:00-04:00": 0.22,
+          "2022-04-27 06:00:00-04:00": -0.3
+        },
+        "Surprise(%)": {
+          "2026-04-29 08:00:00-04:00": null,
+          "2026-02-12 08:00:00-05:00": -63.06,
+          "2025-11-11 08:00:00-05:00": -20.25,
+          "2025-08-07 08:00:00-04:00": 697.12,
+          "2025-05-20 12:00:00-04:00": 12.7,
+          "2025-02-20 08:00:00-05:00": 4.82,
+          "2022-11-03 07:00:00-04:00": 13.53,
+          "2022-04-27 06:00:00-04:00": -813.21
+        }
+      },
+      "earnings_surprise": {
+        "symbol": "NBIS",
+        "surprise_history": [
+          {
+            "date": "2025-12-31",
+            "estimate": -0.605,
+            "actual": -0.9865,
+            "surprise_pct": -63.06,
+            "pct_skipped_reason": null,
+            "beat": false,
+            "post_er_gap": 3.92,
+            "post_er_return_1d": 7.46,
+            "post_er_return_5d": 16.24
+          },
+          {
+            "date": "2025-09-30",
+            "estimate": -0.395,
+            "actual": -0.475,
+            "surprise_pct": -20.25,
+            "pct_skipped_reason": null,
+            "beat": false,
+            "post_er_gap": -0.49,
+            "post_er_return_1d": 2.97,
+            "post_er_return_5d": 4.84
+          },
+          {
+            "date": "2025-06-30",
+            "estimate": -0.41,
+            "actual": 2.4482,
+            "surprise_pct": 697.12,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": -1.32,
+            "post_er_return_1d": -9.07,
+            "post_er_return_5d": -14.87
+          },
+          {
+            "date": "2025-03-31",
+            "estimate": -0.445,
+            "actual": -0.3885,
+            "surprise_pct": 12.7,
+            "pct_skipped_reason": null,
+            "beat": true,
+            "post_er_gap": 2.61,
+            "post_er_return_1d": 7.48,
+            "post_er_return_5d": -0.28
+          }
+        ],
+        "consecutive_beats": 0,
+        "avg_surprise_pct": 156.63,
+        "avg_surprise_method": "simple_mean",
+        "cockroach_effect": "none",
+        "total_quarters_analyzed": 4
+      },
+      "analyst_recommendations": {
+        "period": {
+          "0": "0m",
+          "1": "-1m",
+          "2": "-2m",
+          "3": "-3m"
+        },
+        "strongBuy": {
+          "0": 2,
+          "1": 2,
+          "2": 2,
+          "3": 2
+        },
+        "buy": {
+          "0": 7,
+          "1": 7,
+          "2": 5,
+          "3": 5
+        },
+        "hold": {
+          "0": 2,
+          "1": 2,
+          "2": 3,
+          "3": 2
+        },
+        "sell": {
+          "0": 0,
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "strongSell": {
+          "0": 1,
+          "1": 1,
+          "2": 0,
+          "3": 0
+        }
+      },
+      "analyst_price_targets": {
+        "current": 97.27,
+        "high": 232.0,
+        "low": 70.0,
+        "mean": 147.45454,
+        "median": 150.0
+      },
+      "analyst_revisions": {
+        "symbol": "NBIS",
+        "eps_revisions": {
+          "upLast7days": {
+            "0q": 0,
+            "+1q": 0,
+            "0y": 0,
+            "+1y": 0
+          },
+          "upLast30days": {
+            "0q": 0,
+            "+1q": 0,
+            "0y": 0,
+            "+1y": 0
+          },
+          "downLast30days": {
+            "0q": 2,
+            "+1q": 2,
+            "0y": 3,
+            "+1y": 2
+          },
+          "downLast7Days": {
+            "0q": 2,
+            "+1q": 2,
+            "0y": 0,
+            "+1y": 2
+          }
+        },
+        "eps_trend": {
+          "current": {
+            "0q": -0.6275,
+            "+1q": -0.46,
+            "0y": -2.89714,
+            "+1y": -3.86833
+          },
+          "7daysAgo": {
+            "0q": -0.6275,
+            "+1q": -0.46,
+            "0y": -2.89714,
+            "+1y": -3.0025
+          },
+          "30daysAgo": {
+            "0q": -0.30667,
+            "+1q": -0.19667,
+            "0y": -3.18,
+            "+1y": -2.32667
+          },
+          "60daysAgo": {
+            "0q": 0.06,
+            "+1q": 0.25,
+            "0y": -2.766,
+            "+1y": -2.32667
+          },
+          "90daysAgo": {
+            "0q": 0.06,
+            "+1q": 0.25,
+            "0y": -3.23,
+            "+1y": -0.27
+          }
+        },
+        "growth_estimates": {
+          "stockTrend": {
+            "0q": -1.2308,
+            "+1q": -1.1219001,
+            "0y": null,
+            "+1y": 0.4385,
+            "LTG": null
+          },
+          "indexTrend": {
+            "0q": 0.1328,
+            "+1q": 0.1122,
+            "0y": 0.15100001,
+            "+1y": 0.16209999,
+            "LTG": 0.122
+          }
+        },
+        "interpretation": {
+          "upward_revisions": "Positive - analysts raising estimates indicates strengthening fundamentals",
+          "downward_revisions": "Negative - analysts cutting estimates signals potential weakness",
+          "significance_threshold": "5%+ revision is meaningful per Minervini methodology"
+        }
+      }
+    },
+    "L6_taxonomy": {
+      "classification": "evolution",
+      "confidence": "medium",
+      "evidence": [
+        "revenue_growth_yoy 181.40 > 0.20",
+        "marketCap 24.6B > 10B"
+      ],
+      "requires_llm": true,
+      "note": "Rule-based pre-classification. Agent should verify and may override."
+    }
+  },
+  "materiality_signals": {
+    "supply_chain_exposure": {
+      "supplier_count": 0,
+      "customer_count": 0,
+      "single_source_count": 0,
+      "geographic_risk_count": 0,
+      "has_sec_data": true,
+      "exposure_level": "low"
+    },
+    "margin_sensitivity": {
+      "gross_margin_pct": 68.6,
+      "operating_margin_pct": -103.0,
+      "margin_trend": "INSUFFICIENT_DATA",
+      "operating_leverage": "high"
+    },
+    "earnings_materiality": {
+      "consecutive_beats": 0,
+      "sales_accelerating": false,
+      "latest_rev_growth_qoq_pct": null,
+      "sales_growth_rates": []
+    },
+    "recent_sec_events": [],
+    "exposure_summary": "high operating leverage (margin-sensitive)"
+  },
+  "causal_bridge_data": {
+    "macro_context": {
+      "regime": "transitional",
+      "risk_level": "elevated",
+      "key_signals": [
+        "VIX regime: anxious",
+        "Net liquidity: expanding",
+        "Real rate: 1.81%"
+      ]
+    },
+    "supply_chain_position": {
+      "sector": "Communication Services",
+      "industry": "Internet Content & Information",
+      "bottleneck_pre_score": 2.75,
+      "key_dependencies": [],
+      "sec_available": true
+    },
+    "financial_transmission": {
+      "revenue_trajectory": "insufficient_data",
+      "margin_trend": "INSUFFICIENT_DATA",
+      "capex_direction": null,
+      "capex_trend_quarters": null
+    },
+    "valuation_gap": {
+      "current_price": 97.145,
+      "no_growth_floor": null,
+      "no_growth_gap_pct": null,
+      "forward_pe": null,
+      "growth_upside": -139.1
+    },
+    "note": "Causal bridge data pre-filled from pipeline. Agent must connect layers with event-specific causal reasoning."
+  },
+  "priced_in_assessment": {
+    "signals": {
+      "52w_range_pct": 64.2,
+      "price_vs_50d_ma_pct": 2.4,
+      "price_vs_200d_ma_pct": 16.9,
+      "short_interest_pct": 18.1,
+      "analyst_target_gap_pct": 51.8,
+      "revision_direction": "unknown",
+      "revision_magnitude": null,
+      "io_quality_score": 6.9
+    },
+    "risk_score": 14,
+    "assessment": "not_priced_in",
+    "note": "Priced-in risk score 14/100 -> not_priced_in. Agent must contextualize with sector/event awareness."
+  },
+  "institutional_flow": {
+    "insider_net_direction": "unknown",
+    "insider_net_value": null,
+    "io_quality_score": 6.9,
+    "io_assessment": "healthy",
+    "iv_percentile": 42.4,
+    "iv_regime": "normal",
+    "flow_signals": [],
+    "flow_assessment": "neutral"
+  },
+  "expression_layer": {
+    "iv_percentile": 42.4,
+    "iv_rank": 42.4,
+    "iv_regime": "normal",
+    "conviction_tier": null,
+    "recommended_vehicle": "shares",
+    "reasoning": "IV neutral (42.4th pctl) -> shares (no clear vol edge)"
+  },
+  "health_gates": {
+    "bear_bull_paradox": "PASS",
+    "active_dilution": "PASS",
+    "no_growth_fail": "FLAG",
+    "margin_collapse": "PASS",
+    "io_quality_concern": "PASS",
+    "total_pass": 4,
+    "total_gates": 5,
+    "flags": [
+      "no_growth_fail"
+    ],
+    "severity": {
+      "bear_bull_paradox": 1.0,
+      "active_dilution": 1.0,
+      "no_growth_fail": 0.0,
+      "margin_collapse": 1.0,
+      "io_quality_concern": 1.0
+    },
+    "severity_score": 4.0,
+    "detail": {
+      "bear_bull_paradox": {
+        "debt_quality_grade": null,
+        "interest_coverage_ratio": null,
+        "total_debt": 49700000,
+        "cash_and_equivalents": 2449600000,
+        "net_debt": -2399900000,
+        "debt_to_equity": 0.0153,
+        "thresholds": "FLAG: grade D or coverage < 1x | CAUTION: grade C or 1-3x | PASS: grade A-B and coverage > 3x"
+      },
+      "active_dilution": {
+        "shares_change_qoq_pct": null,
+        "dilution_flag": "normal",
+        "sbc_pct_revenue": 48.2,
+        "total_dilution_annual_pct": 48.2,
+        "thresholds": "FLAG: > 2% or active_dilution | CAUTION: 1-2% | PASS: < 1%"
+      },
+      "no_growth_fail": {
+        "margin_of_safety_pct": -139.1,
+        "no_growth_fair_value": -9621000000,
+        "current_market_cap": 24579334144,
+        "implied_earnings": -641400000,
+        "net_margin_pct": -545.87,
+        "thresholds": "FLAG: MoS < 0% | CAUTION: 0-20% | PASS: > 20%"
+      },
+      "margin_collapse": {
+        "flag": "INSUFFICIENT_DATA",
+        "gross_margin": null,
+        "operating_margin": null,
+        "net_margin": null,
+        "gross_margin_qoq_change": null,
+        "operating_margin_qoq_change": null,
+        "thresholds": "FLAG: collapse | CAUTION: stable/compression/contracting | PASS: expanding"
+      },
+      "io_quality_concern": {
+        "io_quality_score": 6.9,
+        "quant_mm_pct": null,
+        "thresholds": "CAUTION: quant_mm_pct > 30% or io_score <= 3 | PASS: otherwise | never FLAG"
+      }
+    }
+  },
+  "thesis_signals": {
+    "strengthening": [],
+    "weakening": [
+      "dilution_destroying_value"
+    ],
+    "net_direction": "weakening",
+    "conviction_delta": -1,
+    "detail": {
+      "margin_flag": "INSUFFICIENT_DATA",
+      "sales_accelerating": false,
+      "sales_growth_rates": [],
+      "consecutive_beats": 0,
+      "revisions_direction": null,
+      "io_quality_score": 6.9,
+      "sbc_flag": "toxic"
+    }
+  },
+  "sop_triggers": {
+    "triggered": false,
+    "triggers_found": [],
+    "note": "No SoP triggers detected."
+  },
+  "trapped_asset_override": {
+    "conditions_met": 0,
+    "condition_details": {
+      "bottleneck_score": {
+        "met": false,
+        "value": 2.75,
+        "threshold": 3.0
+      },
+      "physical_asset_floor": {
+        "met": false,
+        "value": null,
+        "threshold": 0.5,
+        "note": "Insufficient data"
+      },
+      "restructuring_catalyst": {
+        "met": false,
+        "evidence": "No SEC events data available"
+      }
+    },
+    "eligible": false,
+    "note": "0/3 override conditions met."
+  },
+  "composite_signal": {
+    "composite_score": 46.41,
+    "grade": "HOLD",
+    "score_breakdown": {
+      "bottleneck": {
+        "raw": 2.75,
+        "max": 4.25,
+        "points": 19.41
+      },
+      "health": {
+        "raw": 4.0,
+        "max": 5.0,
+        "points": 20.0
+      },
+      "thesis": {
+        "direction": "weakening",
+        "points": 0.0
+      },
+      "catalyst": {
+        "days_to_earnings": null,
+        "points": 0.0
+      },
+      "taxonomy": {
+        "classification": "evolution",
+        "points": 7.0
+      },
+      "valuation": {
+        "mos_pct": -139.1,
+        "points": 0.0
+      }
+    },
+    "position_guidance": {
+      "conviction_tier": null,
+      "suggested_size_pct": "hold_existing",
+      "max_loss_pct": null,
+      "regime_adjustment": "transitional_0.75x"
+    },
+    "regime_cap_applied": false,
+    "trapped_asset_override_applied": false,
+    "requires_agent_review": true,
+    "note": "Automated composite signal. Agent must review before final rating assignment."
+  },
+  "valuation_summary": {
+    "forward_pe": null,
+    "no_growth_upside_pct": -139.1,
+    "margin_status": "INSUFFICIENT_DATA",
+    "io_quality_score": 6.9,
+    "debt_quality_grade": null,
+    "dual_valuation": {
+      "no_growth_floor": {
+        "fair_value": -9621000000,
+        "market_cap": 24579334144,
+        "margin_of_safety_pct": -139.1
+      },
+      "growth_upside": {
+        "forward_1y_pe": null,
+        "forward_2y_pe": null,
+        "revenue_based_fair_value_low": null,
+        "revenue_based_fair_value_high": null,
+        "primary_valuation_method": "analyst_eps_fallback",
+        "assessment": "insufficient_data"
+      }
+    }
+  },
+  "fundamental_readiness_codes": [
+    "HEALTH_GATES_4_5",
+    "HEALTH_SEVERITY_4.0",
+    "DILUTION_normal",
+    "VALUATION_FLOOR_-139PCT",
+    "MARGIN_INSUFFICIENT_DATA",
+    "IO_QUALITY_6.9",
+    "CODE33_FAIL",
+    "BEATS_0",
+    "SBC_toxic",
+    "SEC_SC_available",
+    "BOTTLENECK_PRE_2.75_4.25",
+    "COMPOSITE_HOLD_46.41"
+  ]
+}
