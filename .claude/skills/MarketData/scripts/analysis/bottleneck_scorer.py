@@ -14,14 +14,20 @@ Args:
 	For validate:
 		ticker (str): Stock ticker symbol
 		--bottleneck-score (int): Qualitative bottleneck score 1-6 from agent assessment (default: 5)
+		--nested-bottleneck (flag): This candidate is a nested bottleneck (bottleneck's bottleneck)
+		--sole-western (flag): This candidate is the sole Western alternative supplier
 
 	For batch:
 		tickers (list): Stock ticker symbols
 		--bottleneck-scores (str): Comma-separated bottleneck scores matching ticker order (default: all 5)
+		--nested-bottleneck (str): Comma-separated boolean flags (true/false) for nested bottleneck per ticker
+		--sole-western (str): Comma-separated boolean flags (true/false) for sole Western per ticker
 
 	For rank:
 		tickers (list): Stock ticker symbols
 		--bottleneck-scores (str): Required. Comma-separated bottleneck scores matching ticker order
+		--nested-bottleneck (str): Comma-separated boolean flags (true/false) for nested bottleneck per ticker
+		--sole-western (str): Comma-separated boolean flags (true/false) for sole Western per ticker
 
 Returns:
 	dict: {
@@ -46,6 +52,8 @@ Returns:
 			"margin_trend": str
 		},
 		"asymmetry_score": float,
+		"nested_bottleneck_detected": bool,
+		"sole_western_alternative": bool,
 		"composite": {
 			"health_gate_passes": int,
 			"health_gate_total": 4,
@@ -57,10 +65,19 @@ Example:
 	>>> python bottleneck_scorer.py validate NBIS --bottleneck-score 5
 	{...}
 
+	>>> python bottleneck_scorer.py validate NBIS --bottleneck-score 5 --nested-bottleneck --sole-western
+	{...}
+
 	>>> python bottleneck_scorer.py batch NBIS AXTI LPTH --bottleneck-scores "5,6,4"
 	{...}
 
+	>>> python bottleneck_scorer.py batch NBIS AXTI LPTH --bottleneck-scores "5,6,4" --nested-bottleneck "true,false,true"
+	{...}
+
 	>>> python bottleneck_scorer.py rank NBIS AXTI LPTH --bottleneck-scores "5,6,4"
+	{...}
+
+	>>> python bottleneck_scorer.py rank NBIS AXTI LPTH --bottleneck-scores "5,6,4" --sole-western "false,true,false"
 	{...}
 
 Use Cases:
@@ -72,6 +89,9 @@ Use Cases:
 Notes:
 	- Health gates are binary PASS/FLAG; any FLAG reduces conviction
 	- Asymmetry score combines financial health (40%), valuation upside (30%), bottleneck score (30%)
+	- Nested bottleneck flag adds +5pts to asymmetry score (capped at 100)
+	- Sole Western alternative flag adds +3pts to asymmetry score (capped at 100)
+	- These flags are pass-through inputs from the pipeline/agent; the module does not detect them
 	- Works for any sector: defense, EV, agriculture, semiconductors, etc.
 	- Data comes entirely from yfinance; no sector-specific assumptions
 """
@@ -294,7 +314,7 @@ def _get_forward_pe_and_peg(ticker):
 # ---------------------------------------------------------------------------
 
 
-def _build_validation(symbol, bottleneck_score):
+def _build_validation(symbol, bottleneck_score, nested_bottleneck=False, sole_western=False):
 	"""Build complete financial validation for a single bottleneck candidate."""
 	ticker = yf.Ticker(symbol)
 	info = ticker.info or {}
@@ -463,6 +483,15 @@ def _build_validation(symbol, bottleneck_score):
 
 	asymmetry_score = round(health_score + valuation_score + bottleneck_quality, 1)
 
+	# --- Nested Bottleneck & Sole Western adjustments ---
+	nested_bottleneck_detected = nested_bottleneck
+	sole_western_alternative = sole_western
+
+	if nested_bottleneck:
+		asymmetry_score = min(100.0, asymmetry_score + 5.0)
+	if sole_western:
+		asymmetry_score = min(100.0, asymmetry_score + 3.0)
+
 	return {
 		"ticker": symbol.upper(),
 		"health_gates": health_gates,
@@ -481,6 +510,8 @@ def _build_validation(symbol, bottleneck_score):
 			"margin_yoy_change_pp": margin_yoy_change,
 		},
 		"asymmetry_score": asymmetry_score,
+		"nested_bottleneck_detected": nested_bottleneck_detected,
+		"sole_western_alternative": sole_western_alternative,
 		"composite": {
 			"health_gate_passes": gate_passes,
 			"health_gate_total": 4,
@@ -519,9 +550,27 @@ def _classify_balance_sheet(result):
 # ---------------------------------------------------------------------------
 
 
+def _parse_bool_flags(flags_str, count):
+	"""Parse comma-separated boolean flags string.
+
+	Converts 'true,false,true' to [True, False, True].
+	Returns [False]*count if flags_str is None or malformed.
+	"""
+	if not flags_str:
+		return [False] * count
+	parts = [s.strip().lower() in ("true", "1", "yes") for s in flags_str.split(",")]
+	if len(parts) != count:
+		return [False] * count  # fallback: ignore malformed input
+	return parts
+
+
 @safe_run
 def cmd_validate(args):
-	result = _build_validation(args.ticker, args.bottleneck_score)
+	result = _build_validation(
+		args.ticker, args.bottleneck_score,
+		nested_bottleneck=args.nested_bottleneck,
+		sole_western=args.sole_western,
+	)
 	output_json(result)
 
 
@@ -541,10 +590,13 @@ def cmd_batch(args):
 	else:
 		scores = [5] * len(tickers)
 
+	nested_flags = _parse_bool_flags(args.nested_bottleneck, len(tickers))
+	western_flags = _parse_bool_flags(args.sole_western, len(tickers))
+
 	results = []
-	for ticker_sym, score in zip(tickers, scores):
+	for ticker_sym, score, nested, western in zip(tickers, scores, nested_flags, western_flags):
 		try:
-			result = _build_validation(ticker_sym, score)
+			result = _build_validation(ticker_sym, score, nested_bottleneck=nested, sole_western=western)
 			results.append(result)
 		except SystemExit:
 			raise
@@ -580,10 +632,13 @@ def cmd_rank(args):
 			f"tickers count ({len(tickers)})"
 		)
 
+	nested_flags = _parse_bool_flags(args.nested_bottleneck, len(tickers))
+	western_flags = _parse_bool_flags(args.sole_western, len(tickers))
+
 	rankings = []
-	for ticker_sym, bn_score in zip(tickers, scores):
+	for ticker_sym, bn_score, nested, western in zip(tickers, scores, nested_flags, western_flags):
 		try:
-			result = _build_validation(ticker_sym, bn_score)
+			result = _build_validation(ticker_sym, bn_score, nested_bottleneck=nested, sole_western=western)
 
 			# Supply Dominance = bottleneck_score x revenue
 			revenue = _safe_float(
@@ -663,6 +718,18 @@ def main():
 		metavar="1-6",
 		help="Qualitative bottleneck score 1-6 from agent assessment (default: 5)",
 	)
+	sp_validate.add_argument(
+		"--nested-bottleneck",
+		action="store_true",
+		default=False,
+		help="Flag: this candidate is a nested bottleneck (bottleneck's bottleneck)",
+	)
+	sp_validate.add_argument(
+		"--sole-western",
+		action="store_true",
+		default=False,
+		help="Flag: this candidate is the sole Western alternative supplier",
+	)
 	sp_validate.set_defaults(func=cmd_validate)
 
 	# batch
@@ -674,6 +741,18 @@ def main():
 		default=None,
 		help="Comma-separated bottleneck scores matching ticker order (default: all 5)",
 	)
+	sp_batch.add_argument(
+		"--nested-bottleneck",
+		type=str,
+		default=None,
+		help="Comma-separated boolean flags (true/false) for nested bottleneck per ticker",
+	)
+	sp_batch.add_argument(
+		"--sole-western",
+		type=str,
+		default=None,
+		help="Comma-separated boolean flags (true/false) for sole Western per ticker",
+	)
 	sp_batch.set_defaults(func=cmd_batch)
 
 	# rank
@@ -684,6 +763,18 @@ def main():
 		type=str,
 		required=True,
 		help="Required. Comma-separated bottleneck scores matching ticker order",
+	)
+	sp_rank.add_argument(
+		"--nested-bottleneck",
+		type=str,
+		default=None,
+		help="Comma-separated boolean flags (true/false) for nested bottleneck per ticker",
+	)
+	sp_rank.add_argument(
+		"--sole-western",
+		type=str,
+		default=None,
+		help="Comma-separated boolean flags (true/false) for sole Western per ticker",
 	)
 	sp_rank.set_defaults(func=cmd_rank)
 

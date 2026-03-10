@@ -155,13 +155,21 @@ AI-focused cloud/datacenter companies providing GPU compute when hyperscalers ex
 
 **Phase Progression Model:** Enthusiasm (broad basket buying) -> Consolidation (capital concentrates into leaders) -> Conviction Crystallization (single-name positions) -> "Prove It" Execution (revenue delivery validation) -> Maturation (focus shifts to upstream bottlenecks). Apply this progression pattern to any emerging sector.
 
-**GPU Depreciation Risk Checklist (Mandatory Bear-Case for All Neoclouds):**
-Every neocloud analysis MUST address GPU depreciation as a structural risk:
-- FASB accounting allows 3-5 year useful life for GPUs, but effective technological useful life is 18-24 months due to rapid generational improvements (e.g., H100 -> B200 -> next gen).
-- Depreciation burden typically consumes 30-40% of gross margin for capital-heavy neocloud operators.
-- Verification step: Check 10-K for stated useful life assumptions and depreciation schedule. If stated useful life exceeds 3 years for GPUs, flag as aggressive accounting.
-- Bear-case question: "If GPU fleet requires full replacement every 2 years, what is the sustainable margin after depreciation?"
-- Tier 1 (Full-Stack) companies can partially offset through software margins; Tier 3-4 companies bear the full depreciation impact on already-thin margins.
+**Full Bear Case Checklist (Mandatory for All Neoclouds):**
+Every neocloud analysis MUST address ALL 10 bear case items:
+
+1. **GPU Depreciation Burden**: FASB allows 3-5 year useful life, but effective technological life is 18-24 months. Depreciation typically consumes 30-40% of gross margin. If stated useful life exceeds 3 years, flag as aggressive accounting.
+2. **OpenAI Contagion Risk**: Exposure to OpenAI or VC-funded AI companies as primary customers. If OpenAI restructures, pivots, or reduces compute spend, which neoclouds face demand cliffs?
+3. **Credit Tightening Impact**: Higher rates kill weak balance sheets. Can the company refinance at reasonable rates? Check debt quality grade — Grade D (>8% implied rate) is existential.
+4. **Datacenter Construction Delays**: Construction timelines are 18-36 months. Delays between announced and operational capacity create revenue gaps. Verify construction milestones via 8-K filings.
+5. **Utilization Drag**: GPU fleet economics depend on >70% utilization. Below that threshold, depreciation overwhelms revenue. Ask: "What is contracted utilization vs total capacity?"
+6. **NVDA Competition Risk**: NVIDIA's DGX Cloud competes directly with neoclouds. As NVDA expands its cloud offering, neoclouds face margin compression from the supplier competing downstream.
+7. **Custom Silicon Displacement**: Mag7 developing custom ASICs (Google TPU, Amazon Trainium) reduces dependence on NVDA GPUs and potentially on GPU cloud providers. Timeline: 2-4 years for full displacement risk.
+8. **Interest Rate Sensitivity**: Capital-intensive business models amplify rate sensitivity. Calculate: interest expense / revenue ratio. Above 15% = structural disadvantage.
+9. **Execution Risk (Pivot Quality)**: For BTC miner pivots: has the company demonstrated AI/HPC revenue, or is it pre-revenue marketing? Pivoting is announced frequently; successful execution is rare.
+10. **Dilution/Debt Quality**: Toxic debt (8%+ implied rate) + serial dilution = value destruction. Cross-reference with Bear-Bull Paradox filter. Grade D debt + active dilution = Strong Sell candidate regardless of other factors.
+
+Tier 1 (Full-Stack) companies can partially offset items 1, 5, 6 through software margins; Tier 3-4 companies bear the full impact. When 3+ items flag simultaneously, cap rating at Hold unless Trapped Asset Override conditions are met.
 
 **Counterparty Risk Hierarchy (Mandatory for Contracted Revenue Claims):**
 When a neocloud claims contracted or committed revenue, classify the counterparty:
@@ -170,6 +178,27 @@ When a neocloud claims contracted or committed revenue, classify the counterpart
 - **Tier C: VC-Funded AI Companies** (well-funded AI startups with $500M+ raised). Moderate risk -- funding runway matters. Verify latest funding round and burn rate.
 - **Tier D: Startup / Early-Stage** (seed to Series B AI companies, small crypto firms). High default risk. Revenue from Tier D counterparties should be heavily discounted in valuation.
 - **Rule:** When evaluating contracted revenue, always identify counterparty tier. "$2B contracted revenue" from Tier A is fundamentally different from "$2B contracted revenue" from Tier C/D mix.
+
+### Three-Factor Crash Triage
+
+When a sector-wide selloff hits neocloud/AI infrastructure stocks, apply this triage to isolate which companies survive vs fail:
+
+**Factor 1: Mag7 Contract Visibility**
+- Does the company have named, public Mag7 contracts with specific dollar amounts and timelines?
+- Tier A counterparties (Mag7) provide near-zero default risk revenue backstop
+- Companies with only Tier C/D counterparties face demand cliff risk during sector stress
+
+**Factor 2: Cash vs Toxic Debt**
+- Net cash position (cash - total debt) determines survival runway
+- Debt quality grade: A-B survives any credit cycle; C is stressed; D is existential
+- During crashes, credit markets close to Grade C/D issuers — they cannot refinance
+
+**Factor 3: Counterparty Isolation**
+- Is the company's revenue exposed to a single at-risk counterparty (e.g., OpenAI-dependent)?
+- Diversified Mag7 exposure is resilient; single-counterparty concentration is fragile
+- Map each company's revenue sources to counterparty tiers and identify contagion paths
+
+**Triage Decision Rule**: Companies passing all 3 factors (Mag7 contracts + net cash/Grade A-B + diversified counterparties) are BUY on crash. Companies failing 2+ factors are AVOID until stress resolves. Companies failing Factor 2 alone may be terminal.
 
 **CRWV as Negative Benchmark:**
 Use CRWV (CrowdStrike rival/crypto-adjacent infrastructure) as a standing reference point for what "bad" looks like in neocloud balance sheets: toxic debt structure (8-10%+ implied interest rate), serial dilution history, pre-revenue inflation. When analyzing any neocloud, compare its debt quality grade and dilution metrics against CRWV as the lower bound. If a company's metrics approach CRWV levels, apply Bear-Bull Paradox filter from `valuation_fundamentals.md`.
@@ -232,6 +261,28 @@ When raw material prices hit all-time highs weekly (e.g., Indium during InP subs
 
 ---
 
+## Absence Evidence Checklist
+
+Information absence itself carries analytical signal. When data is missing, classify the type of absence and apply the corresponding interpretation framework.
+
+### 5 Types of Absence Evidence
+
+| # | Absence Type | Signal | Interpretation Framework |
+|---|-------------|--------|------------------------|
+| 1 | **No Hyperscaler/Mag7 Contract** | Negative for execution certainty | Company claiming infrastructure demand without named Mag7 contracts has unvalidated revenue pipeline. Compare against peers with confirmed contracts to assess discount. |
+| 2 | **No Fundamental Change + Selloff** | Positive for entry | When price drops significantly without any news, earnings miss, or contract cancellation, the selling is mechanical (tax harvesting, MM pinning, algo rebalancing), not fundamental. Potential accumulation opportunity. |
+| 3 | **No Analyst Coverage** | Mispricing signal | Zero or minimal analyst coverage combined with strong fundamentals suggests the market has not discovered the company. Highest alpha potential but requires independent validation. |
+| 4 | **No Domestic Production** | Geopolitical vulnerability | When a critical material has zero Western/domestic production capability, the geopolitical risk is maximal. Any export control or disruption creates immediate sole-source situations for the nearest Western alternative. |
+| 5 | **Marketed Capacity vs Contracted Capacity** | Fraud/hype signal | When a company markets capacity (MW, units, etc.) but has no disclosed contracts or SLAs for that capacity, the gap between marketed and contracted is a red flag. Verify via SEC filings. |
+
+### Application Rules
+
+1. **During pipeline analysis**: When SEC filing data shows empty categories, check the `data_coverage` field to distinguish "not_disclosed" (company deliberately stated no concentration) from "insufficient_context" (data simply wasn't found).
+2. **During WebSearch validation**: Actively search for the absence — "Does [company] have Mag7 contracts?", "[material] US production capacity". The answer "no results found" is itself evidence.
+3. **Interaction with 6-Criteria Scoring**: Absence Type 4 (no domestic production) directly reinforces Criterion 3 (geopolitical risk). Absence Type 1 (no Mag7 contract) weakens conviction regardless of bottleneck score.
+
+---
+
 ## Scenario-Driven Discovery Protocol
 
 This protocol is the step-by-step process for independently discovering bottleneck opportunities from any new event or query. It operationalizes the Top-Down Theme Discovery Workflow from `methodology.md` for scenario-specific analysis.
@@ -248,7 +299,7 @@ This protocol is the step-by-step process for independently discovering bottlene
 
 **Step 5: Bottleneck Scoring.** Apply the 6-Criteria Bottleneck Scoring Framework (defined above). Only concentration points scoring 4+ out of 6 qualify as investable. Document the score and evidence for each criterion.
 
-**Step 5.5 [HARD]: Nested Bottleneck Check.** For each bottleneck scoring 4+/6 in Step 5, apply the 5-Layer Supply Chain Mapping Template AGAIN, treating the bottleneck company's KEY INPUT as the new Layer 0. Trace backward: Who supplies THIS bottleneck? Is their supply also concentrated? You MUST apply the 6-Criteria Scoring to the nested bottleneck and report the score explicitly.
+**Step 5.5 [MANDATORY]: Nested Bottleneck Check.** For each bottleneck scoring 4+/6 in Step 5, apply the 5-Layer Supply Chain Mapping Template AGAIN, treating the bottleneck company's KEY INPUT as the new Layer 0. Trace backward: Who supplies THIS bottleneck? Is their supply also concentrated? You MUST apply the 6-Criteria Scoring to the nested bottleneck and report the score explicitly. When a nested bottleneck is confirmed (3+/6), flag it in the pipeline validation step to activate the asymmetry score adjustment.
 
 If a nested bottleneck scores 3+/6, this is a "bottleneck within a bottleneck" — the highest asymmetry signal. The nested supplier often has:
 - Even smaller market cap (more asymmetric)

@@ -122,6 +122,43 @@ Data not collectible via scripts (industry-specific data, government policies, c
 
 ---
 
+## Information Priority Hierarchy
+
+When analyzing any company, information sources carry unequal weight. This hierarchy determines what information should anchor the analysis and what is supplementary.
+
+### Universal Priority Order
+
+```
+Forward Revenue/ARR > Gross Margins > Proxy Validation > Balance Sheet > IO Quality
+```
+
+1. **Forward Revenue/ARR**: The most important data point. What is the company's contracted or guided revenue trajectory? Forward revenue backed by signed contracts (e.g., Mag7 SLAs) is the strongest anchor.
+2. **Gross Margins**: The quality signal. High gross margins (>50%) indicate pricing power and defensible positioning. Gross margin trajectory matters more than absolute level.
+3. **Proxy Validation**: Cross-reference using well-reported companies. Leading foundry earnings proxy semiconductor demand health; hyperscaler capex guidance proxies entire AI supply chain. When direct data is limited, proxy relationships fill the gap.
+4. **Balance Sheet**: Debt quality, cash position, dilution trajectory. Critical for risk assessment but secondary to revenue visibility. A company with strong forward revenue can manage debt; a company with no revenue cannot.
+5. **IO Quality**: Institutional ownership composition. Passive/index dominance (9-10) is most positive; quant/MM dominance (3-4) is negative. Useful for timing but not thesis-defining.
+
+### Sector-Specific Priority Variations
+
+The universal order adjusts by sector:
+
+| Sector | Priority Order |
+|--------|---------------|
+| Semiconductors | BOM share position → Forward revenue → Gross margin → Balance sheet |
+| Defense | Weapons platform BOM → Supply substitutability → Secondary disruptions → AI classified contract identification |
+| Neoclouds | Gross Margins → Revenue/MW → Contract quality (counterparty tier) → GW capacity → Power cost |
+| Macro/Cross-Cutting | Hyperscaler capex commits → Rate cut probabilities → Proxy earnings → Credit stress → Noise |
+
+### Application Rule
+
+When pipeline data presents conflicting signals (e.g., strong balance sheet but weak forward revenue), resolve by priority: the higher-priority signal dominates the analysis conclusion. Do not average conflicting signals — rank them.
+
+### Cross-Reference
+
+For detailed pattern recognition across sectors, see `tactical_patterns.md` when loaded.
+
+---
+
 ## Position Construction Framework
 
 ### Instrument Selection by Conviction

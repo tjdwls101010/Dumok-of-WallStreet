@@ -40,6 +40,31 @@ The signature Serenity valuation tool. It answers: "What is this stock worth if 
 
 ---
 
+## Dual-Valuation Mandatory Rule
+
+Every stock analysis MUST present TWO valuations simultaneously:
+
+1. **No-Growth Floor** (defensive anchor): What is the stock worth if growth stops completely? Use the No-Growth Stress Test above. This establishes the downside boundary.
+2. **Growth Upside** (offensive target): What is the stock worth on its forward revenue trajectory? Use Forward P/E and/or revenue-based fair value (forward revenue × margins × appropriate multiple range). This establishes the upside potential.
+
+### Presentation Rule
+Always present the no-growth floor FIRST, then the growth upside. This sequence anchors the analysis on a defensible base before making the bull case. The gap between floor and upside IS the asymmetry measure.
+
+### Why Both Are Required
+- Floor-only analysis misses growth opportunities — a stock at 2x no-growth value with 100% Y/Y revenue growth is not overvalued.
+- Growth-only analysis ignores downside risk — a stock with great revenue trajectory but negative no-growth value has no margin of safety.
+- The pipeline produces both: `no_growth_valuation` for the floor and `forward_pe` (with revenue-based fair value) for the upside. Both must appear in every stock recommendation.
+
+### Decision Framework
+| No-Growth Floor vs MC | Growth Trajectory | Verdict |
+|----------------------|------------------|---------|
+| Floor > MC | Strong growth | Strong Buy territory |
+| Floor > MC | Weak/no growth | Buy (value play) |
+| Floor < MC | Strong growth | Hold/Buy (growth justifies premium) |
+| Floor < MC | Weak/no growth | Avoid (no margin of safety, no growth) |
+
+---
+
 ## Forward P/E vs Growth Rate Assessment
 
 ### Core Principle

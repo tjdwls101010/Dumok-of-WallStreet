@@ -159,6 +159,40 @@ Priority order for real-time tracking:
 
 ---
 
+## Contrarian Trigger Detection
+
+Contrarian positions are NOT general "buy the dip" — they activate only when specific, falsifiable conditions are met. Four conditions warrant contrarian analysis:
+
+### Condition 1: Non-Fundamental Selling Mechanism
+The selloff is driven by a technical or mechanical cause, not deteriorating fundamentals.
+- **HFT/Algo headline parsing**: Algorithms misparse accounting items (e.g., headline EPS miss vs adjusted EPS beat). The actual earnings quality is intact.
+- **MM pinning / dark pool mechanics**: Price suppressed around options strike prices or through systematic market maker positioning.
+- **Tax-loss harvesting**: Institutional forced selling in Nov-Dec creates artificial pressure on beaten-down names.
+- **Detection method**: Check if any contracts were cancelled, any guidance was lowered, or any fundamental deterioration occurred. If answer is NO to all three, the selling mechanism is non-fundamental.
+
+### Condition 2: Expert Thesis is Falsifiable via Domain Knowledge
+A prominent bearish thesis can be specifically refuted using domain-specific knowledge.
+- The refutation must be based on verifiable physical, engineering, or financial facts — not opinion.
+- Example pattern: Bearish claim about technology obsolescence → demonstrate remaining operational lifespan, utilization data, or replacement timeline that contradicts the claim.
+- **Detection method**: Can you identify a specific, measurable fact that directly contradicts the bear thesis? If yes, the contrarian trigger activates.
+
+### Condition 3: Physical Impossibility of Claimed Outcome
+A bearish or competitive threat claim violates physical, engineering, or manufacturing constraints.
+- Semiconductor redesign timelines (30-38 months minimum), capacity expansion timelines, material science constraints.
+- If someone claims "Company X will replace Company Y within 12 months" but the engineering timeline is 30+ months, the claim is physically impossible.
+- **Detection method**: Calculate the minimum timeline for the claimed outcome using industry-standard development cycles. If the claim timeline < minimum feasible timeline, it is physically impossible.
+
+### Condition 4: National Security Narrative ≠ Revenue Exemption
+A company benefits from national security narratives but its market cap is disconnected from actual revenue.
+- National security importance does not override fundamental valuation requirements.
+- A company can be strategically important AND wildly overvalued simultaneously.
+- **Detection method**: Calculate market cap / revenue ratio. If >100x with pre-revenue status, the national security narrative is providing a "valuation exemption" that fundamentals do not support. This is a BEARISH contrarian signal (contrarian to the bullish consensus).
+
+### Application Rule
+At least one condition must be met with specific, cited evidence before taking a contrarian position. "The stock dropped a lot" is NOT a contrarian trigger — it is momentum following. True contrarian analysis identifies WHY the consensus is wrong, with falsifiable evidence.
+
+---
+
 ## Macro-to-Micro Transmission Pathways
 
 - **Rate Cuts -> Cost of Capital -> Capex -> Supply Chain**: Fed cuts -> hyperscaler capex expands -> more GPU/HBM/InP/optics demand

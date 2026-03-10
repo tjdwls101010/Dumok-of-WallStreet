@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Forward P/E calculator using analyst earnings estimates with Walmart benchmark comparison.
+"""Dual-valuation calculator: revenue-based fair value (primary) and EPS-based forward P/E (fallback).
 
-Computes forward 1-year and 2-year P/E ratios from consensus analyst EPS estimates,
-compares valuation to a Walmart P/E benchmark (45x), and assesses whether a stock
-appears undervalued, fairly valued, or overvalued relative to its growth profile.
+Provides two complementary valuation anchors:
+1. Revenue-based valuation using forward revenue x gross/operating margin (primary method).
+2. EPS-based forward P/E using consensus analyst estimates with Walmart benchmark comparison (fallback).
+
+Revenue-based valuation is the primary method because forward revenue estimates are more
+stable and available earlier than EPS estimates, especially for high-growth or cyclical names.
+EPS-based forward P/E serves as the fallback when revenue or margin data is unavailable.
 
 Args:
 		symbol (str): Stock ticker symbol (e.g., "MU", "NVDA", "AAPL")
@@ -12,16 +16,23 @@ Args:
 Returns:
 		dict: Structure varies by command, typical fields include:
 		{
-				"symbol": str,                  # Ticker symbol
-				"current_price": float,         # Current stock price
-				"forward_1y_eps": float,        # Consensus forward 1Y EPS
-				"forward_2y_eps": float,        # Consensus forward 2Y EPS
-				"forward_1y_pe": float,         # Forward 1Y P/E ratio
-				"forward_2y_pe": float,         # Forward 2Y P/E ratio
-				"revenue_growth_yoy": float,    # YoY revenue growth estimate %
-				"walmart_pe_benchmark": int,    # WMT benchmark P/E (45x)
-				"valuation_gap": str,           # Narrative comparison to benchmark
-				"assessment": str               # "undervalued" | "fairly_valued" | "overvalued"
+				"symbol": str,                          # Ticker symbol
+				"current_price": float,                 # Current stock price
+				"forward_1y_eps": float,                # Consensus forward 1Y EPS
+				"forward_2y_eps": float,                # Consensus forward 2Y EPS
+				"forward_1y_pe": float,                 # Forward 1Y P/E ratio
+				"forward_2y_pe": float,                 # Forward 2Y P/E ratio
+				"revenue_growth_yoy": float,            # YoY revenue growth estimate %
+				"walmart_pe_benchmark": int,            # WMT benchmark P/E (45x)
+				"valuation_gap": str,                   # Narrative comparison to benchmark
+				"assessment": str,                      # "undervalued" | "fairly_valued" | "overvalued"
+				"forward_revenue_0y": float|None,       # Current FY consensus revenue estimate ($)
+				"forward_revenue_1y": float|None,       # Next FY consensus revenue estimate ($)
+				"gross_margin_pct": float|None,         # Gross margin as percentage (e.g., 65.0)
+				"forward_gross_profit": float|None,     # Best forward revenue x gross margin ($)
+				"revenue_based_fair_value_low": float|None,   # 15x implied operating income ($)
+				"revenue_based_fair_value_high": float|None,  # 20x implied operating income ($)
+				"primary_valuation_method": str         # "forward_revenue_x_margin" | "analyst_eps_fallback"
 		}
 
 Example:
@@ -36,7 +47,14 @@ Example:
 				"revenue_growth_yoy": 45.2,
 				"walmart_pe_benchmark": 45,
 				"valuation_gap": "Forward P/E (11.6x) significantly below WMT benchmark (45x) despite higher growth",
-				"assessment": "undervalued"
+				"assessment": "undervalued",
+				"forward_revenue_0y": 25200000000,
+				"forward_revenue_1y": 38500000000,
+				"gross_margin_pct": 28.5,
+				"forward_gross_profit": 10972500000,
+				"revenue_based_fair_value_low": 16170000000,
+				"revenue_based_fair_value_high": 21560000000,
+				"primary_valuation_method": "forward_revenue_x_margin"
 		}
 
 		>>> python forward_pe.py batch NVDA MU AMD AVGO
@@ -47,17 +65,20 @@ Example:
 		]
 
 Use Cases:
+		- Dual-anchor valuation: revenue-based floor estimate paired with EPS-based growth upside
 		- Screen for undervalued growth stocks vs mature benchmarks
 		- Compare forward P/E across semiconductor or tech peers
 		- Identify valuation dislocations where growth is not priced in
 		- Track P/E compression or expansion over time via batch runs
 
 Notes:
+		- Revenue-based valuation uses forward revenue x operating margin with 15x-20x multiples
 		- Forward EPS estimates are consensus averages and subject to revision
 		- Walmart benchmark (45x) represents a mature, low-growth reference point
 		- Revenue growth context is critical: a 15x P/E with 50% growth is very different from 15x with 5% growth
 		- Forward P/E is more useful than trailing P/E for cyclical or high-growth names
 		- Estimates tend to be optimistic; actual earnings often miss consensus
+		- primary_valuation_method indicates which anchor was calculable
 
 See Also:
 		- analysis.py: Analyst estimates, EPS trends, and revisions
@@ -130,6 +151,65 @@ def _build_valuation_gap(symbol, forward_1y_pe, revenue_growth):
 	)
 
 
+def _calculate_revenue_based_valuation(ticker):
+	"""Calculate revenue-based fair value using forward revenue x gross margin."""
+	result = {
+		"forward_revenue_0y": None,
+		"forward_revenue_1y": None,
+		"gross_margin_pct": None,
+		"forward_gross_profit": None,
+		"revenue_based_fair_value_low": None,
+		"revenue_based_fair_value_high": None,
+		"primary_valuation_method": "analyst_eps_fallback",
+	}
+
+	try:
+		info = ticker.info or {}
+		gross_margins = info.get("grossMargins")  # decimal, e.g., 0.65
+		operating_margins = info.get("operatingMargins")  # decimal
+
+		rev_est = ticker.get_revenue_estimate()
+		if rev_est is None or rev_est.empty:
+			return result
+
+		# Extract forward revenue estimates (dollar amounts from 'avg' column)
+		fwd_rev_0y = None
+		fwd_rev_1y = None
+		if "0y" in rev_est.index and "avg" in rev_est.columns:
+			val = rev_est.loc["0y", "avg"]
+			if val == val:  # NaN check
+				fwd_rev_0y = float(val)
+		if "+1y" in rev_est.index and "avg" in rev_est.columns:
+			val = rev_est.loc["+1y", "avg"]
+			if val == val:
+				fwd_rev_1y = float(val)
+
+		result["forward_revenue_0y"] = fwd_rev_0y
+		result["forward_revenue_1y"] = fwd_rev_1y
+
+		if gross_margins is not None:
+			result["gross_margin_pct"] = round(gross_margins * 100, 2)
+
+		# Use the further forward revenue estimate available
+		best_revenue = fwd_rev_1y or fwd_rev_0y
+		if best_revenue and gross_margins and operating_margins:
+			forward_gross_profit = best_revenue * gross_margins
+			result["forward_gross_profit"] = round(forward_gross_profit, 0)
+
+			# Implied operating income
+			implied_op_income = best_revenue * operating_margins
+
+			# Fair value range using 15x-20x P/E on implied operating income
+			if implied_op_income > 0:
+				result["revenue_based_fair_value_low"] = round(implied_op_income * 15, 0)
+				result["revenue_based_fair_value_high"] = round(implied_op_income * 20, 0)
+				result["primary_valuation_method"] = "forward_revenue_x_margin"
+	except Exception:
+		pass
+
+	return result
+
+
 def _calculate_forward_pe(symbol):
 	"""Calculate forward P/E data for a single symbol."""
 	ticker = yf.Ticker(symbol)
@@ -200,7 +280,10 @@ def _calculate_forward_pe(symbol):
 	assessment = _assess_valuation(forward_1y_pe, revenue_growth)
 	valuation_gap = _build_valuation_gap(symbol, forward_1y_pe, revenue_growth)
 
-	return {
+	# Revenue-based valuation (primary method)
+	revenue_valuation = _calculate_revenue_based_valuation(ticker)
+
+	result = {
 		"symbol": symbol.upper(),
 		"current_price": round(current_price, 2),
 		"forward_1y_eps": forward_1y_eps,
@@ -212,6 +295,9 @@ def _calculate_forward_pe(symbol):
 		"valuation_gap": valuation_gap,
 		"assessment": assessment,
 	}
+	result.update(revenue_valuation)
+
+	return result
 
 
 @safe_run

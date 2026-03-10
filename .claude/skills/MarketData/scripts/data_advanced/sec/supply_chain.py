@@ -38,13 +38,15 @@ Returns:
 			"supply_chain": {
 				"suppliers": [{"entity": str, "relationship": str,
 					"context": str, "source_section": str,
-					"confidence": str}],
+					"confidence": str,
+					"supplier_geography": str}],
 				"customers": [{"entity": str, "relationship": str,
 					"context": str, "source_section": str,
 					"confidence": str}],
 				"single_source_dependencies": [{"component": str,
 					"supplier": str, "context": str,
-					"source_section": str, "confidence": str}],
+					"source_section": str, "confidence": str,
+					"supplier_geography": str}],
 				"geographic_concentration": [{"location": str,
 					"activity": str, "context": str,
 					"source_section": str, "confidence": str}],
@@ -75,6 +77,9 @@ Returns:
 				"mode": "llm",
 				"xbrl_categories": list,
 				"xbrl_supplemented": bool
+			},
+			"data_coverage": {
+				"<category>": str
 			}
 		},
 		"metadata": {
@@ -83,6 +88,17 @@ Returns:
 			"form": str
 		}
 	}
+
+	supplier_geography field values:
+		- "Western": US, Canada, UK, EU, Australia, Japan, New Zealand
+		- "International": Taiwan, China, Hong Kong, South Korea, etc.
+		- "Unknown": location not determinable from filing text
+	Note: supplier_geography is added to suppliers and single_source_dependencies only.
+
+	data_coverage maps each of the 11 supply chain categories to a status:
+		- "extracted": 1+ entries exist with actual entity/data
+		- "not_disclosed": empty but SEC boilerplate detected (deliberate non-disclosure)
+		- "insufficient_context": empty and no boilerplate detected
 
 	cmd_events:
 	dict: {
@@ -805,6 +821,108 @@ _8K_SC_PATTERNS = [
 
 
 # ---------------------------------------------------------------------------
+# Data coverage assessment and geography labeling
+# ---------------------------------------------------------------------------
+
+_BOILERPLATE_PATTERNS = [
+	re.compile(r"no single customer accounted for", re.IGNORECASE),
+	re.compile(r"we are not dependent on any single supplier", re.IGNORECASE),
+	re.compile(r"no single supplier is material", re.IGNORECASE),
+	re.compile(r"we do not believe.{0,30}dependent on any single", re.IGNORECASE),
+	re.compile(r"no (?:material|significant) concentration", re.IGNORECASE),
+]
+
+
+def _assess_data_coverage(supply_chain):
+	"""Classify data coverage for each supply chain category.
+
+	Returns dict mapping category -> coverage status:
+	- "extracted": 1+ entries exist with actual entity/data
+	- "not_disclosed": empty but SEC boilerplate detected indicating deliberate non-disclosure
+	- "insufficient_context": empty and no boilerplate detected
+	"""
+	categories = [
+		"suppliers", "customers", "single_source_dependencies",
+		"geographic_concentration", "capacity_constraints",
+		"supply_chain_risks", "revenue_concentration",
+		"geographic_revenue", "purchase_obligations",
+		"market_risk_disclosures", "inventory_composition",
+	]
+
+	# Collect all context text for boilerplate detection
+	all_contexts = []
+	for cat in categories:
+		for entry in (supply_chain.get(cat) or []):
+			if isinstance(entry, dict):
+				ctx = entry.get("context", "")
+				if ctx:
+					all_contexts.append(ctx)
+	all_text = " ".join(all_contexts)
+
+	has_boilerplate = any(p.search(all_text) for p in _BOILERPLATE_PATTERNS)
+
+	coverage = {}
+	for cat in categories:
+		entries = supply_chain.get(cat) or []
+		if len(entries) > 0:
+			coverage[cat] = "extracted"
+		elif has_boilerplate:
+			coverage[cat] = "not_disclosed"
+		else:
+			coverage[cat] = "insufficient_context"
+
+	return coverage
+
+
+_WESTERN_LOCATIONS = {
+	"united states", "us", "usa", "canada", "united kingdom", "uk",
+	"germany", "france", "italy", "netherlands", "ireland", "switzerland",
+	"sweden", "finland", "norway", "denmark", "spain", "belgium",
+	"australia", "japan", "new zealand", "austria",
+}
+_INTERNATIONAL_HIGH_RISK = {
+	"taiwan", "china", "mainland china", "hong kong", "south korea",
+	"korea", "vietnam", "india", "malaysia", "thailand", "singapore",
+	"indonesia", "philippines", "israel", "russia",
+}
+
+
+def _label_supplier_geography(supply_chain):
+	"""Add geography labels to suppliers and single_source_dependencies.
+
+	Labels each entry with supplier_geography:
+	- "Western": US, Canada, UK, EU, Australia, Japan
+	- "International": Taiwan, China, HK, South Korea, etc.
+	- "Unknown": location not determinable
+
+	Modifies entries in-place.
+	"""
+	for cat_key in ("suppliers", "single_source_dependencies"):
+		for entry in (supply_chain.get(cat_key) or []):
+			if not isinstance(entry, dict):
+				continue
+			# Try to determine geography from context, entity, and relationship text
+			text = " ".join([
+				entry.get("context", ""),
+				entry.get("entity", entry.get("supplier", "")),
+				entry.get("relationship", ""),
+			]).lower()
+
+			geo_label = "Unknown"
+			for loc in _INTERNATIONAL_HIGH_RISK:
+				if loc in text:
+					geo_label = "International"
+					break
+			if geo_label == "Unknown":
+				for loc in _WESTERN_LOCATIONS:
+					if loc in text:
+						geo_label = "Western"
+						break
+
+			entry["supplier_geography"] = geo_label
+
+
+# ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
 
@@ -857,6 +975,10 @@ def cmd_supply_chain_extract(args):
 	xbrl_data = _extract_xbrl_supplements(filing)
 	supply_chain, xbrl_categories = _merge_xbrl_with_llm(supply_chain, xbrl_data)
 
+	# Step 4.5: Data coverage assessment and geography labeling
+	_label_supplier_geography(supply_chain)
+	data_coverage = _assess_data_coverage(supply_chain)
+
 	# Recount after merge
 	total_matches = sum(len(v) for v in supply_chain.values())
 
@@ -872,6 +994,7 @@ def cmd_supply_chain_extract(args):
 				"xbrl_categories": xbrl_categories,
 				"xbrl_supplemented": bool(xbrl_categories),
 			},
+			"data_coverage": data_coverage,
 		},
 		"metadata": {
 			"symbol": symbol,

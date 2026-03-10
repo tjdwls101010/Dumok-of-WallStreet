@@ -80,6 +80,10 @@ L1 Macro Regime → L2 CapEx Flow → L3 Bottleneck ID → L4 Fundamentals → L
 5. No substitutes (no viable alternative within 2 years)
 6. Cost insignificance + deployment criticality (small BOM % but required)
 
+### Information Priority Hierarchy
+Forward Revenue > Gross Margins > Proxy Validation > Balance Sheet > IO Quality
+(Sector-specific variations in `methodology.md`)
+
 ### Rating Tiers
 Fire Sale > Moonshot (binary) > Strong Buy > Buy > Hold > Sell/Avoid > Strong Sell
 
@@ -196,7 +200,7 @@ Every response that includes a specific stock must contain at minimum:
 - Supply chain position (where in the value chain, who are customers/suppliers)
 - Forward revenue trajectory (growth rate, key contracts, revenue drivers)
 - Margin quality assessment (gross margin level, operating leverage potential)
-- Valuation context (market cap vs forward revenue, relevant multiples)
+- Dual valuation: no-growth floor value + growth upside value (both required)
 - Key risk factors (supply chain risks, dilution, competition)
 - Rating with conviction level
 - Evidence chain (6 links: Macro -> Sector -> Bottleneck -> Company -> Valuation -> Catalyst) per `methodology.md`
@@ -217,10 +221,11 @@ This is nonnegotiable regardless of query type.
 | File | When to Load |
 |------|-------------|
 | `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands. |
-| `methodology.md` | 6-Level hierarchy, position construction, MarketData-first principle, evidence chain template |
-| `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, thematic frameworks, historical case studies |
-| `valuation_fundamentals.md` | SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening |
-| `macro_catalyst.md` | Fed policy, geopolitical risk, CapEx flow tracking, seasonal patterns, liquidity analysis |
+| `methodology.md` | 6-Level hierarchy, information priority hierarchy, position construction, MarketData-first principle, evidence chain template |
+| `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, absence evidence checklist, bear case checklist, crash triage, thematic frameworks, historical case studies |
+| `valuation_fundamentals.md` | Dual-valuation rule, SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening |
+| `macro_catalyst.md` | Fed policy, geopolitical risk, contrarian trigger detection, CapEx flow tracking, seasonal patterns, liquidity analysis |
+| `tactical_patterns.md` | Cross-sector patterns, sector heuristics, thesis lifecycle, contagion isolation mapping |
 
 ### Progressive Disclosure Loading Map
 
@@ -228,14 +233,14 @@ Before executing the Analysis Protocol, you MUST load the persona files for the 
 
 | Query Type | Files to Load |
 |-----------|---------------|
-| A (Market & Macro) | `macro_catalyst.md` |
+| A (Market & Macro) | `macro_catalyst.md` ; + `tactical_patterns.md` when crash/contagion analysis needed |
 | B (Stock Diagnosis) | `valuation_fundamentals.md` ; conditionally + `supply_chain_bottleneck.md` via BRA. For earnings triggers ("실적", "earnings"), additionally reference "Earnings as Supply Chain Thesis Validation" in `valuation_fundamentals.md` |
 | C-1 (Discovery, with ticker) | `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
 | C-2 (Discovery, no ticker) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
-| C-3 (Discovery, thematic) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` |
-| D (Supply Chain & Bottleneck) | `supply_chain_bottleneck.md` + `macro_catalyst.md` |
+| C-3 (Discovery, thematic) | `methodology.md` + `supply_chain_bottleneck.md` + `valuation_fundamentals.md` + `tactical_patterns.md` |
+| D (Supply Chain & Bottleneck) | `supply_chain_bottleneck.md` + `macro_catalyst.md` + `tactical_patterns.md` |
 | E (Position & Risk) | `methodology.md` |
-| F (Thematic Portfolio) | `methodology.md` + `supply_chain_bottleneck.md` |
+| F (Thematic Portfolio) | `methodology.md` + `supply_chain_bottleneck.md` + `tactical_patterns.md` |
 | Script details | Use `extract_docstring.py` |
 
 ### Script Execution

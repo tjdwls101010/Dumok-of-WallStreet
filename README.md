@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v5.1.0
+> 성진의 Claude 금융 시장 분석 플러그인 v5.2.0
 
 ![](Docs/Media/Main.png)
 
@@ -60,11 +60,12 @@
 **방법론 특징**
 - 6단계 증거 체인: 매크로 → 섹터 → 병목 → 기업 → 밸류에이션 → 카탈리스트
 - 공급망 병목이 곧 투자 기회 — 수요 > 공급 구간을 찾는다
-- First-principles 밸류에이션으로 현재 가격의 합리성 검증
-- 카탈리스트 타이밍에 맞춰 진입, 테마 포트폴리오 구성 가능
-- 5-Layer 공급망 분해(완제품 → 원재료)로 비직관적 병목 발견
-- 6기준 Bottleneck Scoring — 공급 집중도·증설 리드타임·지정학 리스크·대체재 유무 등
-- No-Growth Stress Test, Sum-of-Parts 밸류에이션으로 하방 시나리오 검증
+- Dual-Valuation 필수: No-Growth 바닥 + 성장 Upside 동시 제시
+- 정보 우선순위 계층: Forward Revenue > Gross Margins > Proxy > Balance Sheet > IO Quality
+- 5-Layer 공급망 분해(완제품 → 원재료) + 재귀적 병목 발견
+- 6기준 Bottleneck Scoring + Nested Bottleneck + Sole Western 플래그
+- 부재 증거 체크리스트, 역발상 트리거 감지, 크로스섹터 패턴 라이브러리
+- 10항목 네오클라우드 Bear Case + Three-Factor Crash Triage
 
 **서브커맨드**
 

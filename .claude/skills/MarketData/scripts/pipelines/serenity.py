@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline v4.1.0 (Pipeline-Complete): 6-Level analytical hierarchy
+"""Serenity Pipeline v5.2.0 (Pipeline-Complete): 6-Level analytical hierarchy
 automating supply chain bottleneck analysis with macro regime assessment,
 fundamental validation, composite signal generation, and evidence chain
 verification.
@@ -11,10 +11,13 @@ within the pipeline; do not call individual modules to supplement.
 
 L1 macro includes BDI/DXY/real rates always-on; L2 includes hyperscaler CapEx
 bridge signal; L3 includes SEC supply chain pre-extraction with 6-Criteria
-pre-scoring; L4 includes health gate severity spectrum (PASS/CAUTION/FLAG),
-thesis validation signals, SoP trigger detection, and trapped asset override;
-L6 includes rule-based auto-classification. Composite signal generation
-produces integrated investment grades with position sizing guidance.
+pre-scoring, absence evidence flags, and sole_western_flag; L4 includes
+health gate severity spectrum (PASS/CAUTION/FLAG) with 5 gates (bear_bull,
+dilution, no_growth, margin, io_quality), thesis validation signals, SoP
+trigger detection, and trapped asset override; L6 includes rule-based
+auto-classification. Composite signal generation produces integrated
+investment grades with position sizing guidance. Valuation summary includes
+dual_valuation (no-growth floor + growth upside).
 
 Commands:
 	macro: Level 1 macro regime assessment (10 parallel macro scripts → regime
@@ -89,7 +92,8 @@ Returns:
 		sop_triggers, trapped_asset_override, composite_signal
 		(with grade, score_breakdown, position_guidance),
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
-		margin_collapse — each PASS or FLAG), valuation_summary,
+		margin_collapse, io_quality_concern — each PASS/CAUTION/FLAG),
+		valuation_summary (includes dual_valuation: no_growth_floor + growth_upside),
 		fundamental_readiness_codes (list of standardized audit codes).
 		L1_macro: regime classification + signals dict (no raw data).
 		L2_capex_flow: company_capex (8-quarter trend auto-included),
@@ -108,7 +112,9 @@ Returns:
 		single_source_dependencies, geographic_concentration,
 		capacity_constraints, supply_chain_risks — trimmed for context),
 		sec_events (recent 8-K supply chain events),
-		sec_status (SEC_SC_available/partial/unavailable).
+		sec_status (SEC_SC_available/partial/unavailable),
+		absence_evidence_flags (list of absence type signals),
+		bottleneck_pre_score.sole_western_flag (bool).
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
 	For compare:
@@ -347,11 +353,30 @@ def _extract_health_gates(results):
 			gates["margin_collapse"] = "CAUTION"
 			severity["margin_collapse"] = 0.5
 
+	# IO Quality: CAUTION only (never FLAG) — H2/H8 TacitKnowledge Audit
+	gates["io_quality_concern"] = "PASS"
+	severity["io_quality_concern"] = 1.0
+	iq_detail = {}
+	io_data = results.get("institutional_quality", {})
+	if not io_data.get("error"):
+		io_score = io_data.get("io_quality_score")
+		quant_mm_pct = io_data.get("quant_mm_pct")
+		iq_detail = {
+			"io_quality_score": io_score,
+			"quant_mm_pct": quant_mm_pct,
+			"thresholds": "CAUTION: quant_mm_pct > 30% or io_score <= 3 | PASS: otherwise | never FLAG",
+		}
+		if (isinstance(quant_mm_pct, (int, float)) and quant_mm_pct > 30) or \
+		   (isinstance(io_score, (int, float)) and io_score <= 3):
+			gates["io_quality_concern"] = "CAUTION"
+			severity["io_quality_concern"] = 0.5
+
 	severity_score = sum(severity.values())
-	total_pass = sum(1 for v in gates.values() if v == "PASS")
+	total_pass = sum(1 for k, v in gates.items()
+		if v == "PASS" and k not in ("total_pass", "total_gates", "flags", "severity", "severity_score", "detail"))
 
 	gates["total_pass"] = total_pass
-	gates["total_gates"] = 4
+	gates["total_gates"] = 5
 	gates["flags"] = flags
 	gates["severity"] = severity
 	gates["severity_score"] = severity_score
@@ -360,18 +385,41 @@ def _extract_health_gates(results):
 		"active_dilution": ad_detail,
 		"no_growth_fail": ngf_detail,
 		"margin_collapse": mc_detail,
+		"io_quality_concern": iq_detail,
 	}
 
 	return gates
 
 
 def _build_valuation_summary(results):
-	"""Build valuation summary from L4 script results."""
+	"""Build valuation summary from L4 script results.
+
+	Includes dual_valuation object combining no-growth floor and growth upside
+	(TacitKnowledge Audit H4: Dual-Valuation Anchor).
+	"""
 	forward_pe_data = results.get("forward_pe", {})
 	ngv_data = results.get("no_growth_valuation", {})
 	margin_data = results.get("margin_tracker", {})
 	io_data = results.get("institutional_quality", {})
 	debt_data = results.get("debt_structure", {})
+
+	# Dual-Valuation: no-growth floor + growth upside (H4)
+	dual_valuation = {}
+	if not ngv_data.get("error"):
+		dual_valuation["no_growth_floor"] = {
+			"fair_value": ngv_data.get("no_growth_fair_value"),
+			"market_cap": ngv_data.get("current_market_cap"),
+			"margin_of_safety_pct": ngv_data.get("margin_of_safety_pct"),
+		}
+	if not forward_pe_data.get("error"):
+		dual_valuation["growth_upside"] = {
+			"forward_1y_pe": forward_pe_data.get("forward_1y_pe"),
+			"forward_2y_pe": forward_pe_data.get("forward_2y_pe"),
+			"revenue_based_fair_value_low": forward_pe_data.get("revenue_based_fair_value_low"),
+			"revenue_based_fair_value_high": forward_pe_data.get("revenue_based_fair_value_high"),
+			"primary_valuation_method": forward_pe_data.get("primary_valuation_method"),
+			"assessment": forward_pe_data.get("assessment"),
+		}
 
 	return {
 		"forward_pe": forward_pe_data.get("forward_1y_pe") if not forward_pe_data.get("error") else None,
@@ -379,6 +427,7 @@ def _build_valuation_summary(results):
 		"margin_status": margin_data.get("flag") if not margin_data.get("error") else None,
 		"io_quality_score": io_data.get("io_quality_score") if not io_data.get("error") else None,
 		"debt_quality_grade": debt_data.get("debt_quality_grade") if not debt_data.get("error") else None,
+		"dual_valuation": dual_valuation,
 	}
 
 
@@ -750,12 +799,73 @@ def _build_l3_bottleneck(sec_sc_results):
 		note = ("SEC supply chain data unavailable. "
 				"Agent relies on WebSearch for L3.")
 
+	# Absence Evidence Flags (H7)
+	absence_evidence_flags = []
+	if has_sc_data:
+		data_coverage = sec_sc_data.get("data", {}).get("data_coverage", {})
+		supply_chain = sec_sc_data.get("data", {}).get("supply_chain", {})
+		if data_coverage:
+			# Type 1: No major customer contracts disclosed
+			customers = supply_chain.get("customers", [])
+			rev_conc = supply_chain.get("revenue_concentration", [])
+			if not customers and not rev_conc and data_coverage.get("customers") == "not_disclosed":
+				absence_evidence_flags.append({
+					"type": "no_major_customer_disclosed",
+					"signal": "negative",
+					"note": "Company explicitly states no single customer is material — unvalidated revenue pipeline",
+				})
+			# Type 3: No analyst coverage / minimal data
+			if data_coverage.get("revenue_concentration") == "insufficient_context":
+				absence_evidence_flags.append({
+					"type": "revenue_concentration_unknown",
+					"signal": "neutral",
+					"note": "Revenue concentration data not found in filing — may indicate limited disclosure",
+				})
+			# Type 2: No fundamental change + selloff (mechanical selling signal)
+			# Detect via SEC events absence — if no recent 8-K filings exist,
+			# significant price drops are likely non-fundamental (tax harvest, algo, MM).
+			if not has_events:
+				absence_evidence_flags.append({
+					"type": "no_fundamental_change_selloff",
+					"signal": "potential_entry",
+					"note": ("No recent SEC event filings (8-K) detected. "
+							"If stock has declined significantly, selling may be "
+							"mechanical (tax harvesting, MM pinning, algo rebalancing), "
+							"not fundamental — verify via WebSearch."),
+				})
+			# Type 4: No domestic production (geographic concentration all international)
+			geo_conc = supply_chain.get("geographic_concentration", [])
+			if geo_conc:
+				all_intl = all(
+					any(loc in (entry.get("location", "").lower())
+						for loc in ("taiwan", "china", "korea", "vietnam", "malaysia"))
+					for entry in geo_conc if isinstance(entry, dict) and entry.get("location")
+				)
+				if all_intl:
+					absence_evidence_flags.append({
+						"type": "no_domestic_production",
+						"signal": "geopolitical_risk",
+						"note": "All disclosed production concentrated in international high-risk locations",
+					})
+			# Type 5: Marketed capacity vs contracted capacity gap
+			cap_coverage = data_coverage.get("capacity_constraints", "")
+			po_coverage = data_coverage.get("purchase_obligations", "")
+			if cap_coverage == "extracted" and po_coverage in ("not_disclosed", "insufficient_context"):
+				absence_evidence_flags.append({
+					"type": "marketed_vs_contracted_capacity_gap",
+					"signal": "hype_risk",
+					"note": ("Capacity constraints disclosed but purchase obligations "
+							"absent or undisclosed — gap between marketed and "
+							"contracted capacity is a red flag. Verify via SEC filings."),
+				})
+
 	result = {
 		"sec_supply_chain": sec_sc_data if not sec_sc_data.get("error") else None,
 		"sec_events": sec_events_raw if not sec_events_raw.get("error") else None,
 		"sec_status": sec_status,
 		"requires_context": True,
 		"note": note,
+		"absence_evidence_flags": absence_evidence_flags,
 	}
 
 	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
@@ -1046,6 +1156,22 @@ def _pre_score_bottleneck(sec_sc_data):
 	else:
 		assessment = "weak"
 
+	# Sole Western Flag (H10 Defense Heuristic #2)
+	sole_western_flag = False
+	suppliers = supply_chain.get("suppliers", [])
+	ssd = supply_chain.get("single_source_dependencies", [])
+	western_count = 0
+	intl_count = 0
+	for entry in suppliers + ssd:
+		geo = entry.get("supplier_geography", "Unknown")
+		if geo == "Western":
+			western_count += 1
+		elif geo == "International":
+			intl_count += 1
+	# Flag when there's exactly 1 Western supplier and it's single-source or sole
+	if western_count == 1 and intl_count >= 1 and len(ssd) >= 1:
+		sole_western_flag = True
+
 	filing_date_str = None
 	stale_warning = None
 	try:
@@ -1060,6 +1186,7 @@ def _pre_score_bottleneck(sec_sc_data):
 		"pre_score": pre_score, "pre_score_max": pre_score_max,
 		"criteria": criteria, "assessment": assessment,
 		"filing_date": filing_date_str, "stale_data_warning": stale_warning,
+		"sole_western_flag": sole_western_flag,
 	}
 
 
@@ -1338,13 +1465,13 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	score_breakdown["bottleneck"] = {"raw": bn_raw if bn else None, "max": bn_max, "points": round(bn_points, 2)}
 	total_score += bn_points
 
-	# Component 2: Health severity (25 pts)
+	# Component 2: Health severity (25 pts) — 5 gates (4 original + io_quality_concern)
 	if isinstance(health_severity_score, (int, float)):
-		hs_points = (health_severity_score / 4.0) * 25.0
-		score_breakdown["health"] = {"raw": health_severity_score, "max": 4.0, "points": round(hs_points, 2)}
+		hs_points = (health_severity_score / 5.0) * 25.0
+		score_breakdown["health"] = {"raw": health_severity_score, "max": 5.0, "points": round(hs_points, 2)}
 	else:
 		hs_points = 0.0
-		score_breakdown["health"] = {"raw": None, "max": 4.0, "points": 0.0, "note": "unavailable"}
+		score_breakdown["health"] = {"raw": None, "max": 5.0, "points": 0.0, "note": "unavailable"}
 	total_score += hs_points
 
 	# Component 3: Thesis signals (15 pts)
