@@ -8,7 +8,7 @@ As of February 28, 2026, it currently supports 5 experts: **Minervini** (SEPA), 
 
 ## 1. Design Philosophy
 
-This plugin aims to perfectly recreate the **mindset and decision-making framework** of each investment expert, not just analyze stocks. To achieve this, the plugin enforces 7 core design principles (see Section 2) governing how the agent discovers code, executes analysis, and manages context. Every architectural decision — from the 2-step module discovery to pipeline-centric execution — derives from these principles.
+This plugin aims to perfectly recreate the **mindset and decision-making framework** of each investment expert, not just analyze stocks. To achieve this, the plugin enforces 8 core design principles (see Section 2) governing how the agent discovers code, executes analysis, and manages context. Every architectural decision — from the 2-step module discovery to pipeline-centric execution — derives from these principles.
 
 ---
 
@@ -18,9 +18,9 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 ### 2.1 Single Source of Truth (Eliminating Document Synchronization Burden)
 
-**Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify **interface details** (subcommand names, argument formats, return structures) in commands or personas — these change when code evolves. The agent always accesses the latest interface information via `extract_docstring.py`. Structural references (which pipeline file serves which persona, execution path format patterns) are acceptable since they are stable architectural facts.
+**Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify **interface details** (subcommand names, argument formats, return structures) or **output field names** (JSON key names such as `sbc_flag`, `debt_quality_grade`, `composite_signal`) in commands or personas — these change when code evolves. The agent always accesses the latest interface information via `extract_docstring.py`, and field-level semantics via the JSON output's self-documenting fields (see §2.8). Structural references (which pipeline file serves which persona, execution path format patterns) and methodology concepts (e.g., "stock-based compensation health", "debt quality") are acceptable since they are stable architectural facts.
 
-**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing interface details with separate files (commands/personas) was burdensome and prone to omissions. `extract_docstring.py` bridges this gap, ensuring the agent always has access to the latest code information.
+**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing interface details with separate files (commands/personas) was burdensome and prone to omissions. `extract_docstring.py` bridges this gap for interface discovery. Similarly, when calculation thresholds change in code, the JSON output's `thresholds`/`interpretation` fields reflect the change automatically, while references to specific field names or threshold values in separate documents become stale.
 
 ### 2.2 Persona Purity
 
@@ -57,6 +57,25 @@ Describe the meaning, purpose, and reason for introducing each principle.
 **Principle**: Individual modules are not dependent on a specific persona. The identity of a persona is determined by the combination, weights, and gate design of the pipeline, and the interpretation context of the command and persona documents.
 
 **Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
+
+### 2.8 Self-Documenting Output (3-Layer Trust Model)
+
+**Principle**: Every computed score, signal, and flag in the JSON output must include self-documenting fields (`thresholds` and/or `interpretation`) that explain how the value was derived and what it means. The agent must treat code-computed scores as a **consistent baseline, not absolute truth** — scores may be wrong due to hardcoded thresholds that don't fit every context. The agent critically evaluates scores by cross-checking against the `detail`/`evidence` fields provided alongside them.
+
+Three layers provide information to the agent, each with a distinct role and zero synchronization risk:
+
+| Layer | Role | Contains | Sync Risk |
+|-------|------|----------|-----------|
+| **JSON Output** | Field-level semantics | `thresholds` (classification criteria), `interpretation` (current value meaning), `note` (agent directives) | Zero — same code function |
+| **Docstring** | Interface specification | Subcommands, arguments, return field names and types | Zero — same file as code |
+| **Persona Documents** | Methodology framework | WHY and HOW to think — investment reasoning, decision frameworks, judgment heuristics | Zero — no field names, stable concepts only |
+
+**Field naming convention:**
+- `thresholds`: Static string describing the classification boundaries (e.g., `"A: <3% | B: 3-6% | C: 6-8% | D: >8%"`)
+- `interpretation`: Dynamic string combining the current value with contextual meaning (e.g., `"Grade A with 2.1% implied interest — low refinancing risk"`)
+- `note`: Agent instruction (e.g., `"Agent must contextualize with sector/event awareness"`)
+
+**Reason for Introduction**: Score/signal/flag calculation methodologies were previously described in both code and persona documents. This created two risks: (1) When code thresholds changed, documents became stale, causing LLM misjudgment; (2) LLM couldn't distinguish "should I calculate this myself?" from "is this already calculated?" The self-documenting output pattern eliminates both risks — interpretation travels with the data, always in sync, and the LLM knows every score is pre-computed while having the evidence to question it.
 
 ---
 
@@ -113,6 +132,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 - **Include Inline Methodology Summary**: Directly include core criteria (e.g., Minervini's 8 Trend Template conditions) in the Methodology Quick Reference. Used as a fallback if persona files fail to load.
 - **Query Classification**: Define analysis workflows for each type (Type A ~ G) to determine the appropriate analysis path based on the user's question intent.
 - **Do Not Specify Interface Details**: Following the Single Source of Truth principle, do not include subcommand names, argument formats, or return structures. Discover them at runtime via `extract_docstring.py`. Structural references (pipeline file paths, execution format) are acceptable.
+- **Output Field Name References**: Command files may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria) since these are direct pipeline-to-agent action mappings. However, do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
 
 ### 4.2 SKILL.md
 
@@ -158,6 +178,8 @@ Module Scripts — Atomic Analysis Functions (~112)
 - Extract the methodology (HOW) from original books and reports. Use past cases only as few-shot examples, focusing on the decision-making process. Prevent anchoring bias from specific stock conclusions.
 - Avoid over-generalization — preserve the unique perspective of the specific expert.
 - Avoid specifying interface details (subcommand names, arguments, return structures) — creates synchronization burden when code changes. Structural pipeline references are acceptable.
+- **Methodology Only, Not Calculation Methods**: Persona files describe WHY and HOW to think (investment reasoning, decision frameworks, judgment heuristics), not HOW scores are computed. If a score/signal/flag is computed by code, do not duplicate its calculation methodology or threshold values in persona files — the JSON output's `thresholds`/`interpretation` fields provide this (§2.8). Persona files may reference the *concept* (e.g., "debt quality", "stock-based compensation health") without referencing specific JSON field names (e.g., `debt_quality_grade`, `sbc_flag`).
+- **Critical Evaluation Guidance**: Where persona files reference pipeline-computed scores, they should focus on when the score might be misleading and what contextual factors the agent should consider — not on how to recalculate the score. Example: "Pipeline auto-classifies SBC health. CAVEAT: Pre-revenue biotech may show high SBC due to option pool strategy, not value destruction."
 
 ### 4.4 Pipeline Scripts
 
@@ -182,6 +204,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 - **ThreadPoolExecutor Parallel Execution**: Reduces response time by executing independent modules concurrently.
 - **Graceful Degradation**: Continues analysis with the rest even if partial failures occur. Indicates `missing_components`.
 - **Response Compression Post-processing**: Converts raw data into insights to ensure context efficiency.
+- **Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores, grades, or signals by aggregating multiple inputs, the output must include `thresholds` or equivalent fields (e.g., `score_methodology`, `signal_weights`, `scoring_guide`) that reveal the component weights and grade boundaries. This enables the agent to understand why a grade was assigned and which components might be misleading.
 
 **[HARD] Pre-verification of Module Interfaces (Pipeline Development Rule):**
 
@@ -214,6 +237,7 @@ Writing calling code based on guesswork without verifying the module's interface
 - **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap between modules. Since pipelines combine and call multiple modules, each module must be clearly distinct for easy maintenance. When writing a new module, always check for functional overlap with existing modules.
 - **Write Persona-Neutrally**: Do not hardcode the interpretation logic of a specific persona so that it can be reused across multiple pipelines.
 - **Docstring Concentration Principle**: `extract_docstring.py` extracts only the module-level docstring at the very top of the file using `ast.get_docstring()`. All information the agent needs to know (subcommands, arguments, return structures, usage examples) must be concentrated within a single `""" """` block at the very top of the file. Function-specific docstrings or inline comments will not be discovered by `extract_docstring.py`.
+- **Self-Documenting Output (§2.8)**: When a module computes a score, signal, flag, or classification, the JSON output must include `thresholds` (static: what criteria define each category) and/or `interpretation` (dynamic: what the current value means in context). This ensures every pipeline consuming the module automatically receives the field-level semantics, eliminating the need for separate documentation of calculation methods. The `interpretation` should be persona-neutral (factual, not investment-advisory) to comply with Module Neutrality (§2.7).
 
 ### 4.6 Docstring & extract_docstring.py
 
@@ -250,6 +274,10 @@ Describe each anti-pattern along with the reason why it is a problem.
 - **Hardcoding the interpretation logic of a specific persona into module scripts** — Prevents reuse in other pipelines and unnecessarily increases the number of modules. Interpretation is handled by higher layers (commands/pipelines).
 
 - **Specifying concrete code names or subcommand names in command/persona files** — Creates a synchronization burden across multiple files when code changes. Violates the Single Source of Truth.
+
+- **Duplicating score/signal/flag calculation methodology in persona documents** — If code computes `sbc_flag` with specific thresholds (e.g., >30% = toxic) and the persona document also describes the same thresholds, two risks emerge: (1) when code thresholds change, the document becomes stale; (2) the LLM is confused about whether to recalculate or use the pre-computed value. Instead, the code's JSON output should include `thresholds`/`interpretation` fields (§2.8), and persona documents should focus on when to question the score, not how it was calculated.
+
+- **Referencing specific JSON output field names in persona documents** (e.g., "check `sbc_flag`", "if `debt_quality_grade` is D") — Creates synchronization burden when field names change in code. Use methodology concepts instead (e.g., "evaluate stock-based compensation health", "assess debt quality"). Exception: Command files may reference field names in orchestration rules (e.g., Investigation Triggers) since these are direct pipeline-to-agent action mappings.
 
 - **Scattering module usage instructions outside the top-level docstring** (function-specific docstrings, inline comments, etc.) — Cannot be discovered because `extract_docstring.py` extracts only the module-level docstring using `ast.get_docstring()`.
 
