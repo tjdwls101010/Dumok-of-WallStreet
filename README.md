@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v5.3.0
+> 성진의 Claude 금융 시장 분석 플러그인 v5.3.1
 
 ![](Docs/Media/Main.png)
 
@@ -239,7 +239,7 @@ Dumok-of-WallStreet/
 ├── .claude/
 │   ├── .claude-plugin/plugin.json
 │   ├── commands/          # Debate, Evolve, Minervini, Serenity, SidneyKim0, TraderLion, Williams
-│   └── skills/MarketData/ # SKILL.md, Personas/, scripts/ (screening/, pipelines/), tools/
+│   └── skills/MarketData/ # SKILL.md, Personas/, scripts/ (screening/, pipelines/, pipelines/serenity/), tools/
 ├── Docs/
 │   ├── Examples/          # 분석 결과 예시 (추후 추가 예정)
 │   └── Media/             # 이미지 리소스
