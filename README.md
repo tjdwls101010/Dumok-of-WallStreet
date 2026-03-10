@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v5.3.1
+> 성진의 Claude 금융 시장 분석 플러그인 v5.4.0
 
 ![](Docs/Media/Main.png)
 
@@ -58,14 +58,14 @@
 [![Source: @aleabitoreddit](Docs/Media/Source_Serenity.png)](https://x.com/aleabitoreddit)
 
 **방법론 특징**
+- OODA 루프 프로토콜: 파이프라인 실행 → Clear Thought MCP 구조적 사고 → 추가 조사 결정 → 최종 응답 (자율 반복)
 - 6단계 증거 체인: 매크로 → 섹터 → 병목 → 기업 → 밸류에이션 → 카탈리스트
 - 공급망 병목이 곧 투자 기회 — 수요 > 공급 구간을 찾는다
 - Dual-Valuation 필수: No-Growth 바닥 + 성장 Upside 동시 제시
 - 정보 우선순위 계층: Forward Revenue > Gross Margins > Proxy > Balance Sheet > IO Quality
-- 5-Layer 공급망 분해(완제품 → 원재료) + 재귀적 병목 발견
-- 6기준 Bottleneck Scoring + Nested Bottleneck + Sole Western 플래그
+- 통합 Discovery Workflow: 시나리오 프레이밍 → 공급망 스트레스 매핑 → 병목 가설 → 검증
+- 5-Layer 공급망 분해(완제품 → 원재료) + 재귀적 병목 발견 + Nested Bottleneck
 - 부재 증거 체크리스트, 역발상 트리거 감지, 크로스섹터 패턴 라이브러리
-- 10항목 네오클라우드 Bear Case + Three-Factor Crash Triage
 
 **서브커맨드**
 

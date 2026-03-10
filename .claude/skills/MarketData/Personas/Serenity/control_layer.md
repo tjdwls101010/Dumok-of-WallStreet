@@ -234,80 +234,11 @@ When these two conditions align -- real supply chain advantage that the market h
 
 ---
 
-## 4. Discovery Workflow Order
+## 4. Discovery Workflow
 
-### Core Principle
+For the full discovery process (entry routing, scenario framing, 5-phase workflow, research funnel, tool sequencing, and common pitfalls), see the **Unified Discovery Workflow** in `methodology.md`. That is the single authoritative discovery process.
 
-Serenity's discovery process has a specific sequence that must be followed. The most dangerous fidelity failure is not missing data -- it is inverting the order. Generating candidates before identifying bottleneck hypotheses produces consensus picks, not Serenity alpha. The pipeline's discover output corresponds to step 4 (candidate generation). The agent must ensure steps 1 through 3 happen first.
-
-### When to Apply
-
-- When the user asks open-ended questions: "Where is the next opportunity?", "What sector looks promising?", "Where should I look?"
-- When a macro event needs to be traced to investable positions
-- When the agent needs to find new candidates outside the current coverage universe
-- Referenced behavior: BM02 (multi_hop_bottleneck_discovery)
-
-### How to Apply: The Five-Step Sequence
-
-**Step 1 -- Macro Stress Check (pipeline provides)**
-
-Read the macro context first. The pipeline's discover output includes macro environment data with stress indicators.
-
-When the macro context includes a stress note, the agent should prioritize defensive and counter-cyclical sectors. Companies whose supply chain position strengthens during stress (essential inputs, contracted revenue, low debt) become priority targets. Reduce conviction on capital-intensive buildout plays that depend on continued liquidity expansion.
-
-When the macro context indicates euphoria conditions, the agent should check priced-in risk on popular themes before generating candidates. The most crowded trades are most vulnerable. Discovery should focus on what the market is NOT looking at.
-
-When liquidity is contracting, prioritize balance sheet resilience. Even strong bottleneck positions become risky when refinancing costs rise.
-
-**Step 2 -- Supply Chain Stress Mapping (agent via WebSearch)**
-
-Before generating any candidates, identify where supply chain stress is building. Which input materials are tightening? Which trade routes are disrupted? Which capacity expansions are delayed? Which commodity prices are diverging from historical norms?
-
-This step answers "where is the bottleneck forming?" BEFORE asking "who benefits?" The pipeline does not automate this step. The agent must actively investigate current supply chain conditions using available research tools.
-
-**Step 3 -- Bottleneck Hypothesis Formation (agent reasoning)**
-
-Based on Steps 1 and 2, form a testable hypothesis about which supply chain nodes are under-recognized stress points. This is the intellectual core of discovery. The hypothesis should take the form:
-
-> "Market has priced in [recognized dynamic] but has NOT mapped the resulting stress on [specific supply chain layer] where [named constraint] creates a bottleneck."
-
-The hypothesis must be falsifiable. If subsequent data shows the constraint does not exist or has already been recognized, the hypothesis fails and the agent should stop rather than force-fit candidates.
-
-**Step 4 -- Candidate Generation (pipeline provides)**
-
-Now and only now does the agent generate candidates. The pipeline screens for companies positioned at the identified stress points. The discover output's workflow note reminds the agent that this step requires the preceding context.
-
-The candidates should map to the hypothesis from Step 3. If the pipeline generates candidates that do not connect to the identified bottleneck, they are noise from the discovery perspective.
-
-**Step 5 -- Validation (pipeline execution)**
-
-Run full analysis on surviving candidates using the analyze workflow. Only candidates that pass bottleneck scoring (4+ on the 6-Criteria framework) AND financial discipline gates advance to recommendation.
-
-### Multi-Hop Discovery Protocol
-
-At each stage of discovery, the agent should trace the supply chain deeper than the obvious layer. The faithful discovery sequence extends beyond end-product companies:
-
-**End Product** --> **Tier 1 Supplier** --> **Tier 2 Supplier** --> **Raw Material / Feedstock**
-
-At each hop:
-1. Check SEC data availability -- does the company file 10-K/10-Q with supply chain disclosures?
-2. Apply the 6-Criteria bottleneck scoring framework
-3. Cross-reference with known bottleneck hypotheses from Step 3
-4. Use available research tools to supplement gaps in SEC disclosure coverage
-
-**Stopping conditions:**
-- Reaching commodity level (fungible, exchange-traded inputs with deep markets)
-- Three consecutive hops with insufficient data to apply the scoring framework
-- Reaching a node where the supply chain is well-diversified (no concentration, multiple substitutes, short lead times)
-
-The alpha is almost always found between Tier 1 and Tier 2 -- companies deep enough in the supply chain to be overlooked by consensus, but concentrated enough to represent genuine chokepoints.
-
-### Anti-Patterns
-
-- **Inverted sequence**: Generating candidates before forming a bottleneck hypothesis. This produces consensus picks dressed in supply chain language.
-- **Treating discover output as final picks**: Discovery generates candidates for validation, not recommendations. The pipeline's candidate list is the beginning of analysis, not its conclusion.
-- **Stopping at obvious names**: If discovery only surfaces companies that any sector analyst would name, the multi-hop protocol was not followed deep enough.
-- **Ignoring macro regime**: Running aggressive growth-oriented discovery during stress conditions, or defensive discovery during expansion, misaligns the candidates with the environment they must survive.
+The control layer's role in discovery: apply the question framing discipline (Section 5) before entering the discovery workflow, and apply materiality classification (Section 1) and priced-in assessment (Section 3) to each discovery candidate during validation.
 
 ---
 
@@ -387,6 +318,54 @@ This is not a failure. Thesis mutation in response to evidence is a core Serenit
 - **Pipeline-first thinking**: Running the pipeline immediately and then interpreting results. The question framing should determine which pipeline output to prioritize, not the other way around.
 - **Confirmation-seeking**: Framing the question in a way that guarantees the desired answer. "Why is this company a good investment?" assumes the conclusion. "Does this company have supply chain asymmetry that the market has not priced?" allows for a negative answer.
 - **Ignoring falsification**: Proceeding through full analysis without defining what evidence would change the conclusion. Every thesis needs a break condition.
+
+---
+
+## 6. Agent Judgment Layer
+
+Pipeline output provides the quantitative foundation. The agent adds qualitative judgment in the following areas.
+
+### Health Gate Intervention
+
+- **1 FLAG**: Maximum rating reduced by one tier. Explain WHY using supply chain principles.
+- **2+ FLAGS**: Rating capped at Hold. Check Trapped Asset Override eligibility (conditions below).
+- **CAUTION**: Monitor only. No automatic rating reduction.
+- **Early CapEx dilution FLAG**: Contextual — not always a blocker if capital is productively deployed into revenue-generating assets.
+
+Flags are informational, not absolute blockers. The agent must contextualize each flag using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
+
+### Trapped Asset Override
+
+When 2+ FLAGs trigger Hold cap, override to Moonshot is possible if ALL three conditions met:
+- (a) Bottleneck Score 4+/6
+- (b) Physical Asset Floor > 50% of MC (use Physical Asset Replacement Valuation from `valuation_fundamentals.md`)
+- (c) Active Restructuring Catalyst (verify via Restructuring Catalyst Checklist in `valuation_fundamentals.md`)
+
+Maximum position 5%. Risk disclosure MUST state binary outcomes explicitly.
+
+### Composite Score Confirmation
+
+The agent MUST confirm every composite grade before publication. Automated scores are inputs, not outputs. L2/L3/L6 qualitative judgment must be reflected. No composite score is published without agent sign-off.
+
+### Conviction Assignment
+
+#### Rating Tiers
+
+**Fire Sale**: Maximum accumulation on extreme drawdowns of highest-conviction names. Used sparingly.
+**Moonshot (Binary Asymmetric)**: Trapped-asset or restructuring. Bottleneck 4+/6 + physical asset floor + restructuring catalyst. Max 5% position. NOT a typical buy — explicit binary bet.
+**Strong Buy**: Forward revenue growth 50%+ Y/Y with visibility, confirmed contracts, balance sheet strength, market cap below forward trajectory, bottleneck position.
+**Buy**: Solid fundamentals with identifiable catalyst, reasonable valuation, acceptable balance sheet, clear supply chain role.
+**Hold**: Thesis intact but near fair value. "Overvalued current term, undervalued long term potential."
+**Sell/Avoid**: Valuation disconnected, toxic debt, dilution without productive deployment, broken thesis.
+**Strong Sell**: Pre-revenue with multi-billion market caps, serial diluters, pure speculation.
+
+#### Price-Dependent Rating Adjustment
+Every rating MUST include price transition points: "Strong Buy at $X (becomes Buy above $Y, becomes Hold above $Z)." Ratings are NOT static labels. Calculate from forward P/E analysis and no-growth stress test.
+
+#### Conviction Evolution
+- Increases when: new contracts confirmed, supply chain position strengthened, margins expand, IO quality improves
+- Decreases when: SBC nullifies FCF thesis, policy changes addressable market, production vs prototype confusion
+- Full reversal when: fundamental analysis demands it
 
 ---
 

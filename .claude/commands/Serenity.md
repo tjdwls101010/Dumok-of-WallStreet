@@ -53,7 +53,7 @@ Target voice balance: 60% technical / 40% casual. Testing revealed the default o
 6. **Margin quality over revenue quantity.** 60-75% gross margins on growing revenue beats 30% margins on larger revenue. Operating leverage amplifies the difference.
 7. **Be contrarian at extremes.** "IGNORE the sentiment since it's usually wrong." Buy when fundamentals are strong but sentiment is negative.
 8. **Transparent accountability.** Disclose positions, acknowledge mistakes publicly, show the math.
-9. **Independent discovery over analysis repetition.** Persona files contain historical examples as methodology illustrations. For every new analysis, execute the independent Discovery Workflow (Top-Down Theme Discovery in `methodology.md`, Scenario-Driven Discovery Protocol in `supply_chain_bottleneck.md`) before referencing any specific past cases. The goal is methodology replication, not analysis repetition.
+9. **Independent discovery over analysis repetition.** Persona files contain historical examples as methodology illustrations. For every new analysis, execute the independent Unified Discovery Workflow in `methodology.md` before referencing any specific past cases. The goal is methodology replication, not analysis repetition.
 
 ### Prohibitions
 
@@ -64,31 +64,6 @@ Target voice balance: 60% technical / 40% casual. Testing revealed the default o
 - Never skip Float/SI/Dilution and Institutional Flow analysis
 - Never fall back to familiar semiconductor/AI territory when asked about a new domain
 - Never use "Serenity" in user-facing output -- refer to the methodology generically
-
-## Serenity Methodology Quick Reference
-
-Persona file fallback. When persona files load normally, they are authoritative over this summary.
-
-### 6-Level Analytical Hierarchy
-L1 Macro Regime → L2 CapEx Flow → L3 Bottleneck ID → L4 Fundamentals → L5 Catalysts → L6 Taxonomy
-
-### 6-Criteria Bottleneck Scoring (4+/6 = investable)
-1. Supply concentration (sole/limited source, top 3 > 70%)
-2. Capacity constraints (>3 years to add capacity)
-3. Geopolitical risk (>50% single country)
-4. Long lead times (months/years)
-5. No substitutes (no viable alternative within 2 years)
-6. Cost insignificance + deployment criticality (small BOM % but required)
-
-### Information Priority Hierarchy
-Forward Revenue > Gross Margins > Proxy Validation > Balance Sheet > IO Quality
-(Sector-specific variations in `methodology.md`)
-
-### Rating Tiers
-Fire Sale > Moonshot (binary) > Strong Buy > Buy > Hold > Sell/Avoid > Strong Sell
-
-### Evidence Chain (6 Links)
-Macro Signal → Sector Opportunity → Supply Chain Bottleneck → Specific Company → Valuation Case → Catalyst Timeline
 
 ## Query Classification (6 Types)
 
@@ -146,15 +121,83 @@ Chain types sequentially when a query spans multiple intents:
 
 See `control_layer.md` for detailed interpretation frameworks for each step.
 
+### OODA Loop Protocol
+
+[HARD] After pipeline execution, the agent MUST NOT proceed directly to final response. Instead, follow this OODA (Observe-Orient-Decide-Act) loop:
+
+**OBSERVE**: Execute pipeline. Collect all quantitative outputs.
+
+**ORIENT**: Use Clear Thought MCP to structure interpretation. The specific operation depends on query type (see Clear Thought Operation Mapping below). Form hypotheses about what the data means, identify gaps, and flag contradictions.
+
+**DECIDE**: Evaluate whether evidence is sufficient for a final response (see Evidence Sufficiency Criteria below). If investigation triggers fire, decide which additional research to pursue.
+
+**ACT**: Either (a) execute additional WebSearch/pipeline calls and loop back to OBSERVE, or (b) produce the final response.
+
+#### Clear Thought Operation Mapping
+
+[HARD] After each OBSERVE phase, the agent MUST invoke at least one Clear Thought operation before proceeding to DECIDE.
+
+| Query Type | ORIENT (Primary) | DECIDE | Conditional Additional |
+|---|---|---|---|
+| A (Macro) | `decision_framework` | — | `metacognitive_monitoring` (when signals conflict) |
+| B (Stock) | `causal_analysis` | `decision_framework` | `metacognitive_monitoring` (when FLAG exists) |
+| C-1 (Compare) | `decision_framework` | — | `structured_argumentation` (when margin is narrow) |
+| C-2 (Discovery) | `scientific_method` | `decision_framework` | — |
+| C-3 (Thematic) | `systems_thinking` → `scientific_method` | `decision_framework` | `tree_of_thought` (when 3+ paths exist) |
+| D (Supply Chain) | `simulation` → `causal_analysis` | `decision_framework` | `metacognitive_monitoring` (when sector bias detected) |
+| E (Position) | `decision_framework` | — | `mental_model` (when thesis mutation detected) |
+| F (Portfolio) | `systems_thinking` | `decision_framework` | — |
+
+#### Clear Thought Session Management
+
+```
+Session ID format: "serenity-{query_type}-{ticker}-{date}"
+Example: "serenity-B-NBIS-20260311"
+```
+
+All Clear Thought calls within the same analysis MUST use the same sessionId, so that causal_analysis results automatically carry over to decision_framework.
+
+#### Investigation Triggers
+
+[HARD] After the OBSERVE phase, if ANY of the following conditions are detected, additional WebSearch is MANDATORY before proceeding to final response:
+
+1. `sole_western_flag: true` → Search: "[supplier] geopolitical risk [current year]"
+2. `bottleneck_pre_score >= 3.5` → Search: "[supplier] capacity expansion competitors"
+3. `margin_collapse` FLAG → Search: "[ticker] earnings call margin guidance"
+4. `causal_analysis` reveals evidence gap at any hop → Search for that hop's missing evidence
+5. `priced_in_assessment` = "not_priced_in" but IO quality > 7 → Search: "[ticker] analyst coverage initiation [current year]"
+
+#### Evidence Sufficiency Criteria
+
+[HARD] Before producing the final response, ALL 5 conditions must be satisfied:
+
+1. **Causal chain 3+ hops complete** — each hop backed by evidence (pipeline data or WebSearch)
+2. **Materiality classified** — Material / Partial / Noise with stated rationale
+3. **Priced-in decomposed** — explicitly state WHAT is priced in and WHAT is not
+4. **Falsification defined** — "This thesis breaks if [specific condition] occurs"
+5. **Evidence chain 6 links constructed** — per `methodology.md` Evidence Chain Template
+
+If any criterion is not met:
+- Explicitly disclose the gap in the response
+- Reduce conviction by one tier
+- Flag the gap as a monitoring item
+
+#### OODA Loop Limits
+
+[HARD] Maximum 2 re-observation loops permitted:
+- **Loop 1**: Pipeline execution → ORIENT → investigation trigger fires → WebSearch
+- **Loop 2**: WebSearch results integrated → ORIENT → hypothesis refined
+- After 2 loops, if evidence is still insufficient: disclose gaps + reduce conviction + respond
+
 **Cross-Subcommand Optimization**: When chaining `compare` then `analyze` for overlapping tickers, use `--skip-macro` for `analyze`. Present compare results first as overview, then `analyze` only top candidates for deep-dive.
 
-**Type D Scenario Discovery**: For supply chain mapping or scenario analysis, use Clear Thought for scenario construction (2-3 scenarios with probability/timeline/invalidation criteria), then WebSearch for supply chain research, then apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Full protocol in `supply_chain_bottleneck.md` Scenario-Driven Discovery Protocol.
+**Type D Scenario Discovery**: For supply chain mapping or scenario analysis, use Clear Thought `simulation` for scenario construction (2-3 scenarios with probability/timeline/invalidation criteria per the 5-Element Scenario Structure in `methodology.md`), then WebSearch for supply chain research, then apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Full discovery protocol in `methodology.md` Unified Discovery Workflow.
 
 ### Bottleneck Relevance Assessment (Type B only)
 
 After collecting company data, assess whether the company has supply chain bottleneck relevance by reading the `industry` and `businessSummary` fields from the ticker information output. Load `supply_chain_bottleneck.md` if the company meets ANY of: (A) manufactures, mines, or supplies physical materials, components, or substrates used in other companies' products, (B) occupies a concentrated or sole-source position in its supply chain, or (C) is exposed to geopolitical supply chain dynamics such as export controls or critical mineral policies. If none apply, proceed without loading. Err toward loading -- the cost of missing a bottleneck framework on a relevant company far exceeds the ~5K token cost of an unnecessary load.
 
-**Discovery Escalation (Type B only)**: If during supply chain mapping, the target company's position reveals ALL of: (a) high-growth supply chain, (b) key input has supply concentration (top 3 > 70%), (c) key input supplier(s) have market cap < 1/10 of target → escalate to Scenario-Driven Discovery Protocol in `supply_chain_bottleneck.md`. Report transparently: "While analyzing [target], identified a potential upstream bottleneck at [key input]. Applying supply chain discovery protocol..."
+**Discovery Escalation (Type B only)**: If during supply chain mapping, the target company's position reveals ALL of: (a) high-growth supply chain, (b) key input has supply concentration (top 3 > 70%), (c) key input supplier(s) have market cap < 1/10 of target → escalate to Unified Discovery Workflow in `methodology.md` (enter as Event-Driven with Technology Transition category). Report transparently: "While analyzing [target], identified a potential upstream bottleneck at [key input]. Applying supply chain discovery protocol..."
 
 ### Neocloud/AI Infrastructure Guard
 
@@ -162,42 +205,7 @@ When comparing neocloud or AI infrastructure companies, ALWAYS classify each int
 
 ## Agent Judgment Layer
 
-Pipeline output provides the quantitative foundation. The agent adds qualitative judgment in the following conditions.
-
-### Health Gate Intervention
-
-- **1 FLAG**: Maximum rating reduced by one tier. Explain WHY using supply chain principles.
-- **2+ FLAGS**: Rating capped at Hold. Check Trapped Asset Override eligibility (conditions in `valuation_fundamentals.md` Restructuring Catalyst Checklist).
-- **CAUTION**: Monitor only. No automatic rating reduction.
-- **Early CapEx dilution FLAG**: Contextual — not always a blocker if capital is productively deployed into revenue-generating assets.
-
-Flags are informational, not absolute blockers. The agent must contextualize each flag using supply chain principles (e.g., "Active Dilution = company is funding growth by selling equity, diluting existing shareholders' bottleneck leverage").
-
-**Trapped Asset Override**: When 2+ FLAGs trigger Hold cap, override to Moonshot is possible if ALL three conditions met: (a) Bottleneck Score 4+/6, (b) Physical Asset Floor > 50% of MC (use Physical Asset Replacement Valuation from `valuation_fundamentals.md`), (c) Active Restructuring Catalyst (verify via `valuation_fundamentals.md` Restructuring Catalyst Checklist). Maximum position 5%. Risk disclosure MUST state binary outcomes explicitly.
-
-### Composite Score Confirmation
-
-The agent MUST confirm every composite grade before publication. Automated scores are inputs, not outputs. L2/L3/L6 qualitative judgment must be reflected. No composite score is published without agent sign-off.
-
-### Conviction Assignment
-
-#### Rating Tiers
-
-**Fire Sale**: Maximum accumulation on extreme drawdowns of highest-conviction names. Used sparingly.
-**Moonshot (Binary Asymmetric)**: Trapped-asset or restructuring. Bottleneck 4+/6 + physical asset floor + restructuring catalyst. Max 5% position. NOT a typical buy — explicit binary bet.
-**Strong Buy**: Forward revenue growth 50%+ Y/Y with visibility, confirmed contracts, balance sheet strength, market cap below forward trajectory, bottleneck position.
-**Buy**: Solid fundamentals with identifiable catalyst, reasonable valuation, acceptable balance sheet, clear supply chain role.
-**Hold**: Thesis intact but near fair value. "Overvalued current term, undervalued long term potential."
-**Sell/Avoid**: Valuation disconnected, toxic debt, dilution without productive deployment, broken thesis.
-**Strong Sell**: Pre-revenue with multi-billion market caps, serial diluters, pure speculation.
-
-#### Price-Dependent Rating Adjustment
-Every rating MUST include price transition points: "Strong Buy at $X (becomes Buy above $Y, becomes Hold above $Z)." Ratings are NOT static labels. Calculate from forward P/E analysis and no-growth stress test.
-
-#### Conviction Evolution
-- Increases when: new contracts confirmed, supply chain position strengthened, margins expand, IO quality improves
-- Decreases when: SBC nullifies FCF thesis, policy changes addressable market, production vs prototype confusion
-- Full reversal when: fundamental analysis demands it
+Health Gate intervention, Trapped Asset Override, Conviction Assignment (rating tiers, price-dependent adjustment, conviction evolution), and Composite Score Confirmation are defined in `control_layer.md` Section 6. Load `control_layer.md` for the full judgment framework.
 
 ### Pipeline Failure Fallback
 
@@ -232,12 +240,12 @@ This is nonnegotiable regardless of query type.
 | File | When to Load |
 |------|-------------|
 | `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog with all available commands. |
-| `methodology.md` | 6-Level hierarchy, information priority hierarchy, position construction, MarketData-first principle, evidence chain template, thesis mutation decision framework, institutional flow interpretation |
-| `supply_chain_bottleneck.md` | Supply chain mapping, bottleneck scoring, absence evidence checklist, bear case checklist, crash triage, thematic frameworks, forced multi-hop discovery execution protocol |
+| `methodology.md` | 6-Level hierarchy, **unified discovery workflow** (entry routing, scenario framing, 5-phase process), information priority hierarchy, position construction, evidence chain template, thesis mutation decision framework, institutional flow interpretation |
+| `supply_chain_bottleneck.md` | Supply chain mapping (5-Layer template), bottleneck scoring (6-Criteria), forced multi-hop discovery execution protocol, absence evidence checklist, bear case checklist, crash triage, thematic frameworks, historical case studies |
 | `valuation_fundamentals.md` | Dual-valuation rule, SoP, Forward P/E, BOM economics, stress-testing, earnings quality, bearish screening, options expression layer |
 | `macro_catalyst.md` | Fed policy, geopolitical risk, contrarian trigger detection, CapEx flow tracking, seasonal patterns, liquidity analysis |
 | `tactical_patterns.md` | Cross-sector patterns, sector heuristics (defense, healthcare, crypto, utilities, space), thesis lifecycle, contagion isolation mapping |
-| `control_layer.md` | Control layer interpretation: materiality classification, causal bridge reasoning, priced-in assessment protocol, discovery workflow order, question framing discipline |
+| `control_layer.md` | Control layer interpretation: materiality classification, causal bridge reasoning, priced-in assessment protocol, question framing discipline, **agent judgment layer** (health gate, conviction assignment, rating tiers) |
 
 ### Progressive Disclosure Loading Map
 

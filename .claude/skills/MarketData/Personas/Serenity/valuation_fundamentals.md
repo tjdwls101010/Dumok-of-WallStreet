@@ -32,11 +32,13 @@ The signature Serenity valuation tool. It answers: "What is this stock worth if 
 - **Interpretation**: If no-growth value > market cap, inherent margin of safety exists. Larger gap = higher conviction
 
 ### Application Examples (brief)
-*Historical Application:*
-- NBIS: No-growth valuation of ~$39B vs ~$24B market cap at time of analysis = 62.5% upside even assuming zero growth
-- UPWK: P/E of 7.5 with flat revenue justified by $622M cash pile and margin expansion potential
 
-*Apply this framework independently to the current analysis target. The above demonstrates the analytical process, not a recommendation.*
+> [METHODOLOGY EXAMPLES — These illustrate the analytical process, not recommendations.
+> Apply this framework independently to the current analysis target.]
+
+- *AI infrastructure (neocloud)*: No-growth valuation significantly exceeded market cap → margin of safety even assuming zero growth
+- *Platform company (gig economy)*: Low P/E with flat revenue justified by large cash position and margin expansion potential
+- *Defense supplier (aerospace)*: No-growth floor anchored by long-term government contracts provided downside protection
 
 ---
 
@@ -91,12 +93,12 @@ When Forward P/E < 15x for a company growing 50%+ Y/Y, this signals extreme unde
 Conglomerates, companies with significant non-core assets, or businesses where the market undervalues individual components by pricing the whole.
 
 **SoP is MANDATORY when ANY of these conditions are met:**
-1. Company has 2+ independently operating business units with distinct revenue streams (e.g., NBIS: neocloud + Wulf Compute + other subsidiaries).
+1. Company has 2+ independently operating business units with distinct revenue streams (e.g., a neocloud with cloud compute + subsidiary businesses).
 2. Holdings/conglomerate corporate structure where subsidiaries could be independently valued.
 3. A subsidiary or asset has received independent third-party valuation (e.g., independent appraisal, minority stake sale, or spin-off filing).
 4. Non-core assets (cash, real estate, IP portfolio, minority stakes) represent 20%+ of current market cap.
 
-When SoP is triggered, failure to perform it is an analytical gap. The NBIS case demonstrated that skipping SoP missed $7.6B of subsidiary value that fundamentally changed the investment thesis.
+When SoP is triggered, failure to perform it is an analytical gap. Skipping SoP can miss billions in subsidiary value that fundamentally changes the investment thesis.
 
 ### Method
 1. Disaggregate the company into component assets and business lines
@@ -108,7 +110,7 @@ When SoP is triggered, failure to perform it is an analytical gap. The NBIS case
 ### Key Insight
 When SoP value of non-core assets approaches or exceeds market cap, the market is giving you the core business for free.
 
-*Historical Application:* NBIS subsidiaries valued at $7.6B vs $21B market cap implied the core business was valued at only $13B for a $7-9B ARR business. *Apply this framework independently to the current analysis target. The above demonstrates the analytical process, not a recommendation.*
+*Historical pattern:* When SoP value of non-core assets (subsidiaries with independent growth trajectories) approaches a significant fraction of market cap, the market is effectively undervaluing the core business. *Apply this framework independently to the current analysis target.*
 
 > **Pipeline Integration (v4.0)**: The pipeline now automates SoP trigger detection — checking sector/industry classification, multi-segment description keywords, and cash-to-MC ratio. When triggers are found, the agent should proceed with Sum-of-Parts analysis. Discover output structure via `extract_docstring.py`.
 
@@ -119,9 +121,9 @@ When SoP value of non-core assets approaches or exceeds market cap, the market i
 ### EV/Revenue
 For pre-profit companies where P/E is not meaningful. Compare Enterprise Value to revenue across peers with similar growth rates and margin profiles.
 
-- Most useful when gross margins exceed 50% (indicating a path to profitability)
-- Compare against sector peers: fabless semi companies with 60%+ gross margins typically trade at 4x-8x EV/Revenue
-- *Historical Application:* Extreme divergence from peers signals mispricing (e.g., VLN at 2.4x when peers traded at 13-23x). *Apply this peer comparison independently to the current analysis target.*
+- Most useful when gross margins exceed 50% (기본 기준; sector에 따라 조정 가능 — indicating a path to profitability)
+- Compare against sector peers: fabless semi companies with 60%+ gross margins typically trade at 4x-8x EV/Revenue (기본 범위; growth rate에 따라 조정)
+- *Pattern:* Extreme divergence from peers signals mispricing — when a company trades at 2-3x EV/Revenue while comparable peers trade at 10-20x+ with similar growth and margins. *Apply this peer comparison independently to the current analysis target.*
 
 ### BOM Per-Unit Economics
 For physical product suppliers, calculate the revenue opportunity from a specific end-product:
@@ -131,7 +133,7 @@ For physical product suppliers, calculate the revenue opportunity from a specifi
 3. Multiply: BOM share x volume = total addressable revenue
 4. Compare addressable revenue to current market cap
 
-*Historical Application:* LITE capturing 10% of $40B Google TPU spend = $4B addressable revenue from a single customer. *Apply this BOM economics framework independently to the current analysis target.*
+*Pattern:* When a supplier captures N% of a large program's BOM spend, addressable revenue = BOM share × total program capex. For example, a photonics supplier capturing 8-12% of a hyperscaler's multi-billion dollar chip program spend = multi-billion dollar addressable revenue from a single customer. *Apply this BOM economics framework independently to the current analysis target.*
 
 ### Revenue per MW (Neocloud-Specific)
 Normalize economics on a per-megawatt basis to compare companies with different scales, hardware vintages, and business models. Calculate Revenue/MW/Year, COGS/MW/Year, and Gross Profit/MW to enable apples-to-apples comparison.
@@ -156,9 +158,9 @@ Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantia
 
 - **Purpose**: Subtract SBC from reported FCF to verify genuine cash generation. Any FCF-based thesis must survive SBC adjustment
 - **Data**: Annual SBC amount, SBC/revenue ratio, reported FCF, shares outstanding Q/Q change
-- **Interpretation**: SBC > 30% of revenue = toxic. Negative Real FCF means reported FCF is illusory. Shares Q/Q increase > 2% = active dilution signal
+- **Interpretation**: SBC > 30% of revenue = toxic (기본 기준; 고성장 초기 기업은 별도 판단). Negative Real FCF means reported FCF is illusory. Shares Q/Q increase > 2% = active dilution signal
 
-*Historical Application:* This became a standard filter after the SNAP lesson: $1B+ annual SBC made reported FCF of $206M illusory (real FCF was -$51M). *Apply this Real FCF test independently to the current analysis target.*
+*Pattern:* When a company reports positive FCF but has massive SBC (>30% of revenue), reported FCF is illusory — Real FCF may be significantly negative. This is a recurring pattern across high-SBC tech companies. *Apply this Real FCF test independently to the current analysis target.*
 
 ### Operating Leverage Assessment
 When actual price hikes exceed street estimates, the excess flows directly to the bottom line. Identify situations where:
@@ -201,7 +203,7 @@ Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 ### SBC Filter
 - **Purpose**: Quantify annual dilution from SBC for every position
 - **Data**: Annual SBC amount, SBC as % of market cap, per-share dilution effect
-- **Interpretation**: SBC > 10% of market cap annually = red flag. Below 5% = healthy, 10-30% = warning, 30%+ = toxic
+- **Interpretation**: SBC > 10% of market cap annually = red flag (성숙 기업 기준; pre-revenue biotech/early-stage는 별도 판단). Below 5% = healthy, 10-30% = warning, 30%+ = toxic
 
 ### IPO Lockup Analysis
 Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates into entry timing. Large insider stakes becoming freely tradable can temporarily depress prices, creating entry opportunities on strong-thesis names.
@@ -283,10 +285,10 @@ Annual interest expense consuming a meaningful percentage of revenue. Debt at 8-
 
 **Debt Quality Assessment Protocol (using debt structure analysis output):**
 1. Run debt structure analysis and check `implied_interest_rate` and `debt_quality_grade`:
-   - Grade A (< 3%): Investment grade or convertible-friendly debt. Low refinancing risk. Example: NBIS 2% convertible notes.
+   - Grade A (< 3%): Investment grade or convertible-friendly debt. Low refinancing risk (e.g., 0-2% convertible notes).
    - Grade B (3-6%): Standard corporate debt. Manageable but monitor at scale.
    - Grade C (6-8%): High yield territory. Elevated refinancing risk, especially in rising rate environments.
-   - Grade D (> 8%): Toxic / distressed. Existential refinancing risk. Example: CRWV 10%+ high-yield bonds.
+   - Grade D (> 8%): Toxic / distressed. Existential refinancing risk (e.g., 10%+ high-yield bonds).
 2. For Grade C or D: check SEC filings for recent debt-related filings (8-K for new debt issuance, S-3 for shelf registrations). Look for: coupon rates on individual tranches, maturity schedule, conversion terms, covenants.
 3. Check `interest_coverage_ratio`: below 2.0x is a warning, below 1.0x means the company cannot cover interest from operations.
 4. **Data source priority**: debt structure analysis (implied rate) -> SEC filings (individual bond details) -> WebSearch (only if SEC data insufficient for specific coupon/maturity info).

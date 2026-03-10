@@ -23,7 +23,7 @@ Macro framework that works UP from physical supply chains, not DOWN from macro i
 
 ### Rate Uncertainty -> Credit Differentiation
 - Higher rates kill weak balance sheets while benefiting cash-rich companies
-- "Companies like APLD failed to sell bonds... bonds were sold at 97 cents on the dollar"
+- Weak balance sheet companies fail to sell bonds at par (e.g., bonds sold at 97 cents on the dollar)
 - Rate uncertainty is a FEATURE for strong balance sheets -- destroys weaker competitors
 
 ### Rate Cuts -> Stablecoin Impact (Complex)
@@ -45,13 +45,15 @@ Macro framework that works UP from physical supply chains, not DOWN from macro i
 
 Each restriction creates a specific bottleneck opportunity by removing supply from global markets. The analytical pattern: identify what material/component is restricted -> trace who supplies the Western alternative -> apply 6-Criteria Bottleneck Scoring.
 
-*Historical Applications:*
-- China InP export restrictions to Japan -> AXTI becomes effective Western monopoly
-- China Germanium export ban -> LPTH sole Western alternative via Black Diamond material
-- China rare earth restrictions -> WWR, DFLI opportunities
-- "Not everyday do you have foreign governments telling you what to buy"
+> [METHODOLOGY EXAMPLES — These illustrate the analytical pattern, not specific investment targets.
+> For new geopolitical events, execute the Unified Discovery Workflow in `methodology.md` independently.]
 
-*When a new export control or sanction is announced, execute the Discovery Workflow independently: classify the event (Step 1), map affected supply chains (Step 2-3), find concentration points (Step 4), score bottlenecks (Step 5), validate fundamentals (Step 6).*
+*Historical pattern examples:*
+- Export restrictions on compound semiconductor materials → Western alternative supplier becomes effective monopoly
+- Export ban on critical optical materials → sole Western alternative for defense optics inherits pricing power
+- Rare earth restrictions → domestic mining/processing alternatives gain strategic premium
+
+*When a new export control or sanction is announced, execute the Unified Discovery Workflow in `methodology.md` independently: classify the event (Scenario Framing), map affected supply chains (Phase 3), find concentration points (Phase 4), score bottlenecks (6-Criteria), validate fundamentals (Phase 5).*
 
 ### Administration Trade Policy Framework
 - **"Maximum Pressure rhetoric"** -> TACO Trade (Tariff Anxiety Creates Opportunity)
@@ -195,21 +197,25 @@ At least one condition must be met with specific, cited evidence before taking a
 
 ## Macro-to-Micro Transmission Pathways
 
-- **Rate Cuts -> Cost of Capital -> Capex -> Supply Chain**: Fed cuts -> hyperscaler capex expands -> more GPU/HBM/InP/optics demand
-- **Export Controls -> Supply Disruption -> Monopoly Premium**: China restricts exports -> Western bottleneck company gains pricing power
-- **Tariff Noise -> Panic Selling -> "TACO Trade" Entry**: Administration announces tariffs -> market sells off on perception -> fundamentals unchanged -> enter at lower prices
-- **Earnings Miss (Optical) -> Algo Selling -> Contrarian Buy**: Accounting anomaly (BBB tax, GAAP vs adjusted) -> algos sell headline -> forward earnings unchanged -> buy the dip
-- **Seasonal Pressure -> Tax Harvesting -> January Recovery**: Institutions harvest losses Nov-Dec -> quality names oversold -> mean reversion rally in January
-- **Credit Stress -> Weak Player Elimination -> Concentration**: Higher rates -> weak balance sheets fail to refinance -> market share shifts to cash-rich players
+For the full 4-layer causal bridge framework (Macro Context → Supply Chain Position → Financial Transmission → Valuation Gap), see `control_layer.md` Section 2: Causal Bridge Reasoning Guide. That framework is the authoritative reference for tracing macro events to company-level impacts.
+
+The following are common transmission pathway examples that illustrate the 4-layer framework:
+
+- **Rate Cuts → Capex Cascade**: Fed cuts → lower cost of capital → hyperscaler capex expands → downstream supply chain demand accelerates (Layer 1→2→3 transmission)
+- **Export Controls → Monopoly Premium**: Export restriction removes supply → Western alternative inherits monopoly pricing power (Layer 1→2 binary disruption)
+- **Tariff Noise → "TACO Trade"**: Tariff announcement → market sells on perception → fundamentals unchanged → entry at lower prices (Layer 1 noise, no Layer 2-3 transmission)
+- **Algo-Driven Earnings Misparse → Contrarian Buy**: Accounting anomaly triggers algo selling → forward earnings unchanged → non-fundamental selling mechanism (see Contrarian Trigger Condition 1)
+- **Seasonal Pressure → Tax Harvesting Recovery**: Institutional tax-loss harvesting Nov-Dec → quality names oversold → mean reversion in January
+- **Credit Stress → Competitive Concentration**: Higher rates → weak balance sheets fail to refinance → market share shifts to cash-rich survivors (Layer 1→3 balance sheet channel)
 
 ---
 
 ## Decision Rules
 
-1. **Hyperscaler capex accelerating**: Stay long AI supply chain -- this is THE signal
-2. **Geopolitical noise without fundamental change**: Buy the dip -- "valuation gift"
-3. **Rate cuts confirmed**: Overweight growth, small caps, neoclouds -- once-in-a-decade
-4. **Credit stress rising**: Differentiate by balance sheet -- exit weak (CRWV, APLD), concentrate in strong (NBIS)
+1. **Hyperscaler capex accelerating**: Stay long AI supply chain — this is THE signal
+2. **Geopolitical noise without fundamental change**: Buy the dip — "valuation gift"
+3. **Rate cuts confirmed**: Overweight growth, small caps, capital-intensive AI infrastructure
+4. **Credit stress rising**: Differentiate by balance sheet — exit weak (debt quality Grade C/D), concentrate in strong (Grade A/B)
 5. **Seasonal selling active**: Build positions for January recovery
-6. **Supply chain disruption**: Identify the bottleneck company -- refer to `supply_chain_bottleneck.md`
-7. **Multiple liquidity drains**: Reduce leverage, maintain conviction, prepare dry powder -- the ONLY scenario where caution overrides supply chain conviction
+6. **Supply chain disruption**: Identify the bottleneck company — execute Unified Discovery Workflow in `methodology.md`
+7. **Multiple liquidity drains**: Reduce leverage, maintain conviction, prepare dry powder — the ONLY scenario where caution overrides supply chain conviction

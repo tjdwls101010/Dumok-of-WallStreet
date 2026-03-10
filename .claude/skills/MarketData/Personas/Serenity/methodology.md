@@ -35,15 +35,43 @@ Track commodity prices (SMM Indium, Germanium, rare earths), earnings results, g
 Classify holdings into three investment categories:
 - **Evolution**: Established companies evolving into new markets (e.g., RKLB from launch to satellite services)
 - **Disruption**: Companies disrupting incumbents through technology or business model innovation (e.g., HIMS disrupting traditional healthcare, HOOD disrupting traditional brokerage)
-- **Bottleneck**: Companies controlling physical supply chain chokepoints (e.g., AXTI in InP substrates, LPTH in Germanium optics)
+- **Bottleneck**: Companies controlling physical supply chain chokepoints (e.g., sole-source substrate suppliers, critical material processors for defense optics)
 
 Each category has different risk profiles, holding periods, and valuation approaches.
 
 ---
 
-## Top-Down Theme Discovery Workflow
+## Unified Discovery Workflow
 
-A 5-phase structured process for when the question is "where is the next opportunity?" rather than "is THIS an opportunity?" This is the AUTHORITATIVE discovery process. All other persona files reference this workflow for independent opportunity identification.
+The SINGLE AUTHORITATIVE discovery process for finding new investment opportunities. All other persona files reference this workflow — there is no alternative discovery process.
+
+### Entry Routing
+
+| Context Type | Trigger Examples | Entry Point |
+|---|---|---|
+| **Open-Ended** | "다음 유망 섹터?", "where's the next opportunity?" | Phase 1 (full workflow) |
+| **Event-Driven** | Geopolitical event, export control, earnings surprise, policy change | Phase 1 with Scenario Framing |
+| **Thematic** | "AI → robotics 유망주", "XX 산업 bottleneck" — sector specified | Phase 2 (skip macro scan) |
+
+### Scenario Framing (Event-Driven Entry)
+
+For event-driven discovery, frame the scenario with 5 required elements before proceeding:
+1. **Triggering Event**: Specific, falsifiable, observable change
+2. **Probability Assessment**: High >60%, Medium 30-60%, Low <30%
+3. **Timeline**: Immediate <3mo, Near-term 3-12mo, Medium-term 1-3yr
+4. **Physical Disruption Mechanism**: Which factories stop, routes blocked, materials unavailable
+5. **Invalidation Criteria**: Specific evidence that would disprove the scenario
+
+**6 Scenario Categories:**
+
+| Category | Conviction | Research Focus |
+|---|---|---|
+| Export Ban / Sanctions | Highest | Western alternative supplier, capacity, scale timeline |
+| Military Conflict / Defense | High | Defense platform BOM, consumed materials, budget |
+| Technology Transition | High | New materials needed, capacity gap |
+| Regulatory Shift | Medium | Companies already meeting new standards |
+| Natural Disaster / Infrastructure | Medium | Single points of failure, alternative suppliers |
+| Currency / Capital Flow Shift | Lower | Exporter competitiveness, reshoring. 6-18mo lag |
 
 ### Phase 1: Macro Signal Scan
 
@@ -63,11 +91,19 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 ### Phase 3: Supply Chain Stress Mapping
 
-**What to do**: For promising sectors, decompose the supply chain and identify stress points. This is where the 5-Layer Supply Chain Mapping Template from `supply_chain_bottleneck.md` is applied.
+**What to do**: For promising sectors, decompose the supply chain and identify stress points. Apply the 5-Layer Supply Chain Mapping Template from `supply_chain_bottleneck.md`.
 
-**How to analyze**: Trace the value chain for each promising group using web research and deep research. Apply the 5-Layer template (Layer 0: End Product through Layer 4: Raw Materials) to each affected industry. At every layer, identify: key inputs and their sources, number of suppliers, geographic concentration, lead times for new capacity, and cost as percentage of end product. Find which supply layer has the longest lead times, fastest rising prices, and highest geographic concentration. Apply the CapEx Cascade model (see `supply_chain_bottleneck.md`) to identify the tightest constraint.
+**How to analyze**: Trace the value chain for each promising group using web research. Apply the 5-Layer template (Layer 0: End Product through Layer 4: Raw Materials) to each affected industry. At every layer, identify: key inputs and their sources, number of suppliers, geographic concentration, lead times for new capacity, and cost as percentage of end product. Find which supply layer has the longest lead times, fastest rising prices, and highest geographic concentration. Apply the CapEx Cascade model (see `supply_chain_bottleneck.md`) to identify the tightest constraint.
 
-**Gate**: At least one layer identified with supply concentration (top 3 controlling >70%) or geographic concentration (>50% single country) or capacity lead time >3 years.
+For deep upstream tracing beyond Layer 2, apply the Forced Multi-hop Discovery Execution Protocol in `supply_chain_bottleneck.md`.
+
+**Bottleneck Hypothesis Formation**: Based on Phases 1-2 and the stress mapping, form a testable hypothesis:
+
+> "Market has priced in [recognized dynamic] but has NOT mapped the resulting stress on [specific supply chain layer] where [named constraint] creates a bottleneck."
+
+The hypothesis must be falsifiable. If subsequent data shows the constraint does not exist or has already been recognized, stop rather than force-fit candidates.
+
+**Gate**: At least one layer identified with supply concentration (top 3 controlling >70%; default threshold, sector-specific thresholds may vary) or geographic concentration (>50% single country) or capacity lead time >3 years.
 
 ### Phase 3.5: Reverse Cross-Chain Discovery
 
@@ -83,6 +119,12 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 **How to analyze**: At each concentration point from Phase 3, apply the 6-Criteria framework from `supply_chain_bottleneck.md` (supply concentration, capacity constraints, geopolitical risk, long lead times, no substitutes, cost insignificance + deployment criticality). Screen for publicly traded companies at those chokepoints using financial data collection and screening capabilities. Collect institutional holder data and float analysis for each candidate. Prioritize by: (Supply Dominance / Market Cap) x Balance Sheet Factor x (1 - IO%).
 
+**Phase 4.5: Nested Bottleneck Check [MANDATORY]**
+
+For each bottleneck scoring 4+/6, apply the 5-Layer Supply Chain Mapping Template AGAIN — treat the bottleneck company's KEY INPUT as the new Layer 0. Trace backward: Who supplies THIS bottleneck? Is their supply also concentrated? Apply the 6-Criteria Scoring to the nested bottleneck and report the score explicitly.
+
+If a nested bottleneck scores 3+/6, this is a "bottleneck within a bottleneck" — the highest asymmetry signal. The nested supplier often has even smaller market cap, even higher supply concentration, and geographic/geopolitical risk amplification. Limit recursion to one additional level (2-level depth is sufficient).
+
 **Gate**: Only candidates scoring 4+ out of 6 advance. Candidates with toxic balance sheets (Bear-Bull Paradox) are eliminated regardless of bottleneck score.
 
 ### Phase 5: Full Validation
@@ -93,7 +135,31 @@ A 5-phase structured process for when the question is "where is the next opportu
 
 **Gate**: All 6 evidence chain links must be supported by specific data. Missing or weak links reduce conviction by one tier.
 
-**When to use**: User asks open-ended questions like "다음 유망 분야?", "where's the next opportunity?", "what sector is promising?" without specifying a ticker or sector. Type C Discovery queries without a sector name route here. Also triggered when a macro event needs to be traced to investable bottlenecks -- flow into this workflow from `macro_catalyst.md`.
+**When to use**: User asks open-ended questions like "다음 유망 분야?", "where's the next opportunity?", "what sector is promising?" without specifying a ticker or sector. Type C Discovery queries without a sector name route here. Also triggered when a macro event needs to be traced to investable bottlenecks — flow into this workflow from `macro_catalyst.md`.
+
+### Research-to-Bottleneck Mapping Funnel
+
+At each discovery phase, data processing follows a 6-stage funnel:
+
+1. **Extract**: Pull structured data — company names, tickers, market share, capacity, geography, customers, substitutes.
+2. **Layer Assignment**: Assign each element to supply chain layer (Layer 0 raw materials through Layer 4 end products).
+3. **Concentration Scoring**: Calculate HHI or top-3 concentration ratio. Flag geographic and facility concentration.
+4. **6-Criteria Scoring**: Apply the bottleneck scoring framework. Threshold: 4+/6 = investable.
+5. **Company Prioritization**: Rank by smallest market cap, highest supply chain dominance, healthiest balance sheet, lowest IO%. Priority = (Supply Dominance / Market Cap) × Balance Sheet Factor × (1 - IO%).
+6. **Quantitative Validation**: Pass through full MarketData validation before conviction assignment.
+
+### Tool Sequencing for Discovery
+
+Clear Thought `scientific_method` (form hypothesis) → WebSearch / Deep Research (discover supply chains) → MarketData scripts (quantitative validation) → Clear Thought `decision_framework` (synthesize and decide). Do NOT reverse this order — the hypothesis must drive the research.
+
+### Common Discovery Pitfalls
+
+- **Anchoring on familiar tickers**: When given a new event, do NOT start with known tickers from historical cases. Execute Phases 1-4 independently.
+- **Narrative is not bottleneck**: Compelling story does not create investable bottleneck without PHYSICAL concentration.
+- **Ignoring balance sheet**: Perfect bottleneck + terrible financials = uninvestable (Bear-Bull Paradox).
+- **Not checking if priced in**: If stock moved 300%+ in 6 months with rising analyst coverage and IO%, the discovery window has closed.
+- **Inverted sequence**: Generating candidates before forming a bottleneck hypothesis produces consensus picks, not alpha.
+- **Single-source research bias**: Cross-reference across queries; check data currency against recent changes.
 
 ---
 

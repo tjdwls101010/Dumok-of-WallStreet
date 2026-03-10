@@ -2,7 +2,7 @@
 
 ## Independent Discovery First
 
-When given a new sector, event, or query to analyze, the analyst MUST independently map the supply chain and identify bottlenecks BEFORE referencing any historical examples in this document. The Discovery Workflow (see Scenario-Driven Discovery Protocol below and Top-Down Theme Discovery Workflow in `methodology.md`) is the authoritative process. Historical case studies exist to demonstrate HOW the methodology was applied, not WHAT tickers to start with.
+When given a new sector, event, or query to analyze, ALWAYS execute the Unified Discovery Workflow in `methodology.md` BEFORE referencing any historical examples in this document. That workflow is the single authoritative process for independent opportunity identification. Historical case studies here demonstrate HOW the methodology was applied, not WHAT tickers to start with.
 
 ---
 
@@ -199,7 +199,7 @@ This is the SINGLE authoritative scoring framework. Apply these six criteria to 
 
 | # | Criterion | Pass (1) | Fail (0) |
 |---|-----------|----------|----------|
-| 1 | Supply concentration | Top 3 control >70% market share | Fragmented (>10 competitors, none >20%) |
+| 1 | Supply concentration | Top 3 control >70% market share (기본값; 원자재/의약품은 더 낮을 수 있음) | Fragmented (>10 competitors, none >20%) |
 | 2 | Capacity constraints | >3 years to add meaningful capacity | New capacity within 1 year |
 | 3 | Geopolitical risk | >50% production in single country/region | Geographically diversified |
 | 4 | Long lead times | Lead times measured in months/years | Can be resolved quickly on demand surge |
@@ -227,9 +227,9 @@ Criterion 6 is the most asymmetric type: a $100 substrate in a $20B deployment c
 AI-focused cloud/datacenter companies providing GPU compute when hyperscalers exceed internal capacity. Classified into a 4-Tier system based on margin quality and execution risk:
 
 **4-Tier Classification:**
-- **Tier 1: Full-Stack** (60-75% GM). Own orchestration software + hardware infrastructure. Highest margin quality and customer stickiness. Example: NBIS.
-- **Tier 2: GPU Cloud** (40-60% GM). Managed GPU-as-a-service with some software layer but not full vertical integration. May operate on leased or owned infrastructure. Example: CIFR (GPU cloud segment).
-- **Tier 3: Colocation / Bare-Metal** (30-45% GM). Infrastructure-only, rent capacity without meaningful software differentiation. Commodity-like pricing risk. Example: IREN.
+- **Tier 1: Full-Stack** (60-75% GM; 기본 범위, 비즈니스 모델에 따라 조정 가능). Own orchestration software + hardware infrastructure. Highest margin quality and customer stickiness.
+- **Tier 2: GPU Cloud** (40-60% GM). Managed GPU-as-a-service with some software layer but not full vertical integration. May operate on leased or owned infrastructure.
+- **Tier 3: Colocation / Bare-Metal** (30-45% GM). Infrastructure-only, rent capacity without meaningful software differentiation. Commodity-like pricing risk.
 - **Tier 4: BTC Miner Pivoting** (GM volatile, highest execution risk). Crypto miners repurposing existing power/cooling infrastructure for AI compute. Unproven unit economics in AI, legacy mining operations may subsidize or drag. Execution risk is the dominant variable.
 
 **Cross-Tier Comparison Rule:** When comparing companies across tiers, ALWAYS explicitly state the tier difference and explain why the comparison is still valid (e.g., shared customer base, same datacenter market). Do NOT compare Tier 1 and Tier 3 companies on gross margin without noting the structural difference in business model. A Tier 1 at 65% GM and a Tier 3 at 35% GM are not "comparable" without this context.
@@ -283,8 +283,8 @@ When a sector-wide selloff hits neocloud/AI infrastructure stocks, apply this tr
 
 **Triage Decision Rule**: Companies passing all 3 factors (Mag7 contracts + net cash/Grade A-B + diversified counterparties) are BUY on crash. Companies failing 2+ factors are AVOID until stress resolves. Companies failing Factor 2 alone may be terminal.
 
-**CRWV as Negative Benchmark:**
-Use CRWV (CrowdStrike rival/crypto-adjacent infrastructure) as a standing reference point for what "bad" looks like in neocloud balance sheets: toxic debt structure (8-10%+ implied interest rate), serial dilution history, pre-revenue inflation. When analyzing any neocloud, compare its debt quality grade and dilution metrics against CRWV as the lower bound. If a company's metrics approach CRWV levels, apply Bear-Bull Paradox filter from `valuation_fundamentals.md`.
+**Negative Balance Sheet Benchmark:**
+When analyzing any neocloud, identify the worst balance sheet in the peer group as a standing reference point for toxic financials: toxic debt structure (8-10%+ implied interest rate; 기본 임계값, sector stress level에 따라 조정 가능), serial dilution history, pre-revenue inflation. Compare each company's debt quality grade and dilution metrics against this lower bound. If a company's metrics approach these levels, apply Bear-Bull Paradox filter from `valuation_fundamentals.md`.
 
 ### Bottleneck Investing (7-Step Framework)
 
@@ -366,71 +366,11 @@ Information absence itself carries analytical signal. When data is missing, clas
 
 ---
 
-## Scenario-Driven Discovery Protocol
+## Scenario-Driven Discovery
 
-This protocol is the step-by-step process for independently discovering bottleneck opportunities from any new event or query. It operationalizes the Top-Down Theme Discovery Workflow from `methodology.md` for scenario-specific analysis.
+For the full discovery workflow including entry routing, scenario framing (5-element structure, 6 scenario categories), phases, research-to-bottleneck mapping funnel, tool sequencing, and common pitfalls, see the **Unified Discovery Workflow** in `methodology.md`. That workflow is the single authoritative process.
 
-### Step-by-Step Discovery Framework
-
-**Step 1: Event Classification.** Identify the macro event or trend and classify it into one of the 6 Scenario Categories below. Determine: What changed? Is the change structural (persists for months/years) or transient (resolves in weeks)? What physical supply chains are directly affected?
-
-**Step 2: Impact Mapping.** Trace which industries and supply chains are directly affected by the classified event. Use web research and deep research to identify: which end-products depend on the disrupted supply, which geographic regions are impacted, and which companies have publicly disclosed exposure. Cast a wide net at this stage -- do not prematurely narrow to familiar sectors.
-
-**Step 3: Supply Chain Decomposition.** For each affected industry, apply the 5-Layer Supply Chain Mapping Template (defined above in this document). At each layer, identify key inputs, suppliers, processes, geographic concentration, and lead times.
-
-**Step 4: Concentration Point Detection.** At each layer, identify supply concentration using the per-layer questions from the 5-Layer template above. Validate with financial data collection capabilities.
-
-**Step 5: Bottleneck Scoring.** Apply the 6-Criteria Bottleneck Scoring Framework (defined above). Only concentration points scoring 4+ out of 6 qualify as investable. Document the score and evidence for each criterion.
-
-**Step 5.5 [MANDATORY]: Nested Bottleneck Check.** For each bottleneck scoring 4+/6 in Step 5, apply the 5-Layer Supply Chain Mapping Template AGAIN, treating the bottleneck company's KEY INPUT as the new Layer 0. Trace backward: Who supplies THIS bottleneck? Is their supply also concentrated? You MUST apply the 6-Criteria Scoring to the nested bottleneck and report the score explicitly. When a nested bottleneck is confirmed (3+/6), flag it in the pipeline validation step to activate the asymmetry score adjustment.
-
-If a nested bottleneck scores 3+/6, this is a "bottleneck within a bottleneck" — the highest asymmetry signal. The nested supplier often has:
-- Even smaller market cap (more asymmetric)
-- Even higher supply concentration (fewer alternatives)
-- Geographic/geopolitical risk amplification (if both layers concentrated in same region)
-
-Nested bottleneck discovery transforms a single-layer thesis into a multi-layer thesis with compounding pricing power. This step is the difference between finding the obvious bottleneck (everyone's thesis) and the hidden one (your alpha). Limit recursion to one additional level (2-level depth is sufficient).
-
-**Step 6: Validation.** Cross-check surviving bottleneck candidates with fundamental analysis: debt structure analysis, dilution assessment, earnings quality, No-Growth Stress Test, and Bear-Bull Paradox filter. Companies with toxic balance sheets are eliminated regardless of bottleneck score. Construct the 6-link Evidence Chain from `methodology.md` for each validated candidate.
-
-### 5-Element Scenario Structure
-
-Every scenario requires: (1) Triggering Event -- specific, falsifiable, observable; (2) Probability Assessment -- High >60%, Medium 30-60%, Low <30%; (3) Timeline -- Immediate <3mo, Near-term 3-12mo, Medium-term 1-3yr; (4) Physical Supply Chain Disruption Mechanism -- which factories stop, routes blocked, materials unavailable; (5) Measurable Invalidation Criteria -- specific evidence that would disprove the scenario.
-
-### 6 Scenario Categories
-
-1. **Export Ban / Sanctions** (Highest conviction): Binary, immediate supply removal. Research focus: Western alternative supplier, capacity, scale timeline.
-2. **Military Conflict / Defense Escalation**: Inelastic government-funded demand. Research focus: Defense platform BOM, consumed materials, budget allocation.
-3. **Technology Transition**: New tech creates demand existing supply cannot meet. Research focus: New materials needed, capacity gap.
-4. **Regulatory Shift**: Compliance requirements benefit pre-positioned companies. Research focus: Which companies already meet new standards.
-5. **Natural Disaster / Infrastructure Failure**: Physical disruption of concentrated production. Research focus: Single points of failure, alternative suppliers.
-6. **Currency / Capital Flow Shift**: Gradual but persistent effects on sourcing decisions. Research focus: Exporter competitiveness, reshoring acceleration. 6-18 month supply chain lag.
-
-### Research-to-Bottleneck Mapping (6-Stage Funnel)
-
-**Stage 1 (Extract):** Pull structured data from research -- company names, tickers, market share, capacity, geography, customers, substitutes.
-
-**Stage 2 (Layer Assignment):** Assign each element to supply chain layer (Layer 0: raw materials through Layer 4: end products).
-
-**Stage 3 (Concentration Scoring):** Calculate HHI or top-3 concentration ratio. Flag geographic concentration (single country) and facility concentration (single factory).
-
-**Stage 4 (6-Criteria Scoring):** Apply the bottleneck scoring table above. Threshold: 4+ out of 6 = investable.
-
-**Stage 5 (Company Prioritization):** Rank by: smallest market cap (most asymmetric), highest supply chain dominance, healthiest balance sheet, lowest IO% (most discovery upside). Priority = (Supply Dominance / Market Cap) x Balance Sheet Factor x (1 - IO%).
-
-**Stage 6 (Quantitative Validation):** Pass through full MarketData validation before conviction assignment. Companies failing quantitative gate are downgraded regardless of bottleneck score.
-
-### Tool Sequencing for Scenario Discovery
-
-Sequential Thinking (construct scenario) -> Deep Research (discover supply chains) -> WebSearch (supplement with real-time data) -> MarketData scripts (quantitative validation) -> Sequential Thinking (synthesize). Do NOT reverse this order. The scenario must drive the research.
-
-### Common Mapping Pitfalls
-
-- **Anchoring on familiar tickers**: When given a new event, do NOT start with known tickers from historical cases. Execute Steps 1-4 above to discover candidates independently. Historical cases are structural templates, not starting points.
-- **Narrative is not bottleneck**: Compelling story does not create investable bottleneck without PHYSICAL concentration at a specific layer
-- **Ignoring balance sheet**: Perfect bottleneck position with terrible financials = uninvestable (Bear-Bull Paradox)
-- **Not checking if priced in**: If stock moved 300%+ in 6 months with rising analyst coverage and IO%, the discovery window has closed
-- **Single-source research bias**: Cross-reference across queries; check data currency against recent policy changes
+This file provides the sub-protocols that the Unified Discovery Workflow references: 5-Layer Supply Chain Mapping Template (above), Forced Multi-hop Discovery Execution Protocol (above), 6-Criteria Bottleneck Scoring Framework (above), and the Historical Case Studies (below).
 
 ---
 
@@ -474,17 +414,27 @@ Update when: a major player enters or exits a layer, export controls change mate
 
 > **HARD GUARDRAIL**: These cases are structural templates showing HOW the methodology was applied. They are NOT starting points for new analysis. For every new query, the Discovery Workflow MUST be executed independently and completed BEFORE any historical case is referenced. Defaulting to these tickers on a new query is an anti-pattern.
 
-### AXTI / InP (Optical Interconnect Bottleneck)
-*Historical Application:* Traced optical interconnect chain backward to substrates. InP identified as binding constraint when China-Japan export controls disrupted Sumitomo, creating effective monopoly for AXTI (~40% global share). Cost insignificance: hyperscaler would pay 100x substrate price rather than delay $20B TPU deployment. Scored 5/6. *Apply this discovery pattern -- tracing a supply chain backward from end-product to find the binding constraint -- independently to the current analysis target.*
+> [METHODOLOGY EXAMPLES — The tickers below illustrate methodology PATTERNS, not starting points.
+> For any new analysis, execute the Unified Discovery Workflow independently before referencing these cases.
+> Do not anchor on these specific tickers or sectors.]
 
-### MU / Memory (Supercycle + Legacy Void)
-*Historical Application:* AI demand breaking traditional boom/bust cycle. Major producers pivoting to HBM abandoned legacy DRAM/NAND, creating "Legacy Void" pricing power. Street estimated 33-38% NAND hikes; actual 100%. Forward P/Es at single digits despite 100%+ Y/Y growth -- Walmart benchmark confirmed mispricing. *Apply this pattern -- identifying when major players abandon a market segment, creating pricing power for remaining suppliers -- independently to the current analysis target.*
+### Pattern: Backward Supply Chain Tracing → Binding Constraint Discovery
+*Historical example (semiconductor substrate):* Traced optical interconnect chain backward to substrates. Identified a specific compound semiconductor material as binding constraint when export controls disrupted a major non-Western supplier, creating effective near-monopoly for the Western alternative (~40% global share). Cost insignificance: hyperscaler would pay 100x substrate price rather than delay deployment. Scored 5/6.
 
-### NBIS / Neocloud (Full-Stack Infrastructure)
-*Historical Application:* Full-Stack neocloud (own orchestration software, 60-75% gross margin). Tracked through Enthusiasm -> Consolidation -> "Prove It" phases. Confirmed multi-billion Mag7 contracts as execution validation. Per-MW unit economics normalized for comparison. *Apply this pattern -- classifying companies by vertical integration and tracking sector phase progression -- independently to the current analysis target.*
+### Pattern: Legacy Void Pricing Power
+*Historical example (memory supercycle):* AI demand breaking traditional boom/bust cycle. Major producers pivoting to next-gen memory abandoned legacy product lines, creating "Legacy Void" pricing power for remaining suppliers. Street estimated 33-38% price hikes; actual 100%. Forward P/Es at single digits despite 100%+ Y/Y growth — Walmart benchmark confirmed mispricing.
 
-### CPSH / AlSiC (Thermal Management Bottleneck)
-*Historical Application:* GPU wattage increases made thermal solutions a binding constraint. BOM analysis identified AlSiC as critical material. CPSH = primary Western supplier at chokepoint with concentrated supply and multi-year capacity lead times. *Apply this pattern -- using BOM analysis to find critical but overlooked materials -- independently to the current analysis target.*
+### Pattern: Vertical Integration Classification + Sector Phase Tracking
+*Historical example (neocloud infrastructure):* Full-Stack neocloud (own orchestration software, 60-75% gross margin). Tracked through Enthusiasm → Consolidation → "Prove It" phases. Confirmed multi-billion Mag7 contracts as execution validation. Per-MW unit economics normalized for cross-company comparison.
 
-### LPTH / Germanium (Defense Material Bottleneck)
-*Historical Application:* Scenario-driven: China germanium export ban created Western supply gap. LPTH's "Black Diamond" lenses = sole Western source for multi-spectral IR optics. Scored 6/6. Cross-chain validation in both germanium/defense AND photonics chains -- strongest conviction signal. *Apply this pattern -- tracing export control impacts to find sole Western alternatives -- independently to the current analysis target.*
+### Pattern: BOM Analysis → Overlooked Critical Material
+*Historical example (thermal management):* GPU wattage increases made thermal solutions a binding constraint. BOM analysis identified a specialized metal matrix composite as critical material. Primary Western supplier at chokepoint with concentrated supply and multi-year capacity lead times.
+
+### Pattern: Export Control → Sole Western Alternative
+*Historical example (defense optics material):* Scenario-driven: export ban on a critical optical material created Western supply gap. One company's proprietary processing = sole Western source for multi-spectral IR optics. Scored 6/6. Cross-chain validation across defense AND photonics chains — strongest conviction signal.
+
+### Pattern: FDA Approval as Regulatory Bottleneck
+*Example (healthcare):* First-in-class therapy for an underserved indication. Multi-year FDA review timeline created temporary monopoly. Applying the same discovery logic: regulatory approval IS the capacity constraint. 6-Criteria scoring applied — supply concentration (sole approved therapy), long lead times (10-15yr development), no substitutes within 2 years.
+
+### Pattern: Grid Infrastructure as Cascading Bottleneck
+*Example (energy/utilities):* AI datacenter demand creating capex cascade from hyperscalers to utilities to transformer manufacturers. Power transformer lead times of 2-4 years = structural constraint. Same multi-hop discovery logic: trace demand from end-use (compute) through infrastructure layers to find the binding constraint.
