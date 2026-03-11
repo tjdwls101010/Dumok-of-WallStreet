@@ -1444,6 +1444,7 @@ def cmd_capex_cascade(args):
 	if valid_directions:
 		increasing = sum(1 for d in valid_directions if d.lower() in ("increasing", "up", "accelerating"))
 		decreasing = sum(1 for d in valid_directions if d.lower() in ("decreasing", "down", "decelerating"))
+		stable = sum(1 for d in valid_directions if d.lower() == "stable")
 		total = len(valid_directions)
 
 		if increasing == total:
@@ -1452,6 +1453,9 @@ def cmd_capex_cascade(args):
 		elif decreasing == total:
 			cascade_health = "contraction"
 			consistency = "aligned_down"
+		elif stable == total:
+			cascade_health = "stable"
+			consistency = "aligned_stable"
 		elif increasing > decreasing:
 			cascade_health = "mixed_expansion"
 			consistency = "mostly_up"

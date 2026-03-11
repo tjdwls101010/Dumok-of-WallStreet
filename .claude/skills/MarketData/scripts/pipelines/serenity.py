@@ -160,6 +160,14 @@ Returns:
 		total_themes, total_candidates, filters_applied,
 		requires_agent_review, discovery_workflow_note.
 
+	For cross-chain:
+		dict with tickers, shared_supplier_nodes (list of shared entities
+		with bottleneck_signal: supplier_ref_count, supplier_ref_pct,
+		single_source_count, assessment, thresholds, interpretation),
+		per_ticker_suppliers (per-ticker supplier_count, total_entities,
+		unique_to_ticker), supply_chain_overlap_pct,
+		total_unique_entities, shared_entity_count, note.
+
 	For compare:
 		dict with tickers, comparative_table (forward_pe,
 		no_growth_upside_pct, margin_status, io_quality_score,
