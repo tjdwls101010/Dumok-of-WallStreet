@@ -4,6 +4,8 @@ Materiality signals, causal bridge, priced-in assessment,
 institutional flow, and expression-layer logic.
 """
 
+from ._interpret import _interpret_institutional_flow
+
 
 def _build_materiality_signals(l3_data, l4_results, l5_results, sec_sc_results):
 	"""Compute materiality-relevant signals from existing pipeline data.
@@ -386,6 +388,12 @@ def _build_institutional_flow(l4_results):
 	if io_assessment == "weak":
 		flow_signals.append("institutional_exit_risk")
 
+	flow_assessment = (
+		"positive" if "insider_accumulation" in flow_signals or "institutional_conviction" in flow_signals
+		else "negative" if "insider_distribution" in flow_signals and "institutional_exit_risk" in flow_signals
+		else "neutral"
+	)
+
 	return {
 		"insider_net_direction": insider_direction,
 		"insider_net_value": insider_net_value,
@@ -394,11 +402,9 @@ def _build_institutional_flow(l4_results):
 		"iv_percentile": iv_percentile,
 		"iv_regime": iv_regime,
 		"flow_signals": flow_signals,
-		"flow_assessment": (
-			"positive" if "insider_accumulation" in flow_signals or "institutional_conviction" in flow_signals
-			else "negative" if "insider_distribution" in flow_signals and "institutional_exit_risk" in flow_signals
-			else "neutral"
-		),
+		"flow_assessment": flow_assessment,
+		"flow_thresholds": "positive: insider_accumulation OR institutional_conviction | negative: insider_distribution AND exit_risk | neutral: default",
+		"interpretation": _interpret_institutional_flow(io_assessment, iv_regime, flow_assessment, insider_direction),
 	}
 
 

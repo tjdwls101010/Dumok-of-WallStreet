@@ -109,9 +109,9 @@ The hypothesis must be falsifiable. If subsequent data shows the constraint does
 
 **What to do**: Feed candidate tickers from Phase 3 into the cross-chain subcommand to discover hidden common suppliers across the theme.
 
-**How to analyze**: Run `cross-chain TICKER1 TICKER2 ... TICKERN` with 5+ candidates. Review `bottleneck_signal` scores. Entities with `assessment: "strong_bottleneck_signal"` (supplier_ref_pct >= 50% AND single_source_count > 0) are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier_ref_pct represent maximum asymmetric opportunity.
+**How to analyze**: Run `cross-chain TICKER1 TICKER2 ... TICKERN` with 5+ candidates. Pipeline scores each shared entity with thresholds and interpretation in output. Entities flagged as strong bottleneck signals are prime candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier reference percentages represent maximum asymmetric opportunity.
 
-**Gate**: At least one shared supplier with "strong_bottleneck_signal" OR two with "moderate_bottleneck_signal" = proceed to Phase 4 with these as additional candidates.
+**Gate**: At least one shared supplier with strong bottleneck signal OR two with moderate bottleneck signal = proceed to Phase 4 with these as additional candidates.
 
 ### Phase 4: Bottleneck Screening
 
@@ -202,7 +202,7 @@ Forward Revenue/ARR > Gross Margins > Proxy Validation > Balance Sheet > IO Qual
 2. **Gross Margins**: The quality signal. High gross margins (>50%) indicate pricing power and defensible positioning. Gross margin trajectory matters more than absolute level.
 3. **Proxy Validation**: Cross-reference using well-reported companies. Leading foundry earnings proxy semiconductor demand health; hyperscaler capex guidance proxies entire AI supply chain. When direct data is limited, proxy relationships fill the gap.
 4. **Balance Sheet**: Debt quality, cash position, dilution trajectory. Critical for risk assessment but secondary to revenue visibility. A company with strong forward revenue can manage debt; a company with no revenue cannot.
-5. **IO Quality**: Institutional ownership composition. Passive/index dominance (9-10) is most positive; quant/MM dominance (3-4) is negative. Useful for timing but not thesis-defining.
+5. **IO Quality**: Institutional ownership composition. Passive and index-dominant ownership is most positive; quant and market-maker dominance is negative. Pipeline scores IO quality with thresholds in output. Useful for timing but not thesis-defining.
 
 ### Sector-Specific Priority Variations
 
@@ -231,16 +231,17 @@ For detailed pattern recognition across sectors, see `tactical_patterns.md` when
 
 **Shares (Default)**: Primary vehicle for all positions. "Would recommend shares instead" unless experienced. Safest risk/reward profile.
 
-**LEAPS (High Conviction)**: Long-dated call options (270+ DTE, ~0.70 delta) for leveraged exposure on highest-conviction names. Use when IV is relatively low (IV Rank < 30%). LEAPS provide leveraged upside with defined risk.
+**LEAPS (High Conviction)**: Long-dated call options (270+ DTE, ~0.70 delta) for leveraged exposure on highest-conviction names. Use when IV regime is depressed (pipeline classifies with thresholds in output). LEAPS provide leveraged upside with defined risk.
 
-**Cash-Secured Puts (Income + Entry)**: Sell puts on names you want to own at lower prices. Collect premium while waiting. Best when IV is elevated (IV Rank > 50%). "Never write puts on stocks you're not comfortable buying at those levels."
+**Cash-Secured Puts (Income + Entry)**: Sell puts on names you want to own at lower prices. Collect premium while waiting. Best when IV regime is elevated (pipeline classifies with thresholds in output). "Never write puts on stocks you're not comfortable buying at those levels."
 
 **Covered Calls (Income on Holdings)**: Sell calls against existing share positions. Calculate max weekly move (6% daily x 5 = 30% theoretical, add 7% buffer). Best for high-IV names.
 
 ### IV-Based Options Timing
-- Below 30% IV: Premium too low to justify options strategies
-- 30-65% IV: Covered calls and moderate premium collection (scale with underlying beta)
-- 65%+ IV: Sweet spot for put selling and covered calls; above 100% requires post-catalyst resolution
+Pipeline classifies IV into regime categories with thresholds in output. Match options strategy to regime:
+- **Depressed regime**: Premium too low to justify options strategies
+- **Normal regime**: Covered calls and moderate premium collection (scale with underlying beta)
+- **Elevated regime**: Sweet spot for put selling and covered calls; extreme levels require post-catalyst resolution
 
 ### Position Sizing by Conviction
 
@@ -253,7 +254,7 @@ For detailed pattern recognition across sectors, see `tactical_patterns.md` when
 | Hold | Maintain existing | Thesis intact, near fair value |
 | Avoid/Sell | Exit | Broken thesis or overvalued |
 
-> **Pipeline Integration (v4.0)**: The pipeline now outputs position sizing guidance directly mapped from this table with macro regime adjustments (risk_off × 0.5, transitional × 0.75). Discover output structure via `extract_docstring.py`.
+The pipeline outputs position sizing guidance directly mapped from this table with regime adjustment multipliers in output. Discover output structure via `extract_docstring.py`.
 
 ### Entry Methodology
 - "Best time to buy is on the extreme fear when retail are selling"
@@ -265,7 +266,7 @@ For detailed pattern recognition across sectors, see `tactical_patterns.md` when
 
 Conviction tiers and rating assignment are defined in the Command's Conviction and Rating System section.
 
-> **Pipeline Integration (v4.0)**: The pipeline now includes automated conviction evolution monitoring (position recheck) and theme discovery. Recheck tracks macro regime shifts, health gate degradation, and thesis direction changes. Theme discovery automates sector scanning with bottleneck candidate validation. Discover subcommand details via `extract_docstring.py`.
+The pipeline includes automated conviction evolution monitoring (position recheck) and theme discovery. Recheck tracks macro regime shifts, health gate degradation, and thesis direction changes. Theme discovery automates sector scanning with bottleneck candidate validation. Discover subcommand details via `extract_docstring.py`.
 
 ---
 
@@ -386,11 +387,11 @@ Thesis mutations must be handled transparently:
 
 ### Pipeline Connection
 
-The recheck pipeline output includes `rotation_assessment` with `rotation_flags`, `opportunity_cost_elevated`, and `suggestion`. Use these data points to trigger this decision framework:
+The recheck pipeline output includes rotation assessment with thresholds and interpretation in output. Use these to trigger this decision framework:
 
-- When `suggestion` is "scan_alternatives" → run the relative asymmetry comparison above. The pipeline has detected that the position's remaining upside is compressing relative to macro or sector conditions.
-- When `suggestion` is "consider_trim" → evaluate whether the thesis state is "weakened" or "intact but priced in." If weakened, reduce. If intact but priced in, check for better asymmetry elsewhere.
-- When `suggestion` is "maintain" → no action required unless new thesis-changing information arrives from outside the pipeline's data scope (e.g., breaking news, regulatory announcement, earnings call commentary).
+- When pipeline suggests scanning alternatives → run the relative asymmetry comparison above. The pipeline has detected that the position's remaining upside is compressing relative to macro or sector conditions.
+- When pipeline suggests considering a trim → evaluate whether the thesis state is "weakened" or "intact but priced in." If weakened, reduce. If intact but priced in, check for better asymmetry elsewhere.
+- When pipeline suggests maintaining → no action required unless new thesis-changing information arrives from outside the pipeline's data scope (e.g., breaking news, regulatory announcement, earnings call commentary).
 
 Reference BM03 (thesis_mutation_exit) benchmark behavior: the expectation is to evaluate position changes based on thesis state transitions, not price movements. The benchmark rewards explicit acknowledgment of what changed and clear conviction recalibration.
 
@@ -433,27 +434,27 @@ Not all institutional activity carries equal information value. Classify observe
 
 Combine IO quality assessment with flow direction and insider activity to distinguish genuine signals:
 
-| IO Quality Score | Insider Activity | Flow Direction | Interpretation |
+| IO Quality Level | Insider Activity | Flow Direction | Interpretation |
 |---|---|---|---|
-| High (7-10) + improving | Net buying | Accumulation | Genuine conviction — institutions and insiders aligned. Thesis-strengthening. |
-| High (7-10) + stable | Neutral | Flat | No new information. Rely on other evidence legs. |
-| Declining (was 7+, now 5-6) | Net selling | Distribution | Distribution warning. Investigate whether thesis has weakened or if this is mechanical (rebalance, redemption). |
-| Low (1-4) + high short interest | Mixed | Contested | Potential value trap OR contrarian setup. Cannot discriminate from flow data alone — need supply chain evidence (bottleneck score, SEC filing quality, forward revenue visibility) to determine which. |
+| High + improving | Net buying | Accumulation | Genuine conviction — institutions and insiders aligned. Thesis-strengthening. |
+| High + stable | Neutral | Flat | No new information. Rely on other evidence legs. |
+| Declining (was high, now moderate) | Net selling | Distribution | Distribution warning. Investigate whether thesis has weakened or if this is mechanical (rebalance, redemption). |
+| Low + high short interest | Mixed | Contested | Potential value trap OR contrarian setup. Cannot discriminate from flow data alone — need supply chain evidence (bottleneck score, SEC filing quality, forward revenue visibility) to determine which. |
 | Rising from low base | Net buying (insider) | Early accumulation | Discovery-phase signal. If combined with low analyst coverage and strong bottleneck score, high-asymmetry setup. |
 
 ### Pipeline Connection
 
-The analyze pipeline output includes `institutional_flow` with `insider_net_direction`, `io_assessment`, `iv_regime`, and `flow_assessment`. Interpret these as follows:
+The analyze pipeline output includes institutional flow assessment with thresholds and interpretation in output. Interpret the flow direction as follows:
 
-- `flow_assessment: "positive"` = accumulation signals present. Institutional behavior aligns with the thesis. Use as supporting evidence, not as the primary thesis driver.
-- `flow_assessment: "negative"` = distribution signals detected. Needs investigation — is this active conviction reversal or mechanical flow? Check if `insider_net_direction` is also negative (true distribution warning) or neutral/positive (likely mechanical).
-- `flow_assessment: "neutral"` = no clear directional signal from institutional data. Rely on other evidence legs (supply chain position, valuation, catalyst timeline).
-- `iv_regime: "elevated"` during accumulation = potential smart money buying protection via puts while building a share position. This is a sophisticated pattern — elevated IV does not necessarily mean bearish sentiment when accompanied by share accumulation.
+- Positive flow assessment = accumulation signals present. Institutional behavior aligns with the thesis. Use as supporting evidence, not as the primary thesis driver.
+- Negative flow assessment = distribution signals detected. Needs investigation — is this active conviction reversal or mechanical flow? Check if insider direction is also negative (true distribution warning) or neutral/positive (likely mechanical).
+- Neutral flow assessment = no clear directional signal from institutional data. Rely on other evidence legs (supply chain position, valuation, catalyst timeline).
+- Elevated IV regime during accumulation = potential smart money buying protection via puts while building a share position. This is a sophisticated pattern — elevated IV does not necessarily mean bearish sentiment when accompanied by share accumulation.
 
 ### Interaction with Other Framework Components
 
-- **Priced-in judgment**: High IO quality (9-10, passive/index dominant) combined with extensive analyst coverage suggests the thesis is well-known. This does not mean the position is bad, but it means the discovery alpha has been consumed. The remaining return is execution alpha, not information alpha.
-- **Forced Multi-hop Discovery**: The best bottleneck candidates often have LOW IO quality (1-4) because institutions have not yet discovered the supply chain relationship. Low IO quality is a FEATURE for discovery-phase positions, not a bug.
+- **Priced-in judgment**: High IO quality (passive/index dominant) combined with extensive analyst coverage suggests the thesis is well-known. This does not mean the position is bad, but it means the discovery alpha has been consumed. The remaining return is execution alpha, not information alpha.
+- **Forced Multi-hop Discovery**: The best bottleneck candidates often have low IO quality because institutions have not yet discovered the supply chain relationship. Low IO quality is a FEATURE for discovery-phase positions, not a bug.
 - **Entry timing**: Forced/distressed flow creates entry windows. Tax-loss harvesting season (November-December), fund liquidation events, and index rebalance selloffs are structurally repeating opportunities for positions with intact theses.
 
 Reference BM09 (institutional_flow_microstructure) benchmark behavior: the expectation is to distinguish passive mechanical flow from real institutional conviction, not to treat all institutional activity as a single signal.

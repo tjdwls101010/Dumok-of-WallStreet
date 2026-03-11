@@ -23,6 +23,7 @@ from ._signals import (
 	_auto_classify_taxonomy, _generate_composite_signal,
 )
 from ._entity import _normalize_entity_name
+from ._interpret import _interpret_bottleneck_signal, _interpret_rotation_assessment
 from ._multi import _determine_relative_strengths, _parse_mcap_string
 
 
@@ -559,17 +560,21 @@ def cmd_recheck(args):
 
 	opportunity_cost_elevated = len(rotation_flags) >= 2
 
+	suggestion = (
+		"scan_alternatives" if opportunity_cost_elevated
+		else "consider_trim" if len(rotation_flags) == 1
+		else "maintain"
+	)
+
 	rotation_assessment = {
 		"forward_pe": fpe_val,
 		"no_growth_upside_pct": ngv_upside,
 		"return_since_entry_pct": return_pct,
 		"rotation_flags": rotation_flags,
 		"opportunity_cost_elevated": opportunity_cost_elevated,
-		"suggestion": (
-			"scan_alternatives" if opportunity_cost_elevated
-			else "consider_trim" if len(rotation_flags) == 1
-			else "maintain"
-		),
+		"suggestion": suggestion,
+		"thresholds": "rotation_flags: extreme_forward_pe(>50x) | deep_below_no_growth_floor(<-30%) | position_doubled(>100%) | losing+weakening(<-30%+weakening). suggestion: scan_alternatives(2+flags) | consider_trim(1flag) | maintain(0flags)",
+		"interpretation": _interpret_rotation_assessment(rotation_flags, opportunity_cost_elevated, suggestion),
 	}
 
 	if opportunity_cost_elevated:
@@ -1060,6 +1065,8 @@ def cmd_cross_chain(args):
 			"supplier_ref_pct": supplier_pct,
 			"single_source_count": single_source_count,
 			"assessment": assessment,
+			"thresholds": "strong: supplier_ref_pct>=50% AND single_source>0 | moderate: >=50% OR single_source>0 | weak: >=25% | low: <25%",
+			"interpretation": _interpret_bottleneck_signal(assessment, supplier_pct, single_source_count),
 		}
 		if max_rev_pct is not None:
 			signal["customer_concentration_pct"] = max_rev_pct

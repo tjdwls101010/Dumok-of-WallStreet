@@ -55,7 +55,7 @@ Always present the no-growth floor FIRST, then the growth upside. This sequence 
 ### Why Both Are Required
 - Floor-only analysis misses growth opportunities — a stock at 2x no-growth value with 100% Y/Y revenue growth is not overvalued.
 - Growth-only analysis ignores downside risk — a stock with great revenue trajectory but negative no-growth value has no margin of safety.
-- The pipeline produces both: `no_growth_valuation` for the floor and `forward_pe` (with revenue-based fair value) for the upside. Both must appear in every stock recommendation.
+- The pipeline produces both: floor valuation for the downside anchor and forward growth valuation (with revenue-based fair value) for the upside. Both must appear in every stock recommendation.
 
 ### Decision Framework
 | No-Growth Floor vs MC | Growth Trajectory | Verdict |
@@ -112,7 +112,7 @@ When SoP value of non-core assets approaches or exceeds market cap, the market i
 
 *Historical pattern:* When SoP value of non-core assets (subsidiaries with independent growth trajectories) approaches a significant fraction of market cap, the market is effectively undervaluing the core business. *Apply this framework independently to the current analysis target.*
 
-> **Pipeline Integration (v4.0)**: The pipeline now automates SoP trigger detection — checking sector/industry classification, multi-segment description keywords, and cash-to-MC ratio. When triggers are found, the agent should proceed with Sum-of-Parts analysis. Discover output structure via `extract_docstring.py`.
+The pipeline automates SoP trigger detection — checking sector/industry classification, multi-segment description keywords, and cash-to-MC ratio. When triggers are found, the agent should proceed with Sum-of-Parts analysis. Discover output structure via `extract_docstring.py`.
 
 ---
 

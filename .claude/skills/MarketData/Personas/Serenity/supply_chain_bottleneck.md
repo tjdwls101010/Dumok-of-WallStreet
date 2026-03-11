@@ -394,16 +394,16 @@ Use well-reported chains to validate less transparent ones: leading foundry earn
 
 ### Reverse Cross-Chain Discovery (Pipeline-Assisted)
 
-The `cross-chain` subcommand now scores shared entities for bottleneck potential via `bottleneck_signal`:
+The cross-chain subcommand scores each shared entity for bottleneck potential with thresholds and interpretation in output.
 
-| Assessment | Condition | Action |
-|------------|-----------|--------|
-| strong_bottleneck_signal | supplier_ref_pct >= 50% + single_source > 0 | Must investigate — WebSearch for ticker |
-| moderate_bottleneck_signal | supplier_ref_pct >= 50% OR single_source > 0 | Investigate if small-cap |
-| weak_signal | supplier_ref_pct >= 25% | Note for monitoring |
-| low_signal | supplier_ref_pct < 25% | Ignore |
+| Assessment Level | Action |
+|-----------------|--------|
+| Strong bottleneck signal | Must investigate — WebSearch for ticker |
+| Moderate bottleneck signal | Investigate if small-cap |
+| Weak signal | Note for monitoring |
+| Low signal | Ignore |
 
-This automates the principle: "If a supplier appears in many companies' SEC filings, it likely controls a supply chain chokepoint." Only `supplier` and `single_source` roles generate bottleneck signals; `customer` roles indicate revenue concentration risk.
+This automates the principle: "If a supplier appears in many companies' SEC filings, it likely controls a supply chain chokepoint." Only supplier and single-source roles generate bottleneck signals; customer roles indicate revenue concentration risk.
 
 ### When to Update a Map
 Update when: a major player enters or exits a layer, export controls change material availability, new technology creates a substitute, capacity expansions resolve a constraint, or pricing data indicates bottleneck migration.
