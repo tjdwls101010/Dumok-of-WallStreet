@@ -25,7 +25,9 @@ Returns:
 				"implied_interest_rate": float,
 				"debt_quality_grade": str,
 				"interest_coverage_ratio": float,
-				"interest_coverage_metric": str  # Metric used for coverage ratio (EBIT or OperatingIncome)
+				"interest_coverage_metric": str,  # Metric used for coverage ratio (EBIT or OperatingIncome)
+				"grade_thresholds": str,          # Static: debt quality grade classification criteria
+				"grade_interpretation": str       # Dynamic: context-aware reading of current debt quality
 		}
 
 Example:
@@ -112,6 +114,33 @@ def _classify_debt_quality(implied_rate):
 	if implied_rate <= 8:
 		return "C"
 	return "D"
+
+
+def _build_grade_interpretation(grade, implied_rate, coverage, net_debt):
+	"""Build dynamic interpretation of debt quality grade."""
+	if grade is None:
+		return "Insufficient data to assess debt quality."
+	parts = [f"Grade {grade}"]
+	if implied_rate is not None:
+		parts[0] += f" with {implied_rate}% implied interest rate"
+	if grade == "A":
+		parts.append("— low refinancing risk.")
+		if isinstance(net_debt, (int, float)) and net_debt < 0:
+			parts.append("Net cash position further reduces concern.")
+	elif grade == "B":
+		parts.append("— moderate debt cost, manageable if coverage adequate.")
+	elif grade == "C":
+		parts.append("— elevated interest burden, monitor refinancing risk.")
+	elif grade == "D":
+		parts.append("— high implied rate signals distress or junk-grade debt.")
+	if isinstance(coverage, (int, float)):
+		if coverage < 2:
+			parts.append(f"Coverage ratio {coverage}x is dangerously low.")
+		elif coverage < 5:
+			parts.append(f"Coverage ratio {coverage}x is adequate.")
+		else:
+			parts.append(f"Coverage ratio {coverage}x provides strong buffer.")
+	return " ".join(parts)
 
 
 def _build_debt_analysis(ticker, symbol):
@@ -251,6 +280,10 @@ def _build_debt_analysis(ticker, symbol):
 		"debt_quality_grade": _classify_debt_quality(implied_interest_rate),
 		"interest_coverage_ratio": interest_coverage_ratio,
 		"interest_coverage_metric": interest_coverage_metric,
+		"grade_thresholds": "A: implied interest <3% | B: 3-6% | C: 6-8% | D: >8%",
+		"grade_interpretation": _build_grade_interpretation(
+			_classify_debt_quality(implied_interest_rate), implied_interest_rate,
+			interest_coverage_ratio, net_debt),
 	}
 
 

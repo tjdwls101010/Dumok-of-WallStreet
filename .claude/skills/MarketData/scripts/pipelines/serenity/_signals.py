@@ -69,7 +69,20 @@ def _build_thesis_signals(l4_results, l5_results):
 		"sbc_flag": sbc.get("flag") or sbc.get("dilution_flag"),
 	}
 
-	return {"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction, "conviction_delta": s_count - w_count, "detail": detail}
+	return {
+		"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction,
+		"conviction_delta": s_count - w_count, "detail": detail,
+		"signal_definitions": {
+			"pricing_power_confirmed": "Margins expanding while sales accelerating — company raising prices successfully",
+			"execution_validated": "3+ consecutive earnings beats — consistent delivery",
+			"street_catching_up": "Analyst revisions trending upward — consensus lagging actual performance",
+			"smart_money_accumulating": "IO quality score >= 7 — quality institutions building positions",
+			"pricing_power_eroding": "Margin collapse — competitive pressure or cost inflation destroying pricing power",
+			"dilution_destroying_value": "SBC toxic or active dilution — shareholder value being eroded",
+			"demand_weakening": "Sales decelerating with negative growth — demand slowing",
+			"institutional_exit": "IO quality score <= 3 — smart money leaving",
+		},
+	}
 
 
 def _check_sop_triggers(l4_results):
@@ -368,4 +381,10 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		"position_guidance": {"conviction_tier": conviction, "suggested_size_pct": size, "max_loss_pct": max_loss, "regime_adjustment": regime_adj},
 		"regime_cap_applied": regime_cap_applied, "trapped_asset_override_applied": trapped_override_applied,
 		"requires_agent_review": True, "note": "Automated composite signal. Agent must review before final rating assignment.",
+		"score_methodology": {
+			"components": "bottleneck(30) + health(25) + thesis(15) + catalyst(10) + taxonomy(10) + valuation_mos(10) = max 100",
+			"grade_thresholds": "STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35 | MOONSHOT: >=50 + trapped_asset",
+			"regime_cap": "risk_off regime caps score at 49 (max HOLD) unless trapped_asset eligible",
+			"caveat": "Agent must verify component breakdown. A high total score with low health component may mask fundamental weakness.",
+		},
 	}

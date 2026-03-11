@@ -165,9 +165,9 @@ Serenity does not seek "good companies." Serenity seeks "good companies that the
 
 ### How to Apply: Three-Tier Interpretation
 
-The pipeline produces a composite score from multiple quantitative signals. The three tiers provide an initial classification that the agent MUST contextualize.
+The pipeline produces a priced-in assessment with signal weights and assessment thresholds in output. The three tiers provide an initial classification that the agent MUST contextualize.
 
-**Tier 1 -- Fully Priced In (score 55 and above)**
+**Tier 1 -- Fully Priced In**
 
 The upside thesis is market consensus. Institutional positioning already reflects the narrative. The stock has moved toward the expected outcome.
 
@@ -180,7 +180,7 @@ How to interpret the signals at this tier:
 
 Agent action: Look for thesis breaks, not entries. Ask "what would have to go wrong?" If the thesis remains intact for existing holders, hold with reduced conviction. New entry offers poor asymmetry unless a fresh catalyst exists that the current pricing does not reflect.
 
-**Tier 2 -- Partially Priced In (score 30 to 54)**
+**Tier 2 -- Partially Priced In**
 
 The market sees part of the thesis but not all of it. This is the most nuanced zone and where the agent's judgment matters most.
 
@@ -192,7 +192,7 @@ How to interpret the signals at this tier:
 
 Agent action: Identify specifically what IS priced in and what is NOT. The market may have priced current revenue growth but missed margin expansion from a new product line. Or the market may have priced a supply shortage but not the second-order capex cycle it triggers. This decomposition -- which parts of the thesis are reflected in price, which are not -- is the core analytical output of this tier.
 
-**Tier 3 -- Not Priced In (score below 30)**
+**Tier 3 -- Not Priced In**
 
 Genuine informational edge may exist. The market has not yet repositioned around this thesis.
 
@@ -326,6 +326,8 @@ This is not a failure. Thesis mutation in response to evidence is a core Serenit
 Pipeline output provides the quantitative foundation. The agent adds qualitative judgment in the following areas.
 
 ### Health Gate Intervention
+
+Pipeline provides per-gate PASS/FLAG/CAUTION status with thresholds and interpretation in output. Agent applies these behavioral rules:
 
 - **1 FLAG**: Maximum rating reduced by one tier. Explain WHY using supply chain principles.
 - **2+ FLAGS**: Rating capped at Hold. Check Trapped Asset Override eligibility (conditions below).

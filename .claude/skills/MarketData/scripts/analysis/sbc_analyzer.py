@@ -18,6 +18,8 @@ Returns:
 				"reported_fcf": int,          # Reported free cash flow
 				"real_fcf": int,              # FCF minus SBC
 				"flag": str,                  # "healthy" | "warning" | "toxic"
+				"sbc_thresholds": str,        # Static: classification criteria for flag
+				"sbc_interpretation": str,    # Dynamic: context-aware reading of current SBC level
 				"shares_outstanding_current": int,    # Current shares outstanding
 				"shares_outstanding_prior_quarter": int,  # Prior quarter shares outstanding
 				"shares_change_qoq_pct": float,   # Q/Q shares change percentage
@@ -88,6 +90,18 @@ def _classify_sbc(pct):
 		return "toxic"
 
 
+def _build_sbc_interpretation(sbc_pct, flag, real_fcf):
+	"""Build dynamic interpretation of SBC flag."""
+	if flag == "toxic":
+		return (f"SBC is {sbc_pct:.1f}% of revenue — toxic level. "
+				"Cross-check with company lifecycle stage; pre-revenue biotech may use option pools strategically.")
+	if flag == "warning":
+		return (f"SBC is {sbc_pct:.1f}% of revenue — elevated. "
+				"Monitor trend; rising SBC% often signals growing cost of talent retention.")
+	fcf_note = "positive real FCF" if real_fcf >= 0 else "real FCF still negative despite low SBC"
+	return f"SBC is {sbc_pct:.1f}% of revenue — healthy level with {fcf_note}."
+
+
 def _extract_sbc_data(symbol):
 	"""Extract SBC, revenue, and FCF data for a single symbol."""
 	ticker = yf.Ticker(symbol)
@@ -156,13 +170,17 @@ def _extract_sbc_data(symbol):
 	if shares_change_qoq is not None:
 		total_dilution = round(sbc_pct + abs(shares_change_qoq) * 4, 1)
 
+	flag = _classify_sbc(sbc_pct)
+
 	return {
 		"symbol": symbol.upper(),
 		"sbc_annual": int(abs(sbc)),
 		"sbc_pct_revenue": round(sbc_pct, 1),
 		"reported_fcf": int(fcf),
 		"real_fcf": int(real_fcf),
-		"flag": _classify_sbc(sbc_pct),
+		"flag": flag,
+		"sbc_thresholds": "healthy: <10% of revenue | warning: 10-30% | toxic: >30%",
+		"sbc_interpretation": _build_sbc_interpretation(sbc_pct, flag, real_fcf),
 		"shares_outstanding_current": shares_current,
 		"shares_outstanding_prior_quarter": shares_prior,
 		"shares_change_qoq_pct": shares_change_qoq,

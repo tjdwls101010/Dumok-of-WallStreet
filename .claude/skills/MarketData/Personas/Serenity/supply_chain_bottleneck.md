@@ -197,20 +197,20 @@ Reference BM02 (multi_hop_bottleneck_discovery) benchmark behavior: the expectat
 
 This is the SINGLE authoritative scoring framework. Apply these six criteria to every concentration point.
 
-| # | Criterion | Pass (1) | Fail (0) |
-|---|-----------|----------|----------|
-| 1 | Supply concentration | Top 3 control >70% market share (기본값; 원자재/의약품은 더 낮을 수 있음) | Fragmented (>10 competitors, none >20%) |
-| 2 | Capacity constraints | >3 years to add meaningful capacity | New capacity within 1 year |
-| 3 | Geopolitical risk | >50% production in single country/region | Geographically diversified |
-| 4 | Long lead times | Lead times measured in months/years | Can be resolved quickly on demand surge |
-| 5 | No substitutes | No viable substitute within 2 years | Multiple alternatives available today |
-| 6 | Cost insignificance + deployment criticality | Small fraction of system cost but required for deployment; customers cannot reduce consumption | Customers can substitute, delay, or reduce |
+Pipeline auto-scores criteria 1-5 from SEC supply chain data with scoring guide and assessment thresholds in output. Agent validates via WebSearch and evaluates criterion 6 directly.
+
+| # | Criterion | Agent Role |
+|---|-----------|------------|
+| 1 | Supply concentration | Review pipeline score; cross-validate concentration claims via WebSearch |
+| 2 | Capacity constraints | Review pipeline score; verify duration estimates and recent changes |
+| 3 | Geopolitical risk | Review pipeline score; assess current geopolitical context |
+| 4 | Long lead times | Review pipeline score; check for recent capacity expansion announcements |
+| 5 | No substitutes | Review pipeline score; WebSearch for emerging alternatives |
+| 6 | Cost insignificance + deployment criticality | **Agent-only evaluation**: Small fraction of system cost but required for deployment; customers cannot reduce consumption. Would delaying deployment cost far more than the component? |
 
 **Scoring threshold: 4+ out of 6 = investable bottleneck.**
 
 Criterion 6 is the most asymmetric type: a $100 substrate in a $20B deployment can command $10,000 if supply is constrained, because delaying the deployment costs far more.
-
-> **Pipeline Integration (v4.6)**: The pipeline automates pre-scoring of 5 out of 6 criteria from SEC supply chain data, enhanced with Item 7A (market risk disclosures: commodity/FX/interest rate), Item 8 Notes quantitative data (revenue concentration %, geographic revenue %, purchase obligations, inventory composition), and 20-F support for foreign private issuers (auto-fallback from 10-K). Criterion 6 (cost insignificance) requires agent judgment. Assessment thresholds: strong (>= 3.0/4.5), partial (1.5-3.0), weak (< 1.5). Agent should validate and adjust via WebSearch cross-validation. Discover output structure via `extract_docstring.py`.
 
 ---
 

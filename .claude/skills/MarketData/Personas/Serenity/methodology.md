@@ -297,12 +297,8 @@ For any new ticker entering the universe:
 5. **Balance sheet stress test**: Cash vs. debt, interest burden, Bear-Bull Paradox check
 6. **Float analysis**: Short interest, IO quality score, IPO lockup, SBC dilution
 
-#### IO Quality Scale (1-10)
-- 9-10: Passive/index dominant (Vanguard, BlackRock, State Street)
-- 7-8: Long-only active (Fidelity, T. Rowe Price, Baron)
-- 5-6: Hedge fund long (Tiger Global, Coatue, D1)
-- 3-4: Quant/MM dominant (Jane Street, Citadel, Two Sigma)
-- 1-2: No institutional support or toxic composition
+#### IO Quality Assessment
+Pipeline auto-scores IO quality with thresholds and interpretation in output. Agent focuses on the qualitative direction: is institutional quality improving or degrading? Cross-reference IO quality direction with thesis signal direction.
 
 7. **Macro sensitivity**: Rate impact, tariff exposure, geopolitical risk
 8. **Thematic alignment**: Evolution / Disruption / Bottleneck classification

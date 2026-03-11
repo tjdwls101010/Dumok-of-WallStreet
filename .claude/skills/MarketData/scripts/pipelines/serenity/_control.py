@@ -331,6 +331,17 @@ def _build_priced_in_assessment(l4_results, l5_results):
 		"risk_score": risk_score,
 		"assessment": assessment,
 		"note": f"Priced-in risk score {risk_score}/100 -> {assessment}. Agent must contextualize with sector/event awareness.",
+		"signal_weights": {
+			"52w_range_position": "+18 (>80%) / +10 (>60%) / -5 (<20%)",
+			"price_vs_50d_ma": "+12 (>20% above) / +6 (>10%)",
+			"price_vs_200d_ma": "+15 (>30% above) / +8 (>15%)",
+			"short_interest": "+8 (<3%) / -5 (>15%)",
+			"analyst_target_gap": "+18 (<5% to target) / +10 (<15%) / -5 (>40%)",
+			"revision_direction": "+12 (up) / -8 (down)",
+			"io_quality": "+12 (>=8) / +6 (>=6) / -5 (<=3)",
+			"total_range": "0-100, clamped",
+			"assessment_thresholds": "fully_priced_in: >=55 | partially_priced_in: >=30 | not_priced_in: <30",
+		},
 	}
 
 
@@ -438,4 +449,5 @@ def _build_expression_layer(l4_results, composite_signal):
 		"conviction_tier": conviction,
 		"recommended_vehicle": recommended,
 		"reasoning": reasoning,
+		"iv_thresholds": "elevated: >70th percentile | depressed: <30th | normal: 30-70th",
 	}

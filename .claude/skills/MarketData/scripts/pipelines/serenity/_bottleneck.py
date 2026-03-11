@@ -461,4 +461,9 @@ def _pre_score_bottleneck(sec_sc_data):
 		"criteria": criteria, "assessment": assessment,
 		"filing_date": filing_date_str, "stale_data_warning": stale_warning,
 		"sole_western_flag": sole_western_flag,
+		"scoring_guide": {
+			"total": "Sum of 5 criteria (max 4.25). Agent evaluates criterion 6 (cost insignificance) separately.",
+			"assessment_thresholds": "strong: >=3.0 | partial: >=1.5 | weak: <1.5",
+			"investable_threshold": "4+/6 with agent's criterion 6 evaluation",
+		},
 	}

@@ -29,7 +29,9 @@ Returns:
 																"type": str             # PASSIVE, LONG_ONLY, HEDGE, QUANT_MM, UNCLASSIFIED
 												}
 								],
-								"interpretation": str           # Human-readable quality assessment
+								"interpretation": str,          # Human-readable quality assessment
+								"io_thresholds": str,           # Static: score range descriptions
+								"io_interpretation": str        # Dynamic: context-aware reading with breakdown detail
 				}
 
 Example:
@@ -204,6 +206,26 @@ def _interpret_score(score):
 	return "Weak: dominated by short-term traders"
 
 
+def _build_io_interpretation(score, breakdown):
+	"""Build dynamic interpretation of IO quality score with breakdown context."""
+	if score is None:
+		return "No institutional data available to assess ownership quality."
+	dom_key = max(breakdown, key=lambda k: breakdown[k])
+	dom_name = dom_key.replace("_pct", "").replace("_", " ")
+	dom_val = breakdown[dom_key]
+	if score >= 8:
+		return (f"Score {score} — excellent institutional backing, {dom_name} dominant ({dom_val}%). "
+				"Quality holders less likely to panic-sell on noise.")
+	if score >= 6:
+		return (f"Score {score} — strong active institutional support, {dom_name} leading ({dom_val}%). "
+				"Stable holder base supports price on pullbacks.")
+	if score >= 4:
+		return (f"Score {score} — mixed institutional quality, {dom_name} leading ({dom_val}%). "
+				"Monitor for holder turnover during volatility.")
+	return (f"Score {score} — weak institutional support, {dom_name} dominant ({dom_val}%). "
+			"High risk of rapid exits during drawdowns.")
+
+
 def _compute_quality(symbol):
 	"""Compute institutional quality data for a single symbol."""
 	ticker = yf.Ticker(symbol)
@@ -293,6 +315,8 @@ def _compute_quality(symbol):
 		"classified_breakdown": breakdown,
 		"top_holders_classified": top_holders,
 		"interpretation": _interpret_score(quality_score),
+		"io_thresholds": "9-10: passive/index dominant | 7-8: long-only active dominant | 5-6: mixed/hedge | 3-4: quant/MM dominant | 1-2: no institutional support",
+		"io_interpretation": _build_io_interpretation(quality_score, breakdown),
 	}
 
 

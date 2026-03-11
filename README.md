@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v5.4.0
+> 성진의 Claude 금융 시장 분석 플러그인 v5.5.0
 
 ![](Docs/Media/Main.png)
 
@@ -65,6 +65,7 @@
 - 정보 우선순위 계층: Forward Revenue > Gross Margins > Proxy > Balance Sheet > IO Quality
 - 통합 Discovery Workflow: 시나리오 프레이밍 → 공급망 스트레스 매핑 → 병목 가설 → 검증
 - 5-Layer 공급망 분해(완제품 → 원재료) + 재귀적 병목 발견 + Nested Bottleneck
+- 자기 설명적 출력: 모든 score/flag에 thresholds와 interpretation 내장 (3-Layer Trust Model)
 - 부재 증거 체크리스트, 역발상 트리거 감지, 크로스섹터 패턴 라이브러리
 
 **서브커맨드**
@@ -251,7 +252,7 @@ Dumok-of-WallStreet/
 
 ## 🌏설계 철학
 
-7가지 핵심 설계 원칙(Single Source of Truth, Persona Purity, Pipeline-Complete 등)과 아키텍처 상세는 [Principles_Design.md](Principles_Design.md)를 참조하세요.
+8가지 핵심 설계 원칙(Single Source of Truth, Persona Purity, Pipeline-Complete, Self-Documenting Output 등)과 아키텍처 상세는 [Principles_Design.md](Principles_Design.md)를 참조하세요.
 
 ## 🔥라이선스
 

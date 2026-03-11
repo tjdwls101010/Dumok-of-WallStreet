@@ -149,7 +149,7 @@ When inventory grows faster than sales, it signals either demand weakness or cha
 Expanding margins signal operating leverage and pricing power. Compressing margins signal competitive pressure or cost inflation.
 - **Purpose**: Track gross/operating/net margin trajectories quarterly to assess operating leverage realization
 - **Data**: Recent 4-8 quarters of margin data, QoQ/YoY change rates
-- **Interpretation**: EXPANDING = pricing power confirmed, COMPRESSION = competitive pressure or cost inflation signal. Direction matters more than current level
+- **Interpretation**: Pipeline auto-classifies margin trend with thresholds and interpretation in output. Direction matters more than current level
 
 ### FCF Confirmation: The "Real" FCF Test
 Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantial.
@@ -158,9 +158,10 @@ Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantia
 
 - **Purpose**: Subtract SBC from reported FCF to verify genuine cash generation. Any FCF-based thesis must survive SBC adjustment
 - **Data**: Annual SBC amount, SBC/revenue ratio, reported FCF, shares outstanding Q/Q change
-- **Interpretation**: SBC > 30% of revenue = toxic (기본 기준; 고성장 초기 기업은 별도 판단). Negative Real FCF means reported FCF is illusory. Shares Q/Q increase > 2% = active dilution signal
+- **Interpretation**: Pipeline auto-classifies SBC health with thresholds and interpretation in output. Negative Real FCF means reported FCF is illusory
+- **CAVEAT**: Pre-revenue biotech or early-stage growth companies may show elevated SBC from strategic option pools. Cross-check SBC ratio with company lifecycle stage
 
-*Pattern:* When a company reports positive FCF but has massive SBC (>30% of revenue), reported FCF is illusory — Real FCF may be significantly negative. This is a recurring pattern across high-SBC tech companies. *Apply this Real FCF test independently to the current analysis target.*
+*Pattern:* When a company reports positive FCF but SBC is classified as toxic, reported FCF is illusory — Real FCF may be significantly negative. This is a recurring pattern across high-SBC tech companies. *Apply this Real FCF test independently to the current analysis target.*
 
 ### Operating Leverage Assessment
 When actual price hikes exceed street estimates, the excess flows directly to the bottom line. Identify situations where:
@@ -173,28 +174,14 @@ When actual price hikes exceed street estimates, the excess flows directly to th
 
 Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 
-**Thesis-Strengthening Signals (Bottleneck Tightening):**
-- Gross margin expansion beyond consensus: pricing power confirmed at chokepoint
-- Revenue acceleration matching CapEx demand: demand validated
-- Operating leverage materializing: excess pricing flows to bottom line
-- Analyst revisions still lagging: market catching up to bottleneck dynamics
-- Backlog/order commentary confirming demand > supply
+Pipeline auto-generates thesis signals (strengthening and weakening) with definitions in output. Each signal has a clear trigger condition and meaning.
 
-**Thesis-Weakening Signals (Bottleneck Loosening):**
-- Gross margin compression despite revenue growth: new capacity or substitutes emerging
-- Revenue deceleration while supply chain peers accelerate: losing share
-- Inventory build without proportional revenue: demand slowing
-- Customer diversification away from single-source: bottleneck premium eroding
-- Competitor capacity expansion announcements: constraint has expiration date
-
-**Analytical Workflow for Earnings Validation:**
-1. Check earnings surprise data and post-ER reactions
-2. Track margin trajectory over recent quarters
-3. Calculate forward P/E at current price
-4. Review consensus earnings estimates
-5. WebSearch for earnings call commentary on supply constraints
-
-> **Pipeline Integration (v4.0)**: The pipeline now automates thesis validation — mapping L4/L5 data to strengthening signals (pricing power, execution, analyst revisions, institutional quality) and weakening signals (margin erosion, dilution, demand decline, institutional exit). Discover output structure via `extract_docstring.py`.
+**Agent's role in earnings validation:**
+1. Review pipeline thesis signals and their definitions
+2. WebSearch for earnings call commentary on supply constraints
+3. Cross-validate: do qualitative call themes match quantitative signal direction?
+4. If signals conflict (e.g., margin expanding but demand weakening), investigate root cause before assigning conviction
+5. Key question: does the signal reflect a structural supply chain change or a transient event?
 
 ---
 
@@ -202,8 +189,9 @@ Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 
 ### SBC Filter
 - **Purpose**: Quantify annual dilution from SBC for every position
-- **Data**: Annual SBC amount, SBC as % of market cap, per-share dilution effect
-- **Interpretation**: SBC > 10% of market cap annually = red flag (성숙 기업 기준; pre-revenue biotech/early-stage는 별도 판단). Below 5% = healthy, 10-30% = warning, 30%+ = toxic
+- **Data**: Annual SBC amount, SBC as % of revenue, per-share dilution effect
+- **Interpretation**: Pipeline auto-classifies SBC health with thresholds and interpretation in output
+- **CAVEAT**: Pre-revenue biotech or early-stage companies may use option pools strategically. Cross-check with company lifecycle stage
 
 ### IPO Lockup Analysis
 Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates into entry timing. Large insider stakes becoming freely tradable can temporarily depress prices, creating entry opportunities on strong-thesis names.
@@ -213,12 +201,12 @@ Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates
 - **Destructive**: Discounted stock issuance, repeated capital raises without proportional revenue growth, management enrichment at shareholder expense. Pattern: "hype retail, issue discounted stock, repeat."
 
 ### ATM Dilution Detection Protocol
-Use SBC analysis output to detect active dilution beyond SBC:
-1. Check `shares_change_qoq_pct`: Q/Q share count increase > 2% signals active equity issuance (ATM program, secondary offering, or large warrant/option exercise).
-2. If `dilution_flag` is "active_dilution": check SEC filings for recent S-3 or S-3ASR filings (shelf registrations enabling at-the-market offerings).
-3. Check `total_dilution_annual_pct`: annualized total dilution (SBC + share count changes) exceeding 5% of market cap is a red flag for sustained value destruction.
-4. **Data source priority**: SBC analysis (shares outstanding Q/Q change) is PRIMARY -> SEC filings (ATM program confirmation) is SECONDARY -> WebSearch only if SEC data insufficient.
-5. Distinguish productive vs destructive dilution: shares issued to fund GPU capacity or revenue-generating assets may be acceptable; shares issued for operating expenses or management enrichment are destructive.
+Pipeline auto-detects active dilution from shares outstanding changes and flags it with thresholds in output.
+
+Agent follow-up when dilution is flagged:
+1. Check SEC filings for recent S-3 or S-3ASR filings (shelf registrations enabling at-the-market offerings)
+2. **Data source priority**: Pipeline SBC analysis is PRIMARY → SEC filings (ATM program confirmation) is SECONDARY → WebSearch only if SEC data insufficient
+3. Distinguish productive vs destructive dilution: shares issued to fund GPU capacity or revenue-generating assets may be acceptable; shares issued for operating expenses or management enrichment are destructive
 
 ### Short Interest as Squeeze Catalyst
 High short interest (>20% of float) creates asymmetric upside potential when positive catalysts emerge. Short covering amplifies upward moves. However, high short interest alone is not a thesis -- it must be combined with strong fundamentals.
@@ -283,15 +271,11 @@ Multi-billion dollar market cap with minimal actual revenue. Income primarily fr
 ### Filter 2: Toxic Debt Structure
 Annual interest expense consuming a meaningful percentage of revenue. Debt at 8-10%+ interest rates creates existential refinancing risk. Compare to clean-balance-sheet peers to quantify the structural disadvantage. Warning sign: interest expense exceeding 15% of revenue.
 
-**Debt Quality Assessment Protocol (using debt structure analysis output):**
-1. Run debt structure analysis and check `implied_interest_rate` and `debt_quality_grade`:
-   - Grade A (< 3%): Investment grade or convertible-friendly debt. Low refinancing risk (e.g., 0-2% convertible notes).
-   - Grade B (3-6%): Standard corporate debt. Manageable but monitor at scale.
-   - Grade C (6-8%): High yield territory. Elevated refinancing risk, especially in rising rate environments.
-   - Grade D (> 8%): Toxic / distressed. Existential refinancing risk (e.g., 10%+ high-yield bonds).
-2. For Grade C or D: check SEC filings for recent debt-related filings (8-K for new debt issuance, S-3 for shelf registrations). Look for: coupon rates on individual tranches, maturity schedule, conversion terms, covenants.
-3. Check `interest_coverage_ratio`: below 2.0x is a warning, below 1.0x means the company cannot cover interest from operations.
-4. **Data source priority**: debt structure analysis (implied rate) -> SEC filings (individual bond details) -> WebSearch (only if SEC data insufficient for specific coupon/maturity info).
+**Debt Quality Assessment Protocol:**
+1. Pipeline auto-grades debt quality with thresholds and interpretation in output, reflecting implied interest rate and refinancing risk level.
+2. For elevated or toxic grades: check SEC filings for recent debt-related filings (8-K for new debt issuance, S-3 for shelf registrations). Look for: coupon rates on individual tranches, maturity schedule, conversion terms, covenants.
+3. Pipeline also reports interest coverage ratio with context in output.
+4. **Data source priority**: Pipeline debt analysis (automated) → SEC filings (individual bond details) → WebSearch (only if SEC data insufficient for specific coupon/maturity info).
 
 ### Filter 3: Serial Dilution History
 Pattern of equity issuance without proportional revenue growth. Discounted stock issuance to insiders. Multiple capital raises where proceeds fund operations rather than growth assets.
@@ -317,9 +301,9 @@ The thesis comes first. The expression vehicle comes second. The analyst first d
 
 ### Expression Vehicle Selection Matrix
 
-Two dimensions determine the appropriate vehicle: IV regime (where is implied volatility relative to its historical range?) and conviction level (how strong is the evidence chain?).
+Two dimensions determine the appropriate vehicle: IV regime (pipeline classifies with thresholds in output) and conviction level (how strong is the evidence chain?).
 
-| | IV Depressed (<30th percentile) | IV Normal (30th-70th percentile) | IV Elevated (>70th percentile) |
+| | IV Depressed | IV Normal | IV Elevated |
 |---|---|---|---|
 | **High Conviction (Strong Buy+)** | LEAPS calls — leverage cheap vol on a high-confidence thesis | Shares — standard expression | Cash-Secured Puts — get paid to wait for a better entry on a name you want to own |
 | **Moderate Conviction (Buy)** | Shares — LEAPS require higher conviction to justify total-loss risk | Shares — standard expression | Covered calls — collect income while holding through elevated vol |
@@ -332,7 +316,7 @@ The standard vehicle for all conviction levels. No vol edge required, no expirat
 
 **LEAPS (Long-Dated Calls, 270+ DTE)**
 Use when ALL three conditions are met:
-1. IV is depressed (below 30th percentile of its own history) — you are buying cheap optionality
+1. IV regime is depressed (pipeline classifies with thresholds in output) — you are buying cheap optionality
 2. Conviction is high (Strong Buy or above) — the evidence chain is complete with 6 supported links
 3. Forward visibility is sufficient — the thesis has a clear catalyst timeline within the LEAPS duration (minimum 12 months)
 
@@ -340,7 +324,7 @@ LEAPS provide leveraged upside with defined risk. The key insight is that you ar
 
 **Cash-Secured Puts (CSP)**
 Use when ALL three conditions are met:
-1. IV is elevated (above 70th percentile) — you are selling expensive premium
+1. IV regime is elevated (pipeline classifies with thresholds in output) — you are selling expensive premium
 2. Thesis is bullish — you want to own the stock at a lower price
 3. Strike selection references the no-growth floor value — the put strike should be at or near the defensive valuation anchor from the Dual-Valuation framework
 
@@ -356,7 +340,7 @@ Covered calls collect income during periods of elevated volatility when the thes
 
 ### Pipeline Connection
 
-The analyze pipeline output includes `expression_layer` with `iv_percentile`, `iv_regime`, `recommended_vehicle`, and `reasoning`. Use this as the starting recommendation, then apply agent judgment to override when warranted:
+The pipeline provides IV regime classification, recommended expression vehicle, and reasoning in its output. Use this as the starting recommendation, then apply agent judgment to override when warranted:
 
 - **Sector-specific IV dynamics**: Pre-earnings IV crush, binary FDA/regulatory events, and index rebalance volatility can temporarily distort IV percentile readings. If the elevated IV is entirely attributable to an imminent event that will resolve (earnings in 2 days), the post-event IV will collapse — factor this into CSP/covered call timing.
 - **Position sizing constraints**: LEAPS carry total-loss risk on the premium paid. The position size must reflect this — never allocate to LEAPS an amount whose total loss would exceed the portfolio risk budget for that position.

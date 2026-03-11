@@ -25,7 +25,9 @@ Returns:
 				"trajectory": [
 						{"period": str, "gross": float, "operating": float, "net": float}
 				],
-				"flag": str
+				"flag": str,
+				"margin_thresholds": str,         # Static: flag classification criteria (YoY gross margin pp change)
+				"margin_interpretation": str       # Dynamic: context-aware reading of current margin trend
 		}
 
 Example:
@@ -163,6 +165,26 @@ def _classify_flag(yoy_change):
 	return "COLLAPSE"
 
 
+def _build_margin_interpretation(flag, latest):
+	"""Build dynamic interpretation of margin flag."""
+	gross = latest.get("gross")
+	op = latest.get("operating")
+	margin_str = ""
+	if gross is not None and op is not None:
+		margin_str = f" Gross {gross}%, operating {op}%."
+	elif gross is not None:
+		margin_str = f" Gross {gross}%."
+	if flag == "EXPANDING":
+		return f"Margin trend: {flag}.{margin_str} Pricing power or operating leverage improving — bullish signal."
+	if flag == "COLLAPSE":
+		return f"Margin trend: {flag}.{margin_str} Investigate structural cause: competition, cost inflation, or one-time charge."
+	if flag == "COMPRESSION":
+		return f"Margin trend: {flag}.{margin_str} Mild decline — monitor for acceleration into collapse territory."
+	if flag == "STABLE":
+		return f"Margin trend: {flag}.{margin_str} Margins holding — no immediate concern but limited upside signal."
+	return f"Margin trend: {flag}.{margin_str} Insufficient data for YoY comparison."
+
+
 @safe_run
 def cmd_track(args):
 	ticker = yf.Ticker(args.symbol)
@@ -215,6 +237,8 @@ def cmd_track(args):
 
 	result["trajectory"] = trajectory
 	result["flag"] = _classify_flag(result["gross_margin_yoy_change"])
+	result["margin_thresholds"] = "EXPANDING: YoY gross margin >+5pp | STABLE: -2pp to +5pp | COMPRESSION: -10pp to -2pp | COLLAPSE: <-10pp"
+	result["margin_interpretation"] = _build_margin_interpretation(result["flag"], latest)
 
 	output_json(result)
 
