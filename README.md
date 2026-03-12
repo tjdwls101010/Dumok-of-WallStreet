@@ -1,6 +1,6 @@
 # 💸Dumok of WallStreet
 
-> 성진의 Claude 금융 시장 분석 플러그인 v5.7.1
+> 성진의 Claude 금융 시장 분석 플러그인 v5.8.0
 
 ![](Docs/Media/Main.png)
 
@@ -72,9 +72,9 @@
 
 | 서브커맨드 | 설명 |
 |-----------|------|
-| recheck | Position monitoring with action signals and verdict |
-| discover | Automated theme discovery with bottleneck candidate validation |
-| cross-chain | Shared supplier detection via SEC entity cross-matching |
+| macro | Level 1 macro regime assessment |
+| analyze | Full 6-Level analysis for a single ticker |
+| discover | Automated theme discovery with --industry and --sector options |
 
 **이런 질문을 해보세요**
 

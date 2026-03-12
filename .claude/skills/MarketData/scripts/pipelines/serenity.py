@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline v5.3.1 (Pipeline-Complete): 6-Level analytical hierarchy
+"""Serenity Pipeline v5.8.0 (Pipeline-Complete): 6-Level analytical hierarchy
 automating supply chain bottleneck analysis with macro regime assessment,
 fundamental validation, composite signal generation, control layer outputs,
 and evidence chain verification.
@@ -28,8 +28,7 @@ expression_layer (IV regime × conviction → recommended vehicle).
 
 Discover includes lightweight macro stress check (VIX, Fear&Greed, net
 liquidity) with stress/euphoria detection and discovery workflow guidance note.
-Recheck includes rotation_assessment (forward PE risk, no-growth check,
-opportunity cost flag, MAINTAIN_BUT_SCAN verdict).
+Supports --industry (finviz industry-screen) and --sector (finviz sector-screen).
 
 Commands:
 	macro: Level 1 macro regime assessment (10 parallel macro scripts → regime
@@ -43,19 +42,10 @@ Commands:
 		composite signal with position sizing + control layer:
 		materiality_signals, causal_bridge_data, priced_in_assessment,
 		institutional_flow, expression_layer)
-	recheck: Position monitoring recheck (macro regime + health gates + thesis
-		signals + rotation_assessment against existing position with action
-		signals and verdict including MAINTAIN_BUT_SCAN)
 	discover: Automated theme discovery (lightweight macro stress check +
 		sector_leaders + finviz cross-reference + bottleneck_scorer validation,
-		grouped by industry theme, with macro_context and discovery workflow note)
-	cross-chain: Shared supplier detection across multiple tickers via SEC
-		supply chain entity normalization and cross-matching, with
-		bottleneck_signal scoring (supplier_ref_pct, single_source_count,
-		assessment) for each shared entity
-	compare: Multi-ticker side-by-side comparison (12 metrics including asymmetry_score)
-	screen: Sector-based bottleneck candidate screening
-	capex-cascade: Supply chain CapEx cascade tracking across multiple tickers
+		grouped by industry theme, with macro_context and discovery workflow note.
+		--industry for direct industry search, --sector for sector-based search)
 
 Args:
 	For macro:
@@ -65,32 +55,15 @@ Args:
 		ticker (str): Stock ticker symbol
 		--skip-macro (bool): Skip Level 1 macro assessment (default: false)
 
-	For recheck:
-		ticker (str): Stock ticker symbol
-		--entry-price (str): Entry price for position (required)
-		--entry-date (str): Entry date YYYY-MM-DD (informational, optional)
-
 	For discover:
 		--top-groups (int): Number of top industry groups (default: 5)
 		--max-mcap (str): Maximum market cap filter (default: "10B")
 		--limit (int): Maximum candidates per theme (default: 10)
 		--industry (str): Direct industry search — skips sector_leaders, goes
 			straight to finviz industry-screen (default: None)
+		--sector (str): Direct sector search — uses finviz sector-screen
+			(default: None)
 		--skip-macro (bool): Skip lightweight macro stress check (default: false)
-
-	For cross-chain:
-		tickers (list): 2+ stock ticker symbols
-		--form (str): SEC filing form type (default: "10-K")
-
-	For compare:
-		tickers (list): 2+ stock ticker symbols
-
-	For screen:
-		sector (str): Sector name for Finviz screening
-		--max-mcap (str): Maximum market cap filter, applied post-screen (default: "10B")
-
-	For capex-cascade:
-		tickers (list): 2+ stock ticker symbols for CapEx cascade tracking
 
 Returns:
 	For macro:
@@ -144,15 +117,6 @@ Returns:
 		bottleneck_pre_score.sole_western_flag (bool).
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
-	For recheck:
-		dict with ticker, entry_price, current_price, return_pct,
-		position_52w, macro_regime, health_gates, thesis_signals,
-		rotation_assessment (forward_pe, no_growth_upside_pct,
-		return_since_entry_pct, rotation_flags, opportunity_cost_elevated,
-		suggestion: scan_alternatives/consider_trim/maintain),
-		action_signals, verdict (MAINTAIN/MAINTAIN_BUT_SCAN/HOLD_MONITOR/
-		HOLD_REDUCE/CONSIDER_EXIT), note.
-
 	For discover:
 		dict with macro_context (vix_regime, fear_greed, net_liq_direction,
 		stress_note — skipped when --skip-macro), themes (list of
@@ -160,55 +124,25 @@ Returns:
 		total_themes, total_candidates, filters_applied,
 		requires_agent_review, discovery_workflow_note.
 
-	For cross-chain:
-		dict with tickers, shared_supplier_nodes (list of shared entities
-		with bottleneck_signal: supplier_ref_count, supplier_ref_pct,
-		single_source_count, assessment, thresholds, interpretation),
-		per_ticker_suppliers (per-ticker supplier_count, total_entities,
-		unique_to_ticker), supply_chain_overlap_pct,
-		total_unique_entities, shared_entity_count, note.
-
-	For compare:
-		dict with tickers, comparative_table (forward_pe,
-		no_growth_upside_pct, margin_status, io_quality_score,
-		debt_quality_grade, market_cap, revenue_growth_yoy,
-		short_interest_pct, 52w_range_position, sbc_flag,
-		consecutive_beats, asymmetry_score per ticker),
-		health_gates, relative_strengths.
-
-	For screen:
-		dict with sector, candidates_screened (int),
-		results (list sorted by asymmetry_score desc).
-
-	For capex-cascade:
-		dict with tickers, capex_trends (per-ticker 8Q CapEx with
-		QoQ/YoY direction and acceleration), cascade_summary (overall
-		cascade health and upstream→downstream consistency),
-		hyperscaler_signal (aggregate hyperscaler CapEx direction if
-		applicable).
-
 Example:
 	>>> python serenity.py macro --extended
 	{"regime": "risk_on", "risk_level": "moderate", "signals": {...}, ...}
 
 	>>> python serenity.py analyze NBIS
-	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, "L2_capex_flow": {"company_capex": {...}, ...}, "L4_fundamentals": {"info": {...}, "insider_transactions": {"summary": {...}, "transactions": [...]}, "revenue_trajectory": {...}, ...}, "L5_catalysts": {"earnings_surprise": {...}, "analyst_recommendations": {...}, ...}}, "health_gates": {...}, ...}
+	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, ...}, ...}
 
 	>>> python serenity.py analyze NBIS --skip-macro
 	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
 
-	>>> python serenity.py compare AXTI AEHR FORM
-	{"tickers": [...], "comparative_table": {"forward_pe": {...}, "market_cap": {...}, "revenue_growth_yoy": {...}, ...}, ...}
-
-	>>> python serenity.py screen "Defense" --max-mcap 5B
-	{"sector": "Defense", "candidates_screened": 10, ...}
+	>>> python serenity.py discover --sector Defense --max-mcap 5B --skip-macro
+	{"macro_context": {"skipped": true}, "themes": [...], ...}
 
 Use Cases:
 	- Full due diligence automation for any ticker in any sector
 	- Macro regime assessment before position entry
 	- Evidence chain completeness check for conviction assignment
-	- Multi-ticker comparison within a supply chain
-	- Sector screening for bottleneck candidates
+	- Multi-ticker comparison via analyze × N with verdict.causal_bridge
+	- Sector/industry discovery for bottleneck candidates
 	- Sector-agnostic: works for defense, EV, agriculture, semiconductors, etc.
 
 Notes:
@@ -221,17 +155,11 @@ Notes:
 	- fundamental_readiness_codes provide audit trail of automated assessment
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Pipeline continues even if individual scripts fail (graceful degradation)
-	- screen subcommand depends on finviz.py and bottleneck_scorer.py; --max-mcap applied as post-filter
 	- L1 output contains extracted signals (9 scalars + DXY/BDI when --extended)
 	- L4 info uses get-info-fields with 24 essential fields (not full 100+ field info object)
 	- L4 insider_transactions: 12-month lookback, summarized (buy/sell aggregates + net_direction + recent 20)
 	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
 	- L5 earnings_calendar removed (was market-wide, not ticker-specific; earnings_dates covers ticker)
-	- compare uses get-info-fields (5 fields) instead of get-info (100+ fields)
-	- compare includes sbc_analyzer (SBC health flag) and earnings_surprise (consecutive beats) for filtering
-	- compare uses forward_pe (analyst consensus) for revenue_growth_yoy
-	- compare includes asymmetry_score via bottleneck_scorer.py validate per ticker (12 metrics total)
-	- capex-cascade tracks 8Q CapEx via capex_tracker.py track per ticker, with cascade health summary
 	- L4 holders summarized to top 5 with key fields + total count
 	- L4 earnings_acceleration compressed to status flags + 3 most recent growth rates
 	- L5 earnings_dates capped at 8 most recent (2 years quarterly)
@@ -245,8 +173,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from serenity._commands import (
-	cmd_macro, cmd_analyze, cmd_recheck, cmd_discover,
-	cmd_cross_chain, cmd_compare, cmd_screen, cmd_capex_cascade,
+	cmd_macro, cmd_analyze, cmd_discover,
 )
 
 
@@ -277,49 +204,6 @@ def main():
 	)
 	sp_analyze.set_defaults(func=cmd_analyze)
 
-	# compare
-	sp_compare = sub.add_parser(
-		"compare", help="Multi-ticker side-by-side comparison"
-	)
-	sp_compare.add_argument(
-		"tickers", nargs="+", help="2 or more stock ticker symbols"
-	)
-	sp_compare.set_defaults(func=cmd_compare)
-
-	# screen
-	sp_screen = sub.add_parser(
-		"screen", help="Sector-based bottleneck candidate screening"
-	)
-	sp_screen.add_argument("sector", help="Sector name for Finviz screening")
-	sp_screen.add_argument(
-		"--max-mcap",
-		default="10B",
-		help="Maximum market cap filter (default: 10B)",
-	)
-	sp_screen.set_defaults(func=cmd_screen)
-
-	# capex-cascade
-	sp_capex = sub.add_parser(
-		"capex-cascade", help="Supply chain CapEx cascade tracking"
-	)
-	sp_capex.add_argument(
-		"tickers", nargs="+", help="2 or more stock ticker symbols"
-	)
-	sp_capex.set_defaults(func=cmd_capex_cascade)
-
-	# recheck
-	sp_recheck = sub.add_parser(
-		"recheck", help="Position monitoring recheck"
-	)
-	sp_recheck.add_argument("ticker", help="Stock ticker symbol")
-	sp_recheck.add_argument(
-		"--entry-price", required=True, help="Entry price for position"
-	)
-	sp_recheck.add_argument(
-		"--entry-date", default=None, help="Entry date (YYYY-MM-DD, informational)"
-	)
-	sp_recheck.set_defaults(func=cmd_recheck)
-
 	# discover
 	sp_discover = sub.add_parser(
 		"discover", help="Automated theme discovery with bottleneck candidates"
@@ -341,22 +225,14 @@ def main():
 		help="Direct industry search (skips sector_leaders). Partial name match supported.",
 	)
 	sp_discover.add_argument(
+		"--sector", default=None,
+		help="Direct sector search (e.g. 'Defense'). Uses finviz sector-screen.",
+	)
+	sp_discover.add_argument(
 		"--skip-macro", action="store_true", default=False,
 		help="Skip lightweight macro stress check (default: false)",
 	)
 	sp_discover.set_defaults(func=cmd_discover)
-
-	# cross-chain
-	sp_cross = sub.add_parser(
-		"cross-chain", help="Shared supplier detection across tickers"
-	)
-	sp_cross.add_argument(
-		"tickers", nargs="+", help="2 or more stock ticker symbols"
-	)
-	sp_cross.add_argument(
-		"--form", default="10-K", help="SEC filing form type (default: 10-K, auto-fallback to 20-F)"
-	)
-	sp_cross.set_defaults(func=cmd_cross_chain)
 
 	args = parser.parse_args()
 	args.func(args)

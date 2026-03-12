@@ -87,9 +87,9 @@ Note: Type B can escalate to Type D discovery via Bottleneck Relevance Assessmen
 Chain types sequentially when a query spans multiple intents:
 
 - "NBIS 사도 돼?" -> B (diagnose) then E (timing/risk)
-- "AI 관련주 추천해줘" -> A (market health) then D (bottleneck) then C (compare)
+- "AI 관련주 추천해줘" -> A (market health) then D (bottleneck) then B (diagnose candidates)
 - "관세 때문에 뭐 사야 해?" -> A (macro) then D (supply chain impact) then B (diagnose beneficiaries)
-- "네오클라우드 비교하고 포트에 넣어줘" -> C (compare) then F (portfolio construction)
+- "네오클라우드 비교하고 포트에 넣어줘" -> C-1 (analyze × N) then F (portfolio construction)
 - "실적 빠진 종목 사도 돼?" -> B (earnings + diagnosis) then E (timing)
 - "다음 병목 찾아서 포트 짜줘" -> D (bottleneck) then B (diagnose candidates) then F (portfolio)
 - "시장 위험한데 뭐 해?" -> A (market health) then E (risk management)
@@ -103,12 +103,12 @@ Chain types sequentially when a query spans multiple intents:
 |------------|-------------------|---------------|-----------------|
 | A (Macro) | macro | — | Regime judgment → position adjustment guidance |
 | B (Stock) | analyze | — | Control layer interpretation (materiality→causality→priced-in), L2/L3 WebSearch, L6 taxonomy |
-| C-1 (Compare) | compare | analyze (top N) | Relative strength narrative, priced-in comparison |
+| C-1 (Compare) | analyze × N `--skip-macro` | — | `verdict.causal_bridge` comparison, priced-in comparison |
 | C-2 (Discover) | discover | analyze (top N) | Macro stress → industry selection → candidate validation (follow discovery_workflow_note) |
-| C-3 (Thematic) | WebSearch → discover → cross_chain → analyze | — | 5-Layer Mapping, multi-hop protocol (see `supply_chain_bottleneck.md`), 6-Criteria |
-| D (Supply Chain) | analyze + capex_cascade | cross_chain | Scenario (Clear Thought), 6-Criteria, causal bridge reasoning |
-| E (Position) | analyze + recheck | — | Position construction (`methodology.md`), rotation assessment, expression layer |
-| F (Portfolio) | compare | — | E/D/B classification |
+| C-3 (Thematic) | WebSearch → discover → analyze | — | 5-Layer Mapping, multi-hop protocol (see `supply_chain_bottleneck.md`), 6-Criteria |
+| D (Supply Chain) | analyze | — | Scenario (Clear Thought), 6-Criteria, L3 supply chain comparison |
+| E (Position) | analyze | — | Position construction (`methodology.md`), previous result comparison, expression layer |
+| F (Portfolio) | analyze × N `--skip-macro` | — | verdict.causal_bridge-based E/D/B classification |
 
 **Pipeline-Complete**: All methodology-required module calls are contained within the pipeline. Do not call individual modules to supplement. WebSearch is for agent-driven context: L2 cascade mapping, L3 bottleneck identification, L6 taxonomy, qualitative research.
 
@@ -189,9 +189,9 @@ If any criterion is not met:
 - **Loop 2**: WebSearch results integrated → ORIENT → hypothesis refined
 - After 2 loops, if evidence is still insufficient: disclose gaps + reduce conviction + respond
 
-**Cross-Subcommand Optimization**: When chaining `compare` then `analyze` for overlapping tickers, use `--skip-macro` for `analyze`. Present compare results first as overview, then `analyze` only top candidates for deep-dive.
+**Cross-Subcommand Optimization**: When running multiple `analyze` commands for comparison (C-1/F), use `--skip-macro` for all but the first. Compare `verdict.causal_bridge` dashboards for overview, drill into L4/L5 for detail. Max 3 tickers recommended per comparison to stay within context limits (~107KB for 3).
 
-**Type D Scenario Discovery**: For supply chain mapping or scenario analysis, use Clear Thought `simulation` for scenario construction (2-3 scenarios with probability/timeline/invalidation criteria per the 5-Element Scenario Structure in `methodology.md`), then WebSearch for supply chain research, then apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Full discovery protocol in `methodology.md` Unified Discovery Workflow.
+**Type D Scenario Discovery**: For supply chain mapping or scenario analysis, use Clear Thought `simulation` for scenario construction (2-3 scenarios with probability/timeline/invalidation criteria per the 5-Element Scenario Structure in `methodology.md`), then WebSearch for supply chain research, then apply 6-Criteria Bottleneck Scoring from `supply_chain_bottleneck.md`. Compare L3 supply chain data across multiple analyze outputs to identify shared entities. Full discovery protocol in `methodology.md` Unified Discovery Workflow.
 
 ### Bottleneck Relevance Assessment (Type B only)
 

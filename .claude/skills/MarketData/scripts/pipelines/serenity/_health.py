@@ -52,18 +52,29 @@ def _extract_health_gates(results):
 			gates["bear_bull_paradox"] = "CAUTION"
 			severity["bear_bull_paradox"] = 0.5
 
-	# Active Dilution: PASS (< 1%), CAUTION (1-2%), FLAG (> 2%)
+	# Active Dilution: shares dilution + FCF optical illusion + SBC health
 	sbc = results.get("sbc_analyzer", {})
 	ad_detail = {}
 	if not sbc.get("error"):
 		shares_change = sbc.get("shares_change_qoq_pct")
+		real_fcf = sbc.get("real_fcf")
+		reported_fcf = sbc.get("reported_fcf")
+		sbc_flag = sbc.get("flag")  # "healthy" / "warning" / "toxic"
+
 		ad_detail = {
 			"shares_change_qoq_pct": shares_change,
 			"dilution_flag": sbc.get("dilution_flag"),
 			"sbc_pct_revenue": sbc.get("sbc_pct_revenue"),
-			"total_dilution_annual_pct": sbc.get("total_dilution_annual_pct"),
-			"thresholds": "FLAG: > 2% or active_dilution | CAUTION: 1-2% | PASS: < 1%",
+			"real_fcf": real_fcf,
+			"reported_fcf": reported_fcf,
+			"sbc_flag": sbc_flag,
+			"thresholds": (
+				"FLAG: shares_qoq > 2% | reported_fcf > 0 but real_fcf < 0 | sbc toxic (>30% rev) "
+				"| CAUTION: shares_qoq 1-2% | sbc warning (10-30% rev) | PASS: otherwise"
+			),
 		}
+
+		# Priority 1: Direct share dilution (when data available)
 		if isinstance(shares_change, (int, float)):
 			if shares_change > 2:
 				gates["active_dilution"] = "FLAG"
@@ -72,6 +83,25 @@ def _extract_health_gates(results):
 			elif shares_change > 1:
 				gates["active_dilution"] = "CAUTION"
 				severity["active_dilution"] = 0.5
+
+		# Priority 2: FCF Optical Illusion (Serenity core insight)
+		# reported FCF positive but real FCF (after SBC) negative = masked dilution
+		elif (isinstance(real_fcf, (int, float)) and isinstance(reported_fcf, (int, float))
+			  and reported_fcf > 0 and real_fcf < 0):
+			gates["active_dilution"] = "FLAG"
+			severity["active_dilution"] = 0.0
+			flags.append("active_dilution")
+
+		# Priority 3: SBC health flag from sbc_analyzer module
+		elif sbc_flag == "toxic":
+			gates["active_dilution"] = "FLAG"
+			severity["active_dilution"] = 0.0
+			flags.append("active_dilution")
+		elif sbc_flag == "warning":
+			gates["active_dilution"] = "CAUTION"
+			severity["active_dilution"] = 0.5
+
+		# Priority 4: Original dilution_flag fallback
 		elif sbc.get("dilution_flag") == "active_dilution":
 			gates["active_dilution"] = "FLAG"
 			severity["active_dilution"] = 0.0

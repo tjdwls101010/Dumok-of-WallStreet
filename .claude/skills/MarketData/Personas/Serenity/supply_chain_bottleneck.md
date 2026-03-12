@@ -394,7 +394,7 @@ Use well-reported chains to validate less transparent ones: leading foundry earn
 
 ### Reverse Cross-Chain Discovery (Pipeline-Assisted)
 
-The cross-chain subcommand scores each shared entity for bottleneck potential with thresholds and interpretation in output.
+Compare L3 supply chain data across multiple analyze outputs to identify shared entities and score them for bottleneck potential.
 
 | Assessment Level | Action |
 |-----------------|--------|

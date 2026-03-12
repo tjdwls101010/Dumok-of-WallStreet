@@ -107,11 +107,11 @@ The hypothesis must be falsifiable. If subsequent data shows the constraint does
 
 ### Phase 3.5: Reverse Cross-Chain Discovery
 
-**What to do**: Feed candidate tickers from Phase 3 into the cross-chain subcommand to discover hidden common suppliers across the theme.
+**What to do**: Run `analyze` on candidate tickers from Phase 3 and compare L3_bottleneck.data.sec_supply_chain for shared entities across the theme.
 
-**How to analyze**: Run `cross-chain TICKER1 TICKER2 ... TICKERN` with 5+ candidates. Pipeline scores each shared entity with thresholds and interpretation in output. Entities flagged as strong bottleneck signals are prime candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier reference percentages represent maximum asymmetric opportunity.
+**How to analyze**: Run `analyze TICKER1 --skip-macro`, `analyze TICKER2 --skip-macro`, etc. for 5+ candidates. Compare the L3_bottleneck supplier/customer lists across outputs to identify common entities. Entities appearing as suppliers in multiple tickers are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier reference overlap represent maximum asymmetric opportunity.
 
-**Gate**: At least one shared supplier with strong bottleneck signal OR two with moderate bottleneck signal = proceed to Phase 4 with these as additional candidates.
+**Gate**: At least one shared supplier across 50%+ of candidates OR two entities appearing as single-source in multiple = proceed to Phase 4 with these as additional candidates.
 
 ### Phase 4: Bottleneck Screening
 
@@ -266,7 +266,7 @@ The pipeline outputs position sizing guidance directly mapped from this table wi
 
 Conviction tiers and rating assignment are defined in the Command's Conviction and Rating System section.
 
-The pipeline includes automated conviction evolution monitoring (position recheck) and theme discovery. Recheck tracks macro regime shifts, health gate degradation, and thesis direction changes. Theme discovery automates sector scanning with bottleneck candidate validation. Discover subcommand details via `extract_docstring.py`.
+The pipeline includes automated theme discovery and position monitoring via re-running analyze. Theme discovery automates sector scanning with bottleneck candidate validation. Position monitoring is done by re-running analyze and comparing with previous results. Discover subcommand details via `extract_docstring.py`.
 
 ---
 
@@ -387,7 +387,7 @@ Thesis mutations must be handled transparently:
 
 ### Pipeline Connection
 
-The recheck pipeline output includes rotation assessment with thresholds and interpretation in output. Use these to trigger this decision framework:
+Re-running analyze and comparing with previous results provides rotation assessment data. Use health gate changes, thesis signal direction, and valuation shifts to trigger this decision framework:
 
 - When pipeline suggests scanning alternatives → run the relative asymmetry comparison above. The pipeline has detected that the position's remaining upside is compressing relative to macro or sector conditions.
 - When pipeline suggests considering a trim → evaluate whether the thesis state is "weakened" or "intact but priced in." If weakened, reduce. If intact but priced in, check for better asymmetry elsewhere.
