@@ -113,14 +113,19 @@ def _compress_earnings_acceleration(data):
 	"""
 	if not isinstance(data, dict) or data.get("error"):
 		return data
-	return {
+	result = {
 		"eps_accelerating": data.get("eps_accelerating"),
-		"sales_accelerating": data.get("sales_accelerating"),
 		"margin_expanding": data.get("margin_expanding"),
 		"eps_growth_rates": data.get("eps_growth_rates", [])[:3],
-		"sales_growth_rates": data.get("sales_growth_rates", [])[:3],
 		"data_quality": data.get("data_quality"),
 	}
+	# Only include sales fields when data is available (yfinance quarterly_income_stmt
+	# rarely provides enough quarters for YoY acceleration, so these are usually empty)
+	sales_rates = data.get("sales_growth_rates", [])
+	if sales_rates:
+		result["sales_accelerating"] = data.get("sales_accelerating")
+		result["sales_growth_rates"] = sales_rates[:3]
+	return result
 
 
 def _summarize_holders(data):
@@ -229,41 +234,104 @@ def _reformat_analyst_recommendations(data):
 
 
 def _clean_analyst_revisions(data):
-	"""Clean analyst_revisions: remove symbol and interpretation.
+	"""Merge eps_revisions, eps_trend, and growth_estimates into horizon-based structure.
 
-	Add trend summary fields.
+	Converts column-oriented yfinance data into per-horizon objects with
+	computed trend direction and net revision counts.
 	"""
 	if not isinstance(data, dict) or data.get("error"):
 		return data
 
-	cleaned = {}
+	eps_rev = data.get("eps_revisions") or {}
+	eps_trend = data.get("eps_trend") or {}
+	growth_est = data.get("growth_estimates") or {}
 
-	# Copy raw data, excluding symbol and interpretation
-	for key in ("eps_revisions", "eps_trend", "growth_estimates", "revisions_direction"):
-		if key in data:
-			cleaned[key] = data[key]
+	horizons = ("0q", "+1q", "0y", "+1y")
+	by_horizon = {}
 
-	# Add trend summary
-	rev_dir = data.get("revisions_direction", "stable")
-	if isinstance(rev_dir, str):
-		cleaned["trend_direction"] = "rising" if rev_dir.lower() == "up" else "falling" if rev_dir.lower() == "down" else "stable"
+	total_up_7d = 0
+	total_down_7d = 0
+	total_up_30d = 0
+	total_down_30d = 0
+	rising_count = 0
+	falling_count = 0
+	comparable_count = 0
+
+	# Pre-extract column dicts (eps_trend)
+	trend_current = eps_trend.get("current", {}) if isinstance(eps_trend, dict) else {}
+	trend_7d = eps_trend.get("7daysAgo", {}) if isinstance(eps_trend, dict) else {}
+	trend_30d = eps_trend.get("30daysAgo", {}) if isinstance(eps_trend, dict) else {}
+	trend_90d = eps_trend.get("90daysAgo", {}) if isinstance(eps_trend, dict) else {}
+
+	# Pre-extract column dicts (eps_revisions)
+	up7_col = eps_rev.get("upLast7days", {}) if isinstance(eps_rev, dict) else {}
+	down7_col = eps_rev.get("downLast7days", {}) if isinstance(eps_rev, dict) else {}
+	up30_col = eps_rev.get("upLast30days", {}) if isinstance(eps_rev, dict) else {}
+	down30_col = eps_rev.get("downLast30days", {}) if isinstance(eps_rev, dict) else {}
+
+	# Pre-extract stockTrend (growth_estimates), excluding indexTrend
+	stock_trend = growth_est.get("stockTrend", {}) if isinstance(growth_est, dict) else {}
+
+	for h in horizons:
+		entry = {}
+
+		# eps_trend fields
+		if isinstance(trend_current, dict) and h in trend_current:
+			entry["eps_current"] = trend_current[h]
+		if isinstance(trend_7d, dict) and h in trend_7d:
+			entry["eps_7d_ago"] = trend_7d[h]
+		if isinstance(trend_30d, dict) and h in trend_30d:
+			entry["eps_30d_ago"] = trend_30d[h]
+		if isinstance(trend_90d, dict) and h in trend_90d:
+			entry["eps_90d_ago"] = trend_90d[h]
+
+		# eps_revisions fields
+		if isinstance(up7_col, dict) and h in up7_col:
+			val = up7_col[h] or 0
+			entry["up_7d"] = up7_col[h]
+			total_up_7d += val
+		if isinstance(down7_col, dict) and h in down7_col:
+			val = down7_col[h] or 0
+			entry["down_7d"] = down7_col[h]
+			total_down_7d += val
+		if isinstance(up30_col, dict) and h in up30_col:
+			val = up30_col[h] or 0
+			entry["up_30d"] = up30_col[h]
+			total_up_30d += val
+		if isinstance(down30_col, dict) and h in down30_col:
+			val = down30_col[h] or 0
+			entry["down_30d"] = down30_col[h]
+			total_down_30d += val
+
+		# growth_estimates.stockTrend
+		if isinstance(stock_trend, dict) and h in stock_trend:
+			entry["growth_pct"] = stock_trend[h]
+
+		if entry:
+			by_horizon[h] = entry
+
+		# trend_direction: compare eps_current vs eps_30d_ago per horizon
+		eps_cur = entry.get("eps_current")
+		eps_30d_val = entry.get("eps_30d_ago")
+		if isinstance(eps_cur, (int, float)) and isinstance(eps_30d_val, (int, float)):
+			comparable_count += 1
+			if eps_cur > eps_30d_val:
+				rising_count += 1
+			elif eps_cur < eps_30d_val:
+				falling_count += 1
+
+	# Majority rule for trend_direction
+	if comparable_count > 0 and rising_count > comparable_count / 2:
+		trend_direction = "rising"
+	elif comparable_count > 0 and falling_count > comparable_count / 2:
+		trend_direction = "falling"
 	else:
-		cleaned["trend_direction"] = "stable"
+		trend_direction = "stable"
 
-	# Net revisions 30d (up_count - down_count from eps_revisions)
-	eps_rev = data.get("eps_revisions", {})
-	if isinstance(eps_rev, dict):
-		up_7 = 0
-		down_7 = 0
-		up_30 = 0
-		down_30 = 0
-		for period_key in ("current_quarter", "next_quarter", "current_year", "next_year"):
-			period_data = eps_rev.get(period_key, {})
-			if isinstance(period_data, dict):
-				up_7 += (period_data.get("up_last_7_days") or 0)
-				down_7 += (period_data.get("down_last_7_days") or 0)
-				up_30 += (period_data.get("up_last_30_days") or 0)
-				down_30 += (period_data.get("down_last_30_days") or 0)
-		cleaned["net_revisions_30d"] = up_30 - down_30
-
-	return cleaned
+	return {
+		"by_horizon": by_horizon,
+		"trend_direction": trend_direction,
+		"net_revisions_7d": total_up_7d - total_down_7d,
+		"net_revisions_30d": total_up_30d - total_down_30d,
+		"thresholds": "trend_direction: rising(majority horizons eps_current > eps_30d_ago) | falling(majority <) | stable(mixed)",
+	}

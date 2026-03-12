@@ -26,17 +26,9 @@ def _build_thesis_signals(l4_results, l5_results):
 		strengthening.append("execution_validated")
 	analyst_rev = l5.get("analyst_revisions") or {}
 	if analyst_rev and not analyst_rev.get("error"):
-		rev_dir = analyst_rev.get("revisions_direction", "")
-		if isinstance(rev_dir, str) and rev_dir.lower() == "up":
+		rev_dir = analyst_rev.get("trend_direction", "")
+		if isinstance(rev_dir, str) and rev_dir.lower() == "rising":
 			strengthening.append("street_catching_up")
-		else:
-			for key in ("current_quarter", "next_quarter", "current_year", "next_year"):
-				val = analyst_rev.get(key)
-				if isinstance(val, dict):
-					val = val.get("change") or val.get("revision")
-				if isinstance(val, (int, float)) and val > 0:
-					strengthening.append("street_catching_up")
-					break
 	inst_quality = l4.get("institutional_quality") or {}
 	io_score = inst_quality.get("io_quality_score")
 	if isinstance(io_score, (int, float)) and io_score >= 7:
@@ -64,7 +56,7 @@ def _build_thesis_signals(l4_results, l5_results):
 		"sales_accelerating": earnings_acc.get("sales_accelerating"),
 		"sales_growth_rates": earnings_acc.get("sales_growth_rates"),
 		"consecutive_beats": beats if isinstance(beats, (int, float)) else None,
-		"revisions_direction": analyst_rev.get("revisions_direction") if not analyst_rev.get("error") else None,
+		"trend_direction": analyst_rev.get("trend_direction") if not analyst_rev.get("error") else None,
 		"io_quality_score": io_score,
 		"sbc_flag": sbc.get("flag") or sbc.get("dilution_flag"),
 	}
@@ -365,11 +357,10 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	conviction, size, max_loss = pos_table.get(grade, (None, "no_entry", None))
 	regime_adj = "risk_off_0.5x" if regime == "risk_off" else "transitional_0.75x" if regime == "transitional" else "none"
 
-	# Convert score_breakdown values to {score, weight} format
+	# Flatten score_breakdown to key: points (weights are constant, moved to thresholds)
 	score_breakdown_out = {}
-	weight_map = {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10}
 	for key, val in score_breakdown.items():
-		score_breakdown_out[key] = {"score": val.get("points", val.get("raw")), "weight": weight_map.get(key, 0)}
+		score_breakdown_out[key] = val.get("points", val.get("raw", 0))
 
 	sop_triggered = False
 	trapped_asset_eligible = False
@@ -377,6 +368,7 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	return {
 		"composite_score": total_score, "grade": grade,
 		"score_breakdown": score_breakdown_out,
+		"composite_thresholds": "weights: bottleneck=30, health=25, thesis=15, catalyst=10, taxonomy=10, valuation=10 | STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35",
 		"position_guidance": {
 			"conviction_tier": conviction, "suggested_size_pct": size,
 			"max_loss_pct": max_loss, "regime_adjustment": regime_adj,

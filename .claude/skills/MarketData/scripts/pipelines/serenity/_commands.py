@@ -627,6 +627,9 @@ def cmd_recheck(args):
 	# Step 4: Extract health gates
 	health_gates = _extract_health_gates(l4_results)
 
+	# Step 4.5: Clean analyst_revisions for format consistency
+	l5_results["analyst_revisions"] = _clean_analyst_revisions(l5_results.get("analyst_revisions"))
+
 	# Step 5: Build thesis signals
 	thesis_signals = _build_thesis_signals(l4_results, l5_results)
 

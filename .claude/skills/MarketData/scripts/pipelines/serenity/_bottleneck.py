@@ -421,10 +421,7 @@ def _pre_score_bottleneck(sec_sc_data):
 		criteria["no_substitutes"]["score"] = ns_score
 		criteria["no_substitutes"]["evidence"] += " + commodity price exposure (Item 7A)"
 
-	# 6. Cost insignificance — requires agent assessment
-	criteria["cost_insignificance"] = {"score": 0, "evidence": "Cannot determine from SEC data", "requires_agent_assessment": True}
-
-	# Max excludes cost_insignificance (agent-only)
+	# criterion 6 (cost_insignificance) requires agent assessment — excluded from automated scoring
 	pre_score = sum(c["score"] for c in criteria.values())
 	pre_score_max = 4.25
 

@@ -191,25 +191,21 @@ def _build_priced_in_assessment(l4_results, l5_results):
 
 	# Signal 6: Revision Direction
 	rev_data = l5.get("analyst_revisions") or {}
-	rev_dir = rev_data.get("revisions_direction", "unknown") if not rev_data.get("error") else "unknown"
+	rev_dir = rev_data.get("trend_direction", "unknown") if not rev_data.get("error") else "unknown"
 	signals["revision_direction"] = rev_dir
-	if rev_dir == "up":
+	if rev_dir == "rising":
 		risk_score += 12
-	elif rev_dir == "down":
+	elif rev_dir == "falling":
 		risk_score -= 8
 
-	# Signal 7: Revision Magnitude (if available)
+	# Signal 7: Revision Magnitude — from by_horizon.0y eps change
 	rev_magnitude = None
-	for key in ("current_year", "next_year"):
-		val = rev_data.get(key)
-		if isinstance(val, dict):
-			change = val.get("change") or val.get("revision")
-			if isinstance(change, (int, float)):
-				rev_magnitude = change
-				break
-		elif isinstance(val, (int, float)):
-			rev_magnitude = val
-			break
+	by_horizon = rev_data.get("by_horizon", {})
+	horizon_0y = by_horizon.get("0y", {})
+	eps_cur = horizon_0y.get("eps_current")
+	eps_30d = horizon_0y.get("eps_30d_ago")
+	if isinstance(eps_cur, (int, float)) and isinstance(eps_30d, (int, float)) and eps_30d != 0:
+		rev_magnitude = round((eps_cur - eps_30d) / abs(eps_30d) * 100, 2)
 	signals["revision_magnitude"] = rev_magnitude
 
 	# Signal 8: IO Quality Score
