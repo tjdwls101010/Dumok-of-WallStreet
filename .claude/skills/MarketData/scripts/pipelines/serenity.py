@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Serenity Pipeline v5.8.0 (Pipeline-Complete): 6-Level analytical hierarchy
+"""Serenity Pipeline v5.8.1 (Pipeline-Complete): 6-Level analytical hierarchy
 automating supply chain bottleneck analysis with macro regime assessment,
 fundamental validation, composite signal generation, control layer outputs,
 and evidence chain verification.
@@ -105,9 +105,16 @@ Returns:
 		sbc_analyzer, forward_pe, debt_structure,
 		institutional_quality, no_growth_valuation, margin_tracker,
 		iv_context, revenue_trajectory (8-quarter actual revenue).
-		L5_catalysts: earnings_dates (capped at 8 most recent),
-		earnings_surprise (post-ER reaction),
-		analyst_recommendations, analyst_price_targets, analyst_revisions.
+		L5_catalysts: earnings (merged: next_report + surprise_history with
+		nested eps{estimate,actual,surprise_pct,beat,yoy_pct,qoq_pct} and
+		revenue{actual,yoy_pct,qoq_pct} sub-objects per quarter, max 8 quarters,
+		consecutive_beats, avg_surprise_pct, cockroach_effect),
+		analyst_consensus (row-oriented recommendations),
+		analyst_price_targets,
+		analyst_revisions (by_horizon with nested eps{current,7d_ago,30d_ago,
+		90d_ago,low,high,yoy_pct,up_7d,down_7d,up_30d,down_30d} and
+		revenue{avg,low,high,yoy_pct} sub-objects per horizon 0q/+1q/0y/+1y,
+		trend_direction, net_revisions_7d/30d).
 		L3_bottleneck: sec_supply_chain (suppliers, customers,
 		single_source_dependencies, geographic_concentration,
 		capacity_constraints, supply_chain_risks — trimmed for context),

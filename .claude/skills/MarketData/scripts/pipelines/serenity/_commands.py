@@ -259,6 +259,8 @@ def cmd_analyze(args):
 		"analyst_recommendations": ("analysis/analysis.py", ["get-recommendations-summary", ticker]),
 		"analyst_price_targets": ("analysis/analysis.py", ["get-analyst-price-targets", ticker]),
 		"analyst_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
+		"earnings_estimate": ("analysis/analysis.py", ["get-earnings-estimate", ticker]),
+		"revenue_estimate": ("analysis/analysis.py", ["get-revenue-estimate", ticker]),
 	}
 
 	# --- SEC Supply Chain Intelligence (L3 pre-extraction) ---
@@ -512,9 +514,11 @@ def cmd_analyze(args):
 		l5_results.get("analyst_recommendations"),
 	)
 
-	# Clean analyst_revisions
+	# Clean analyst_revisions (enriched with forward estimates)
 	analyst_revisions = _clean_analyst_revisions(
 		l5_results.get("analyst_revisions"),
+		earnings_estimate=l5_results.get("earnings_estimate"),
+		revenue_estimate=l5_results.get("revenue_estimate"),
 	)
 
 	# Analyst price targets (pass through)
