@@ -8,14 +8,15 @@ from utils import output_json, safe_run
 from ._runner import _run_script
 from ._health import _extract_health_gates, _build_readiness_codes
 from ._bottleneck import _build_l3_bottleneck
-from ._valuation import _build_valuation_summary
+from ._valuation import _build_valuation_frame
 from ._postprocess import (
 	_summarize_insider_transactions, _extract_revenue_trajectory,
 	_cap_earnings_dates, _compress_earnings_acceleration, _summarize_holders,
+	_merge_earnings, _reformat_analyst_recommendations, _clean_analyst_revisions,
 )
 from ._macro import _classify_macro_regime
 from ._control import (
-	_build_materiality_signals, _build_causal_bridge_data,
+	_build_materiality_signals, _build_causal_bridge,
 	_build_priced_in_assessment, _build_institutional_flow, _build_expression_layer,
 )
 from ._signals import (
@@ -229,14 +230,13 @@ def cmd_analyze(args):
 	l4_scripts = {
 		"info": ("data_sources/info.py", ["get-info-fields", ticker,
 			"sector", "industry", "marketCap", "enterpriseValue",
-			"fullTimeEmployees", "longBusinessSummary", "financialCurrency",
-			"fiftyTwoWeekLow", "fiftyTwoWeekHigh", "beta",
-			"currentPrice", "forwardPE", "priceToSalesTrailing12Months",
+			"longBusinessSummary", "currentPrice", "beta",
+			"fiftyTwoWeekLow", "fiftyTwoWeekHigh",
+			"fiftyDayAverage", "twoHundredDayAverage",
 			"sharesOutstanding", "floatShares", "shortPercentOfFloat",
-			"previousClose", "fiftyDayAverage", "twoHundredDayAverage",
+			"priceToSalesTrailing12Months",
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
-		"holders": ("data_sources/holders.py", ["get-institutional-holders", ticker]),
 		"insider_transactions": ("data_sources/holders.py", [
 			"get-insider-transactions", ticker, "--exclude-grants",
 			"--start", insider_start]),
@@ -295,7 +295,7 @@ def cmd_analyze(args):
 	l5_results = {k: all_results[k] for k in l5_scripts}
 	sec_sc_results = {k: all_results[k] for k in sec_sc_scripts}
 
-	# Build Hyperscaler CapEx Bridge Signal (Change J)
+	# --- Build Hyperscaler CapEx Bridge Signal ---
 	hyperscaler_signal = None
 	hs_directions = []
 	for t in hyperscaler_tickers:
@@ -314,40 +314,52 @@ def cmd_analyze(args):
 			"total_count": len(hs_directions),
 		}
 
-	# Post-process: insider transactions summary
+	# --- Post-processing ---
+	# Insider transactions summary
 	insider_raw = l4_results.get("insider_transactions")
 	if insider_raw and not (isinstance(insider_raw, dict) and insider_raw.get("error")):
 		l4_results["insider_transactions"] = _summarize_insider_transactions(insider_raw)
 
-	# Post-process: extract revenue trajectory from quarterly financials
+	# Revenue trajectory from quarterly financials
 	financials_raw = l4_results.pop("quarterly_financials", None)
 	if financials_raw and not (isinstance(financials_raw, dict) and financials_raw.get("error")):
 		l4_results["revenue_trajectory"] = _extract_revenue_trajectory(financials_raw)
 
-	# Post-process: compress earnings_acceleration
+	# Compress earnings_acceleration (remove symbol, code33_status)
 	ea_raw = l4_results.get("earnings_acceleration")
 	if ea_raw and not (isinstance(ea_raw, dict) and ea_raw.get("error")):
 		l4_results["earnings_acceleration"] = _compress_earnings_acceleration(ea_raw)
 
-	# Post-process: summarize holders
-	holders_raw = l4_results.get("holders")
-	if holders_raw and not (isinstance(holders_raw, dict) and holders_raw.get("error")):
-		l4_results["holders"] = _summarize_holders(holders_raw)
-
-	# Post-process: cap earnings_dates to 8 most recent
-	ed_raw = l5_results.get("earnings_dates")
-	if ed_raw and not (isinstance(ed_raw, dict) and ed_raw.get("error")):
-		l5_results["earnings_dates"] = _cap_earnings_dates(ed_raw)
-
-	# Post-process: move capex_trend from L4 to L2
+	# Move capex_trend from L4 to L2
 	capex_data = l4_results.pop("capex_trend", None)
 
-	# Health gates (extracted from L4)
+	# --- L2: Flatten capex data ---
+	l2_capex_flow = {}
+	if capex_data and not capex_data.get("error"):
+		symbols_list = capex_data.get("symbols") or []
+		if symbols_list:
+			sym = symbols_list[0]
+			l2_capex_flow["quarters"] = sym.get("quarters", [])
+			l2_capex_flow["direction"] = sym.get("direction")
+			l2_capex_flow["latest_capex"] = sym.get("latest_capex")
+			l2_capex_flow["avg_capex"] = sym.get("avg_capex")
+	l2_capex_flow["hyperscaler_signal"] = hyperscaler_signal
+	capex_direction = l2_capex_flow.get("direction")
+
+	# --- L3: Bottleneck ---
+	l3_data = _build_l3_bottleneck(sec_sc_results)
+	bottleneck_pre_score = l3_data.get("bottleneck_pre_score")
+
+	# --- Health gates (from L4) ---
 	health_gates = _extract_health_gates(l4_results)
 
 	# Conditional SEC filing check for active dilution
 	sec_filing_result = None
-	if "active_dilution" in health_gates.get("flags", []):
+	gate_flags = []
+	for gate_name in ("bear_bull_paradox", "active_dilution", "no_growth_fail", "margin_collapse", "io_quality_concern"):
+		if health_gates.get(gate_name) == "FLAG":
+			gate_flags.append(gate_name)
+	if "active_dilution" in gate_flags:
 		sec_filing_result = _run_script(
 			"data_advanced/sec/filings.py",
 			[ticker, "--form", "S-3", "--limit", "5"]
@@ -355,26 +367,12 @@ def cmd_analyze(args):
 		if sec_filing_result and not sec_filing_result.get("error"):
 			l4_results["sec_dilution_check"] = sec_filing_result
 
-	# Valuation summary
-	valuation_summary = _build_valuation_summary(l4_results)
-
-	# L3 Bottleneck (call before output to get pre_score for downstream)
-	l3_data = _build_l3_bottleneck(sec_sc_results)
-	bottleneck_pre_score = l3_data.get("bottleneck_pre_score")
-
-	# Thesis signals (Change D)
+	# --- Derived signals ---
 	thesis_signals = _build_thesis_signals(l4_results, l5_results)
-
-	# SoP triggers (Change E)
 	sop_triggers = _check_sop_triggers(l4_results)
-
-	# Trapped asset override (Change F)
 	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score, sec_sc_results)
-
-	# L6 auto-classification (Change G)
 	auto_classification = _auto_classify_taxonomy(l4_results, bottleneck_pre_score)
 
-	# Composite signal + position sizing (Change H+I)
 	composite_signal = _generate_composite_signal(
 		l1_result, l4_results, l5_results,
 		health_gates.get("severity_score"),
@@ -382,49 +380,174 @@ def cmd_analyze(args):
 		auto_classification, trapped_asset_override,
 	)
 
-	# Fundamental readiness codes
-	readiness_codes = _build_readiness_codes(
-		health_gates, valuation_summary, l4_results,
-		l5_results=l5_results, sec_result=sec_filing_result,
-		sec_sc_results=sec_sc_results,
-		bottleneck_pre_score=bottleneck_pre_score,
-		composite_signal=composite_signal,
+	# Materiality signals
+	materiality = _build_materiality_signals(l3_data, l4_results, l5_results)
+	priced_in = _build_priced_in_assessment(l4_results, l5_results)
+	inst_flow = _build_institutional_flow(l4_results)
+	expression = _build_expression_layer(l4_results, composite_signal)
+	valuation_frame = _build_valuation_frame(l4_results)
+
+	# Causal bridge (flat dashboard)
+	causal_bridge = _build_causal_bridge(
+		l1_result, l3_data, l4_results, l5_results,
+		capex_direction, materiality, thesis_signals,
+	)
+	causal_bridge["L4_health_severity"] = health_gates.get("severity_score")
+	causal_bridge["L6_classification"] = auto_classification.get("classification")
+
+	# SoP triggered flag
+	composite_signal["sop_triggered"] = sop_triggers.get("triggered", False)
+
+	# --- Build L3 materiality into L3 output ---
+	l3_data["materiality"] = {
+		"supply_chain_verdict": materiality.get("supply_chain_verdict"),
+		"sec_events_verdict": materiality.get("sec_events_verdict"),
+	}
+
+	# === L4: Build 5-cluster structure ===
+	info = l4_results.get("info") or {}
+	fpe = l4_results.get("forward_pe") or {}
+	ngv = l4_results.get("no_growth_valuation") or {}
+	ea = l4_results.get("earnings_acceleration") or {}
+	sbc = l4_results.get("sbc_analyzer") or {}
+	debt = l4_results.get("debt_structure") or {}
+	margin = l4_results.get("margin_tracker") or {}
+	iq = l4_results.get("institutional_quality") or {}
+	iv = l4_results.get("iv_context") or {}
+	rev_traj = l4_results.get("revenue_trajectory") or {}
+	insider = l4_results.get("insider_transactions") or {}
+
+	# Profile: key info fields (deduplicated)
+	profile = {}
+	for field in ("sector", "industry", "marketCap", "enterpriseValue",
+				  "longBusinessSummary", "currentPrice", "beta",
+				  "fiftyTwoWeekLow", "fiftyTwoWeekHigh",
+				  "fiftyDayAverage", "twoHundredDayAverage",
+				  "sharesOutstanding", "floatShares", "shortPercentOfFloat",
+				  "priceToSalesTrailing12Months"):
+		if field in info:
+			profile[field] = info[field]
+
+	# Valuation: forward_pe + no_growth_valuation (remove symbol, duplicates)
+	valuation_cluster = {}
+	if not fpe.get("error"):
+		for k, v in fpe.items():
+			if k not in ("symbol", "current_price", "valuation_gap", "gross_margin_pct", "error"):
+				valuation_cluster[k] = v
+	if not ngv.get("error"):
+		ngv_clean = {}
+		for k, v in ngv.items():
+			if k not in ("symbol", "error"):
+				ngv_clean[k] = v
+		valuation_cluster["no_growth"] = ngv_clean
+
+	# Earnings Growth: earnings_acceleration + revenue_trajectory + sbc
+	earnings_growth = {}
+	if not ea.get("error"):
+		ea_clean = {k: v for k, v in ea.items() if k not in ("symbol", "code33_status", "error")}
+		earnings_growth.update(ea_clean)
+	if rev_traj:
+		earnings_growth["revenue_trajectory"] = rev_traj
+	if not sbc.get("error"):
+		sbc_clean = {}
+		for k, v in sbc.items():
+			if k not in ("symbol", "sbc_interpretation", "shares_outstanding_current",
+						  "shares_change_qoq_pct", "error"):
+				sbc_clean[k] = v
+		earnings_growth["sbc"] = sbc_clean
+
+	# Financial Health: debt_structure + margin_tracker
+	financial_health = {}
+	if not debt.get("error"):
+		debt_clean = {k: v for k, v in debt.items()
+					  if k not in ("symbol", "grade_interpretation", "error")}
+		financial_health["debt"] = debt_clean
+	if not margin.get("error"):
+		margin_clean = {k: v for k, v in margin.items()
+						if k not in ("symbol", "margin_interpretation", "error")}
+		financial_health["margins"] = margin_clean
+
+	# Market Structure: institutional_quality + iv_context + insider_transactions
+	market_structure = {}
+	if not iq.get("error"):
+		iq_clean = {k: v for k, v in iq.items()
+					if k not in ("symbol", "io_interpretation", "error")}
+		market_structure["institutional_quality"] = iq_clean
+	if not iv.get("error"):
+		iv_clean = {k: v for k, v in iv.items()
+					if k not in ("symbol", "current_price", "interpretation", "error")}
+		market_structure["iv_context"] = iv_clean
+	if insider:
+		market_structure["insider_transactions"] = insider
+
+	# L4 Assessment: health_gates + market_positioning
+	l4_assessment = {
+		"health_gates": health_gates,
+		"market_positioning": {
+			"priced_in": priced_in,
+			"institutional_flow": inst_flow,
+			"expression": expression,
+		},
+		"margin_materiality": materiality.get("margin_materiality"),
+		"earnings_materiality": materiality.get("earnings_materiality"),
+	}
+
+	l4_fundamentals = {
+		"profile": profile,
+		"valuation": valuation_cluster,
+		"earnings_growth": earnings_growth,
+		"financial_health": financial_health,
+		"market_structure": market_structure,
+		"assessment": l4_assessment,
+	}
+
+	# === L5: Build cleaned catalysts ===
+	# Merge earnings_dates + earnings_surprise
+	earnings = _merge_earnings(
+		l5_results.get("earnings_dates"),
+		l5_results.get("earnings_surprise"),
 	)
 
-	# === Control Layer outputs ===
-	materiality_signals = _build_materiality_signals(l3_data, l4_results, l5_results, sec_sc_results)
-	causal_bridge_data = _build_causal_bridge_data(l1_result, l3_data, l4_results, l5_results, capex_data)
-	priced_in_assessment = _build_priced_in_assessment(l4_results, l5_results)
-	institutional_flow = _build_institutional_flow(l4_results)
-	expression_layer = _build_expression_layer(l4_results, composite_signal)
+	# Analyst consensus (row-oriented)
+	analyst_consensus = _reformat_analyst_recommendations(
+		l5_results.get("analyst_recommendations"),
+	)
 
+	# Clean analyst_revisions
+	analyst_revisions = _clean_analyst_revisions(
+		l5_results.get("analyst_revisions"),
+	)
+
+	# Analyst price targets (pass through)
+	analyst_price_targets = l5_results.get("analyst_price_targets")
+
+	l5_catalysts = {
+		"earnings": earnings,
+		"analyst_consensus": analyst_consensus,
+		"analyst_price_targets": analyst_price_targets,
+		"analyst_revisions": analyst_revisions,
+		"assessment": {
+			"thesis_signals": thesis_signals,
+		},
+	}
+
+	# === Verdict ===
+	verdict = {
+		"composite_signal": composite_signal,
+		"valuation_frame": valuation_frame,
+		"causal_bridge": causal_bridge,
+	}
+
+	# === Final Output: 8 top-level keys ===
 	output = {
 		"ticker": ticker,
-		"levels": {
-			"L1_macro": l1_result if l1_result else {"skipped": True},
-			"L2_capex_flow": {
-				"company_capex": capex_data,
-				"hyperscaler_signal": hyperscaler_signal,
-				"cascade_requires_context": True,
-				"note": "Company CapEx and Hyperscaler CapEx bridge signal auto-included. Supply chain cascade requires agent context.",
-			},
-			"L3_bottleneck": l3_data,
-			"L4_fundamentals": l4_results,
-			"L5_catalysts": l5_results,
-			"L6_taxonomy": auto_classification,
-		},
-		"materiality_signals": materiality_signals,
-		"causal_bridge_data": causal_bridge_data,
-		"priced_in_assessment": priced_in_assessment,
-		"institutional_flow": institutional_flow,
-		"expression_layer": expression_layer,
-		"health_gates": health_gates,
-		"thesis_signals": thesis_signals,
-		"sop_triggers": sop_triggers,
-		"trapped_asset_override": trapped_asset_override,
-		"composite_signal": composite_signal,
-		"valuation_summary": valuation_summary,
-		"fundamental_readiness_codes": readiness_codes,
+		"L1_macro": l1_result if l1_result else {"skipped": True},
+		"L2_capex_flow": l2_capex_flow,
+		"L3_bottleneck": l3_data,
+		"L4_fundamentals": l4_fundamentals,
+		"L5_catalysts": l5_catalysts,
+		"L6_taxonomy": auto_classification,
+		"verdict": verdict,
 	}
 
 	output_json(output)
@@ -538,7 +661,9 @@ def cmd_recheck(args):
 	if thesis_signals.get("net_direction") == "weakening":
 		action_signals.append("THESIS_WEAKENING")
 
-	if len(health_gates.get("flags", [])) >= 2:
+	flag_count = sum(1 for g in ("bear_bull_paradox", "active_dilution", "no_growth_fail", "margin_collapse")
+					if health_gates.get(g) == "FLAG")
+	if flag_count >= 2:
 		action_signals.append("MULTIPLE_GATES_FLAGGED")
 
 	# Step 7.5: Rotation Assessment

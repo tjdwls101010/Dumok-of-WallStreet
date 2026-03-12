@@ -20,7 +20,9 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 **Principle**: The docstring is the single source of truth for the specific usage of the code. Do not specify **interface details** (subcommand names, argument formats, return structures) or **output field names** (JSON key names such as `sbc_flag`, `debt_quality_grade`, `composite_signal`) in commands or personas — these change when code evolves. The agent always accesses the latest interface information via `extract_docstring.py`, and field-level semantics via the JSON output's self-documenting fields (see §2.8). Structural references (which pipeline file serves which persona, execution path format patterns) and methodology concepts (e.g., "stock-based compensation health", "debt quality") are acceptable since they are stable architectural facts.
 
-**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing interface details with separate files (commands/personas) was burdensome and prone to omissions. `extract_docstring.py` bridges this gap for interface discovery. Similarly, when calculation thresholds change in code, the JSON output's `thresholds`/`interpretation` fields reflect the change automatically, while references to specific field names or threshold values in separate documents become stale.
+**Reason for Introduction**: When modifying code, updating the docstring in the same file is natural, but synchronizing interface details with separate files (commands/personas) was burdensome and prone to omissions. `extract_docstring.py` bridges this gap for interface discovery. Similarly, when calculation thresholds change in code, the JSON output's `thresholds` fields reflect the change automatically, while references to specific field names or threshold values in separate documents become stale.
+
+**Anti-pattern**: Copying the same numeric value into multiple sections of the output (e.g., duplicating a score in both the data section and a summary section). Each data point must have exactly one canonical location; downstream consumers reference that location directly.
 
 ### 2.2 Persona Purity
 
@@ -58,24 +60,26 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 **Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
 
-### 2.8 Self-Documenting Output (3-Layer Trust Model)
+### 2.8 Self-Documenting Output (2-Layer Trust Model)
 
-**Principle**: Every computed score, signal, and flag in the JSON output must include self-documenting fields (`thresholds` and/or `interpretation`) that explain how the value was derived and what it means. The agent must treat code-computed scores as a **consistent baseline, not absolute truth** — scores may be wrong due to hardcoded thresholds that don't fit every context. The agent critically evaluates scores by cross-checking against the `detail`/`evidence` fields provided alongside them.
+**Principle**: Every computed score, signal, and flag in the JSON output must be self-documenting through **field naming** and **thresholds**. The agent must treat code-computed scores as a **consistent baseline, not absolute truth** — scores may be wrong due to hardcoded thresholds that don't fit every context. The agent critically evaluates scores by cross-checking against the `detail`/`evidence` fields provided alongside them.
 
-Three layers provide information to the agent, each with a distinct role and zero synchronization risk:
+Two layers provide information to the agent, each with a distinct role and zero synchronization risk:
 
 | Layer | Role | Contains | Sync Risk |
 |-------|------|----------|-----------|
-| **JSON Output** | Field-level semantics | `thresholds` (classification criteria), `interpretation` (current value meaning), `note` (agent directives) | Zero — same code function |
-| **Docstring** | Interface specification | Subcommands, arguments, return field names and types | Zero — same file as code |
+| **JSON Output** | Field-level semantics | Self-documenting field names + `thresholds` (classification criteria) | Zero — same code function |
 | **Persona Documents** | Methodology framework | WHY and HOW to think — investment reasoning, decision frameworks, judgment heuristics | Zero — no field names, stable concepts only |
 
 **Field naming convention:**
 - `thresholds`: Static string describing the classification boundaries (e.g., `"A: <3% | B: 3-6% | C: 6-8% | D: >8%"`)
-- `interpretation`: Dynamic string combining the current value with contextual meaning (e.g., `"Grade A with 2.1% implied interest — low refinancing risk"`)
-- `note`: Agent instruction (e.g., `"Agent must contextualize with sector/event awareness"`)
+- Field names are self-documenting (e.g., `severity_score`, `margin_of_safety_pct`, `consecutive_beats`)
 
-**Reason for Introduction**: Score/signal/flag calculation methodologies were previously described in both code and persona documents. This created two risks: (1) When code thresholds changed, documents became stale, causing LLM misjudgment; (2) LLM couldn't distinguish "should I calculate this myself?" from "is this already calculated?" The self-documenting output pattern eliminates both risks — interpretation travels with the data, always in sync, and the LLM knows every score is pre-computed while having the evidence to question it.
+`interpretation` and `note` fields are **not** included in JSON output. The agent interprets data by combining thresholds with actual values. Agent behavior directives belong in command/persona files, not in pipeline output.
+
+**Reason for Introduction**: Score/signal/flag calculation methodologies were previously described in both code and persona documents. This created two risks: (1) When code thresholds changed, documents became stale, causing LLM misjudgment; (2) LLM couldn't distinguish "should I calculate this myself?" from "is this already calculated?" The self-documenting output pattern eliminates both risks — thresholds travel with the data, always in sync, and the LLM knows every score is pre-computed while having the evidence to question it.
+
+**Anti-pattern**: Copying the same numeric value into multiple sections of the output (e.g., `io_quality_score` appearing in both L4 data and control layer). Each data point must exist in exactly one canonical location.
 
 ---
 
@@ -204,7 +208,7 @@ Module Scripts — Atomic Analysis Functions (~112)
 - **ThreadPoolExecutor Parallel Execution**: Reduces response time by executing independent modules concurrently.
 - **Graceful Degradation**: Continues analysis with the rest even if partial failures occur. Indicates `missing_components`.
 - **Response Compression Post-processing**: Converts raw data into insights to ensure context efficiency.
-- **Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores, grades, or signals by aggregating multiple inputs, the output must include `thresholds` or equivalent fields (e.g., `score_methodology`, `signal_weights`, `scoring_guide`) that reveal the component weights and grade boundaries. This enables the agent to understand why a grade was assigned and which components might be misleading.
+- **Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores, grades, or signals by aggregating multiple inputs, the output must include `thresholds` or equivalent fields (e.g., `signal_weights`) that reveal the component weights and grade boundaries. This enables the agent to understand why a grade was assigned and which components might be misleading.
 
 **[HARD] Pre-verification of Module Interfaces (Pipeline Development Rule):**
 

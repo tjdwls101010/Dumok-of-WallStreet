@@ -71,17 +71,7 @@ def _build_thesis_signals(l4_results, l5_results):
 
 	return {
 		"strengthening": strengthening, "weakening": weakening, "net_direction": net_direction,
-		"conviction_delta": s_count - w_count, "detail": detail,
-		"signal_definitions": {
-			"pricing_power_confirmed": "Margins expanding while sales accelerating — company raising prices successfully",
-			"execution_validated": "3+ consecutive earnings beats — consistent delivery",
-			"street_catching_up": "Analyst revisions trending upward — consensus lagging actual performance",
-			"smart_money_accumulating": "IO quality score >= 7 — quality institutions building positions",
-			"pricing_power_eroding": "Margin collapse — competitive pressure or cost inflation destroying pricing power",
-			"dilution_destroying_value": "SBC toxic or active dilution — shareholder value being eroded",
-			"demand_weakening": "Sales decelerating with negative growth — demand slowing",
-			"institutional_exit": "IO quality score <= 3 — smart money leaving",
-		},
+		"conviction_delta": s_count - w_count,
 	}
 
 
@@ -244,8 +234,7 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 	if classification == "unclassified":
 		evidence.append("No rule matched")
 
-	return {"classification": classification, "confidence": confidence, "evidence": evidence, "requires_llm": True,
-		"note": "Rule-based pre-classification. Agent should verify and may override."}
+	return {"classification": classification, "confidence": confidence, "evidence": evidence}
 
 
 def _parse_days_to_earnings(l5_results):
@@ -376,15 +365,23 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	conviction, size, max_loss = pos_table.get(grade, (None, "no_entry", None))
 	regime_adj = "risk_off_0.5x" if regime == "risk_off" else "transitional_0.75x" if regime == "transitional" else "none"
 
+	# Convert score_breakdown values to {score, weight} format
+	score_breakdown_out = {}
+	weight_map = {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10}
+	for key, val in score_breakdown.items():
+		score_breakdown_out[key] = {"score": val.get("points", val.get("raw")), "weight": weight_map.get(key, 0)}
+
+	sop_triggered = False
+	trapped_asset_eligible = False
+
 	return {
-		"composite_score": total_score, "grade": grade, "score_breakdown": score_breakdown,
-		"position_guidance": {"conviction_tier": conviction, "suggested_size_pct": size, "max_loss_pct": max_loss, "regime_adjustment": regime_adj},
-		"regime_cap_applied": regime_cap_applied, "trapped_asset_override_applied": trapped_override_applied,
-		"requires_agent_review": True, "note": "Automated composite signal. Agent must review before final rating assignment.",
-		"score_methodology": {
-			"components": "bottleneck(30) + health(25) + thesis(15) + catalyst(10) + taxonomy(10) + valuation_mos(10) = max 100",
-			"grade_thresholds": "STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35 | MOONSHOT: >=50 + trapped_asset",
-			"regime_cap": "risk_off regime caps score at 49 (max HOLD) unless trapped_asset eligible",
-			"caveat": "Agent must verify component breakdown. A high total score with low health component may mask fundamental weakness.",
+		"composite_score": total_score, "grade": grade,
+		"score_breakdown": score_breakdown_out,
+		"position_guidance": {
+			"conviction_tier": conviction, "suggested_size_pct": size,
+			"max_loss_pct": max_loss, "regime_adjustment": regime_adj,
 		},
+		"sop_triggered": sop_triggered,
+		"trapped_asset_eligible": trapped_override_applied,
+		"regime_cap_applied": regime_cap_applied,
 	}

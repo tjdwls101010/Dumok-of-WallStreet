@@ -61,17 +61,27 @@ def _build_l3_bottleneck(sec_sc_results):
 	bottleneck_pre_score = None
 	if has_sc_data:
 		bottleneck_pre_score = _pre_score_bottleneck(sec_sc_raw)
-		sec_status = "SEC_SC_available"
-		note = ("SEC filing supply chain data pre-extracted and pre-scored. "
-				"Agent completes 6-Criteria scoring via WebSearch cross-validation.")
-	elif sec_sc_data and sec_sc_data.get("data") is not None:
-		sec_status = "SEC_SC_partial"
-		note = ("SEC filing found but limited supply chain matches. "
-				"Agent relies primarily on WebSearch for L3.")
-	else:
-		sec_status = "SEC_SC_unavailable"
-		note = ("SEC supply chain data unavailable. "
-				"Agent relies on WebSearch for L3.")
+
+	# --- Build cleaned sec_supply_chain data ---
+	cleaned_sc = None
+	if sec_sc_data and not sec_sc_data.get("error") and sec_sc_data.get("data"):
+		sc_data = sec_sc_data["data"]
+		# Keep filing info, supply_chain; remove extraction_stats, data_coverage, metadata
+		cleaned_sc = {
+			"filing": sc_data.get("filing"),
+			"supply_chain": sc_data.get("supply_chain"),
+		}
+
+	# --- Build cleaned sec_events ---
+	cleaned_events = []
+	if has_events:
+		for ev in (sec_events_raw.get("data") or []):
+			cleaned_events.append({
+				"filing_date": ev.get("filing_date"),
+				"event_type": ev.get("event_type"),
+				"context": ev.get("context"),
+				"confidence": ev.get("confidence"),
+			})
 
 	# Absence Evidence Flags (H7)
 	absence_evidence_flags = []
@@ -79,35 +89,23 @@ def _build_l3_bottleneck(sec_sc_results):
 		data_coverage = sec_sc_data.get("data", {}).get("data_coverage", {})
 		supply_chain = sec_sc_data.get("data", {}).get("supply_chain", {})
 		if data_coverage:
-			# Type 1: No major customer contracts disclosed
 			customers = supply_chain.get("customers", [])
 			rev_conc = supply_chain.get("revenue_concentration", [])
 			if not customers and not rev_conc and data_coverage.get("customers") == "not_disclosed":
 				absence_evidence_flags.append({
 					"type": "no_major_customer_disclosed",
 					"signal": "negative",
-					"note": "Company explicitly states no single customer is material — unvalidated revenue pipeline",
 				})
-			# Type 3: No analyst coverage / minimal data
 			if data_coverage.get("revenue_concentration") == "insufficient_context":
 				absence_evidence_flags.append({
 					"type": "revenue_concentration_unknown",
 					"signal": "neutral",
-					"note": "Revenue concentration data not found in filing — may indicate limited disclosure",
 				})
-			# Type 2: No fundamental change + selloff (mechanical selling signal)
-			# Detect via SEC events absence — if no recent 8-K filings exist,
-			# significant price drops are likely non-fundamental (tax harvest, algo, MM).
 			if not has_events:
 				absence_evidence_flags.append({
 					"type": "no_fundamental_change_selloff",
 					"signal": "potential_entry",
-					"note": ("No recent SEC event filings (8-K) detected. "
-							"If stock has declined significantly, selling may be "
-							"mechanical (tax harvesting, MM pinning, algo rebalancing), "
-							"not fundamental — verify via WebSearch."),
 				})
-			# Type 4: No domestic production (geographic concentration all international)
 			geo_conc = supply_chain.get("geographic_concentration", [])
 			if geo_conc:
 				all_intl = all(
@@ -119,31 +117,38 @@ def _build_l3_bottleneck(sec_sc_results):
 					absence_evidence_flags.append({
 						"type": "no_domestic_production",
 						"signal": "geopolitical_risk",
-						"note": "All disclosed production concentrated in international high-risk locations",
 					})
-			# Type 5: Marketed capacity vs contracted capacity gap
 			cap_coverage = data_coverage.get("capacity_constraints", "")
 			po_coverage = data_coverage.get("purchase_obligations", "")
 			if cap_coverage == "extracted" and po_coverage in ("not_disclosed", "insufficient_context"):
 				absence_evidence_flags.append({
 					"type": "marketed_vs_contracted_capacity_gap",
 					"signal": "hype_risk",
-					"note": ("Capacity constraints disclosed but purchase obligations "
-							"absent or undisclosed — gap between marketed and "
-							"contracted capacity is a red flag. Verify via SEC filings."),
 				})
 
+	# --- Clean bottleneck_pre_score ---
+	cleaned_bn_score = None
+	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
+		cleaned_bn_score = {
+			"pre_score": bottleneck_pre_score.get("pre_score"),
+			"criteria": bottleneck_pre_score.get("criteria"),
+			"assessment": bottleneck_pre_score.get("assessment"),
+			"filing_date": bottleneck_pre_score.get("filing_date"),
+			"sole_western_flag": bottleneck_pre_score.get("sole_western_flag"),
+			"assessment_thresholds": "strong: >=3.0 | partial: >=1.5 | weak: <1.5",
+		}
+		stale = bottleneck_pre_score.get("stale_data_warning")
+		if stale:
+			cleaned_bn_score["stale_data_warning"] = stale
+
 	result = {
-		"sec_supply_chain": sec_sc_data if not sec_sc_data.get("error") else None,
-		"sec_events": sec_events_raw if not sec_events_raw.get("error") else None,
-		"sec_status": sec_status,
-		"requires_context": True,
-		"note": note,
+		"data": {
+			"sec_supply_chain": cleaned_sc,
+			"sec_events": cleaned_events,
+		},
+		"bottleneck_pre_score": cleaned_bn_score,
 		"absence_evidence_flags": absence_evidence_flags,
 	}
-
-	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
-		result["bottleneck_pre_score"] = bottleneck_pre_score
 
 	return result
 

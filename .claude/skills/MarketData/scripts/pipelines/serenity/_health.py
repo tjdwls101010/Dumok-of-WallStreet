@@ -141,23 +141,22 @@ def _extract_health_gates(results):
 			severity["io_quality_concern"] = 0.5
 
 	severity_score = sum(severity.values())
-	total_pass = sum(1 for k, v in gates.items()
-		if v == "PASS" and k not in ("total_pass", "total_gates", "flags", "severity", "severity_score", "detail"))
 
-	gates["total_pass"] = total_pass
-	gates["total_gates"] = 5
-	gates["flags"] = flags
-	gates["severity"] = severity
-	gates["severity_score"] = severity_score
-	gates["detail"] = {
-		"bear_bull_paradox": bbp_detail,
-		"active_dilution": ad_detail,
-		"no_growth_fail": ngf_detail,
-		"margin_collapse": mc_detail,
-		"io_quality_concern": iq_detail,
+	return {
+		"bear_bull_paradox": gates["bear_bull_paradox"],
+		"active_dilution": gates["active_dilution"],
+		"no_growth_fail": gates["no_growth_fail"],
+		"margin_collapse": gates["margin_collapse"],
+		"io_quality_concern": gates["io_quality_concern"],
+		"severity_score": severity_score,
+		"detail": {
+			"bear_bull_paradox": bbp_detail,
+			"active_dilution": ad_detail,
+			"no_growth_fail": ngf_detail,
+			"margin_collapse": mc_detail,
+			"io_quality_concern": iq_detail,
+		},
 	}
-
-	return gates
 
 
 def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None, sec_sc_results=None, bottleneck_pre_score=None, composite_signal=None):

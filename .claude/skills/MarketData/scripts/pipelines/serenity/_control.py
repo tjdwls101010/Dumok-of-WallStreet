@@ -4,203 +4,109 @@ Materiality signals, causal bridge, priced-in assessment,
 institutional flow, and expression-layer logic.
 """
 
-from ._interpret import _interpret_institutional_flow
+def _build_materiality_signals(l3_data, l4_results, l5_results):
+	"""Compute materiality verdicts for L3 and L4 assessments.
 
-
-def _build_materiality_signals(l3_data, l4_results, l5_results, sec_sc_results):
-	"""Compute materiality-relevant signals from existing pipeline data.
-
-	Surfaces structured data for agent materiality classification.
-	Does NOT classify materiality itself — that requires event context
-	the pipeline cannot know. Provides the quantitative foundation.
+	Returns supply_chain materiality (for L3) and margin/earnings
+	materiality (for L4 assessment).
 	"""
 	l4 = l4_results or {}
 	info = l4.get("info") or {}
 
-	# 1. Supply Chain Exposure (from L3)
+	# 1. Supply Chain Materiality (from L3 — fixed to traverse correct path)
 	l3 = l3_data or {}
-	sec_sc = l3.get("sec_supply_chain") or {}
-	suppliers = sec_sc.get("suppliers") or []
-	customers = sec_sc.get("customers") or []
-	single_source = sec_sc.get("single_source_dependencies") or []
-	geo_conc = sec_sc.get("geographic_concentration") or []
+	l3_inner = l3.get("data") or {}
+	sec_sc = l3_inner.get("sec_supply_chain") or {}
+	supply_chain = sec_sc.get("supply_chain") or {}
+	suppliers = supply_chain.get("suppliers") or []
+	customers = supply_chain.get("customers") or []
+	single_source = supply_chain.get("single_source_dependencies") or []
+	geo_conc = supply_chain.get("geographic_concentration") or []
 
-	supply_chain_exposure = {
-		"supplier_count": len(suppliers),
-		"customer_count": len(customers),
-		"single_source_count": len(single_source),
-		"geographic_risk_count": len(geo_conc),
-		"has_sec_data": l3.get("sec_status") == "SEC_SC_available",
-		"exposure_level": (
-			"high" if len(single_source) >= 2 or len(geo_conc) >= 2
-			else "moderate" if len(single_source) >= 1
-			else "low"
-		),
-	}
+	has_sec_data = sec_sc is not None and bool(supply_chain)
 
-	# 2. Margin Sensitivity (from L4 margin_tracker)
+	if len(single_source) >= 2 or len(geo_conc) >= 2:
+		supply_chain_verdict = "material"
+	elif len(single_source) >= 1 or len(suppliers) >= 3:
+		supply_chain_verdict = "partial"
+	else:
+		supply_chain_verdict = "noise"
+
+	# SEC events verdict
+	sec_events = l3_inner.get("sec_events") or []
+	sec_events_verdict = "detected" if len(sec_events) > 0 else "none"
+
+	# 2. Margin Materiality (from L4 margin_tracker)
 	margin = l4.get("margin_tracker") or {}
 	gross_margin = info.get("grossMargins")
-	op_margin = info.get("operatingMargins")
-	margin_flag = str(margin.get("flag", ""))
+	margin_flag = str(margin.get("flag", "")).upper()
 
-	margin_sensitivity = {
-		"gross_margin_pct": round(gross_margin * 100, 1) if isinstance(gross_margin, (int, float)) else None,
-		"operating_margin_pct": round(op_margin * 100, 1) if isinstance(op_margin, (int, float)) else None,
-		"margin_trend": margin_flag or "unknown",
-		"operating_leverage": (
-			"high" if isinstance(gross_margin, (int, float)) and isinstance(op_margin, (int, float))
-			and gross_margin > 0 and (gross_margin - op_margin) / gross_margin > 0.5
-			else "moderate" if isinstance(gross_margin, (int, float)) and gross_margin > 0.4
-			else "low"
-		),
-	}
+	if "COLLAPSE" in margin_flag:
+		margin_materiality = "high"
+	elif "EXPANDING" in margin_flag and isinstance(gross_margin, (int, float)) and gross_margin > 0.5:
+		margin_materiality = "high"
+	elif "COMPRESSION" in margin_flag or "CONTRACTING" in margin_flag:
+		margin_materiality = "moderate"
+	else:
+		margin_materiality = "low"
 
 	# 3. Earnings Materiality (from L4/L5)
 	ea = l4.get("earnings_acceleration") or {}
 	surprise = l5_results.get("earnings_surprise") or {} if l5_results else {}
-	rev_traj = l4.get("revenue_trajectory") or {}
+	beats = surprise.get("consecutive_beats")
+	sales_acc = ea.get("sales_accelerating")
 
-	latest_rev_growth = None
-	quarters = rev_traj.get("quarters") or []
-	if len(quarters) >= 2:
-		q_latest = quarters[-1].get("revenue")
-		q_prev = quarters[-2].get("revenue")
-		if isinstance(q_latest, (int, float)) and isinstance(q_prev, (int, float)) and q_prev > 0:
-			latest_rev_growth = round((q_latest - q_prev) / q_prev * 100, 1)
-
-	earnings_materiality = {
-		"consecutive_beats": surprise.get("consecutive_beats"),
-		"sales_accelerating": ea.get("sales_accelerating"),
-		"latest_rev_growth_qoq_pct": latest_rev_growth,
-		"sales_growth_rates": ea.get("sales_growth_rates"),
-	}
-
-	# 4. Recent SEC Events (from sec_sc_results)
-	sec_events_raw = (sec_sc_results or {}).get("sec_events") or {}
-	events = []
-	if not sec_events_raw.get("error"):
-		for ev in (sec_events_raw.get("data") or [])[:5]:
-			events.append({
-				"type": ev.get("event_type"),
-				"date": ev.get("filing_date"),
-				"context": (ev.get("context") or "")[:200],
-			})
-
-	# 5. Exposure Summary (one-line for quick scan)
-	parts = []
-	if supply_chain_exposure["single_source_count"] > 0:
-		parts.append(f"{supply_chain_exposure['single_source_count']} single-source dependencies")
-	if supply_chain_exposure["geographic_risk_count"] > 0:
-		parts.append(f"{supply_chain_exposure['geographic_risk_count']} geographic concentration risks")
-	if margin_sensitivity["operating_leverage"] == "high":
-		parts.append("high operating leverage (margin-sensitive)")
-	exposure_summary = "; ".join(parts) if parts else "Low supply chain exposure detected"
+	if (isinstance(beats, (int, float)) and beats >= 4) or sales_acc is True:
+		earnings_materiality = "high"
+	elif isinstance(beats, (int, float)) and beats >= 2:
+		earnings_materiality = "moderate"
+	else:
+		earnings_materiality = "low"
 
 	return {
-		"supply_chain_exposure": supply_chain_exposure,
-		"margin_sensitivity": margin_sensitivity,
+		"supply_chain_verdict": supply_chain_verdict,
+		"sec_events_verdict": sec_events_verdict,
+		"margin_materiality": margin_materiality,
 		"earnings_materiality": earnings_materiality,
-		"recent_sec_events": events,
-		"exposure_summary": exposure_summary,
 	}
 
 
-def _summarize_rev_trajectory_brief(rev_traj):
-	"""One-line summary of revenue trajectory from 8-quarter data."""
-	quarters = rev_traj.get("quarters") or []
-	if len(quarters) < 2:
-		return "insufficient_data"
-	revenues = [q.get("revenue") for q in quarters if isinstance(q.get("revenue"), (int, float))]
-	if len(revenues) < 2:
-		return "insufficient_data"
-	latest, earliest = revenues[-1], revenues[0]
-	if earliest > 0:
-		total_growth = (latest - earliest) / earliest * 100
-		direction = "accelerating" if len(revenues) >= 3 and latest > revenues[-2] > revenues[-3] else "growing"
-		return f"{direction} ({total_growth:+.0f}% over {len(revenues)}Q)"
-	return "unknown"
 
-
-def _build_causal_bridge_data(l1_result, l3_data, l4_results, l5_results, capex_data):
-	"""Pre-fill the causal bridge chain with available pipeline data.
-
-	Output: structured data for each causal bridge layer.
-	Agent completes the bridge by connecting layers with causal reasoning.
-	"""
+def _build_causal_bridge(l1_result, l3_data, l4_results, l5_results, capex_direction,
+						   materiality, thesis_signals):
+	"""Build flat causal bridge dashboard for verdict section."""
 	l1 = l1_result if isinstance(l1_result, dict) else {}
 	l4 = l4_results or {}
 	l3 = l3_data or {}
-	info = l4.get("info") or {}
-
-	# Layer 1: Macro Context
-	macro_context = {
-		"regime": l1.get("regime", "unknown"),
-		"risk_level": l1.get("risk_level", "unknown"),
-		"key_signals": [],
-	}
-	signals = l1.get("signals") or {}
-	if signals.get("vix_regime"):
-		macro_context["key_signals"].append(f"VIX regime: {signals['vix_regime']}")
-	if signals.get("net_liq_direction"):
-		macro_context["key_signals"].append(f"Net liquidity: {signals['net_liq_direction']}")
-	if signals.get("real_rate") is not None:
-		macro_context["key_signals"].append(f"Real rate: {signals['real_rate']}%")
-
-	# Layer 2: Supply Chain Position
 	bn_pre = l3.get("bottleneck_pre_score") or {}
-	supply_chain_position = {
-		"sector": info.get("sector"),
-		"industry": info.get("industry"),
-		"bottleneck_pre_score": bn_pre.get("pre_score"),
-		"key_dependencies": [],
-		"sec_available": l3.get("sec_status") == "SEC_SC_available",
-	}
-	sec_sc = l3.get("sec_supply_chain") or {}
-	for dep in (sec_sc.get("single_source_dependencies") or [])[:3]:
-		if isinstance(dep, dict):
-			supply_chain_position["key_dependencies"].append(dep.get("supplier") or dep.get("name") or str(dep))
-		elif isinstance(dep, str):
-			supply_chain_position["key_dependencies"].append(dep)
-
-	# Layer 3: Financial Transmission
 	margin = l4.get("margin_tracker") or {}
-	rev_traj = l4.get("revenue_trajectory") or {}
-	capex = capex_data or {}
-
-	financial_transmission = {
-		"revenue_trajectory": _summarize_rev_trajectory_brief(rev_traj),
-		"margin_trend": str(margin.get("flag", "unknown")),
-		"capex_direction": capex.get("direction") if isinstance(capex, dict) else "unknown",
-		"capex_trend_quarters": capex.get("quarters_count") if isinstance(capex, dict) else None,
-	}
-
-	# Layer 4: Valuation Gap
 	ngv = l4.get("no_growth_valuation") or {}
-	fpe = l4.get("forward_pe") or {}
-	current_price = info.get("currentPrice")
+	surprise = (l5_results or {}).get("earnings_surprise") or {}
+	ts = thesis_signals if isinstance(thesis_signals, dict) else {}
+	mat = materiality if isinstance(materiality, dict) else {}
 
-	no_growth_floor = ngv.get("intrinsic_value") or ngv.get("no_growth_value")
-	forward_pe_val = fpe.get("forward_pe")
+	# Earnings momentum
+	beats = surprise.get("consecutive_beats")
+	if isinstance(beats, (int, float)) and beats >= 4:
+		earnings_momentum = "strong_beats"
+	elif isinstance(beats, (int, float)) and beats >= 2:
+		earnings_momentum = "moderate_beats"
+	else:
+		earnings_momentum = "weak"
 
-	valuation_gap = {
-		"current_price": current_price,
-		"no_growth_floor": no_growth_floor,
-		"no_growth_gap_pct": (
-			round((current_price - no_growth_floor) / no_growth_floor * 100, 1)
-			if isinstance(current_price, (int, float)) and isinstance(no_growth_floor, (int, float)) and no_growth_floor > 0
-			else None
-		),
-		"forward_pe": forward_pe_val,
-		"growth_upside": ngv.get("margin_of_safety_pct"),
-	}
+	mos_pct = ngv.get("margin_of_safety_pct")
 
 	return {
-		"macro_context": macro_context,
-		"supply_chain_position": supply_chain_position,
-		"financial_transmission": financial_transmission,
-		"valuation_gap": valuation_gap,
-		"note": "Causal bridge data pre-filled from pipeline. Agent must connect layers with event-specific causal reasoning.",
+		"L1_regime": l1.get("regime", "unknown"),
+		"L2_capex_direction": capex_direction or "unknown",
+		"L3_bottleneck_score": bn_pre.get("pre_score"),
+		"L3_materiality": mat.get("supply_chain_verdict", "unknown"),
+		"L4_health_severity": None,  # filled by caller after health_gates
+		"L4_margin_trend": str(margin.get("flag", "unknown")).upper(),
+		"L4_valuation_gap_pct": round(mos_pct, 1) if isinstance(mos_pct, (int, float)) else None,
+		"L5_earnings_momentum": earnings_momentum,
+		"L5_thesis_direction": ts.get("net_direction", "unknown"),
+		"L6_classification": None,  # filled by caller after taxonomy
 	}
 
 
@@ -329,10 +235,9 @@ def _build_priced_in_assessment(l4_results, l5_results):
 		assessment = "not_priced_in"
 
 	return {
-		"signals": signals,
 		"risk_score": risk_score,
 		"assessment": assessment,
-		"note": f"Priced-in risk score {risk_score}/100 -> {assessment}. Agent must contextualize with sector/event awareness.",
+		"signals": signals,
 		"signal_weights": {
 			"52w_range_position": "+18 (>80%) / +10 (>60%) / -5 (<20%)",
 			"price_vs_50d_ma": "+12 (>20% above) / +6 (>10%)",
@@ -395,16 +300,10 @@ def _build_institutional_flow(l4_results):
 	)
 
 	return {
-		"insider_net_direction": insider_direction,
-		"insider_net_value": insider_net_value,
-		"io_quality_score": io_score,
-		"io_assessment": io_assessment,
-		"iv_percentile": iv_percentile,
-		"iv_regime": iv_regime,
-		"flow_signals": flow_signals,
 		"flow_assessment": flow_assessment,
-		"flow_thresholds": "positive: insider_accumulation OR institutional_conviction | negative: insider_distribution AND exit_risk | neutral: default",
-		"interpretation": _interpret_institutional_flow(io_assessment, iv_regime, flow_assessment, insider_direction),
+		"insider_signal": insider_direction,
+		"institutional_signal": io_assessment,
+		"iv_signal": iv_regime,
 	}
 
 
@@ -444,16 +343,6 @@ def _build_expression_layer(l4_results, composite_signal):
 		reasoning = f"IV neutral ({iv_percentile}th pctl) -> shares (no clear vol edge)"
 
 	return {
-		"iv_percentile": iv_percentile,
-		"iv_rank": iv_rank,
-		"iv_regime": (
-			"elevated" if isinstance(iv_percentile, (int, float)) and iv_percentile > 70
-			else "depressed" if isinstance(iv_percentile, (int, float)) and iv_percentile < 30
-			else "normal" if isinstance(iv_percentile, (int, float))
-			else "unknown"
-		),
-		"conviction_tier": conviction,
 		"recommended_vehicle": recommended,
 		"reasoning": reasoning,
-		"iv_thresholds": "elevated: >70th percentile | depressed: <30th | normal: 30-70th",
 	}

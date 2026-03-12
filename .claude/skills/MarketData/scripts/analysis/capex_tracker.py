@@ -143,7 +143,7 @@ def _fetch_capex_series(symbol, quarters):
 	for col in cols:
 		val = row[col]
 		if val is None or (hasattr(val, "item") and val != val):
-			series.append({"period": _format_period(col), "capex": None})
+			continue  # null capex quarters excluded from output
 		else:
 			series.append({"period": _format_period(col), "capex": int(abs(float(val)))})
 
