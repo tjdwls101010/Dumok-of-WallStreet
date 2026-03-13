@@ -146,19 +146,14 @@ Normalize economics on a per-megawatt basis to compare companies with different 
 When inventory grows faster than sales, it signals either demand weakness or channel stuffing. Verify inventory figures against actual business operations (e.g., VLN's $82M inventory was a data artifact from a ticker collision).
 
 ### Margin Trajectory
-Expanding margins signal operating leverage and pricing power. Compressing margins signal competitive pressure or cost inflation.
-- **Purpose**: Track gross/operating/net margin trajectories quarterly to assess operating leverage realization
-- **Data**: Recent 4-8 quarters of margin data, QoQ/YoY change rates
-- **Interpretation**: Pipeline auto-classifies margin trend with thresholds and interpretation in output. Direction matters more than current level
+Expanding margins signal operating leverage and pricing power. Compressing margins signal competitive pressure or cost inflation. Pipeline auto-classifies margin trend with thresholds in output. Direction matters more than current level.
 
 ### FCF Confirmation: The "Real" FCF Test
 Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantial.
 
 **Formula**: Real FCF = Reported FCF - SBC
 
-- **Purpose**: Subtract SBC from reported FCF to verify genuine cash generation. Any FCF-based thesis must survive SBC adjustment
-- **Data**: Annual SBC amount, SBC/revenue ratio, reported FCF, shares outstanding Q/Q change
-- **Interpretation**: Pipeline auto-classifies SBC health with thresholds and interpretation in output. Negative Real FCF means reported FCF is illusory
+Pipeline auto-classifies SBC health with thresholds in output. Negative Real FCF means reported FCF is illusory.
 - **CAVEAT**: Pre-revenue biotech or early-stage growth companies may show elevated SBC from strategic option pools. Cross-check SBC ratio with company lifecycle stage
 
 *Pattern:* When a company reports positive FCF but SBC is classified as toxic, reported FCF is illusory — Real FCF may be significantly negative. This is a recurring pattern across high-SBC tech companies. *Apply this Real FCF test independently to the current analysis target.*
@@ -188,10 +183,8 @@ Pipeline auto-generates thesis signals (strengthening and weakening) with defini
 ## Float and Dilution Dynamics
 
 ### SBC Filter
-- **Purpose**: Quantify annual dilution from SBC for every position
-- **Data**: Annual SBC amount, SBC as % of revenue, per-share dilution effect
-- **Interpretation**: Pipeline auto-classifies SBC health with thresholds and interpretation in output
-- **CAVEAT**: Pre-revenue biotech or early-stage companies may use option pools strategically. Cross-check with company lifecycle stage
+Pipeline auto-classifies SBC health with thresholds in output.
+- **CAVEAT**: Pre-revenue biotech or early-stage companies may use option pools strategically. Cross-check with company lifecycle stage.
 
 ### IPO Lockup Analysis
 Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates into entry timing. Large insider stakes becoming freely tradable can temporarily depress prices, creating entry opportunities on strong-thesis names.
@@ -272,7 +265,7 @@ Multi-billion dollar market cap with minimal actual revenue. Income primarily fr
 Annual interest expense consuming a meaningful percentage of revenue. Debt at 8-10%+ interest rates creates existential refinancing risk. Compare to clean-balance-sheet peers to quantify the structural disadvantage. Warning sign: interest expense exceeding 15% of revenue.
 
 **Debt Quality Assessment Protocol:**
-1. Pipeline auto-grades debt quality with thresholds and interpretation in output, reflecting implied interest rate and refinancing risk level.
+1. Pipeline auto-grades debt quality with thresholds in output, reflecting implied interest rate and refinancing risk level.
 2. For elevated or toxic grades: check SEC filings for recent debt-related filings (8-K for new debt issuance, S-3 for shelf registrations). Look for: coupon rates on individual tranches, maturity schedule, conversion terms, covenants.
 3. Pipeline also reports interest coverage ratio with context in output.
 4. **Data source priority**: Pipeline debt analysis (automated) → SEC filings (individual bond details) → WebSearch (only if SEC data insufficient for specific coupon/maturity info).
@@ -352,4 +345,3 @@ The pipeline provides IV regime classification, recommended expression vehicle, 
 - **Thesis Mutation Decision Framework**: When the thesis state transitions from "intact" to "weakened," any outstanding options positions must be re-evaluated. LEAPS on a weakened thesis carry elevated risk because the catalyst timeline may have extended beyond the option's duration. Covered calls on a weakening thesis may limit upside recovery if the thesis re-strengthens.
 - **Position Sizing by Conviction**: The conviction tier from `methodology.md` feeds directly into the matrix above. A conviction downgrade from Strong Buy to Buy should trigger a vehicle reassessment (e.g., close LEAPS, convert to shares).
 
-Reference BM04 (options_volatility_expression) benchmark behavior: the expectation is to connect IV regime, structural volatility characteristics, and thesis conviction into a coherent expression vehicle selection — not to treat options as a standalone analytical topic.

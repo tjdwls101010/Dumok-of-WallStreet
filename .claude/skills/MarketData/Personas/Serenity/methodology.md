@@ -25,8 +25,8 @@ Track capital expenditure cascading from hyperscalers through the supply chain. 
 ### Level 3: Supply Chain Bottleneck Layer (Core Alpha Generation)
 Map physical supply chains from end-products to raw materials. Find concentration points where supply is constrained. Pipeline pre-extracts supply chain relationships from SEC 10-K/10-Q filings (suppliers, single-source dependencies, geographic concentration, capacity constraints) as a structured baseline. Agent completes the analysis via WebSearch cross-validation and Layer 3-4 multi-hop discovery, then applies the 6-Criteria Bottleneck Scoring framework. This is the primary alpha source. Details in `supply_chain_bottleneck.md`.
 
-### Level 4: Position Construction (Execution)
-Build positions using shares + LEAPS + put selling + covered calls. Position sizing maps to conviction level. DCA into positions during fear, not all-at-once. Details below.
+### Level 4: Fundamental Validation (Health & Valuation)
+Health gates (Bear-Bull Paradox, dilution, no-growth, margin, IO quality), dual valuation (no-growth floor + forward growth), earnings quality, and market structure assessment. Pipeline provides all data with self-documenting thresholds. Details in `valuation_fundamentals.md`.
 
 ### Level 5: Catalyst Monitoring (Validation)
 Track commodity prices (SMM Indium, Germanium, rare earths), earnings results, government policy actions, export controls. Catalysts either validate or invalidate the thesis. Real catalysts are material to forward earnings. Ignore noise.
@@ -49,9 +49,11 @@ The SINGLE AUTHORITATIVE discovery process for finding new investment opportunit
 
 | Context Type | Trigger Examples | Entry Point |
 |---|---|---|
-| **Open-Ended** | "다음 유망 섹터?", "where's the next opportunity?" | Phase 1 (full workflow) |
+| **Open-Ended (Type C, no ticker/theme)** | "다음 유망 섹터?", "where's the next opportunity?" | Phase 1 (full workflow) |
 | **Event-Driven** | Geopolitical event, export control, earnings surprise, policy change | Phase 1 with Scenario Framing |
-| **Thematic** | "AI → robotics 유망주", "XX 산업 bottleneck" — sector specified | Phase 2 (skip macro scan) |
+| **Thematic (Type C, sector specified)** | "AI → robotics 유망주", "XX 산업 bottleneck" | Phase 2 (skip macro scan) |
+| **Comparative (Type C, tickers given)** | "XX vs YY", "비교" | Phase 4 direct (analyze × N, compare) |
+| **Supply Chain (Type D)** | "공급망 구조", "시나리오", "what if" — structural analysis intent | Phase 1 with analyze + WebSearch focus |
 
 ### Scenario Framing (Event-Driven Entry)
 
@@ -109,7 +111,7 @@ The hypothesis must be falsifiable. If subsequent data shows the constraint does
 
 **What to do**: Run `analyze` on candidate tickers from Phase 3 and compare L3_bottleneck.data.sec_supply_chain for shared entities across the theme.
 
-**How to analyze**: Run `analyze TICKER1 --skip-macro`, `analyze TICKER2 --skip-macro`, etc. for 5+ candidates. Compare the L3_bottleneck supplier/customer lists across outputs to identify common entities. Entities appearing as suppliers in multiple tickers are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier reference overlap represent maximum asymmetric opportunity.
+**How to analyze**: Run `analyze TICKER1 --skip-macro`, `analyze TICKER2 --skip-macro`, etc. for 5+ candidates. Compare the L3 supplier/customer lists across outputs to identify common entities. Entities appearing as suppliers in multiple tickers are prime bottleneck candidates. WebSearch to resolve entity names to tickers. Small-cap entities with high supplier reference overlap represent maximum asymmetric opportunity.
 
 **Gate**: At least one shared supplier across 50%+ of candidates OR two entities appearing as single-source in multiple = proceed to Phase 4 with these as additional candidates.
 
@@ -167,10 +169,6 @@ Clear Thought `scientific_method` (form hypothesis) → WebSearch / Deep Researc
 
 The MarketData-First principle is enforced by the Command's Tool Hierarchy. The table below is a domain-specific data source selection guide for Serenity analysis.
 
-### WebSearch Autonomous Usage Principle
-
-Data not collectible via scripts (industry-specific data, government policies, commodity prices, demand signals, etc.) should be immediately sourced via WebSearch. Do not wait for script failures -- proactively decide based on analytical purpose.
-
 ### Domain-Specific Data Source Guide
 
 | Data Need | Source | Examples |
@@ -206,8 +204,6 @@ Forward Revenue/ARR > Gross Margins > Proxy Validation > Balance Sheet > IO Qual
 
 ### Sector-Specific Priority Variations
 
-The universal order adjusts by sector:
-
 | Sector | Priority Order |
 |--------|---------------|
 | Semiconductors | BOM share position → Forward revenue → Gross margin → Balance sheet |
@@ -218,10 +214,6 @@ The universal order adjusts by sector:
 ### Application Rule
 
 When pipeline data presents conflicting signals (e.g., strong balance sheet but weak forward revenue), resolve by priority: the higher-priority signal dominates the analysis conclusion. Do not average conflicting signals — rank them.
-
-### Cross-Reference
-
-For detailed pattern recognition across sectors, see `tactical_patterns.md` when loaded.
 
 ---
 
@@ -264,12 +256,6 @@ The pipeline outputs position sizing guidance directly mapped from this table wi
 
 ---
 
-Conviction tiers and rating assignment are defined in the Command's Conviction and Rating System section.
-
-The pipeline includes automated theme discovery and position monitoring via re-running analyze. Theme discovery automates sector scanning with bottleneck candidate validation. Position monitoring is done by re-running analyze and comparing with previous results. Discover subcommand details via `extract_docstring.py`.
-
----
-
 ## Self-Correction Principles
 
 ### Mistake Handling Protocol
@@ -289,6 +275,8 @@ When analyzing outside core expertise (AI infrastructure, semiconductors, data c
 
 ## Due Diligence Checklist
 
+> *This is the analytical process checklist (what to investigate). For response format requirements, see the Command's Minimum Output Rule.*
+
 For any new ticker entering the universe:
 
 1. **Supply chain position mapping**: Where does the company sit? Customers? Suppliers?
@@ -299,7 +287,7 @@ For any new ticker entering the universe:
 6. **Float analysis**: Short interest, IO quality score, IPO lockup, SBC dilution
 
 #### IO Quality Assessment
-Pipeline auto-scores IO quality with thresholds and interpretation in output. Agent focuses on the qualitative direction: is institutional quality improving or degrading? Cross-reference IO quality direction with thesis signal direction.
+Pipeline auto-scores IO quality with thresholds in output. Agent focuses on the qualitative direction: is institutional quality improving or degrading? Cross-reference IO quality direction with thesis signal direction.
 
 7. **Macro sensitivity**: Rate impact, tariff exposure, geopolitical risk
 8. **Thematic alignment**: Evolution / Disruption / Bottleneck classification
@@ -320,6 +308,36 @@ Every stock recommendation must construct a 6-link evidence chain, each citing s
 6. **Catalyst Timeline**: What forces market recognition? (cite: earnings date, contract announcement, policy date)
 
 Missing or weak links reduce conviction by one tier. For bottleneck-category stocks, links 3-4 carry double weight.
+
+---
+
+## OODA Clear Thought Protocols
+
+After pipeline execution, the agent MUST use Clear Thought MCP to structure interpretation before writing the final response.
+
+### Clear Thought Operation Mapping
+
+| Query Type | ORIENT (Primary) | DECIDE | Conditional Additional |
+|---|---|---|---|
+| A (Macro) | `decision_framework` | — | `metacognitive_monitoring` (when signals conflict) |
+| B (Stock) | `causal_analysis` | `decision_framework` | `metacognitive_monitoring` (when FLAG exists) |
+| C (Discovery) | `scientific_method` or `systems_thinking` | `decision_framework` | `tree_of_thought` (when 3+ paths exist) |
+| D (Supply Chain) | `simulation` → `causal_analysis` | `decision_framework` | `metacognitive_monitoring` (when sector bias detected) |
+| E (Portfolio) | `systems_thinking` | `decision_framework` | — |
+
+### Session Management
+
+All Clear Thought calls within the same analysis MUST use the same sessionId (format: `"serenity-{query_type}-{ticker}-{date}"`), so that results carry over between operations.
+
+### Investigation Triggers
+
+[HARD] After the OBSERVE phase, if ANY of the following conditions are detected, additional WebSearch is MANDATORY before final response:
+
+1. `sole_western_flag: true` → Search: "[supplier] geopolitical risk [current year]"
+2. `bottleneck_pre_score >= 3.5` → Search: "[supplier] capacity expansion competitors"
+3. `margin_collapse` FLAG → Search: "[ticker] earnings call margin guidance"
+4. `causal_analysis` reveals evidence gap at any hop → Search for that hop's missing evidence
+5. `priced_in_assessment` = "not_priced_in" but IO quality > 7 → Search: "[ticker] analyst coverage initiation [current year]"
 
 ---
 
@@ -387,74 +405,311 @@ Thesis mutations must be handled transparently:
 
 ### Pipeline Connection
 
-Re-running analyze and comparing with previous results provides rotation assessment data. Use health gate changes, thesis signal direction, and valuation shifts to trigger this decision framework:
+Re-running `analyze` and comparing with previous results provides thesis mutation data. Use health gate changes, thesis signal direction, and valuation shifts to trigger this decision framework:
 
-- When pipeline suggests scanning alternatives → run the relative asymmetry comparison above. The pipeline has detected that the position's remaining upside is compressing relative to macro or sector conditions.
-- When pipeline suggests considering a trim → evaluate whether the thesis state is "weakened" or "intact but priced in." If weakened, reduce. If intact but priced in, check for better asymmetry elsewhere.
-- When pipeline suggests maintaining → no action required unless new thesis-changing information arrives from outside the pipeline's data scope (e.g., breaking news, regulatory announcement, earnings call commentary).
-
-Reference BM03 (thesis_mutation_exit) benchmark behavior: the expectation is to evaluate position changes based on thesis state transitions, not price movements. The benchmark rewards explicit acknowledgment of what changed and clear conviction recalibration.
+- When health_gates show severity increase → evaluate whether the thesis state is "weakened"
+- When thesis_signals.net_direction is weakening → perform the Relative Asymmetry Comparison above
+- When composite_score declines + priced_in increases → evaluate "Better Asymmetry Elsewhere"
+- When pipeline suggests maintaining → no action required unless new thesis-changing information arrives from outside the pipeline's data scope (e.g., breaking news, regulatory announcement, earnings call commentary)
 
 ---
 
-## Institutional Flow and Microstructure Interpretation
+## Cross-Sector Pattern Library
 
-Institutional ownership data is already captured by the pipeline's IO quality assessment. This section extends beyond static holder quality to interpret the DYNAMICS of institutional flow — distinguishing mechanical noise from genuine conviction signals.
+Five transferable patterns that recur across semiconductors, defense, neoclouds, and macro analysis. Apply these as analytical lenses when mapping any supply chain.
 
-### Flow Classification Taxonomy
+### Pattern 1: Temporal Capex Cascade
 
-Not all institutional activity carries equal information value. Classify observed flow into one of four categories before interpreting:
+Capital expenditure flows through supply chain layers with predictable time delays. Each layer experiences its demand surge 1-2 years after the layer above it. Identify which layer is currently experiencing peak demand. The NEXT layer down is where the asymmetric opportunity lies — demand is coming but hasn't been priced in yet.
 
-**Passive Mechanical Flow**
-- MSCI/Russell index rebalancing (additions, deletions, weight changes)
-- ETF creation/redemption (inflows to sector ETFs force pro-rata buying of all constituents)
-- 13F window dressing (quarter-end position adjustments for reporting optics)
-- **Interpretation**: NOT thesis-relevant. These flows are price-insensitive and follow rules, not conviction. A stock rising on index inclusion is not a fundamental signal. A stock dropping on index deletion is a potential accumulation opportunity if the thesis is intact.
+### Pattern 2: Recursive Bottleneck Discovery
 
-**Active Institutional Conviction**
-- Concentrated buying by quality institutions (long-only active managers initiating or adding positions)
-- Insider purchases (officers and directors buying on the open market with personal capital)
-- Activist accumulation (disclosed or pending 13D filings)
-- **Interpretation**: Thesis-strengthening. When smart money is building a position alongside your thesis, the conviction convergence is a positive signal. Insider buying is the strongest sub-signal — insiders know their own supply chain better than any external analyst.
+When a bottleneck is found, that bottleneck itself has inputs that may be bottlenecked. After identifying a bottleneck (4+/6 scoring), immediately ask: "What does THIS company need to produce its output? Who supplies THAT?" If the nested bottleneck scores 3+/6, it represents compounding pricing power. Prioritize the deepest bottleneck with the smallest market cap.
 
-**Forced / Distressed Flow**
-- Margin calls forcing liquidation of otherwise-sound positions
-- Fund liquidation (a closing fund must sell everything regardless of thesis quality)
-- Tax-loss harvesting (November-December selling of losers for tax purposes)
-- Redemption-driven selling (fund outflows forcing pro-rata position reduction)
-- **Interpretation**: Potential contrarian opportunity. When selling is driven by the seller's balance sheet rather than the company's fundamentals, the price decline does not reflect thesis deterioration. Cross-reference with Absence Evidence Type 2 (No Fundamental Change + Selloff) from `supply_chain_bottleneck.md`.
+### Pattern 3: Mag7-Customer Dependency
 
-**Dealer Hedging Flow**
-- Options market maker delta hedging (buying/selling shares to stay delta-neutral as options positions change)
-- Gamma exposure effects (large open interest near strike prices creates predictable hedging flows)
-- Pin risk around expiration (stock gravitates toward max pain / heavy open interest strikes)
-- **Interpretation**: Short-term noise. These flows are mechanically driven and reverse after expiration. They affect intraday and intraweek price action but carry zero thesis information.
+When a Mag7 company becomes dependent on a small supplier, that supplier's growth trajectory explodes. If a small-cap company appears in 3+ Mag7 supply chains as a supplier or single-source dependency, it likely controls a critical chokepoint. In any industry, when dominant buyers depend on small suppliers, the power dynamic inverts.
 
-### Signal vs Noise Discrimination
+### Pattern 4: Second-Player Duopoly Valuation
 
-Combine IO quality assessment with flow direction and insider activity to distinguish genuine signals:
+In duopolies, the leader's valuation re-rating lifts the floor for the follower. Identify markets where exactly 2 companies control >80% of supply. Value the follower as a fraction of the leader's valuation, adjusted for market share difference. If the follower trades below this implied floor, it's mispriced.
+
+### Pattern 5: Cross-Domain Capacity Pivot
+
+Companies with legacy physical infrastructure can pivot to higher-value applications when a restructuring catalyst emerges. The physical assets are the same; the end market changes. Use Physical Asset Replacement Valuation (from `valuation_fundamentals.md`). If replacement cost of assets >> current market cap, and a viable pivot market exists, the company is a restructuring candidate.
+
+---
+
+## Thesis Lifecycle Tracker
+
+Investment themes progress through predictable phases. Identifying the current phase determines the appropriate strategy.
+
+### 5-Phase Progression Model
+
+| Phase | Characteristics | Strategy |
+|-------|----------------|----------|
+| **1. Enthusiasm** | New theme discovered. Broad basket buying. High optimism, limited differentiation. | Broad exposure: small positions across many names. |
+| **2. Consolidation** | Leaders emerge. Margin and execution differences visible. Capital concentrates. | Narrow: sell laggards, increase leaders. Focus on margin quality. |
+| **3. Prove It** | Sector-wide stress test (selloff, earnings miss, credit event). Only strong companies survive. | Surgical: apply Three-Factor Crash Triage. Buy survivors, exit failures. |
+| **4. Maturation** | Survivors widely recognized. Analyst coverage increases. Valuations approach fair value. | Reduce: take profits on fully valued names. Hold only highest conviction. |
+| **5. Upstream Pivot** | Focus shifts to upstream suppliers. The next bottleneck layer becomes the new frontier. | Rotate: apply Temporal Capex Cascade pattern to identify next layer. |
+
+### Phase Detection Method
+
+- **Enthusiasm → Consolidation**: Gross margin dispersion across sector exceeds 20pp.
+- **Consolidation → Prove It**: Sector experiences 20%+ drawdown from peak.
+- **Prove It → Maturation**: Surviving companies report 2+ quarters of execution on contracted revenue.
+- **Maturation → Upstream Pivot**: Analyst coverage saturation (5+ analysts) AND sector P/E approaches historical mean.
+
+Always state the current phase assessment when analyzing a thematic sector.
+
+---
+
+## Contagion Isolation Mapping
+
+When a sector-wide selloff occurs, not all companies are equally affected. This framework isolates company-specific risk exposure.
+
+### 3 Risk Types to Isolate
+
+1. **Counterparty Contagion**: Revenue depends on an at-risk counterparty. Map each company's revenue to counterparty tiers (Mag7 Fortress → Enterprise → VC-funded → Startup).
+2. **Credit Contagion**: Survival depends on credit market access. Map debt maturity schedule against stress scenario timeline.
+3. **Sentiment Contagion**: Sold purely because of sector membership, not company-specific risk. These are the buying opportunities.
+
+### Decision Matrix
+| Risk Type | Action During Selloff |
+|-----------|----------------------|
+| Sentiment only | Accumulate aggressively |
+| Counterparty (Tier A-B) | Hold, monitor counterparty |
+| Counterparty (Tier C-D) | Reduce or exit |
+| Credit (Grade A-B) | Hold with confidence |
+| Credit (Grade C-D) | Exit immediately |
+| Multiple risk types | Apply worst-case risk type |
+
+---
+
+## Question Framing Discipline
+
+> *This section applies BEFORE pipeline execution — it determines what to analyze and how to frame the question for pipeline input.*
+
+### Core Principle
+
+Question framing is the meta-protocol that activates all other frameworks. Before running any pipeline, before checking any data, the agent should interrogate the question itself. This is not a cosmetic rewriting step. It determines what gets analyzed and what gets ignored.
+
+### Four Diagnostic Questions
+
+**Q1: "What is the actual variable that matters here?"** Strip the headline to its core. A news article about "trade war escalation" is about specific tariff rates on specific goods affecting specific supply chain nodes.
+
+**Q2: "Is this event material to forward earnings through the supply chain?"** This activates the Materiality Classification Framework below. Do not proceed with full analysis until this question has an answer.
+
+**Q3: "Has the market already digested this information?"** This activates the Priced-In Assessment Protocol below. Even a material event offers no asymmetry if the market has already repositioned.
+
+**Q4: "What would change my thesis?"** Define the falsification condition before committing. Every Serenity thesis must have a stated break condition.
+
+### The Correct Analysis Sequence
+
+1. **Question the headline** — reframe into Serenity-native terms
+2. **Check materiality** — does the event transmit through the supply chain?
+3. **Trace causality** — through which financial channels does it transmit?
+4. **Check priced-in** — has the market already acted on this?
+5. **Form thesis** — what is the asymmetric opportunity, if any?
+6. **Define break condition** — what would invalidate this thesis?
+
+### Reframing Template
+
+> "The real question is not [surface question] but [Serenity-reframed question]."
+
+| Surface Question | Serenity Reframe |
+|-----------------|------------------|
+| "Is this a good stock?" | "Does this company control a durable supply chain chokepoint, and has the market already priced that advantage?" |
+| "What happens if tariffs increase?" | "Which supply chain nodes face cost pass-through failure under higher tariffs, and which have pricing power that converts tariff pressure into competitive advantage?" |
+| "Should I buy after this earnings beat?" | "Does the earnings beat validate the forward supply chain thesis, or is it backward-looking confirmation of a position the market has already taken?" |
+
+### Mid-Analysis Self-Correction
+
+When evidence contradicts the initial thesis during analysis, apply the Thesis Mutation protocol. Thesis mutation in response to evidence is a core Serenity behavior, not a deviation.
+
+---
+
+## Materiality Classification Framework
+
+> *When the pipeline has already produced a `materiality` verdict, the agent's role is to validate and contextualize — not to redo the classification. The 4-step decision tree below is primarily for evaluating external events against pipeline supply chain data.*
+
+### Core Principle
+
+Serenity does NOT accept headlines at face value. Before any analysis proceeds, the agent must determine whether an event materially transmits through the company's specific supply chain and financial structure.
+
+### Decision Tree (4 Steps)
+
+Evaluate each event through four sequential checks using pipeline output:
+
+1. **Supply Chain Exposure Check**: Does the event touch a node in the company's actual supply chain? If pipeline exposure data shows no connection, classification is likely noise. Stop.
+2. **Margin Sensitivity Check**: How much does the cost change transmit to earnings? A 20% input cost increase affecting 2% of COGS is noise. Same increase affecting 40% of COGS is material.
+3. **Earnings Trend Check**: Does the company's recent earnings trajectory validate or invalidate concern? Upward trajectory may absorb transient cost events.
+4. **SEC Event Corroboration**: Do recent regulatory filings confirm or contradict the headline? SEC disclosures carry more weight than analyst commentary or media headlines.
+
+### Classification Output
+
+| Classification | Criteria | Required Action |
+|---------------|----------|-----------------|
+| **Material** | Event transmits through supply chain to earnings. At least two checks confirm transmission. | Full causal bridge analysis required. |
+| **Partial** | Real but bounded exposure. May be offset by pricing power, diversified sourcing, or margin cushion. | Flag for monitoring. Include as risk factor, not thesis driver. |
+| **Noise** | Event does not transmit despite headline association. Pipeline exposure data shows minimal overlap. | Document why and dismiss. |
+
+---
+
+## Causal Bridge Reasoning Guide
+
+### Core Principle
+
+An event does not become actionable until the agent traces HOW it transmits from the macro environment through the supply chain into specific financial line items and ultimately into a valuation gap. The pipeline pre-fills the data at each layer. The agent's job is to draw the causal CONNECTIONS between layers.
+
+### Four-Layer Connection
+
+1. **Macro Context**: The triggering event or condition. Pipeline provides regime classification and relevant data points.
+2. **Supply Chain Position**: Where the company sits relative to the event's impact zone. Generic sector association is insufficient — identify the specific supply chain relationship.
+3. **Financial Transmission**: Which channel is affected: Revenue (demand changes), Margin (input costs, pricing power), Capex (capacity changes), Balance sheet (refinancing risk, working capital). Each with direction and approximate magnitude.
+4. **Valuation Gap**: What the financial transmission implies for market pricing. Does the event widen or narrow the gap between current price and fair value?
+
+### Reasoning Template
+
+> "Because [macro signal from Layer 1], [supply chain node from Layer 2] faces [pressure/tailwind], which transmits to [specific line item from Layer 3] via [named mechanism], creating a [valuation gap change from Layer 4]."
+
+Each hop must have evidence from either pipeline data or WebSearch. Assertions without evidence are speculation.
+
+### Minimum Hop Requirements
+
+| Event Type | Minimum Hops | Required Path |
+|------------|-------------|---------------|
+| Supply chain event | 3 | Event → supply chain node → P&L line item → valuation shift |
+| Macro transmission | 3 | Macro condition → sector effect → company financials → valuation |
+| Earnings event | 2 | Earnings data → forward trajectory change → valuation implication |
+
+---
+
+## Priced-In Assessment Protocol
+
+> *This protocol applies after `analyze` execution. During `discover`-based candidate screening, health_gates and asymmetry_score are available but priced-in data is not — candidates must be validated via `analyze` before priced-in assessment.*
+
+### Core Principle
+
+Serenity seeks "good companies that the market has not yet recognized." The priced-in assessment determines whether the market has already digested the thesis. Pipeline produces a priced-in assessment with signal weights and assessment thresholds in output.
+
+### Three-Tier Interpretation
+
+**Tier 1 — Fully Priced In**: The upside thesis is market consensus. Institutional positioning already reflects the narrative. Agent action: Look for thesis breaks, not entries. New entry offers poor asymmetry unless a fresh catalyst exists.
+
+**Tier 2 — Partially Priced In**: The market sees part of the thesis but not all. This is where agent judgment matters most. Agent action: Identify specifically what IS priced in and what is NOT. Decompose the thesis into priced and unpriced components.
+
+**Tier 3 — Not Priced In**: Genuine informational edge may exist. Agent action: Verify — is the thesis truly undiscovered, or is it premature? Check whether insiders are accumulating.
+
+### Mandatory Contextualization
+
+The pipeline score is mechanical. The agent MUST overlay sector and event context:
+- A "fully priced in" score during active sector rotation may understate opportunity if the specific catalyst has not yet materialized.
+- A "not priced in" score during market euphoria may understate risk — the company may have been left behind for a reason.
+
+### Ideal Asymmetry Signal
+
+> A high bottleneck score combined with a not-priced-in assessment represents Serenity's ideal asymmetry.
+
+### Action Mapping
+
+| Priced-In Tier | Recommended Stance | Exception |
+|---------------|-------------------|-----------|
+| Fully priced in | Trim or avoid unless a new catalyst exists | A new, unrecognized catalyst can reset the calculus |
+| Partially priced in | Watch for entry on the unpriced component | Entry when the unpriced catalyst has a defined timeline |
+| Not priced in | Potential opportunity; validate with flow and bottleneck data | Premature thesis without insider confirmation warrants patience |
+
+---
+
+## Agent Judgment Layer
+
+Pipeline output provides the quantitative foundation. The agent adds qualitative judgment in the following areas.
+
+### Health Gate Intervention
+
+Pipeline provides per-gate PASS/FLAG/CAUTION status with thresholds in output. Agent applies these behavioral rules:
+
+- **1 FLAG**: Maximum rating reduced by one tier. Explain WHY using supply chain principles.
+- **2+ FLAGS**: Rating capped at Hold. Check Trapped Asset Override eligibility (conditions below).
+- **CAUTION**: Monitor only. No automatic rating reduction.
+- **Early CapEx dilution FLAG**: Contextual — not always a blocker if capital is productively deployed into revenue-generating assets.
+
+Flags are informational, not absolute blockers. The agent must contextualize each flag using supply chain principles.
+
+### Institutional Flow and Microstructure Interpretation
+
+Institutional ownership data is already captured by the pipeline's IO quality assessment. This section extends beyond static holder quality to interpret the DYNAMICS of institutional flow.
+
+**Flow Classification Taxonomy** — classify observed flow before interpreting:
+- **Passive Mechanical Flow**: Index rebalancing, ETF creation/redemption, window dressing. NOT thesis-relevant.
+- **Active Institutional Conviction**: Concentrated buying by quality institutions, insider purchases, activist accumulation. Thesis-strengthening.
+- **Forced / Distressed Flow**: Margin calls, fund liquidation, tax-loss harvesting, redemption-driven selling. Potential contrarian opportunity if thesis intact.
+- **Dealer Hedging Flow**: Options market maker delta hedging, gamma exposure effects. Short-term noise with zero thesis information.
+
+**Signal vs Noise Discrimination**:
 
 | IO Quality Level | Insider Activity | Flow Direction | Interpretation |
 |---|---|---|---|
-| High + improving | Net buying | Accumulation | Genuine conviction — institutions and insiders aligned. Thesis-strengthening. |
-| High + stable | Neutral | Flat | No new information. Rely on other evidence legs. |
-| Declining (was high, now moderate) | Net selling | Distribution | Distribution warning. Investigate whether thesis has weakened or if this is mechanical (rebalance, redemption). |
-| Low + high short interest | Mixed | Contested | Potential value trap OR contrarian setup. Cannot discriminate from flow data alone — need supply chain evidence (bottleneck score, SEC filing quality, forward revenue visibility) to determine which. |
-| Rising from low base | Net buying (insider) | Early accumulation | Discovery-phase signal. If combined with low analyst coverage and strong bottleneck score, high-asymmetry setup. |
+| High + improving | Net buying | Accumulation | Genuine conviction — thesis-strengthening |
+| Declining (was high) | Net selling | Distribution | Investigate whether thesis weakened or mechanical |
+| Low + high SI | Mixed | Contested | Need supply chain evidence to discriminate |
+| Rising from low base | Net buying (insider) | Early accumulation | Discovery-phase signal — high-asymmetry setup if bottleneck score strong |
 
-### Pipeline Connection
+**Pipeline Connection**: Pipeline output includes institutional flow assessment with thresholds in output. Positive = accumulation signal. Negative = needs investigation (active reversal vs mechanical). Neutral = rely on other evidence legs.
 
-The analyze pipeline output includes institutional flow assessment with thresholds and interpretation in output. Interpret the flow direction as follows:
+### Trapped Asset Override
 
-- Positive flow assessment = accumulation signals present. Institutional behavior aligns with the thesis. Use as supporting evidence, not as the primary thesis driver.
-- Negative flow assessment = distribution signals detected. Needs investigation — is this active conviction reversal or mechanical flow? Check if insider direction is also negative (true distribution warning) or neutral/positive (likely mechanical).
-- Neutral flow assessment = no clear directional signal from institutional data. Rely on other evidence legs (supply chain position, valuation, catalyst timeline).
-- Elevated IV regime during accumulation = potential smart money buying protection via puts while building a share position. This is a sophisticated pattern — elevated IV does not necessarily mean bearish sentiment when accompanied by share accumulation.
+When 2+ FLAGs trigger Hold cap, override to Moonshot is possible if ALL three conditions met:
+- (a) Bottleneck Score 4+/6
+- (b) Physical Asset Floor > 50% of MC (use Physical Asset Replacement Valuation from `valuation_fundamentals.md`)
+- (c) Active Restructuring Catalyst (verify via Restructuring Catalyst Checklist in `valuation_fundamentals.md`)
 
-### Interaction with Other Framework Components
+Maximum position 5%. Risk disclosure MUST state binary outcomes explicitly.
 
-- **Priced-in judgment**: High IO quality (passive/index dominant) combined with extensive analyst coverage suggests the thesis is well-known. This does not mean the position is bad, but it means the discovery alpha has been consumed. The remaining return is execution alpha, not information alpha.
-- **Forced Multi-hop Discovery**: The best bottleneck candidates often have low IO quality because institutions have not yet discovered the supply chain relationship. Low IO quality is a FEATURE for discovery-phase positions, not a bug.
-- **Entry timing**: Forced/distressed flow creates entry windows. Tax-loss harvesting season (November-December), fund liquidation events, and index rebalance selloffs are structurally repeating opportunities for positions with intact theses.
+### Composite Score Confirmation
 
-Reference BM09 (institutional_flow_microstructure) benchmark behavior: the expectation is to distinguish passive mechanical flow from real institutional conviction, not to treat all institutional activity as a single signal.
+The agent MUST confirm every composite grade before publication. Automated scores are inputs, not outputs. L2/L3/L6 qualitative judgment must be reflected. No composite score is published without agent sign-off.
+
+### Conviction Assignment
+
+#### Rating Tiers
+
+**Fire Sale**: Maximum accumulation on extreme drawdowns of highest-conviction names. Used sparingly.
+**Moonshot (Binary Asymmetric)**: Trapped-asset or restructuring. Bottleneck 4+/6 + physical asset floor + restructuring catalyst. Max 5% position.
+**Strong Buy**: Forward revenue growth 50%+ Y/Y with visibility, confirmed contracts, balance sheet strength, market cap below forward trajectory, bottleneck position.
+**Buy**: Solid fundamentals with identifiable catalyst, reasonable valuation, acceptable balance sheet, clear supply chain role.
+**Hold**: Thesis intact but near fair value.
+**Sell/Avoid**: Valuation disconnected, toxic debt, dilution without productive deployment, broken thesis.
+**Strong Sell**: Pre-revenue with multi-billion market caps, serial diluters, pure speculation.
+
+#### Price-Dependent Rating Adjustment
+Every rating MUST include price transition points: "Strong Buy at $X (becomes Buy above $Y, becomes Hold above $Z)." Calculate from forward P/E analysis and no-growth stress test.
+
+#### Conviction Evolution
+- Increases when: new contracts confirmed, supply chain position strengthened, margins expand, IO quality improves
+- Decreases when: SBC nullifies FCF thesis, policy changes addressable market, production vs prototype confusion
+- Full reversal when: fundamental analysis demands it
+
+---
+
+## Cross-Protocol Integration
+
+The interpretation protocols above operate in a specific dependency chain:
+
+```
+Question Framing
+    ↓
+Materiality Classification
+    ↓— If noise: STOP
+    ↓— If material or partial: continue
+Causal Bridge Reasoning
+    ↓
+Priced-In Assessment
+    ↓
+Thesis Formation with Break Condition
+```
+
+**Integration Rules**: A materiality judgment that does not feed into a causal bridge is incomplete. A causal bridge that does not connect to a priced-in assessment is not actionable. A thesis without a stated break condition is not a thesis — it is a conviction statement.
+
+No single protocol output should be treated as a final answer. Each produces an intermediate judgment that gains meaning only in combination.

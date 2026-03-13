@@ -189,8 +189,6 @@ For each hop, document:
 - **SEC data availability**: Available (with filing date) / unavailable / not applicable (private company, commodity)
 - **Preliminary bottleneck assessment**: High potential (multiple 6-Criteria signals) / medium potential (1-2 signals) / low potential (no concentration signals) / insufficient data
 
-Reference BM02 (multi_hop_bottleneck_discovery) benchmark behavior: the expectation is to NOT stop at the obvious component layer but to trace upstream to substrates, specialized materials, and feedstock sources. The benchmark specifically rewards discovering entities at Hop 2-3 that are invisible from the anchor company's level — the kind of supplier-of-supplier relationships that require 3+ inference hops to uncover.
-
 ---
 
 ## Bottleneck 6-Criteria Scoring Framework
@@ -208,7 +206,11 @@ Pipeline auto-scores criteria 1-5 from SEC supply chain data with scoring guide 
 | 5 | No substitutes | Review pipeline score; WebSearch for emerging alternatives |
 | 6 | Cost insignificance + deployment criticality | **Agent-only evaluation**: Small fraction of system cost but required for deployment; customers cannot reduce consumption. Would delaying deployment cost far more than the component? |
 
-**Scoring threshold: 4+ out of 6 = investable bottleneck.**
+**Scoring & Interpretation Process:**
+1. Pipeline `pre_score` (criteria 1-5, max 5.0) + `assessment` are the starting point
+2. Agent evaluates criterion 6 (cost insignificance + deployment criticality) independently
+3. Combined score 4+/6 = investable bottleneck
+4. Pipeline `assessment` (strong/partial/weak) is a pre-screening signal, not the final verdict — agent judgment completes the evaluation
 
 Criterion 6 is the most asymmetric type: a $100 substrate in a $20B deployment can command $10,000 if supply is constrained, because delaying the deployment costs far more.
 
@@ -315,6 +317,128 @@ Evaluate vertical integration value in any industry. Calculate normalized gross 
 
 ---
 
+## Sector Heuristics
+
+Reasoning patterns specific to each sector. These encode HOW to analyze, not WHAT to conclude about specific companies.
+
+### Semiconductor Sector (7 Heuristics)
+
+1. **BOM-Share Valuation**: For any chip program, calculate each supplier's BOM percentage x total program capex = addressable revenue. This quantifies the real revenue opportunity, not speculative TAM.
+
+2. **Bottleneck Migration**: Bottlenecks migrate deeper into the supply chain over time as each constraint resolves and demand hits the next layer. Track which layer is currently constrained and predict the next migration based on capacity expansion timelines.
+
+3. **Cost Insignificance = Overpay Willingness**: When a component represents <1% of total system cost but is required for deployment, the buyer will pay extreme premiums (10-100x) rather than delay deployment. Identify components where delay cost >> component cost.
+
+4. **Chip Redesign Timeline**: Semiconductor redesign follows fixed physical steps: 12 months RTL design + 9-12 months physical design + 3-5 months fabrication + 6-9 months validation = 30-38 months minimum. Any claim of faster replacement violates engineering physics.
+
+5. **ASIC-Agnostic Positioning**: In GPU vs custom ASIC debates, identify companies that win regardless of which architecture prevails. Companies supplying materials, packaging, or connectivity needed by ALL architectures have the safest positioning.
+
+6. **Thermal Bottleneck Prediction**: As chip wattage increases, thermal management becomes binding. When GPU/accelerator TDP exceeds previous generation by >50%, search for thermal solution suppliers -- they become the next bottleneck.
+
+7. **Material Spread Arbitrage**: When production of a critical material is concentrated in one region but consumption is in another, the spread between production cost and consumption-region price indicates structural margin opportunity for Western-positioned alternatives.
+
+### Defense Sector (7 Heuristics)
+
+1. **Military Operation -> BOM Decomposition**: When a military operation occurs, immediately decompose the weapons platforms being deployed into their bills of materials. Each component supplier becomes a potential investment.
+
+2. **Export Control -> Sole Western Supplier**: When an export control is announced, immediately search for the sole Western alternative supplier for the restricted material. The Western alternative inherits monopoly pricing.
+
+3. **Prime Contractor Co-Development De-Risks**: When a small defense company has a co-development partnership with a prime contractor (e.g., top 5 defense company), execution risk is substantially reduced.
+
+4. **Government Balance Sheet Backing**: When a government takes an equity stake in a company or sector, it signals long-term commitment. Government-backed sectors rarely face permanent capital destruction.
+
+5. **Defense Spending is Structural**: Individual contract cancellations or delays are noise. Total defense budget trajectory is the signal. Analyze at the macro budget level, not individual program level.
+
+6. **Pre-Headline Pricing**: Defense ETFs and defense stocks often price in geopolitical events before headlines. If defense sector outperformance precedes a geopolitical event, institutional positioning is already complete.
+
+7. **Multi-Model AI Consensus for Opaque Sectors**: For classified contracts or opaque sectors, cross-reference multiple AI models' assessments. When 3+ independent AI models converge on a probability range, it provides a useful baseline for sectors where traditional analysis has limited data.
+
+### Neocloud Sector (7 Heuristics)
+
+1. **Utilization > Power Cost by 30-70x**: Software utilization rate matters 30-70x more than cheap power for neocloud economics. A company with 90% utilization at expensive power beats 50% utilization at cheap power.
+
+2. **Per-MW Normalized Economics**: Normalize all neocloud comparisons to Revenue/MW/Year, COGS/MW/Year, and Gross Profit/MW. This enables apples-to-apples comparison across different scales and hardware vintages.
+
+3. **Dilution Quality Assessment**: Not all dilution is equal. 0% interest convertible notes at 30%+ premium to market = acceptable growth financing. 8%+ interest rate debt = toxic. Classify dilution as productive (funds revenue-generating assets) or destructive (funds operations or enriches management).
+
+4. **Conditional Bull Case Detection**: Some companies may achieve dramatically higher margins than current operations suggest. Identify conditions under which a lower-tier company could achieve Tier 1 margins. Track progress toward those conditions.
+
+5. **Composite Rating with Multiple Dimensions**: Simple buy/sell is insufficient for neoclouds. Rate across multiple dimensions: contract quality, margin quality, balance sheet, execution, and counterparty risk.
+
+6. **Phase Progression Awareness**: Know which phase the sector is in (see Thesis Lifecycle in `methodology.md`). Buying in Enthusiasm phase requires broad baskets; buying in Prove It phase requires surgical selection of survivors.
+
+7. **Full Bear Case Before Any Bull Case**: Before building a bull thesis for any neocloud, MUST complete the 10-item bear case checklist (see Full Bear Case Checklist in the Thematic Frameworks section above). Bull case is only valid after all 10 items are addressed.
+
+### Macro/Cross-Cutting (6 Heuristics)
+
+1. **Institutional Accumulation Detection**: When price declines but institutional ownership percentage increases, it signals dark pool accumulation. The institutions are buying what retail is selling. This is a positive divergence signal.
+
+2. **Active Monitoring Over Passive Patience**: "Hold with conviction" is not passive waiting. It requires continuous monitoring of: momentum shifts, catalyst developments, IV changes, options flow, and institutional positioning changes.
+
+3. **Experience-Based Pattern Recognition**: Some trading signals come from extended observation rather than from indicators. Acknowledge this limitation -- the agent cannot replicate multi-year observational intuition but can flag when standard indicators diverge.
+
+4. **Asymmetric Hedge Construction**: When portfolio is concentrated in one theme, identify companies that benefit from the inverse scenario. Companies that profit from market volatility itself (market makers, exchanges) can hedge thematic concentration.
+
+5. **Loss-Specific Lesson Extraction**: Every losing position must generate a specific, actionable lesson -- not generic "I should have been more careful." The lesson must change future behavior on a specific dimension.
+
+6. **Legislative-to-Bear-Case Mapping**: Specific legislation or regulation can eliminate specific bear case items. When a law addresses a bear case concern, update the bear case assessment accordingly.
+
+### Healthcare / Pharma Sector (6 Heuristics)
+
+1. **FDA Timeline as Capacity Constraint**: FDA approval timelines function like capacity constraints in manufacturing. Multi-year review processes create bottleneck windows where approved products hold temporary monopoly. The 6-Criteria bottleneck scoring applies: supply concentration (few approved therapies), capacity constraints (fixed review timelines), long lead times (10-15 year development cycle, default value, agent may override with reasoning), and no quick substitutes.
+
+2. **Patent Cliff as Reverse Supply Disruption**: When a blockbuster drug loses patent protection, supply floods as biosimilars and generics enter. Typically 80-90% revenue loss within 12-18 months for small molecule, 30-50% over 3-5 years for biologics (default values, agent may override with reasoning). The same bottleneck analysis framework applies in reverse.
+
+3. **CDMO Dependency as Single-Source Bottleneck**: Contract Development and Manufacturing Organizations often represent hidden single-source dependencies for biotech companies. When a CDMO is at >85% capacity utilization (default threshold, agent may override with reasoning), all its clients face supply risk simultaneously.
+
+4. **Binary Outcome Framework for Clinical-Stage Companies**: Pre-approval pharma companies have binary catalyst outcomes that make standard DCF inappropriate. Apply the Moonshot valuation framework when applicable. For pre-revenue clinical companies, if the no-growth floor is <20% of market cap (default threshold, agent may override with reasoning), classify as speculative rather than investment-grade.
+
+5. **PBM and Distribution Bottleneck**: Three PBMs control approximately 80% of US prescription volume, creating a distribution chokepoint. When a product loses preferred formulary status, volume can decline 30-60% (default range, agent may override with reasoning) regardless of clinical superiority.
+
+6. **Biosimilar Competition Dynamics**: Biosimilar entry follows predictable patterns based on molecule complexity. Simple small-molecule = rapid generic entry within 6 months; standard biologic = 3-5 year erosion; complex biologic = minimal biosimilar threat for 10+ years (default ranges, agent may override with reasoning).
+
+### Crypto / Stablecoin / Digital Finance Sector (5 Heuristics)
+
+1. **On-Chain Metrics as Demand Proxy**: Active addresses, transaction volume, and TVL serve as demand proxies. When on-chain activity accelerates while price is flat or declining, it signals potential mispricing. Divergence threshold: >20% deviation between activity trend and price trend over 60 days (default values, agent may override with reasoning).
+
+2. **TVL as Capacity Utilization**: For DeFi protocols, the TVL-to-market-cap ratio functions like capacity utilization for a factory. TVL/market-cap ratio above 1.0 suggests the protocol holds more real capital than the market values it at (default reference point, agent may override with reasoning).
+
+3. **Regulatory Clarity as Institutional Entry Gate**: In crypto, regulatory clarity ENABLES new capital entry. Each clarity event removes an institutional compliance barrier. Regulatory uncertainty is the chokepoint restricting capital flow into the sector.
+
+4. **Stablecoin Flow as Macro Liquidity Indicator**: Stablecoin minting and redemption patterns serve as leading indicators for crypto market liquidity. Sustained stablecoin supply increase of >5% over 30 days without corresponding price appreciation signals accumulation (default threshold, agent may override with reasoning).
+
+5. **Exchange Flow as Institutional Positioning**: Declining reserves = assets moving to self-custody (accumulation signal); rising reserves = distribution or selling preparation. This is the crypto equivalent of tracking 13F institutional positioning.
+
+### Utilities / Grid / Energy Infrastructure Sector (6 Heuristics)
+
+1. **Rate Case as Capacity Constraint Equivalent**: Regulated utilities must obtain rate case approval to recover infrastructure investment costs. Rate case proceedings (typically 12-24 months; default range, agent may override with reasoning) function as capacity constraints on earnings growth.
+
+2. **Rate Cycle to Multiple Expansion Chain**: Lower rates reduce debt servicing cost → yield spread widens → multiple expansion independent of operational improvement. Historical average spread of 5-8x P/E points above treasury yield (default range, agent may override with reasoning).
+
+3. **Interconnection Queue as Lead Time Indicator**: Average interconnection wait times have extended to 4-6 years in many regions (default range, agent may override with reasoning), and withdrawal rates exceed 70% (default value, agent may override with reasoning). The interconnection queue IS the grid equivalent of the chip redesign timeline.
+
+4. **Renewable Mandate as Demand Guarantee**: State-level renewable portfolio standards create legally mandated demand floors for clean energy capacity, analogous to multi-year defense contracts.
+
+5. **Grid Modernization as Bottleneck Migration**: As the grid modernizes, bottlenecks migrate from generation capacity to transmission and distribution infrastructure. Power transformer lead times currently 2-4 years for large units (default range, agent may override with reasoning).
+
+6. **Capex Cascade from AI Demand to Grid Infrastructure**: The Temporal Capex Cascade pattern applies directly: hyperscaler capex (Layer 1) → utility contracts (Layer 2, 1-3 year lag) → grid equipment manufacturers (Layer 3, 2-4 year lag).
+
+### Space / Drone Sector (6 Heuristics)
+
+1. **Government Contract as Revenue Visibility**: Contract backlog-to-annual-revenue ratio >3x suggests multi-year visibility (default threshold, agent may override with reasoning). Government-backed revenue is Tier A counterparty.
+
+2. **Technology Readiness Level (TRL) as Maturity Risk Framework**: TRL 1-3 analogous to preclinical, TRL 4-6 to Phase 1-2, TRL 7-9 to Phase 3 and approval. Apply the Binary Outcome Framework when a company has a single program at a critical TRL transition point.
+
+3. **Launch Capacity as Physical Supply Concentration**: The 6-Criteria scoring applies directly: supply concentration (few qualified providers), capacity constraints (fixed pad and vehicle production rates), long lead times (vehicle production 12-24 months; default range, agent may override with reasoning), no quick substitutes (5-10 years for new launch vehicles).
+
+4. **Spectrum Allocation as Regulatory Bottleneck**: Spectrum rights create government-granted moats — a government-granted bottleneck that creates exclusivity, analogous to patent protection.
+
+5. **Pre-Revenue Predominance and Valuation Discipline**: Apply the no-growth stress test with increased default weight. If no-growth valuation floor is <20% of current market cap (default threshold, agent may override with reasoning), classify as speculative.
+
+6. **Constellation Scale as Network Effect Proxy**: A constellation below minimum viable coverage (<30-40% of planned satellites; default threshold, agent may override with reasoning) cannot generate meaningful commercial revenue. Maps to the Thesis Lifecycle phases.
+
+---
+
 ## BOM Analysis Methodology
 
 When constructing a Bill of Materials breakdown:
@@ -359,6 +483,8 @@ Information absence itself carries analytical signal. When data is missing, clas
 | 5 | **Marketed Capacity vs Contracted Capacity** | Fraud/hype signal | When a company markets capacity (MW, units, etc.) but has no disclosed contracts or SLAs for that capacity, the gap between marketed and contracted is a red flag. Verify via SEC filings. |
 
 ### Application Rules
+
+> *Pipeline auto-detects certain absence types in `absence_evidence_flags` output. Check this first, then evaluate remaining types manually.*
 
 1. **During pipeline analysis**: When SEC filing data shows empty categories, check the `data_coverage` field to distinguish "not_disclosed" (company deliberately stated no concentration) from "insufficient_context" (data simply wasn't found).
 2. **During WebSearch validation**: Actively search for the absence — "Does [company] have Mag7 contracts?", "[material] US production capacity". The answer "no results found" is itself evidence.

@@ -197,7 +197,7 @@ At least one condition must be met with specific, cited evidence before taking a
 
 ## Macro-to-Micro Transmission Pathways
 
-For the full 4-layer causal bridge framework (Macro Context → Supply Chain Position → Financial Transmission → Valuation Gap), see `control_layer.md` Section 2: Causal Bridge Reasoning Guide. That framework is the authoritative reference for tracing macro events to company-level impacts.
+For the full 4-layer causal bridge framework (Macro Context → Supply Chain Position → Financial Transmission → Valuation Gap), see the Causal Bridge Reasoning Guide section in `methodology.md`. That framework is the authoritative reference for tracing macro events to company-level impacts.
 
 The following are common transmission pathway examples that illustrate the 4-layer framework:
 
