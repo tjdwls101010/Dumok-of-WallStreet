@@ -247,7 +247,8 @@ Dumok-of-WallStreet/
 ├── CHANGELOG.db
 ├── Principles_Design.md   # 설계 철학 & 아키텍처 가이드
 ├── CLAUDE.md
-└── README.md
+├── README.md
+└── requirements.txt
 ```
 
 ## 🌏설계 철학
