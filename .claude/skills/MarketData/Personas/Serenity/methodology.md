@@ -17,10 +17,10 @@ This system replicates an analytical METHODOLOGY, not specific past analyses. Th
 Every analysis flows through these six levels in order:
 
 ### Level 1: Macro Layer (Timing and Risk)
-Fed policy, geopolitical risk, liquidity conditions. Determines market regime and risk appetite. Hyperscaler capex is THE leading indicator for the AI trade. Details in `macro_catalyst.md`.
+Fed policy, geopolitical risk, liquidity conditions. Determines market regime and risk appetite. Hyperscaler capex direction이 핵심 (see `macro_catalyst.md`). Details in `macro_catalyst.md`.
 
 ### Level 2: CapEx Flow Layer (Demand Direction)
-Track capital expenditure cascading from hyperscalers through the supply chain. Mag7 capex announcements validate downstream revenue. Trace: Hyperscaler -> Neocloud -> Semiconductor -> Memory -> Substrates -> Materials. Each layer validates the next.
+CapEx cascade 추적 (see `macro_catalyst.md`). Mag7 capex announcements validate downstream revenue.
 
 ### Level 3: Supply Chain Bottleneck Layer (Core Alpha Generation)
 Map physical supply chains from end-products to raw materials. Find concentration points where supply is constrained. Pipeline pre-extracts supply chain relationships from SEC 10-K/10-Q filings (suppliers, single-source dependencies, geographic concentration, capacity constraints) as a structured baseline. Agent completes the analysis via WebSearch cross-validation and Layer 3-4 multi-hop discovery, then applies the 6-Criteria Bottleneck Scoring framework. This is the primary alpha source. Details in `supply_chain_bottleneck.md`.
@@ -223,17 +223,13 @@ When pipeline data presents conflicting signals (e.g., strong balance sheet but 
 
 **Shares (Default)**: Primary vehicle for all positions. "Would recommend shares instead" unless experienced. Safest risk/reward profile.
 
-**LEAPS (High Conviction)**: Long-dated call options (270+ DTE, ~0.70 delta) for leveraged exposure on highest-conviction names. Use when IV regime is depressed (pipeline classifies with thresholds in output). LEAPS provide leveraged upside with defined risk.
+**LEAPS (High Conviction)**: 270+ DTE, ~0.70 delta. IV depressed일 때 사용. LEAPS provide leveraged upside with defined risk.
 
-**Cash-Secured Puts (Income + Entry)**: Sell puts on names you want to own at lower prices. Collect premium while waiting. Best when IV regime is elevated (pipeline classifies with thresholds in output). "Never write puts on stocks you're not comfortable buying at those levels."
+**Cash-Secured Puts (Income + Entry)**: Sell puts on names you want to own at lower prices. Collect premium while waiting. Best when IV regime is elevated. "Never write puts on stocks you're not comfortable buying at those levels."
 
 **Covered Calls (Income on Holdings)**: Sell calls against existing share positions. Calculate max weekly move (6% daily x 5 = 30% theoretical, add 7% buffer). Best for high-IV names.
 
-### IV-Based Options Timing
-Pipeline classifies IV into regime categories with thresholds in output. Match options strategy to regime:
-- **Depressed regime**: Premium too low to justify options strategies
-- **Normal regime**: Covered calls and moderate premium collection (scale with underlying beta)
-- **Elevated regime**: Sweet spot for put selling and covered calls; extreme levels require post-catalyst resolution
+Options vehicle 선택은 `valuation_fundamentals.md` Expression Layer 참조.
 
 ### Position Sizing by Conviction
 
@@ -245,8 +241,6 @@ Pipeline classifies IV into regime categories with thresholds in output. Match o
 | Buy | 5-15% of portfolio | Supply chain advantage + fair valuation |
 | Hold | Maintain existing | Thesis intact, near fair value |
 | Avoid/Sell | Exit | Broken thesis or overvalued |
-
-The pipeline outputs position sizing guidance directly mapped from this table with regime adjustment multipliers in output. Discover output structure via `extract_docstring.py`.
 
 ### Entry Methodology
 - "Best time to buy is on the extreme fear when retail are selling"
@@ -265,34 +259,11 @@ The pipeline outputs position sizing guidance directly mapped from this table wi
 4. If exiting: explain the fundamental change that triggered the exit
 5. Extract a lesson and share it publicly
 
-### Domain Boundary Acknowledgment
-When analyzing outside core expertise (AI infrastructure, semiconductors, data centers):
-- State: "This analysis applies supply chain bottleneck methodology to [new domain]"
-- Be more conservative with conviction levels
-- Emphasize the methodology being applied rather than asserting domain expertise
-
 ---
 
-## Due Diligence Checklist
+## Agent Judgment: IO Quality Assessment
 
-> *This is the analytical process checklist (what to investigate). For response format requirements, see the Command's Minimum Output Rule.*
-
-For any new ticker entering the universe:
-
-1. **Supply chain position mapping**: Where does the company sit? Customers? Suppliers?
-2. **Forward revenue projection**: 1-3 year trajectory based on contracted/expected demand
-3. **Margin profile**: Gross, operating, net -- trajectory matters more than current level
-4. **Valuation vs. peers**: Forward P/E, EV/Revenue compared to sector
-5. **Balance sheet stress test**: Cash vs. debt, interest burden, Bear-Bull Paradox check
-6. **Float analysis**: Short interest, IO quality score, IPO lockup, SBC dilution
-
-#### IO Quality Assessment
-Pipeline auto-scores IO quality with thresholds in output. Agent focuses on the qualitative direction: is institutional quality improving or degrading? Cross-reference IO quality direction with thesis signal direction.
-
-7. **Macro sensitivity**: Rate impact, tariff exposure, geopolitical risk
-8. **Thematic alignment**: Evolution / Disruption / Bottleneck classification
-9. **Catalyst identification**: Upcoming events that could move the stock
-10. **No-growth stress test**: What is downside floor assuming zero growth?
+Agent focuses on the qualitative direction: is institutional quality improving or degrading? Cross-reference IO quality direction with thesis signal direction.
 
 ---
 

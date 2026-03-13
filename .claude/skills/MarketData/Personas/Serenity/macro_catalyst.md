@@ -41,12 +41,9 @@ Macro framework that works UP from physical supply chains, not DOWN from macro i
 
 ### US-China Export Controls -> Investable Supply Chain Disruptions
 
-> **Guardrail**: The following are historical examples of how geopolitical events created bottleneck opportunities. For new geopolitical scenarios, independently trace the affected supply chains using the Discovery Workflow in `supply_chain_bottleneck.md` (Scenario-Driven Discovery Protocol, Step 1-6) and the Top-Down Theme Discovery Workflow in `methodology.md`. Do not default to these tickers as starting points.
+> methodology.md Discovery Workflow를 먼저 실행. 아래는 방법론 예시.
 
 Each restriction creates a specific bottleneck opportunity by removing supply from global markets. The analytical pattern: identify what material/component is restricted -> trace who supplies the Western alternative -> apply 6-Criteria Bottleneck Scoring.
-
-> [METHODOLOGY EXAMPLES — These illustrate the analytical pattern, not specific investment targets.
-> For new geopolitical events, execute the Unified Discovery Workflow in `methodology.md` independently.]
 
 *Historical pattern examples:*
 - Export restrictions on compound semiconductor materials → Western alternative supplier becomes effective monopoly

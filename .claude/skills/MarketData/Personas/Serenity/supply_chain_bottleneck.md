@@ -1,14 +1,12 @@
 # Supply Chain Bottleneck Analysis
 
-## Independent Discovery First
-
-When given a new sector, event, or query to analyze, ALWAYS execute the Unified Discovery Workflow in `methodology.md` BEFORE referencing any historical examples in this document. That workflow is the single authoritative process for independent opportunity identification. Historical case studies here demonstrate HOW the methodology was applied, not WHAT tickers to start with.
+> methodology.md의 Discovery Workflow를 먼저 실행할 것.
 
 ---
 
 ## SEC Filing as Discovery Starting Point
 
-When the pipeline provides `sec_supply_chain` data (sec_status = SEC_SC_available), use it as the structured foundation for supply chain mapping:
+When the pipeline provides SEC supply chain data (SEC supply chain data가 추출되었는지 확인), use it as the structured foundation for supply chain mapping:
 
 ### Anchoring Layer 1-2 from SEC Data
 - SEC Item 1 (Business) discloses key suppliers, customers, and supply chain relationships as legal requirements
@@ -195,8 +193,6 @@ For each hop, document:
 
 This is the SINGLE authoritative scoring framework. Apply these six criteria to every concentration point.
 
-Pipeline auto-scores criteria 1-5 from SEC supply chain data with scoring guide and assessment thresholds in output. Agent validates via WebSearch and evaluates criterion 6 directly.
-
 | # | Criterion | Agent Role |
 |---|-----------|------------|
 | 1 | Supply concentration | Review pipeline score; cross-validate concentration claims via WebSearch |
@@ -288,19 +284,11 @@ When a sector-wide selloff hits neocloud/AI infrastructure stocks, apply this tr
 **Negative Balance Sheet Benchmark:**
 When analyzing any neocloud, identify the worst balance sheet in the peer group as a standing reference point for toxic financials: toxic debt structure (8-10%+ implied interest rate; 기본 임계값, sector stress level에 따라 조정 가능), serial dilution history, pre-revenue inflation. Compare each company's debt quality grade and dilution metrics against this lower bound. If a company's metrics approach these levels, apply Bear-Bull Paradox filter from `valuation_fundamentals.md`.
 
-### Bottleneck Investing (7-Step Framework)
+### Bottleneck Investing
 
-Serenity's signature framework for finding smallest public companies controlling critical supply chain bottlenecks.
+> methodology.md Unified Discovery Workflow 참조. 핵심: supply shock가 아직 시장에 인식되지 않았을 때 진입.
 
-1. Identify a physical material constraint in a high-growth supply chain
-2. Map who controls supply (company names, market shares, geographic locations)
-3. Assess Western vs geopolitical supply chain concentration
-4. Find the smallest company with most leverage at the bottleneck
-5. Verify balance sheet health (avoid Bear-Bull Paradox situations)
-6. Check if markets have priced in the bottleneck (analyst coverage, IO%, recent price moves)
-7. Enter when the supply shock has not been recognized yet
-
-**Self-awareness:** "Not every bottleneck provides a great investment opportunity." Discipline in applying ALL seven steps prevents chasing already-priced-in opportunities.
+Timing insight: "Not every bottleneck provides a great investment opportunity." Discipline prevents chasing already-priced-in opportunities.
 
 ### Full-Stack vs Bare Metal
 

@@ -153,7 +153,6 @@ Reported FCF can be misleading when Stock-Based Compensation (SBC) is substantia
 
 **Formula**: Real FCF = Reported FCF - SBC
 
-Pipeline auto-classifies SBC health with thresholds in output. Negative Real FCF means reported FCF is illusory.
 - **CAVEAT**: Pre-revenue biotech or early-stage growth companies may show elevated SBC from strategic option pools. Cross-check SBC ratio with company lifecycle stage
 
 *Pattern:* When a company reports positive FCF but SBC is classified as toxic, reported FCF is illusory — Real FCF may be significantly negative. This is a recurring pattern across high-SBC tech companies. *Apply this Real FCF test independently to the current analysis target.*
@@ -169,8 +168,6 @@ When actual price hikes exceed street estimates, the excess flows directly to th
 
 Evaluate whether earnings strengthen or weaken the bottleneck thesis:
 
-Pipeline auto-generates thesis signals (strengthening and weakening) with definitions in output. Each signal has a clear trigger condition and meaning.
-
 **Agent's role in earnings validation:**
 1. Review pipeline thesis signals and their definitions
 2. WebSearch for earnings call commentary on supply constraints
@@ -182,10 +179,6 @@ Pipeline auto-generates thesis signals (strengthening and weakening) with defini
 
 ## Float and Dilution Dynamics
 
-### SBC Filter
-Pipeline auto-classifies SBC health with thresholds in output.
-- **CAVEAT**: Pre-revenue biotech or early-stage companies may use option pools strategically. Cross-check with company lifecycle stage.
-
 ### IPO Lockup Analysis
 Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates into entry timing. Large insider stakes becoming freely tradable can temporarily depress prices, creating entry opportunities on strong-thesis names.
 
@@ -194,8 +187,6 @@ Post-IPO lockup expiry creates predictable selling pressure. Factor lockup dates
 - **Destructive**: Discounted stock issuance, repeated capital raises without proportional revenue growth, management enrichment at shareholder expense. Pattern: "hype retail, issue discounted stock, repeat."
 
 ### ATM Dilution Detection Protocol
-Pipeline auto-detects active dilution from shares outstanding changes and flags it with thresholds in output.
-
 Agent follow-up when dilution is flagged:
 1. Check SEC filings for recent S-3 or S-3ASR filings (shelf registrations enabling at-the-market offerings)
 2. **Data source priority**: Pipeline SBC analysis is PRIMARY → SEC filings (ATM program confirmation) is SECONDARY → WebSearch only if SEC data insufficient
@@ -294,7 +285,7 @@ The thesis comes first. The expression vehicle comes second. The analyst first d
 
 ### Expression Vehicle Selection Matrix
 
-Two dimensions determine the appropriate vehicle: IV regime (pipeline classifies with thresholds in output) and conviction level (how strong is the evidence chain?).
+Two dimensions determine the appropriate vehicle: IV regime and conviction level (how strong is the evidence chain?).
 
 | | IV Depressed | IV Normal | IV Elevated |
 |---|---|---|---|
@@ -304,24 +295,17 @@ Two dimensions determine the appropriate vehicle: IV regime (pipeline classifies
 
 ### When to Use Each Vehicle
 
-**Shares (Default Expression)**
-The standard vehicle for all conviction levels. No vol edge required, no expiration risk, simplest risk management. When in doubt, shares are the correct expression. The majority of positions should be share-based.
-
 **LEAPS (Long-Dated Calls, 270+ DTE)**
 Use when ALL three conditions are met:
-1. IV regime is depressed (pipeline classifies with thresholds in output) — you are buying cheap optionality
+1. IV regime is depressed — you are buying cheap optionality
 2. Conviction is high (Strong Buy or above) — the evidence chain is complete with 6 supported links
 3. Forward visibility is sufficient — the thesis has a clear catalyst timeline within the LEAPS duration (minimum 12 months)
 
-LEAPS provide leveraged upside with defined risk. The key insight is that you are buying TIME for the thesis to play out while paying a low premium for that time. When IV is depressed, the market is underpricing the potential for large moves — which is exactly when supply chain catalysts tend to be underappreciated.
-
 **Cash-Secured Puts (CSP)**
 Use when ALL three conditions are met:
-1. IV regime is elevated (pipeline classifies with thresholds in output) — you are selling expensive premium
+1. IV regime is elevated — you are selling expensive premium
 2. Thesis is bullish — you want to own the stock at a lower price
 3. Strike selection references the no-growth floor value — the put strike should be at or near the defensive valuation anchor from the Dual-Valuation framework
-
-CSPs express the thesis as: "I want to own this company, and the market is paying me a premium to commit to buying at my target entry price." The elevated IV means the premium collected is substantial, improving the effective cost basis. If assigned, you own the stock at a price you already validated as attractive. If not assigned, you keep the premium as income.
 
 **Covered Calls**
 Use when ALL three conditions are met:
@@ -329,11 +313,9 @@ Use when ALL three conditions are met:
 2. IV is elevated — premium is worth collecting
 3. Thesis is intact but no near-term catalyst expected — you are in a holding phase, not an inflection phase
 
-Covered calls collect income during periods of elevated volatility when the thesis is intact but the next major catalyst is distant. Avoid selling calls through known catalyst dates (earnings, contract announcements, regulatory decisions) — the thesis may realize during that window.
-
 ### Pipeline Connection
 
-The pipeline provides IV regime classification, recommended expression vehicle, and reasoning in its output. Use this as the starting recommendation, then apply agent judgment to override when warranted:
+파이프라인 추천을 시작점으로 하되, 아래 경우에 agent가 override:
 
 - **Sector-specific IV dynamics**: Pre-earnings IV crush, binary FDA/regulatory events, and index rebalance volatility can temporarily distort IV percentile readings. If the elevated IV is entirely attributable to an imminent event that will resolve (earnings in 2 days), the post-event IV will collapse — factor this into CSP/covered call timing.
 - **Position sizing constraints**: LEAPS carry total-loss risk on the premium paid. The position size must reflect this — never allocate to LEAPS an amount whose total loss would exceed the portfolio risk budget for that position.
@@ -344,4 +326,17 @@ The pipeline provides IV regime classification, recommended expression vehicle, 
 - **Dual-Valuation Framework**: The no-growth floor from `valuation_fundamentals.md` serves as the CSP strike reference. The growth-case fair value serves as the LEAPS upside target. The gap between floor and upside IS the asymmetry that the options expression is designed to capture.
 - **Thesis Mutation Decision Framework**: When the thesis state transitions from "intact" to "weakened," any outstanding options positions must be re-evaluated. LEAPS on a weakened thesis carry elevated risk because the catalyst timeline may have extended beyond the option's duration. Covered calls on a weakening thesis may limit upside recovery if the thesis re-strengthens.
 - **Position Sizing by Conviction**: The conviction tier from `methodology.md` feeds directly into the matrix above. A conviction downgrade from Strong Buy to Buy should trigger a vehicle reassessment (e.g., close LEAPS, convert to shares).
+
+### Volatility-Regime Scaling Rules (DB 추출)
+
+고변동성 기간 진입 방법:
+- 직접 dip-buy 대신 CSP로 scaling-in → premium 수취 + 하방 보호
+- Core portfolio는 zero margin 유지; CSP는 excess margin으로만
+- CSP가 80-90% green이 되는 crash 환경에서도 dip-buy는 더 큰 손실 가능
+- "Should have just scaled in with CSP and trade volatility"
+
+PT 산정 시 conviction-weighted 접근:
+- High conviction (core): "~80% probability" 언어 + 1Y 내 실현 가능한 보수적 PT
+- Base case: "easily could be 3x" 언어 + revenue projection × peer multiple
+- Moonshot: "10x contingent on [specific trigger]" 언어 + binary outcome 인정
 

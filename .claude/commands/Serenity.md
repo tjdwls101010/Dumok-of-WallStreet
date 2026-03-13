@@ -172,7 +172,101 @@ When comparing neocloud or AI infrastructure companies, ALWAYS classify each int
 
 ## Agent Judgment Layer
 
-Health Gate intervention, Trapped Asset Override, Conviction Assignment (rating tiers, price-dependent adjustment, conviction evolution), Institutional Flow interpretation, and Composite Score Confirmation are defined in `methodology.md` Agent Judgment Layer section. Load `methodology.md` for the full judgment framework.
+### Cross-Signal Synthesis
+
+#### Signal Hierarchy
+
+When signals conflict, higher-priority signals override lower ones:
+
+| Priority | Signal | Override Condition | Rationale |
+|---|---|---|---|
+| 1 | Government policy intent | Clear policy direction overrides supply/demand dynamics | "Never bet against US policy" |
+| 2 | Supply constraint + pricing power | When oligopoly_margin_defense signal fires | Pipeline detects + thresholds embedded; agent judges priority only |
+| 3 | Demand trajectory (forward) | Structural demand > temporary macro headwind | Hyperscaler capex direction |
+| 4 | Macro regime | Based on drain_count — weakened when Priority 2 is met | See macro_catalyst.md |
+| 5 | Sentiment/consensus | Used as contrarian signal only at extreme consensus | Three-source consensus reversal (methodology.md) |
+| 6 | Technical patterns | Reference only, never use as decision basis | Serenity.md Prohibition |
+
+Note: Pipeline outputs oligopoly_margin_defense signal and cost_passthrough assessment with firing conditions and thresholds embedded (P2). This table defines only the **priority relationships** between signals.
+
+#### Rating Determination
+
+composite_signal.grade is the mechanical starting point. Agent determines final rating via the following combinations:
+
+| Composite Grade | Health Gates | Priced-In | Bottleneck | → Agent Rating |
+|---|---|---|---|---|
+| STRONG_BUY | All PASS | Not priced in | 4+/6 | Strong Buy |
+| STRONG_BUY | 1 FLAG | Not priced in | 4+/6 | Buy (downgrade 1 tier per FLAG) |
+| STRONG_BUY | Any | Fully priced in | Any | Hold (priced-in override) |
+| BUY/ACCUMULATE | 2+ FLAGs | Any | 4+/6 + Physical Floor >50% MC | Moonshot (Trapped Asset) |
+| BUY/ACCUMULATE | 2+ FLAGs | Any | <4/6 | Hold cap |
+| HOLD/AVOID | Any | Any | Any | Hold or Avoid (no upgrade allowed) |
+
+Hard Override Rules:
+- priced_in "fully" → Hold cap (unless new catalyst emerges)
+- no_growth stress_test "fail" + revenue_growth <15% → Hold cap
+- no_growth "fail" + revenue_growth >50% → growth justifies premium (no cap)
+- atm_dilution_risk signal fires → Hold cap or Exit. Pipeline detects ATM existence but agent judges magnitude (ATM/MC >30% → Exit)
+- Business model pivot → Full reassessment (existing thesis may be invalidated)
+
+Government Policy Alignment Bonus:
+- Thesis aligned with government policy → conviction +1 tier (linked to Signal Hierarchy P1)
+
+#### Conviction Evolution
+
+| Thesis Direction | Institutional Flow | Causal Bridge | → Conviction Change |
+|---|---|---|---|
+| strengthening | positive (accumulation) | 4 layers connected | +1 tier |
+| strengthening | negative (distribution) | Any | Investigation needed — flow conflicts with thesis |
+| weakening | positive | All layers | Maintain — flow may lead thesis recovery |
+| weakening | negative | gap exists | -1 tier |
+| weakening | negative | multiple gaps | -2 tiers or exit |
+
+Conviction Amplifiers (see methodology.md "Tacit Rules"):
+- Three-source consensus reversal + fundamentals disagree → +1
+- Independent institution confirms same thesis → +1
+- Multiple hyperscaler demand confirmations → +1
+
+Conviction Destroyers:
+- atm_dilution_risk signal fires → immediate -2 tiers + WebSearch for management dilution history
+- Thesis marriage self-check → see methodology.md R4
+
+Full reassessment triggers:
+- severity_score increases 5+ pts between analyses
+- net_direction reverses from strengthening → weakening
+- composite_score falls below HOLD threshold (threshold embedded in output)
+- priced_in shifts from "not" → "fully" without new catalyst
+- ATM dilution filing or business model pivot
+
+#### Action Routing
+
+| Scenario | Signal Combination | Action |
+|---|---|---|
+| New entry | grade≥BUY + priced_in "not" + 0-1 FLAG + bottleneck 4+ | Enter |
+| Add (low volatility) | thesis strengthening + flow positive + priced_in maintained/improving | DCA 30/30/40 |
+| Add (high volatility) | Same conditions + VIX rising or sector selloff | Scale in via CSP (see methodology.md) |
+| Hold | thesis intact + near fair value + partially priced in | Monitor |
+| Trim into strength | priced_in → "fully" + thesis intact | Reduce to core position |
+| Rotate | remaining upside <50% + alternative has 2x+ gap | Reallocate capital |
+| Exit (thesis broken) | severity exceeds threshold or margin_collapse FLAG or bottleneck<3 | Full liquidation |
+| Exit (dilution) | atm_dilution_risk signal + ATM/MC >30% (agent calculates) | Full liquidation |
+| Crash Triage | sector selloff + 3-Factor pass + oligopoly_margin_defense signal | Aggressive buy |
+
+Macro regime modifier:
+- drain_count≥3: all position sizes ×0.5, defer new entries
+- drain_count<3: normal sizing
+
+#### Discover → Analyze Triage
+
+discover provides only asymmetry_score + health_gates (no priced_in, no composite). Triage criteria:
+
+| asymmetry_score | health_gates | → Priority |
+|---|---|---|
+| ≥70 | All PASS | Priority 1: analyze immediately |
+| ≥70 | 1 FLAG (not bear_bull_paradox) | Priority 2: analyze + investigate FLAG |
+| ≥70 | bear_bull_paradox FLAG | Deprioritize unless Trapped Asset candidate |
+| 50-69 | All PASS | Priority 3: analyze if capacity allows |
+| <50 or 2+ FLAGs | Any | Skip |
 
 ### Pipeline Failure Fallback
 
