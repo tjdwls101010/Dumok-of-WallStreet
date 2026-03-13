@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Position Sizing Calculator: risk-based position sizing for Minervini SEPA methodology.
+"""Position Sizing Calculator: risk-based position sizing with pyramid entry planning.
 
 Calculates optimal position sizes based on account risk parameters, stop-loss levels,
 and mathematical expectation. Includes pyramid entry planning and portfolio-level
-risk management per Mark Minervini's money management rules.
+risk management.
 
 Commands:
 		calculate: Calculate position size based on risk parameters
@@ -86,13 +86,13 @@ Example:
 		}
 
 Use Cases:
-		- Calculate position size before entering a SEPA trade
+		- Calculate position size before entering a trade
 		- Plan pyramid entries for scaling into winning positions
 		- Evaluate trading system quality via mathematical expectation
-		- Ensure per-trade risk stays within Minervini guidelines
+		- Ensure per-trade risk stays within recommended guidelines
 
 Notes:
-		- Minervini recommends 0.5-1.0% risk per trade
+		- Recommended risk per trade: 0.5-1.0%
 		- Maximum stop-loss: 10% (absolute maximum, 7-8% typical)
 		- Pyramid: 2% + 2% + 1% of account value scaling
 		- Never add to losing positions (no averaging down)

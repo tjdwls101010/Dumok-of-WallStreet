@@ -5,6 +5,11 @@ Asymmetry score combines financial health (40%), valuation upside (30%),
 bottleneck score (30%). Used internally by cmd_discover for candidate validation.
 
 Standalone CLI retained for debugging and direct agent use (batch, rank).
+
+Architecture note: Uses yfinance directly (not via data_sources/ subprocess) because
+this module performs 8+ specialized financial data extractions per ticker (info, income
+statement, balance sheet, cashflow, earnings estimates). Registered in SKILL.md as a
+standalone module at pipelines/serenity/_scorer.py.
 """
 
 import argparse

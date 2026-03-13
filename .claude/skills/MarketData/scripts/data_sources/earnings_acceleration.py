@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Earnings Acceleration Analysis: Code 33 validation and earnings pattern detection.
 
-Analyzes earnings acceleration patterns based on Mark Minervini's SEPA methodology.
-Detects Code 33 (Triple Acceleration: EPS + Sales + Margins all accelerating for 3 quarters),
-earnings surprise history, and analyst revision trends.
+Analyzes earnings acceleration patterns to detect Code 33 (Triple Acceleration:
+EPS + Sales + Margins all accelerating for 3 quarters), earnings surprise history,
+and analyst revision trends.
 
 Commands:
 	code33: Check for Code 33 (Triple Acceleration) pattern
@@ -110,7 +110,7 @@ Example:
 	}
 
 Use Cases:
-	- Validate Code 33 for SEPA methodology stock selection
+	- Validate Code 33 for earnings-driven stock selection
 	- Track earnings momentum for position management
 	- Identify cockroach effect (one surprise predicts more)
 	- Monitor analyst revisions for sentiment shifts
@@ -119,7 +119,7 @@ Notes:
 	- Code 33 requires 3 consecutive quarters of acceleration in ALL three metrics
 	- EPS growth rates compare to same quarter prior year (YoY)
 	- Margin expansion uses gross or operating margin trend
-	- Analyst revisions of 5%+ are significant per Minervini
+	- Analyst revisions of 5%+ are generally considered significant
 	- Post-Earnings Drift: market underreacts to earnings surprises
 	- Data quality levels: full (3+ quarters), partial (2 quarters), minimal (0-1 quarters)
 	- Surprise % set to null when |estimate| < 0.05 (near-zero denominator floor)
@@ -128,7 +128,6 @@ Notes:
 See Also:
 	- trend_template.py: Trend Template check (price-based qualification)
 	- stage_analysis.py: Stage classification (technical context)
-	- minervini.py: Full SEPA pipeline integrating all checks
 """
 
 import argparse
@@ -788,7 +787,7 @@ def cmd_revisions(args):
 			"interpretation": {
 				"upward_revisions": "Positive - analysts raising estimates indicates strengthening fundamentals",
 				"downward_revisions": "Negative - analysts cutting estimates signals potential weakness",
-				"significance_threshold": "5%+ revision is meaningful per Minervini methodology",
+				"significance_threshold": "5%+ revision is generally considered meaningful",
 			},
 		}
 	)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Post-breakout monitoring for Minervini SEPA methodology.
+"""Post-breakout monitoring: pullback classification, squat detection, and 20MA sell discipline.
 
 Tracks stock behavior after a breakout above a pivot point to determine
 whether to hold, watch, reduce, or sell the position. Classifies pullback
@@ -64,7 +64,7 @@ Example:
 
 Use Cases:
 	- Monitor newly entered positions after VCP breakout
-	- Determine hold vs sell using Minervini's post-breakout rules
+	- Determine hold vs sell using post-breakout rules
 	- Detect early failure signals (egg behavior, squat, 20MA violation)
 	- Automate trailing stop and sell discipline
 
@@ -73,7 +73,7 @@ Notes:
 	- Egg: pullback 10+ days OR >10% depth OR increasing volume during pullback
 	- Squat: breakout day close > 3% below day's high; watch 10 days for recovery
 	- 20MA sell rule: 3+ consecutive closes below 20-day MA = sell signal
-	- Default stop-loss: 7% (Minervini standard initial stop)
+	- Default stop-loss: 7% (standard initial stop)
 	- hold_sell_signal: hold > watch > reduce > sell (escalating urgency)
 	- Failure reset: after stop-out, stock may form new tight pivot (2-4 weeks) or new base (5-15 weeks)
 	- Squat detail: enhanced analysis with 20MA check, tightening, volume contraction, recovery quality grading
@@ -218,7 +218,7 @@ def _detect_squat(closes, highs, entry_idx):
 def _check_20ma_rule(closes, sma20, entry_idx):
 	"""Check consecutive closes below 20-day MA.
 
-	3+ consecutive closes below 20MA = sell signal per Minervini.
+	3+ consecutive closes below 20MA = sell signal.
 	"""
 	close_arr = closes.values.astype(float)
 	sma20_arr = sma20.values.astype(float)
@@ -700,6 +700,13 @@ def cmd_monitor(args):
 			"hold_sell_signal": signal,
 			"failure_reset": failure_reset,
 			"squat_detail": squat_detail,
+			"thresholds": {
+				"tennis_ball": "pullback <= 7 days AND < 7% depth AND declining volume",
+				"egg": "pullback >= 10 days OR >= 10% depth OR increasing volume",
+				"squat": "breakout-day close > 3% below day high",
+				"sell_rule_20ma": "3+ consecutive closes below 20-day MA",
+				"stop_loss_default": "7% (configurable via --stop-loss)",
+			},
 		}
 	)
 

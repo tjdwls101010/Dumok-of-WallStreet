@@ -226,7 +226,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import yfinance as yf
+import pandas as pd
 from utils import output_json, safe_run
 
 SCRIPTS_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -1537,8 +1537,18 @@ def cmd_market_cycle(args):
 	# TL-3 / TL-4: Fetch QQQ historical data for 21 EMA-based cycle determination
 	qqq_hist = None
 	try:
-		qqq_ticker = yf.Ticker("QQQ")
-		qqq_hist = qqq_ticker.history(period="3mo", interval="1d")
+		qqq_price_data = _run_script("data_sources/price.py", ["history", "QQQ", "--period", "3mo"])
+		if qqq_price_data and not qqq_price_data.get("error"):
+			# Convert price.py JSON output {date: {Open, High, Low, Close, Volume}} to DataFrame
+			price_dict = {k: v for k, v in qqq_price_data.items()
+						  if isinstance(v, dict) and "Close" in v}
+			if price_dict:
+				qqq_hist = pd.DataFrame.from_dict(price_dict, orient="index")
+				qqq_hist.index = pd.to_datetime(qqq_hist.index)
+				qqq_hist = qqq_hist.sort_index()
+				for col in ["Open", "High", "Low", "Close", "Volume"]:
+					if col in qqq_hist.columns:
+						qqq_hist[col] = pd.to_numeric(qqq_hist[col], errors="coerce")
 	except Exception:
 		pass
 

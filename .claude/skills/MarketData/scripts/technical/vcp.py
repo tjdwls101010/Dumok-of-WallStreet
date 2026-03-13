@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Volatility Contraction Pattern (VCP) detection for Minervini SEPA methodology.
+"""Volatility Contraction Pattern (VCP) detection with Cup & Handle, Power Play, and setup scoring.
 
 Detects VCP formations where price corrections progressively tighten, indicating
 decreasing selling pressure and potential breakout setup. Identifies pattern type,
@@ -353,8 +353,8 @@ def _check_volume_dryup(volumes, base_start_idx, pivot_idx, lookback=10):
 def _assess_breakout_volume(volumes, closes, pivot_price=None):
 	"""Calculate current volume metrics relative to 50-day average.
 
-	Provides breakout volume targets per Minervini's guidelines:
-	minimum 125% of 50-day average, ideal 200%+.  Also checks whether
+	Provides breakout volume targets: minimum 125% of 50-day average,
+	ideal 200%+.  Also checks whether
 	any of the last 5 trading days had an up-close on breakout-level
 	volume (>= 125% of 50-day average) near the pivot price (within 2%).
 	"""
@@ -390,8 +390,8 @@ def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_a
 
 	A shakeout occurs when price undercuts a prior swing low then recovers
 	quickly on above-average volume, trapping weak holders before the real
-	advance.  Per Minervini (p.214): "you want to see one or more price
-	shakeouts at certain key points during the base-building period."
+	advance.  One or more price shakeouts at key points during the
+	base-building period is a constructive sign.
 
 	Each shakeout is graded as constructive, neutral, or destructive based on
 	recovery speed, volume surge, and location within the base.
@@ -513,9 +513,9 @@ def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_a
 def _detect_time_symmetry(contractions):
 	"""Assess left-side vs right-side time symmetry of the base.
 
-	Per Minervini (p.212): "If a stock advances too quickly up the right
-	side, this forms a hazardous time compression."  A V-shaped recovery
-	is less reliable than a gradual, constructive right side.
+	If a stock advances too quickly up the right side, this forms a
+	hazardous time compression.  A V-shaped recovery is less reliable
+	than a gradual, constructive right side.
 	"""
 	if not contractions:
 		return {
@@ -556,10 +556,10 @@ def _detect_time_symmetry(contractions):
 def _detect_demand_evidence(closes, volumes, contractions, shakeout_result, vol_50d_avg):
 	"""Detect demand evidence on the right side of the base.
 
-	Per Minervini (p.219): "Look for significant, above-average increases
-	in volume on upward moves coming off the lows and up the right side
-	of the base."  Compares volume spikes on up-days (right side) vs
-	down-days (left side) to gauge institutional demand.
+	Look for significant, above-average increases in volume on upward
+	moves coming off the lows and up the right side of the base.
+	Compares volume spikes on up-days (right side) vs down-days
+	(left side) to gauge institutional demand.
 	"""
 	if not contractions:
 		return {
@@ -616,9 +616,9 @@ def _detect_demand_evidence(closes, volumes, contractions, shakeout_result, vol_
 def _check_pivot_tightness(highs, lows, closes, volumes, pivot_idx, base_start_idx):
 	"""Evaluate price and volume tightness near the pivot area.
 
-	Per Minervini (p.203): "Tightness in price from absolute highs to lows
-	and tight closes with little change in price from one day to the next."
-	Tight, low-volume pivots produce more reliable breakouts.
+	Tightness in price from absolute highs to lows and tight closes with
+	little change in price from one day to the next.  Tight, low-volume
+	pivots produce more reliable breakouts.
 	"""
 	high_arr = highs.values.astype(float)
 	low_arr = lows.values.astype(float)

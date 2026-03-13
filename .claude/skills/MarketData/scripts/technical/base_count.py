@@ -3,7 +3,7 @@
 
 Identifies and counts price bases (consolidation patterns) that form during
 a stock's Stage 2 uptrend. Earlier bases (1-2) have higher success rates,
-while later bases (4+) carry increased failure risk per Minervini methodology.
+while later bases (4+) carry increased failure risk.
 
 Commands:
 		count: Count bases and assess current base stage for a ticker
@@ -238,8 +238,8 @@ def _check_base_reset(closes, sma200):
 def _compute_relative_correction(dates, start_idx, end_idx, stock_correction_pct):
 	"""Compute stock correction depth relative to SPY during the same period.
 
-	Per Minervini (p.211): "stocks that correct more than two or three
-	times the decline of the general market should be avoided."
+	Stocks that correct more than two or three times the decline of the
+	general market should be avoided.
 	"""
 	start_date = str(dates[start_idx].date())
 	end_date = str(dates[end_idx].date())
@@ -367,6 +367,26 @@ def cmd_count(args):
 			"risk_level": risk_level,
 			"base_count_reset_detected": len(reset_points) > 0,
 			"analysis_period": args.period,
+			"thresholds": {
+				"base_classification": {
+					"flat_base": "depth < 15%, duration >= 5 weeks",
+					"cup": "depth 15-35%, duration >= 7 weeks",
+					"power_play": "depth < 20%, duration <= 4 weeks",
+					"standard_base": "depth 10-25%, duration >= 3 weeks",
+				},
+				"risk_levels": {
+					"low": "base 1-2 (optimal entry zone)",
+					"moderate": "base 3 (still tradeable)",
+					"high": "base 4-5 (late stage)",
+					"very_high": "base 6+ (most breakouts fail)",
+				},
+				"correction_severity": {
+					"normal": "stock correction <= 2x SPY correction",
+					"elevated": "stock correction 2-3x SPY correction",
+					"excessive": "stock correction > 3x SPY correction",
+				},
+				"reset_trigger": "price below 200-day MA for 40+ trading days",
+			},
 		}
 	)
 
