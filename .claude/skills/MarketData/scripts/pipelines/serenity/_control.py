@@ -202,11 +202,32 @@ def _build_priced_in_assessment(l4_results, l5_results):
 	rev_magnitude = None
 	by_horizon = rev_data.get("by_horizon", {})
 	horizon_0y = by_horizon.get("0y", {})
-	eps_cur = horizon_0y.get("eps_current")
-	eps_30d = horizon_0y.get("eps_30d_ago")
+	eps_cur = horizon_0y.get("eps_current") if isinstance(horizon_0y, dict) else None
+	eps_30d = horizon_0y.get("eps_30d_ago") if isinstance(horizon_0y, dict) else None
+	# Fallback: try nested eps sub-object (enriched revision format)
+	if eps_cur is None and isinstance(horizon_0y, dict):
+		eps_obj = horizon_0y.get("eps", {})
+		if isinstance(eps_obj, dict):
+			eps_cur = eps_obj.get("current")
+			eps_30d = eps_obj.get("30d_ago")
 	if isinstance(eps_cur, (int, float)) and isinstance(eps_30d, (int, float)) and eps_30d != 0:
 		rev_magnitude = round((eps_cur - eps_30d) / abs(eps_30d) * 100, 2)
 	signals["revision_magnitude"] = rev_magnitude
+
+	# Revision magnitude weight: large revisions amplify priced-in score
+	rev_magnitude_weight = 0
+	net_rev_7d = rev_data.get("net_revisions_7d")
+	net_rev_30d = rev_data.get("net_revisions_30d")
+	if isinstance(net_rev_7d, (int, float)) and isinstance(net_rev_30d, (int, float)):
+		total_net = net_rev_7d + net_rev_30d
+		if total_net > 5:
+			rev_magnitude_weight = 8  # strong positive revisions = more priced in
+		elif total_net > 2:
+			rev_magnitude_weight = 4
+		elif total_net < -3:
+			rev_magnitude_weight = -5  # negative revisions = less priced in
+	signals["revision_magnitude_weight"] = rev_magnitude_weight
+	risk_score += rev_magnitude_weight
 
 	# Signal 8: IO Quality Score
 	io_data = l4.get("institutional_quality") or {}
@@ -219,6 +240,18 @@ def _build_priced_in_assessment(l4_results, l5_results):
 			risk_score += 6
 		elif io_score <= 3:
 			risk_score -= 5
+
+	# Signal 9: ER Proximity Stale — estimates become stale near earnings
+	er_proximity_stale = False
+	if isinstance(l5, dict):
+		ed = l5.get("earnings_dates")
+		if isinstance(ed, dict) and not ed.get("error"):
+			from ._signals import _parse_days_to_earnings
+			days_to_er = _parse_days_to_earnings(l5)
+			if isinstance(days_to_er, (int, float)) and days_to_er <= 7:
+				er_proximity_stale = True
+				risk_score -= 5  # reduce priced-in confidence when ER imminent
+	signals["er_proximity_stale"] = er_proximity_stale
 
 	# Clamp and classify
 	risk_score = max(0, min(100, round(risk_score)))
@@ -241,10 +274,52 @@ def _build_priced_in_assessment(l4_results, l5_results):
 			"short_interest": "+8 (<3%) / -5 (>15%)",
 			"analyst_target_gap": "+18 (<5% to target) / +10 (<15%) / -5 (>40%)",
 			"revision_direction": "+12 (up) / -8 (down)",
+			"revision_magnitude": "+8 (net>5) / +4 (net>2) / -5 (net<-3)",
 			"io_quality": "+12 (>=8) / +6 (>=6) / -5 (<=3)",
+			"er_proximity_stale": "-5 (ER within 7 days — estimates may be stale)",
 			"total_range": "0-100, clamped",
 			"assessment_thresholds": "fully_priced_in: >=55 | partially_priced_in: >=30 | not_priced_in: <30",
 		},
+	}
+
+
+def _classify_iv_tier(iv_data):
+	"""Classify IV into 5-tier framework for instrument selection.
+
+	Returns iv_tier label and regime_shift detection.
+	"""
+	if not isinstance(iv_data, dict) or iv_data.get("error"):
+		return {"iv_tier": "unknown", "iv_regime_shift": False}
+
+	iv_percentile = iv_data.get("iv_percentile") or iv_data.get("percentile") or iv_data.get("iv_rank")
+	if not isinstance(iv_percentile, (int, float)):
+		return {"iv_tier": "unknown", "iv_regime_shift": False}
+
+	# 5-tier classification
+	if iv_percentile < 30:
+		tier = "compressed"
+	elif iv_percentile < 45:
+		tier = "normal_low"
+	elif iv_percentile < 65:
+		tier = "normal"
+	elif iv_percentile < 85:
+		tier = "elevated"
+	else:
+		tier = "extreme"
+
+	# Regime shift: IV30 vs HV30 divergence > 15pp suggests structural shift
+	iv30 = iv_data.get("iv30") or iv_data.get("current_iv30")
+	hv30 = iv_data.get("hv30") or iv_data.get("historical_volatility_30")
+	regime_shift = False
+	if isinstance(iv30, (int, float)) and isinstance(hv30, (int, float)) and hv30 > 0:
+		divergence = abs(iv30 - hv30)
+		if divergence > 15:
+			regime_shift = True
+
+	return {
+		"iv_tier": tier,
+		"iv_regime_shift": regime_shift,
+		"thresholds": "compressed: <30 | normal_low: 30-45 | normal: 45-65 | elevated: 65-85 | extreme: >85 | regime_shift: |IV30-HV30| > 15",
 	}
 
 

@@ -67,6 +67,131 @@ def _build_thesis_signals(l4_results, l5_results):
 	}
 
 
+def _detect_short_squeeze_risk(l4_results):
+	"""Evaluate short interest data for squeeze risk.
+
+	Uses short % of float, price position, and institutional quality
+	to assess squeeze potential.
+	"""
+	l4 = l4_results or {}
+	info = l4.get("info") or {}
+
+	si_pct = info.get("shortPercentOfFloat")
+	if not isinstance(si_pct, (int, float)):
+		return {"squeeze_risk": "unknown", "note": "Short interest data unavailable"}
+
+	si_display = round(si_pct * 100, 2)
+
+	# Days to cover estimate (SI / avg volume approximation)
+	shares_short = info.get("sharesShort")
+	avg_volume = info.get("averageVolume")
+	days_to_cover = None
+	if isinstance(shares_short, (int, float)) and isinstance(avg_volume, (int, float)) and avg_volume > 0:
+		days_to_cover = round(shares_short / avg_volume, 1)
+
+	# SI trend from shortPercentOfFloat vs sharesShortPriorMonth
+	shares_short_prior = info.get("sharesShortPriorMonth")
+	si_trend = "stable"
+	if isinstance(shares_short, (int, float)) and isinstance(shares_short_prior, (int, float)) and shares_short_prior > 0:
+		change_pct = (shares_short - shares_short_prior) / shares_short_prior
+		if change_pct > 0.10:
+			si_trend = "increasing"
+		elif change_pct < -0.10:
+			si_trend = "decreasing"
+
+	# Squeeze risk classification
+	if si_pct > 0.20:
+		squeeze_risk = "high"
+	elif si_pct > 0.10:
+		squeeze_risk = "moderate"
+	else:
+		squeeze_risk = "low"
+
+	# Boost risk if days_to_cover is high
+	if isinstance(days_to_cover, (int, float)) and days_to_cover > 5 and squeeze_risk == "moderate":
+		squeeze_risk = "high"
+
+	return {
+		"short_pct_float": si_display,
+		"days_to_cover": days_to_cover,
+		"si_trend": si_trend,
+		"squeeze_risk": squeeze_risk,
+		"thresholds": "high: SI > 20% or (SI > 10% + DTC > 5) | moderate: SI > 10% | low: SI <= 10%",
+	}
+
+
+def _classify_dilution(l4_results):
+	"""Classify dilution as growth, value-destruction, or accounting illusion.
+
+	Decision tree combining revenue growth, SBC ratio, and FCF reality.
+	"""
+	l4 = l4_results or {}
+	sbc = l4.get("sbc_analyzer") or {}
+	ea = l4.get("earnings_acceleration") or {}
+	fpe = l4.get("forward_pe") or {}
+
+	if sbc.get("error"):
+		return {"classification": "unknown", "note": "SBC data unavailable"}
+
+	sbc_pct = sbc.get("sbc_pct_revenue")
+	reported_fcf = sbc.get("reported_fcf")
+	real_fcf = sbc.get("real_fcf")
+	shares_change = sbc.get("shares_change_qoq_pct")
+
+	# Revenue growth from forward_pe or earnings_acceleration
+	revenue_growth = None
+	if isinstance(fpe, dict) and not fpe.get("error"):
+		rg = fpe.get("revenue_growth_yoy")
+		if isinstance(rg, (int, float)):
+			revenue_growth = rg * 100 if rg < 1 else rg  # normalize to percent
+
+	# Fallback: check sales growth from earnings_acceleration
+	if revenue_growth is None and isinstance(ea, dict) and not ea.get("error"):
+		sgr = ea.get("sales_growth_rates")
+		if isinstance(sgr, list) and sgr:
+			latest = sgr[-1] if isinstance(sgr[-1], (int, float)) else None
+			if latest is not None:
+				revenue_growth = latest
+
+	# Classification decision tree
+	sbc_pct_val = sbc_pct if isinstance(sbc_pct, (int, float)) else 0
+	growth_val = revenue_growth if isinstance(revenue_growth, (int, float)) else 0
+
+	# Check accounting illusion first (highest priority)
+	if (isinstance(reported_fcf, (int, float)) and isinstance(real_fcf, (int, float))
+		and reported_fcf > 0 and real_fcf < 0):
+		margin_data = l4.get("margin_tracker") or {}
+		margin_flag = str(margin_data.get("flag", "")).upper()
+		if "COMPRESSION" in margin_flag or "COLLAPSE" in margin_flag:
+			classification = "accounting_illusion"
+		else:
+			classification = "accounting_illusion"
+	elif growth_val > 25 and sbc_pct_val < 20:
+		classification = "growth_dilution"
+	elif growth_val < 5 and sbc_pct_val > 15:
+		classification = "value_destruction"
+	elif growth_val > 15 and sbc_pct_val < 30:
+		classification = "acceptable"
+	else:
+		classification = "moderate_concern"
+
+	return {
+		"classification": classification,
+		"revenue_growth_pct": round(growth_val, 1) if isinstance(growth_val, (int, float)) else None,
+		"sbc_pct_revenue": sbc_pct,
+		"reported_fcf": reported_fcf,
+		"real_fcf": real_fcf,
+		"shares_change_qoq_pct": shares_change,
+		"thresholds": (
+			"growth_dilution: rev_growth > 25% + sbc < 20% | "
+			"value_destruction: rev_growth < 5% + sbc > 15% | "
+			"accounting_illusion: reported_fcf > 0 + real_fcf < 0 | "
+			"acceptable: rev_growth > 15% + sbc < 30% | "
+			"moderate_concern: otherwise"
+		),
+	}
+
+
 def _check_sop_triggers(l4_results):
 	"""Detect Sum-of-Parts valuation triggers from info and financials."""
 	l4 = l4_results or {}

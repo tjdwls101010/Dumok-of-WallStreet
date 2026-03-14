@@ -18,10 +18,12 @@ from ._macro import _classify_macro_regime
 from ._control import (
 	_build_materiality_signals, _build_causal_bridge,
 	_build_priced_in_assessment, _build_institutional_flow, _build_expression_layer,
+	_classify_iv_tier,
 )
 from ._signals import (
 	_build_thesis_signals, _check_sop_triggers, _check_trapped_asset_override,
 	_auto_classify_taxonomy, _generate_composite_signal,
+	_detect_short_squeeze_risk, _classify_dilution,
 )
 from ._multi import _parse_mcap_string
 from ._scorer import validate_ticker
@@ -457,7 +459,7 @@ def cmd_analyze(args):
 				sbc_clean[k] = v
 		earnings_growth["sbc"] = sbc_clean
 
-	# Financial Health: debt_structure + margin_tracker
+	# Financial Health: debt_structure + margin_tracker + dilution classification
 	financial_health = {}
 	if not debt.get("error"):
 		debt_clean = {k: v for k, v in debt.items()
@@ -467,8 +469,11 @@ def cmd_analyze(args):
 		margin_clean = {k: v for k, v in margin.items()
 						if k not in ("symbol", "margin_interpretation", "error")}
 		financial_health["margins"] = margin_clean
+	dilution_class = _classify_dilution(l4_results)
+	if dilution_class.get("classification") != "unknown":
+		financial_health["dilution"] = dilution_class
 
-	# Market Structure: institutional_quality + iv_context + insider_transactions
+	# Market Structure: institutional_quality + iv_context + insider_transactions + short_squeeze
 	market_structure = {}
 	if not iq.get("error"):
 		iq_clean = {k: v for k, v in iq.items()
@@ -477,9 +482,16 @@ def cmd_analyze(args):
 	if not iv.get("error"):
 		iv_clean = {k: v for k, v in iv.items()
 					if k not in ("symbol", "current_price", "interpretation", "error")}
+		iv_tier = _classify_iv_tier(iv)
+		iv_clean["iv_tier"] = iv_tier.get("iv_tier")
+		iv_clean["iv_regime_shift"] = iv_tier.get("iv_regime_shift")
+		iv_clean["iv_tier_thresholds"] = iv_tier.get("thresholds")
 		market_structure["iv_context"] = iv_clean
 	if insider:
 		market_structure["insider_transactions"] = insider
+	short_squeeze = _detect_short_squeeze_risk(l4_results)
+	if short_squeeze.get("squeeze_risk") != "unknown":
+		market_structure["short_squeeze"] = short_squeeze
 
 	# L4 Assessment: health_gates + market_positioning
 	l4_assessment = {

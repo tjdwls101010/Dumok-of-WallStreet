@@ -683,8 +683,8 @@ def _extract_supply_chain_llm(cleaned_text, company_name="", max_chars=None):
 		os.path.dirname(__file__)))), ".env")
 	load_dotenv(env_path)
 	api_key = os.environ.get("GOOGLE_API_KEY")
-	model_id = os.environ.get("GOOGLE_MODEL", "gemini-2.5-flash")
-	thinking_level = os.environ.get("GOOGLE_THINKING_LEVEL", "")
+	model_id = os.environ.get("GOOGLE_MODEL", "gemini-3-flash-preview")
+	thinking_level = os.environ.get("GOOGLE_THINKING_LEVEL", "low")
 
 	if not api_key:
 		return None
