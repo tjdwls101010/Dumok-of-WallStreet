@@ -22,18 +22,21 @@ Four pillars decide the regime:
 
 If all four are positive: Risk-On. If fundamentals (pillars 1-2) are positive but sentiment (pillars 3-4) is stressed: Fear-Dislocation. If pillars conflict across fundamental and sentiment: Transition.
 
+### Crisis/Wartime Portfolio (4th Regime)
+
+**Trigger**: Active military conflict, sustained geopolitical crisis, or structural policy shift (sanctions, trade war escalation) that creates a durable sector rotation — not a temporary fear spike.
+
+**Distinction from Fear-Dislocation**: Fear-Dislocation is a temporary sentiment event where the existing thesis is unchanged and the dip is a buying opportunity. Crisis/Wartime is a STRUCTURAL SECTOR ROTATION where capital must actively move from civilian/consumer sectors into defense, energy, and national security verticals.
+
+**Response**: Increase concentration in defense, energy, and national security supply chains. Trim non-defense positions that lack resilience to the crisis scenario. This is not "buy the dip" — it is "rotate the portfolio."
+
+**Why this matters (V4)**: A crisis regime changes which supply chains are prioritized by government spending. Companies that are irrelevant in peacetime become critical in wartime. The agent must recognize when a regime shift requires structural portfolio adjustment, not just sizing adjustment.
+
 ---
 
-## Fed Transmission Chain
+## Fed Transmission
 
-Rate changes transmit to equities through a 4-step causal chain. Each step is quantifiable, not sentiment-driven (V2).
-
-1. **Rate change** — Fed funds rate moves
-2. **Discount rate impact** — changes the rate used to discount forward earnings
-3. **Forward earnings re-rating** — "Far out earnings of billions in revenue get marked UP" with rate cut projections
-4. **Multiple expansion/contraction** — terminal effect on stock prices
-
-**Rate cuts**: Triple cuts are historically rare (only 3 events in 25 years) and produce outsized moves in growth and small caps. Cuts benefit long-duration assets disproportionately — this is DCF math, not sentiment.
+Rate cuts benefit growth stocks through cheaper discount rates on far-out earnings — this is DCF math, not sentiment. The further out the revenue, the more sensitive the present value to discount rate changes. Triple rate cuts in a single cycle are historically rare and produce outsized market moves because they signal a regime shift in monetary policy, not just a marginal adjustment.
 
 **Rate uncertainty as competitive filter**: A FEATURE for strong balance sheets. Destroys weaker competitors, concentrating market share among survivors (V1, V3).
 
@@ -49,6 +52,10 @@ The physical supply chain transmits demand in a specific order. Understanding th
 - **Validation chain**: TSM earnings = semiconductor demand proxy. TSM blowout confirms GPU demand, validates upstream thesis for substrates, memory, optics.
 - **Overflow pattern**: When hyperscaler capacity is full, demand overflows to neoclouds. NVDA strategic backing validates this overflow. Asymmetric opportunities in smaller names.
 - **Cross-company read-through**: META CapEx increase → more neocloud deals → validates downstream. Use one company's spending to front-run supply chain peers.
+
+**Overflow Pattern**: When hyperscaler capacity reaches its limit, excess demand overflows to alternative providers (neoclouds, specialized compute providers). The overflow point is where alpha concentrates — these alternative providers experience sudden revenue acceleration that the market has not priced because the overflow was not anticipated.
+
+**Strategic Incentive Flow**: Major technology companies have structural incentives to support smaller companies that preserve demand for their core products. When a hyperscaler's GPU demand is threatened by customer in-housing, the hyperscaler may backstop alternative GPU consumers (neoclouds) to maintain its own revenue base. Map these incentive flows — they create invisible price floors for the backstopped companies.
 
 ---
 
@@ -71,6 +78,8 @@ AI, Space, Energy, Critical Minerals, Quantum — these are government-backed th
 ### Cross-Fire Casualty Hunting (V1)
 
 During broad selloffs triggered by geopolitical events, unrelated quality names drop alongside exposed names. Fundamentals unchanged, price gifted. Pattern: Market sells everything on tariff news → quality name with zero tariff exposure drops 10% → entry point. Always verify the casualty has genuinely zero exposure to the triggering event.
+
+**Reshoring Beneficiary Logic**: Geopolitical events create risk, but they also create OPPORTUNITY. When export controls, sanctions, or supply chain security mandates force reshoring, identify which domestic producers gain structural competitive advantage. A company manufacturing domestically in an industry where competitors are concentrated in high-risk geographies gains an instant moat from policy — "Made domestically" becomes a structural advantage when the alternative supply chain is disrupted or restricted.
 
 ---
 
@@ -120,6 +129,7 @@ Not all catalysts are equal. Distinguish between events that change forward earn
 - **Government policy/executive order** — creates or removes market participants
 - **Export control creating monopoly** — structural pricing power shift
 - **Earnings beat with guidance raise** — forward estimates move up
+- **Dividend front-running** — upcoming dividend ex-dates create predictable institutional buying pressure on large-cap value names. This is a timing catalyst, not a thesis catalyst — use it to optimize entry on fundamentally validated positions
 
 ### Fake Catalysts (Noise — Ignore or Use as Entry)
 
@@ -130,6 +140,8 @@ Not all catalysts are equal. Distinguish between events that change forward earn
 - **Random tariff tweets** — TACO Trade; use the dip as entry
 
 The test: "Does this change forward revenue?" If yes, it is real. If no, it is noise or an entry opportunity (V2).
+
+**Prediction Market as Priced-In Gauge**: When prediction markets (e.g., Polymarket) show >90% probability for an event, that event is already priced in by institutions. The actual occurrence of the event is noise — retail may panic on the news, but the dip is a buying opportunity because the outcome was already consensus. Conversely, when prediction markets show a surprise outcome (event probability was low but it happened), the market has NOT priced it in and real repositioning is required.
 
 ---
 
@@ -155,7 +167,7 @@ The methodology's edge is buying when others sell. These frameworks operationali
 - **Sentiment Inversion Rule**: News is data; sentiment direction is the inverse signal. When consensus is overwhelmingly bearish on a fundamentally strong name, accumulate.
 - **Institutional Accumulation Detection** (V8): Smart money buying during panic is the strongest confirmation. Information asymmetry favors institutions. A data point supporting entry, not a directive.
 - **Known Events Are Priced In**: "Institutions front-run rate cuts. Buy BEFORE the catalyst, not on the news." Position ahead of consensus catalysts, not on announcement day.
-- **Three-Source Consensus Reversal**: When 3+ independent sources (analysts, media, social) are unanimously bearish on a fundamentally strong name → +1 conviction tier. Maximum pessimism = asymmetric entry.
+- **Multi-Source Consensus Reversal**: When multiple independent contrarian indicators converge, the consensus is likely wrong. When independent sources (analysts, media, social) are unanimously bearish on a fundamentally strong name → increased conviction. Maximum pessimism = asymmetric entry.
 - **Inverse Indicators**: Certain public figures serve as reliable contrarian signals at extremes. Use sparingly, only at genuine extremes.
 
 ---
@@ -172,3 +184,17 @@ Earnings from one company validate the demand environment for related supply cha
 **Front-running via proxy**: When a proxy reports strong results, related supply chain names have not yet reported. The information is public but not reflected in the related name's price — a window for positioning.
 
 After any major earnings report, ask: "Which other companies in the supply chain does this validate or invalidate?" Map the read-through before the market fully prices it across the chain.
+
+**Inverse Proxy Validation**: When a proxy company FAILS at what the target company does, this validates the target's moat depth. A well-funded competitor's inability to replicate is the strongest evidence that the capability is genuinely difficult. Ask: "Which large, well-resourced company tried to do what the target does, and failed? What does their failure reveal about the moat's depth?"
+
+---
+
+## Mechanical Flow Awareness (V10)
+
+When a stock drops significantly, classify the cause before responding. Not all drops are created equal:
+
+- **Algorithmic earnings misparse**: Algorithms sometimes misread earnings headlines (e.g., one-time charges distorting EPS). The selloff reverses once human analysts process the actual results. This creates a brief buying window.
+- **Sector contagion from peer failure**: When one company in a sector reports badly, the entire sector may sell off. Assess whether the contagion is justified (shared customers, shared supply chain exposure) or unjustified (guilt by association with no fundamental linkage).
+- **Liquidation cascade**: Forced selling from leveraged positions creates non-fundamental price depression. Post-liquidation is often the best entry point because the selling was mechanical, not opinion-driven.
+
+This classification directly informs whether a dip is a buying opportunity or a warning signal.

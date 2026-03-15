@@ -126,6 +126,41 @@ def _build_l3_bottleneck(sec_sc_results):
 					"signal": "hype_risk",
 				})
 
+		# V3 Contagion Isolation: Mag7 direct customer flag
+		# Companies with direct Mag7 contracts are isolated from intermediary credit contagion
+		MAG7_NAMES = {"microsoft", "google", "alphabet", "meta", "amazon", "apple", "nvidia"}
+		all_customer_names = []
+		for c in customers:
+			if isinstance(c, dict):
+				all_customer_names.append(c.get("counterparty", "").lower())
+			elif isinstance(c, str):
+				all_customer_names.append(c.lower())
+		for rc in rev_conc:
+			if isinstance(rc, dict):
+				all_customer_names.append(rc.get("customer", "").lower())
+		mag7_matches = [n for n in all_customer_names if any(m in n for m in MAG7_NAMES)]
+		if mag7_matches:
+			absence_evidence_flags.append({
+				"type": "mag7_direct_customer",
+				"signal": "contagion_isolated",
+				"matched": mag7_matches[:5],
+				"thresholds": "Mag7 direct contract = isolated from intermediary credit contagion (V3 financial dimension)",
+			})
+
+		# V3 Domestic production: reshoring beneficiary flag
+		if geo_conc:
+			has_domestic = any(
+				any(loc in (entry.get("location", "").lower())
+					for loc in ("united states", "usa", "u.s.", "texas", "california", "arizona", "ohio", "new york"))
+				for entry in geo_conc if isinstance(entry, dict) and entry.get("location")
+			)
+			if has_domestic:
+				absence_evidence_flags.append({
+					"type": "domestic_production",
+					"signal": "reshoring_beneficiary",
+					"thresholds": "US-based production = potential reshoring beneficiary (V3)",
+				})
+
 	# --- Clean bottleneck_pre_score ---
 	cleaned_bn_score = None
 	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):

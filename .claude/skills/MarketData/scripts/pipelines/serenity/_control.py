@@ -302,7 +302,7 @@ def _classify_iv_tier(iv_data):
 		tier = "normal_low"
 	elif iv_percentile < 65:
 		tier = "normal"
-	elif iv_percentile < 85:
+	elif iv_percentile < 100:
 		tier = "elevated"
 	else:
 		tier = "extreme"
@@ -319,7 +319,7 @@ def _classify_iv_tier(iv_data):
 	return {
 		"iv_tier": tier,
 		"iv_regime_shift": regime_shift,
-		"thresholds": "compressed: <30 | normal_low: 30-45 | normal: 45-65 | elevated: 65-85 | extreme: >85 | regime_shift: |IV30-HV30| > 15",
+		"thresholds": "compressed: <30 | normal_low: 30-45 | normal: 45-65 | elevated: 65-100 | extreme: >100 | regime_shift: |IV30-HV30| > 15",
 	}
 
 

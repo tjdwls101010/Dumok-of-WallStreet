@@ -53,13 +53,25 @@ def _extract_health_gates(results):
 			severity["bear_bull_paradox"] = 0.5
 
 	# Active Dilution: shares dilution + FCF optical illusion + SBC health
+	# V2 Dilution Quality: high-growth dilution (contract-backed deployment) is less
+	# concerning than low/no-growth dilution (value destruction). Revenue growth
+	# modifies severity — a company diluting while growing >25% gets a one-tier discount.
 	sbc = results.get("sbc_analyzer", {})
+	fpe = results.get("forward_pe", {})
 	ad_detail = {}
 	if not sbc.get("error"):
 		shares_change = sbc.get("shares_change_qoq_pct")
 		real_fcf = sbc.get("real_fcf")
 		reported_fcf = sbc.get("reported_fcf")
 		sbc_flag = sbc.get("flag")  # "healthy" / "warning" / "toxic"
+
+		# Revenue growth modifier: high growth softens dilution severity by one tier
+		rev_growth = None
+		if isinstance(fpe, dict) and not fpe.get("error"):
+			rg = fpe.get("revenue_growth_yoy")
+			if isinstance(rg, (int, float)):
+				rev_growth = rg * 100 if rg < 1 else rg
+		high_growth = isinstance(rev_growth, (int, float)) and rev_growth > 25
 
 		ad_detail = {
 			"shares_change_qoq_pct": shares_change,
@@ -68,35 +80,51 @@ def _extract_health_gates(results):
 			"real_fcf": real_fcf,
 			"reported_fcf": reported_fcf,
 			"sbc_flag": sbc_flag,
+			"revenue_growth_yoy_pct": rev_growth,
+			"high_growth_dilution_discount": high_growth,
 			"thresholds": (
 				"FLAG: shares_qoq > 2% | reported_fcf > 0 but real_fcf < 0 | sbc toxic (>30% rev) "
-				"| CAUTION: shares_qoq 1-2% | sbc warning (10-30% rev) | PASS: otherwise"
+				"| CAUTION: shares_qoq 1-2% | sbc warning (10-30% rev) | PASS: otherwise "
+				"| high_growth_discount: revenue_growth > 25% softens severity by one tier (V2 dilution quality)"
 			),
 		}
 
 		# Priority 1: Direct share dilution (when data available)
 		if isinstance(shares_change, (int, float)):
 			if shares_change > 2:
-				gates["active_dilution"] = "FLAG"
-				severity["active_dilution"] = 0.0
-				flags.append("active_dilution")
+				if high_growth:
+					gates["active_dilution"] = "CAUTION"
+					severity["active_dilution"] = 0.5
+				else:
+					gates["active_dilution"] = "FLAG"
+					severity["active_dilution"] = 0.0
+					flags.append("active_dilution")
 			elif shares_change > 1:
-				gates["active_dilution"] = "CAUTION"
-				severity["active_dilution"] = 0.5
+				if not high_growth:
+					gates["active_dilution"] = "CAUTION"
+					severity["active_dilution"] = 0.5
 
 		# Priority 2: FCF Optical Illusion (Serenity core insight)
 		# reported FCF positive but real FCF (after SBC) negative = masked dilution
 		elif (isinstance(real_fcf, (int, float)) and isinstance(reported_fcf, (int, float))
 			  and reported_fcf > 0 and real_fcf < 0):
-			gates["active_dilution"] = "FLAG"
-			severity["active_dilution"] = 0.0
-			flags.append("active_dilution")
+			if high_growth:
+				gates["active_dilution"] = "CAUTION"
+				severity["active_dilution"] = 0.5
+			else:
+				gates["active_dilution"] = "FLAG"
+				severity["active_dilution"] = 0.0
+				flags.append("active_dilution")
 
 		# Priority 3: SBC health flag from sbc_analyzer module
 		elif sbc_flag == "toxic":
-			gates["active_dilution"] = "FLAG"
-			severity["active_dilution"] = 0.0
-			flags.append("active_dilution")
+			if high_growth:
+				gates["active_dilution"] = "CAUTION"
+				severity["active_dilution"] = 0.5
+			else:
+				gates["active_dilution"] = "FLAG"
+				severity["active_dilution"] = 0.0
+				flags.append("active_dilution")
 		elif sbc_flag == "warning":
 			gates["active_dilution"] = "CAUTION"
 			severity["active_dilution"] = 0.5

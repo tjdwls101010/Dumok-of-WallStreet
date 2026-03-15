@@ -384,6 +384,31 @@ def _parse_days_to_earnings(l5_results):
 def _generate_composite_signal(l1_result, l4_results, l5_results, health_severity_score,
 	bottleneck_pre_score, thesis_signals, auto_classification, trapped_asset_override):
 	"""Generate integrated investment grade from all pipeline data."""
+
+	# V2 Hard Gate: Zero-revenue pre-filter
+	# yfinance returns None for totalRevenue when company has no revenue (pre-revenue)
+	l4 = l4_results if isinstance(l4_results, dict) else {}
+	info_data = l4.get("info") or {}
+	if isinstance(info_data, dict) and not info_data.get("error"):
+		total_revenue = info_data.get("totalRevenue")
+		is_zero_revenue = (total_revenue is None or
+						   (isinstance(total_revenue, (int, float)) and total_revenue <= 0))
+		if is_zero_revenue:
+			return {
+				"composite_score": 0, "grade": "AVOID",
+				"score_breakdown": {},
+				"composite_thresholds": "weights: bottleneck=30, health=25, thesis=15, catalyst=10, taxonomy=10, valuation=10 | STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35",
+				"position_guidance": {
+					"conviction_tier": None, "suggested_size_pct": "no_entry",
+					"max_loss_pct": None, "regime_adjustment": "none",
+				},
+				"zero_revenue_gate": True,
+				"zero_revenue_gate_thresholds": "totalRevenue <= 0 triggers automatic AVOID (V2: Fundamental Reality as Prerequisite)",
+				"sop_triggered": False,
+				"trapped_asset_eligible": False,
+				"regime_cap_applied": False,
+			}
+
 	score_breakdown = {}
 	total_score = 0.0
 
