@@ -111,274 +111,119 @@ Module Scripts — Atomic Analysis Functions (~112)
 
 ## 4. Component Guide
 
+Refer to existing implementations as structural templates. Serenity is the most complete reference (command, 3 persona files, pipeline package with 14 modules).
+
 ### 4.1 Command (.md)
 
 **Location**: `commands/`
-**Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how."
+**Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how." Refer to existing commands (e.g., `commands/Serenity.md`) for structural patterns.
 
-**Required Sections:**
-
-| Section | Role |
-|---------|------|
-| YAML frontmatter | name, description, skills, tools, model, color |
-| Identity | The expert's core philosophy and positioning |
-| Voice | Natural language catchphrases (including Korean translations) |
-| Core Principles | Foundational principles of the methodology (6-9 items) |
-| Prohibitions | Actions to absolutely avoid (Guardrails) |
-| Methodology Quick Reference | Inline summary of core formulas and criteria |
-| Query Classification | Workflows by user intent (Type A-G) |
-| Analysis Protocol | Mandating Pipeline-Complete usage |
-| Reference Files | List of persona files |
-| Error Handling | Response to data source failures |
-| Response Format | Definition of output structure |
-
-**Notes:**
-- **Include Inline Methodology Summary**: Directly include core criteria (e.g., Minervini's 8 Trend Template conditions) in the Methodology Quick Reference. Used as a fallback if persona files fail to load.
-- **Query Classification**: Define analysis workflows for each type (Type A ~ G) to determine the appropriate analysis path based on the user's question intent.
-- **Do Not Specify Interface Details**: Following the Single Source of Truth principle, do not include subcommand names, argument formats, or return structures. Discover them at runtime via `extract_docstring.py`. Structural references (pipeline file paths, execution format) are acceptable.
+**Key constraints:**
+- **Do Not Specify Interface Details**: Following §2.1, do not include subcommand names, argument formats, or return structures. Discover them at runtime via `extract_docstring.py`. Structural references (pipeline file paths, execution format) are acceptable.
 - **Output Field Name References**: Command files may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria) since these are direct pipeline-to-agent action mappings. However, do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
 
 ### 4.2 SKILL.md
 
 **Location**: `skills/MarketData/SKILL.md`
-**Role**: The Level 1 catalog for all scripts. The entry point for Progressive Disclosure.
-
-**Required Structure:**
-
-| Section | Role |
-|---------|------|
-| Environment Bootstrap | venv setup protocol |
-| Progressive Disclosure Architecture | Explanation of the 2-step discovery |
-| Function Catalog | Module tables by category (Pipelines, Core Analysis, Data & Screening, Advanced Data Sources) |
-| Script Execution Safety Protocol | Mandatory Batch Discovery Rule, Safety Guardrails |
-| How to Use | 3-step workflow + Environment variables |
-| Error Handling & Fallback Guide | 3-step fallback chain |
-
-**Notes:**
-- Always register new modules/pipelines in the catalog.
-- Do not list subcommand names — discover them via Level 2 (`extract_docstring.py`).
-- Do not modify the Safety Protocol rules.
+**Role**: The Level 1 catalog for all scripts. The entry point for Progressive Disclosure. Always register new modules/pipelines in the catalog. Do not list subcommand names — discover them via Level 2 (`extract_docstring.py`).
 
 ### 4.3 Persona Files
 
 **Location**: `skills/MarketData/Personas/{Name}/`
-**Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Like the Command, it defines "how to interpret," but is not dependent on specific code implementations.
+**Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Defines "how to interpret," but is not dependent on specific code implementations. Refer to existing personas (e.g., `Personas/Serenity/`) for structural patterns.
 
-**Core Principle**: The goal is to extract the expert's **methodology (knowledge, know-how, decision-making framework)** and apply it to current and future analysis. It is not for archiving and searching the expert's past analysis records. You must extract **transferable methodologies** from their books and reports.
+**Core Principle**: Extract the expert's **transferable methodology** (knowledge, know-how, decision-making framework) and apply it to current and future analysis. It is not for archiving past analysis records.
 
-**Proper Use of Past Cases**: Including past cases to show "what judgments were made on which stocks and what decisions were reached" is allowed for few-shot purposes. However, use them only in the context of demonstrating the **decision-making process** of the methodology, and ensure that the specific stock conclusions themselves do not cause anchoring bias in future analysis.
+**Proper Use of Past Cases**: Past cases are allowed for few-shot purposes, but only to demonstrate the **decision-making process**. Ensure specific stock conclusions do not cause anchoring bias in future analysis.
 
-**Required Structure**: Separate into one file per methodology. Example (Minervini):
+**Content Principles** (what persona files SHOULD contain):
 
-| File | Content |
-|------|---------|
-| `sepa_methodology.md` | 5 Elements of SEPA, 4-Stage Ranking, Probability Convergence |
-| `sector_leadership.md` | Bottom-up approach, 52W Highs, Leader-based timing |
-| `earnings_insights.md` | Cockroach effect, Earnings quality, Surprise history |
-| `risk_and_trade_management.md` | Position sizing, Stop-loss, Expected value management |
+- **Principle-Based, Not Rule-Based**: Express methodology through values and principles (WHY), not through enumerated rules with specific numeric thresholds. When a rule is stated, it must trace back to a governing principle so the agent can reason from the principle in novel situations. Rules without principles create brittle agents; principles without rigid rules create flexible agents.
 
-**Notes:**
+- **Three-Layer Documentation Hierarchy**: (1) **WHY — Values/Principles**: Why does the expert make this judgment? What value drives it? Highest priority — enables edge-case handling. (2) **HOW — Interpretation Methodology**: How should the agent synthesize multiple pipeline outputs? Covers cross-field reasoning that code output alone cannot provide. (3) **WHEN — Score Caveats**: When might a pipeline-computed score be misleading? What contextual factors should the agent consider?
+
+- **Cross-Field Synthesis Focus**: Documents exist to explain how to COMBINE multiple pipeline outputs to reach judgments neither field alone provides. Do not define individual field meanings — self-evident fields (e.g., RSI, forward P/E, market cap) are already understood by the LLM; non-obvious fields are self-documented in JSON output via `thresholds` fields (§2.8). The document's value is in SYNTHESIS methodology: which fields to cross-reference, what patterns to look for, and what conclusions to draw from combinations.
+
+- **Code vs Document Boundary**: When clear, deterministic logic exists for computing a score or signal → implement in pipeline code. When logic is ambiguous, requires contextual judgment, or depends on information beyond what the pipeline collects → describe the judgment framework in documents. The boundary question: "Can a deterministic rule be written?" If yes → code. If no → document.
+
+- **Critical Evaluation Guidance**: Focus on when pipeline-computed scores might be misleading and what contextual factors the agent should consider — not on how to recalculate scores.
+
+- **Empirical Fidelity**: Do not fabricate precise thresholds, named tests, or formalized frameworks that have no basis in the expert's actual practice. If the expert uses qualitative judgment, express it qualitatively. Fabricated frameworks mislead worse than no framework — the agent treats fabricated precision as ground truth.
+
+- **Anchoring Prevention**: Do not include specific ticker symbols, price levels, or dates in methodology documents — these create anchoring bias. Past cases as few-shot must focus exclusively on the reasoning process, never on specific conclusions.
+
+**Structural Rules** (what persona files should NOT contain):
+
+- **Methodology Only, Not Calculation Methods**: Describe WHY and HOW to think, not HOW scores are computed. Do not duplicate calculation methodology or threshold values — the JSON output's `thresholds` fields provide this (§2.8). Reference concepts (e.g., "debt quality") without referencing specific JSON field names (e.g., `debt_quality_grade`).
 - Must map to the Command's Query Classification.
-- Extract the methodology (HOW) from original books and reports. Use past cases only as few-shot examples, focusing on the decision-making process. Prevent anchoring bias from specific stock conclusions.
+- Avoid specifying interface details — creates synchronization burden when code changes.
 - Avoid over-generalization — preserve the unique perspective of the specific expert.
-- Avoid specifying interface details (subcommand names, arguments, return structures) — creates synchronization burden when code changes. Structural pipeline references are acceptable.
-- **Methodology Only, Not Calculation Methods**: Persona files describe WHY and HOW to think (investment reasoning, decision frameworks, judgment heuristics), not HOW scores are computed. If a score/signal/flag is computed by code, do not duplicate its calculation methodology or threshold values in persona files — the JSON output's `thresholds`/`interpretation` fields provide this (§2.8). Persona files may reference the *concept* (e.g., "debt quality", "stock-based compensation health") without referencing specific JSON field names (e.g., `debt_quality_grade`, `sbc_flag`).
-- **Critical Evaluation Guidance**: Where persona files reference pipeline-computed scores, they should focus on when the score might be misleading and what contextual factors the agent should consider — not on how to recalculate the score. Example: "Pipeline auto-classifies SBC health. CAVEAT: Pre-revenue biotech may show high SBC due to option pool strategy, not value destruction."
 
 ### 4.4 Pipeline Scripts
 
 **Location**: `scripts/pipelines/`
-**Role**: Facade pattern — executes multiple modules in parallel to provide a comprehensive analysis tailored to the persona's methodology.
+**Role**: Facade pattern — executes multiple modules in parallel for persona-specific analysis. Refer to existing pipelines for structural patterns.
 
-**Current Pipelines:**
+**[HARD] Pre-verification of Module Interfaces:**
 
-| Pipeline | Persona | Number of Subcommands |
-|----------|---------|-----------------------|
-| `minervini.py` | Minervini (SEPA) | 6 |
-| `traderlion.py` | TraderLion (S.N.I.P.E.) | 6 |
-| `serenity.py` | Serenity (6-Level) | 6 |
-| `sidneykim0.py` | SidneyKim0 (Macro-Statistical) | 6 |
-| `williams.py` | Williams (Volatility Breakout) | 6 |
+When writing or modifying pipeline code, you must exhaustively verify the actual interfaces of all modules to be called using `extract_docstring.py` before writing the code — subcommand names, argument formats, return structures, and execution method. Writing calling code based on guesswork is **strictly prohibited**. If even one interface detail is incorrect, the module call will fail and fall into `missing_components`.
 
-**Required Elements:**
-
-- **Subcommands**: Naturally derived from the expert's methodology. No common minimum requirements are enforced; designed to fit each persona's analysis workflow.
-- **Hard Gate / Soft Gate System**: Blocks signals (Hard) or deducts points (Soft) if specific conditions are not met.
-- **Composite Scoring + Signal Generation**: Weighted summation → Signal (STRONG_BUY, BUY, HOLD, etc.).
-- **ThreadPoolExecutor Parallel Execution**: Reduces response time by executing independent modules concurrently.
-- **Graceful Degradation**: Continues analysis with the rest even if partial failures occur. Indicates `missing_components`.
-- **Response Compression Post-processing**: Converts raw data into insights to ensure context efficiency.
-- **Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores, grades, or signals by aggregating multiple inputs, the output must include `thresholds` or equivalent fields (e.g., `signal_weights`) that reveal the component weights and grade boundaries. This enables the agent to understand why a grade was assigned and which components might be misleading.
-
-**[HARD] Pre-verification of Module Interfaces (Pipeline Development Rule):**
-
-When writing or modifying pipeline code, you must exhaustively verify the actual interfaces of all modules to be called using `extract_docstring.py` before writing the code. Items to check:
-
-1. **Subcommand Names**: The subcommands actually provided by the module (e.g., `erp`, `get-current`, `yield-equity`, etc.).
-2. **Argument Formats**: positional vs. named, default values, types (e.g., `["SPY"]` vs. `["--symbol", "SPY"]`).
-3. **Return Structures**: Key names and nested structures of the output JSON (e.g., `{"current": {"erp": float}}` vs. `{"erp": float}`).
-4. **Execution Method**: Standalone script (`python script.py`) vs. package module (`python -m package`).
-
-Writing calling code based on guesswork without verifying the module's interface is **strictly prohibited**. If even one of the subcommand names, argument formats, or output key names is incorrect, the module call will fail and fall into `missing_components`. Therefore, pre-verification is an essential prerequisite for pipeline quality.
-
-**Notes:**
-- Every command must have a dedicated pipeline.
-- Load sufficient data internally, but do not include massive raw data with low insight density (e.g., years of price history) in the response.
-- Must include sufficient evidence for each judgment, not just scores and signals.
-- Principle: Not "less data," but **"exclude unnecessary raw data + include evidence for judgments."**
+**Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores by aggregating multiple inputs, the output must include `thresholds` or equivalent fields that reveal component weights and grade boundaries.
 
 ### 4.5 Module Scripts
 
 **Location**: `scripts/` (excluding pipelines)
-**Role**: Atomic functions focusing on a single analysis concern. Approximately 112 modules.
+**Role**: Atomic functions focusing on a single analysis concern (~112 modules). Refer to existing modules for structural patterns (`@safe_run` decorator, `utils.output_json()`, top-level docstring).
 
-**Required Structure:**
-- Module docstring (compatible with `extract_docstring.py`, adhering to `docstring_guidelines.md` specifications)
-- `@safe_run` decorator — converts all exceptions into JSON error formats
-- JSON output — use `utils.output_json()`
-
-**Notes:**
-- **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap between modules. Since pipelines combine and call multiple modules, each module must be clearly distinct for easy maintenance. When writing a new module, always check for functional overlap with existing modules.
-- **Write Persona-Neutrally**: Do not hardcode the interpretation logic of a specific persona so that it can be reused across multiple pipelines.
-- **Docstring Concentration Principle**: `extract_docstring.py` extracts only the module-level docstring at the very top of the file using `ast.get_docstring()`. All information the agent needs to know (subcommands, arguments, return structures, usage examples) must be concentrated within a single `""" """` block at the very top of the file. Function-specific docstrings or inline comments will not be discovered by `extract_docstring.py`.
-- **Self-Documenting Output (§2.8)**: When a module computes a score, signal, flag, or classification, the JSON output must include `thresholds` (static: what criteria define each category) and/or `interpretation` (dynamic: what the current value means in context). This ensures every pipeline consuming the module automatically receives the field-level semantics, eliminating the need for separate documentation of calculation methods. The `interpretation` should be persona-neutral (factual, not investment-advisory) to comply with Module Neutrality (§2.7).
+**Key constraints:**
+- **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap. When writing a new module, check for overlap with existing modules.
+- **Docstring Concentration**: `extract_docstring.py` extracts only the module-level docstring via `ast.get_docstring()`. All interface information must be in that single block.
+- **Self-Documenting Output (§2.8)**: Computed scores must include `thresholds` fields. Keep `interpretation` persona-neutral to comply with Module Neutrality (§2.7).
 
 ### 4.6 Docstring & extract_docstring.py
 
 **Location**: `tools/extract_docstring.py`
-**Role**: Level 2 Discovery — safely discovers the subcommands, arguments, and return structures of modules.
+**Role**: Level 2 Discovery — the core mechanism of Single Source of Truth. The agent extracts the latest interface information directly from code docstrings instead of maintaining it in separate files.
 
-This is the **core mechanism of the Single Source of Truth**. Instead of specifying code usage in command or persona files, it acts as a bridge allowing the agent to always get the latest information directly from the code itself.
-
-**Reason for Existence**: When modifying code, updating the docstring at the top of the same file is natural, but synchronizing it with separate files (commands/personas) is a heavy burden. To resolve this, the agent extracts the latest information directly from the docstring.
-
-**Notes:**
 - Do not read Python files directly; always use `extract_docstring.py`.
 - Maximum of 5 scripts per call.
-- Adhere to the `docstring_guidelines.md` specifications.
+- Adhere to `docstring_guidelines.md` specifications.
 
 ---
 
 ## 5. Anti-patterns
 
-Describe each anti-pattern along with the reason why it is a problem.
+The following anti-patterns are **not derivable from §2 principles or existing examples** — they represent non-obvious failure modes learned from experience.
 
-- **Analyzing by randomly combining modules without a pipeline** — Redundant loading of the same data wastes context, lacks consistency in analysis results, and forms an arbitrary analysis flow rather than the persona's methodology.
+- **Duplicating calculation methodology in persona documents** — If code computes a score with specific thresholds and the persona document also describes those thresholds, two risks emerge: (1) stale documents when code changes; (2) LLM confusion about whether to recalculate or use pre-computed values. Persona documents focus on when to QUESTION scores, not how they were calculated.
 
-- **Calling pipelines of other personas** — Methodologies between personas become mixed, polluting purity. Example: Using Minervini's SEPA score directly in a Serenity analysis eliminates Serenity's unique interpretation context.
+- **Referencing specific JSON field names in persona documents** (e.g., "check `sbc_flag`", "if `debt_quality_grade` is D") — Creates synchronization burden when field names change. Use methodology concepts instead (e.g., "evaluate stock-based compensation health"). Exception: Command files may reference field names in orchestration rules.
 
-- **Including massive raw data with low insight density in the response** (years of price history, full lists of holders, etc.) — Occupies the 200k context window, degrading the agent's analysis quality. However, sufficient evidence for judgments must be included.
+- **Fabricating precise thresholds when the expert uses qualitative judgment** — Creates false precision. Writing "demand/supply ratio >= 2:1" when the expert evaluates "demand visibly outstripping supply" invents a number the expert never used. Express qualitative judgments qualitatively.
 
-- **Reading Python files directly instead of using `extract_docstring.py`** — Hundreds to thousands of lines of code occupy the context. `extract_docstring.py` efficiently extracts only the docstring based on AST.
+- **Including specific ticker/price/date examples as anchors** — Creates anchoring bias. The agent pattern-matches to examples rather than reasoning from principles. Past cases are acceptable only as few-shot demonstrations of the REASONING PROCESS.
 
-- **Executing by guessing subcommand names** — Causes errors due to incorrect subcommands. You must first verify the exact subcommand through Progressive Disclosure (Level 2).
+- **Changing module output structure without checking consuming pipelines** — This is the most dangerous change. All pipelines parsing that module's output will break. Identify all consumers first. Prioritize adding new keys over deleting existing ones.
 
-- **Writing module calls in pipeline code without verifying interfaces** — If even one of the subcommand names (`current` vs. `erp` vs. `get-current`), argument formats (`["calculate", "SPY"]` vs. `["SPY"]`), output keys (`zscore` vs. `z_score`, `current_price` vs. `current_value`), or nested structures (`data.get("erp")` vs. `data.get("current", {}).get("erp")`) is incorrect, the module call will fail, falling into `missing_components` or returning null values. You must exhaustively verify the interfaces of all modules to be called using `extract_docstring.py` before writing pipeline code.
-
-- **Hardcoding the interpretation logic of a specific persona into module scripts** — Prevents reuse in other pipelines and unnecessarily increases the number of modules. Interpretation is handled by higher layers (commands/pipelines).
-
-- **Specifying concrete code names or subcommand names in command/persona files** — Creates a synchronization burden across multiple files when code changes. Violates the Single Source of Truth.
-
-- **Duplicating score/signal/flag calculation methodology in persona documents** — If code computes `sbc_flag` with specific thresholds (e.g., >30% = toxic) and the persona document also describes the same thresholds, two risks emerge: (1) when code thresholds change, the document becomes stale; (2) the LLM is confused about whether to recalculate or use the pre-computed value. Instead, the code's JSON output should include `thresholds`/`interpretation` fields (§2.8), and persona documents should focus on when to question the score, not how it was calculated.
-
-- **Referencing specific JSON output field names in persona documents** (e.g., "check `sbc_flag`", "if `debt_quality_grade` is D") — Creates synchronization burden when field names change in code. Use methodology concepts instead (e.g., "evaluate stock-based compensation health", "assess debt quality"). Exception: Command files may reference field names in orchestration rules (e.g., Investigation Triggers) since these are direct pipeline-to-agent action mappings.
-
-- **Scattering module usage instructions outside the top-level docstring** (function-specific docstrings, inline comments, etc.) — Cannot be discovered because `extract_docstring.py` extracts only the module-level docstring using `ast.get_docstring()`.
-
-- **Using pipeline outputs by cutting them with head/tail** — Can lead to incorrect judgments due to partial data. Pipeline outputs are already designed with context efficiency in mind.
-
-- **Changing the JSON output structure of a module without checking pipelines** — Can break the parsing logic of all pipelines that call the module. This is the change with the largest ripple effect.
+- **Using pipeline outputs by cutting with head/tail** — Leads to incorrect judgments from partial data. Pipeline outputs are already designed with context efficiency in mind.
 
 ---
 
 ## 6. Guide to Adding a New Expert
 
-### Checklist
+Follow the existing implementation pattern. Reference: Serenity (most complete — command, 3 persona files, pipeline package with 14 modules).
 
-#### Step 1: Analyze Original Books and Reports
+**Steps**: (1) Extract transferable methodology from source material → (2) Write persona files → (3) Check module coverage, create if needed → (4) Write pipeline → (5) Write command → (6) Register in SKILL.md → (7) Plugin checklist (CHANGELOG.db, plugin.json, marketplace.json, README.md).
 
-Extract the expert's **transferable methodology** (decision-making framework, unique perspective, knowledge, and know-how). Focus on methodologies applicable to the present and future, not past analysis cases or specific stock records.
-
-#### Step 2: Write Persona Files
-
-Separate files by methodology under `skills/MarketData/Personas/{Name}/`.
-
-| File | Content |
-|------|---------|
-| `methodology.md` | Core framework, analysis workflow, decision-making criteria |
-| `{domain_1}.md` | Methodology domain details (e.g., risk management, sector analysis) |
-| `{domain_2}.md` | Methodology domain details |
-| `{domain_3}.md` | Methodology domain details |
-
-Refer to existing personas (e.g., `Personas/Minervini/`) as structural templates, but fill the content with the new expert's methodology.
-
-#### Step 3: Module Gap Analysis and Creation
-
-List the analysis functions required to implement the methodology organized in Step 2, and check if they can be covered by the existing ~112 modules.
-
-- **If existing modules are sufficient**: Proceed directly to Step 4.
-- **If new analysis functions are needed**: If it falls within the SRP scope of an existing module, add a subcommand. If it is a new concern, create a new module. Design it to be independent of any persona according to the module neutrality principle, allowing reuse in other pipelines in the future.
-- When creating a new module: `@safe_run` decorator, JSON output (`utils.output_json()`), and a top-level module docstring (`docstring_guidelines.md` specifications) are mandatory. Also, register it in the `SKILL.md` catalog.
-
-#### Step 4: Write Pipeline Script
-
-`scripts/pipelines/{name}.py` — Design the module combinations, weights, and gates appropriate for the methodology.
-
-**[HARD] Preliminary Step — Exhaustive Verification of Module Interfaces:**
-
-Before writing code, verify the actual interfaces of all modules to be called in the pipeline using `extract_docstring.py`. Items to check: subcommand names, argument formats (positional/named), and return JSON structures (key names, nesting depth). Skipping this step will result in incorrect calls, causing most modules to fall into `missing_components`.
-
-Required Elements:
-- Subcommand design (derived from the expert's analysis workflow)
-- Hard Gate / Soft Gate System
-- Composite Scoring + Signal Generation
-- ThreadPoolExecutor Parallel Execution
-- Graceful Degradation
-- Response Compression Post-processing
-- Top-level module docstring (`docstring_guidelines.md` specifications)
-
-#### Step 5: Write Command .md
-
-`commands/{Name}.md` — Refer to existing command files as structural templates.
-
-Required Sections: YAML frontmatter, Identity, Voice, Core Principles, Prohibitions, Methodology Quick Reference, Query Classification, Analysis Protocol, Reference Files, Error Handling, Response Format.
-
-#### Step 6: Update SKILL.md
-
-Register the new pipeline in the Pipelines section of the Function Catalog.
-
-#### Step 7: Plugin Modification Checklist
-
-Update `CHANGELOG.md`, `plugin.json`, `marketplace.json`, and the root `README.md`.
+**Key constraints not visible from examples:**
+- **[HARD]** Verify ALL module interfaces via `extract_docstring.py` before writing pipeline code
+- New modules must be persona-neutral (§2.7) with `@safe_run` decorator and top-level docstring
+- Register new modules in `SKILL.md` catalog
 
 ---
 
 ## 7. Modification Guide
 
-Precautions when modifying existing components.
-
-### Modifying Commands
-
-When changing Query Classification, verify the mapping with Persona files. When adding a new Query Type, ensure that a Persona file or pipeline subcommand exists to handle that workflow.
-
-### Modifying Pipelines
-
-When adding or changing subcommands, updating the top-level docstring is mandatory. Since the information discovered by `extract_docstring.py` is the only interface documentation, if the docstring does not match the actual implementation, the agent will make incorrect calls.
-
-When calling a new module or changing an existing call, you must verify the current interface (subcommand name, arguments, return structure) of the module using `extract_docstring.py` before modifying the code. Since the module's output structure might have changed, also validate the field names and nested paths in the existing parsing code.
-
-### Changing the JSON Output Structure of a Module (Most Dangerous Change)
-
-If the output key names or structure change, **all pipelines** calling that module are affected. Before making the change, you must identify the pipelines using the module and modify their parsing logic accordingly.
-
-### Modifying Modules (General)
-
-Since they can be used in multiple pipelines, maintain backward compatibility. Prioritize adding new keys over deleting existing output keys.
-
-### Creating a New Module vs. Adding a Subcommand to an Existing Module
-
-If a new analysis function falls within the Single Responsibility Principle (SRP) of an existing module, add it as a subcommand. If it is a new concern, create a new module. Prevent modules from proliferating indiscriminately or a single module from becoming bloated.
-
-### Modifying SKILL.md
-
-Synchronize the catalog when adding, removing, or renaming modules.
+- **Modifying pipelines**: Update the top-level docstring whenever subcommands change — `extract_docstring.py` is the only interface documentation. Verify module interfaces before calling new modules.
+- **Changing module output structure (most dangerous change)**: Identify ALL consuming pipelines and update their parsing logic. Prioritize adding new keys over deleting existing ones.
+- **Modifying commands/persona files**: Verify mapping with Query Classification and persona files when changing workflows.

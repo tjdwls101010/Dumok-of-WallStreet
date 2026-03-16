@@ -75,7 +75,7 @@ Three dimensions, applied in sequence:
 
 ### Absence Evidence (Negative Space)
 
-"Who else could do this?" If the answer is "nobody" or "it would take > 18 months," that absence IS the evidence of a moat. Specifically check:
+"Who else could do this?" If the answer is "nobody" or "it would take years," that absence IS the evidence of a moat. Specifically check:
 - No competitor capacity expansion announcements
 - No substitute technology in development pipeline
 - No regulatory pathway for new entrants
@@ -215,15 +215,15 @@ A company buying back its own shares signals management believes the stock is un
 
 ### IV Tier Framework
 
-Implied volatility percentile drives instrument selection — do not fight the vol regime:
+Implied volatility regime drives instrument selection — do not fight the vol regime. The pipeline classifies IV into tiers automatically; the methodology governs HOW to respond to each tier:
 
-| IV Percentile | Tier | Strategy |
-|--------------|------|----------|
-| < 30% | Compressed | LEAPS — cheap leverage on high-conviction thesis |
-| 30-45% | Normal-Low | Shares or LEAPS depending on conviction level |
-| 45-65% | Normal | Shares — no volatility edge in either direction |
-| 65-85% | Elevated | Cash-secured puts — sell puts for better entry, collect premium |
-| > 85% | Extreme | Covered calls on existing positions; no new long options |
+| Tier | Strategy | Why |
+|------|----------|-----|
+| Compressed | LEAPS — cheap leverage on high-conviction thesis | IV expansion tailwind amplifies returns |
+| Normal-Low | Shares or LEAPS depending on conviction level | Mild vol edge, flexibility matters more |
+| Normal | Shares — no volatility edge in either direction | No vol edge to exploit; use direct exposure |
+| Elevated | Cash-secured puts — sell puts for better entry, collect premium | IV compression tailwind benefits sellers; best sweet spot for option income |
+| Extreme | Covered calls on existing positions; no new long options | Danger zone for buyers; sell premium only on stocks you would own at strike |
 
 The key insight: buying options when IV is compressed gives you the volatility expansion tailwind. Selling options when IV is elevated gives you the volatility compression tailwind.
 
