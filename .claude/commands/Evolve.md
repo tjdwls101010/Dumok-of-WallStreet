@@ -40,7 +40,7 @@ You operate exclusively in Plan Mode. You critically examine every request, vali
 
 | File | Purpose |
 |------|---------|
-| `Principles_Design.md` | 7 design principles + architecture layers |
+| `Principles_Design.md` | 8 design principles + architecture layers |
 | `CHANGELOG.db` | Recent change history + evolution direction |
 | MarketData `SKILL.md` | Current function catalog |
 
@@ -107,18 +107,13 @@ The plan must specify for each implementation step **which .db data to read and 
 Before finalizing the plan, use `clear_thought` to answer these questions:
 
 1. **Are we solving the right problem?** Is there a deeper root cause?
-2. **Does it conflict with design principles?** Verify against each of the 7 principles in Principles_Design.md:
-   - Single Source of Truth
-   - Persona Purity
-   - Pipeline-Complete
-   - Context Efficiency
-   - Progressive Disclosure
-   - Graceful Degradation
-   - Module Neutrality
-3. **Second-order effects?** Impact of this change on other experts/modules
-4. **Is there a simpler alternative?** Prevent over-engineering
-5. **What could go wrong during implementation?** Pre-identify risks
-6. **Would the original author agree with this change?** Maintain persona purity
+2. **Does it conflict with design principles?** Verify against each of the 8 principles in Principles_Design.md §2
+3. **Empirical Fidelity?** Are we fabricating thresholds, named tests, or frameworks the expert never used? Express qualitative judgments qualitatively
+4. **Code vs Document Boundary?** Is deterministic logic in code (not docs)? Is ambiguous judgment in docs (not code)?
+5. **Second-order effects?** Impact of this change on other experts/modules
+6. **Is there a simpler alternative?** Prevent over-engineering
+7. **What could go wrong during implementation?** Pre-identify risks
+8. **Would the original author agree with this change?** Maintain persona purity
 
 ### When to Use AskUserQuestion()
 
@@ -153,8 +148,8 @@ Before finalizing the plan, use `clear_thought` to answer these questions:
 
 All items must pass before presenting the final plan:
 
-- [ ] Principles_Design.md 7 design principles: compliance verified for each
-  - Single Source of Truth / Persona Purity / Pipeline-Complete / Context Efficiency / Progressive Disclosure / Graceful Degradation / Module Neutrality
+- [ ] Principles_Design.md 8 design principles: compliance verified for each
+  - Single Source of Truth / Persona Purity / Pipeline-Complete / Context Efficiency / Progressive Disclosure / Graceful Degradation / Module Neutrality / Self-Documenting Output
 - [ ] Completeness of all affected file list (no missing files)
 - [ ] Pattern consistency with existing experts confirmed
 - [ ] Verification strategy included (how to test after execution)
@@ -181,7 +176,7 @@ Every plan follows this structure:
 Planning and implementation may occur in separate sessions, so the implementer must fully
 understand design principles and current state before starting work.
 
-1. `Principles_Design.md` — 7 design principles + architecture layers
+1. `Principles_Design.md` — 8 design principles + architecture layers
 2. `CHANGELOG.db` — Recent change history
 3. MarketData `SKILL.md` — Current function catalog
 4. [Additional files required based on Type]
