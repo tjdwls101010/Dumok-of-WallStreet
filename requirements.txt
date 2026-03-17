@@ -12,6 +12,7 @@ fredapi>=0.5.2
 
 # Finviz scraper
 finvizfinance>=0.14.6
+finviz>=2.0.0
 
 # SEC EDGAR
 sec-edgar-downloader>=5.0.0

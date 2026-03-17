@@ -6,53 +6,78 @@ before it is included in the final pipeline response.
 
 
 def _summarize_insider_transactions(data):
-	"""Summarize insider transactions: aggregate buy/sell counts and amounts,
-	determine net direction, and keep only the most recent 20 transactions.
+	"""Summarize insider transactions with by_insider aggregation.
+
+	Filters to Sale/Buy only (excludes Proposed Sale and Option Exercise),
+	groups by insider name, and computes per-insider and overall summary.
 	"""
-	transactions = data if isinstance(data, list) else data.get("transactions", [])
-	if not isinstance(transactions, list):
+	records = data if isinstance(data, list) else []
+	if not records:
 		return data
 
-	buy_count = 0
-	sell_count = 0
-	buy_amount = 0.0
-	sell_amount = 0.0
+	# Filter: keep only Sale and Buy (removes Proposed Sale duplicates + Option Exercise noise)
+	filtered = [r for r in records if isinstance(r, dict) and r.get("transaction") in ("Sale", "Buy")]
 
-	for txn in transactions:
-		if not isinstance(txn, dict):
+	# Aggregate by insider
+	insiders = {}
+	for txn in filtered:
+		name = txn.get("insider", "")
+		if not name:
 			continue
-		txn_type = str(txn.get("type", "") or txn.get("transaction", "")).lower()
-		value = txn.get("value") or txn.get("amount") or 0
-		try:
-			value = float(value)
-		except (ValueError, TypeError):
-			value = 0.0
+		if name not in insiders:
+			insiders[name] = {
+				"insider": name,
+				"relationship": txn.get("relationship", ""),
+				"buy_count": 0, "buy_amount": 0,
+				"sell_count": 0, "sell_amount": 0,
+			}
+		entry = insiders[name]
+		value = txn.get("value") or 0
+		# Pick the most specific (longest) relationship for this insider
+		rel = txn.get("relationship", "")
+		if len(rel) > len(entry["relationship"]):
+			entry["relationship"] = rel
 
-		if "buy" in txn_type or "purchase" in txn_type:
-			buy_count += 1
-			buy_amount += value
-		elif "sale" in txn_type or "sell" in txn_type:
-			sell_count += 1
-			sell_amount += value
+		if txn.get("transaction") == "Buy":
+			entry["buy_count"] += 1
+			entry["buy_amount"] += value
+		elif txn.get("transaction") == "Sale":
+			entry["sell_count"] += 1
+			entry["sell_amount"] += value
 
-	if buy_amount > sell_amount * 1.2:
+	# Compute net_amount and sort by abs(net_amount) descending
+	by_insider = []
+	for entry in insiders.values():
+		entry["net_amount"] = entry["buy_amount"] - entry["sell_amount"]
+		by_insider.append(entry)
+	by_insider.sort(key=lambda x: abs(x["net_amount"]), reverse=True)
+	by_insider = by_insider[:15]
+
+	# Overall summary
+	total_buy_count = sum(e["buy_count"] for e in insiders.values())
+	total_sell_count = sum(e["sell_count"] for e in insiders.values())
+	total_buy_amount = sum(e["buy_amount"] for e in insiders.values())
+	total_sell_amount = sum(e["sell_amount"] for e in insiders.values())
+
+	if total_buy_amount > total_sell_amount * 1.2:
 		net_direction = "net_buying"
-	elif sell_amount > buy_amount * 1.2:
+	elif total_sell_amount > total_buy_amount * 1.2:
 		net_direction = "net_selling"
 	else:
 		net_direction = "mixed"
 
 	return {
 		"summary": {
-			"total_transactions": len(transactions),
-			"buy_count": buy_count,
-			"sell_count": sell_count,
-			"buy_amount": round(buy_amount, 2),
-			"sell_amount": round(sell_amount, 2),
+			"total_transactions": len(filtered),
+			"buy_count": total_buy_count,
+			"sell_count": total_sell_count,
+			"buy_amount": total_buy_amount,
+			"sell_amount": total_sell_amount,
 			"net_direction": net_direction,
-			"net_value": round(buy_amount - sell_amount, 2),
+			"net_value": total_buy_amount - total_sell_amount,
+			"thresholds": "net_buying: buy_amount > sell_amount \u00d7 1.2 | net_selling: sell_amount > buy_amount \u00d7 1.2 | mixed: otherwise",
 		},
-		"transactions": transactions[:20],
+		"by_insider": by_insider,
 	}
 
 

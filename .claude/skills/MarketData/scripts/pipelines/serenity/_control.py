@@ -355,9 +355,9 @@ def _build_institutional_flow(l4_results):
 
 	# Composite flow assessment
 	flow_signals = []
-	if insider_direction == "buying":
+	if insider_direction == "net_buying":
 		flow_signals.append("insider_accumulation")
-	if insider_direction == "selling":
+	if insider_direction == "net_selling":
 		flow_signals.append("insider_distribution")
 	if io_assessment == "strong_accumulation":
 		flow_signals.append("institutional_conviction")

@@ -227,7 +227,6 @@ def cmd_analyze(args):
 		}
 
 	# --- Level 4: Position Construction (Fundamentals) ---
-	insider_start = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
 	l4_scripts = {
 		"info": ("data_sources/info.py", ["get-info-fields", ticker,
 			"sector", "industry", "marketCap", "enterpriseValue",
@@ -239,8 +238,7 @@ def cmd_analyze(args):
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
 		"insider_transactions": ("data_sources/holders.py", [
-			"get-insider-transactions", ticker, "--exclude-grants",
-			"--start", insider_start]),
+			"get-insider-transactions", ticker]),
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
