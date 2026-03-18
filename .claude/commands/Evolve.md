@@ -64,56 +64,102 @@ Analyze $ARGUMENTS and classify into one or more of the following types:
 
 ## Source Material Processing Protocol (.db Files)
 
-For Type A or any request requiring .db file processing, use the following context overflow prevention strategy:
-
-### Planning Phase (.db Processing During Evolve Execution)
+For Type A or any request requiring .db file processing:
 
 ```
-Phase 1: Schema Discovery (Main Agent)
+Phase 1: Schema Discovery
 ├── sqlite3 .tables / .schema → understand table structure
 ├── Measure row count, content length
-└── Determine processing strategy by data type
+└── Determine reading strategy by data type
 
-Phase 2: Chunked Methodology Extraction (Agent Team, max 5 teammates)
-├── TeamCreate("evolve-extract") → create team
-├── TaskCreate per chunk → define extraction tasks
-├── Task(team_name="evolve-extract") per chunk → spawn teammates (max 5)
-├── Book-style DB (chapters table):
-│   └── 1 teammate per 2-3 chapters
-│       → "Extract frameworks, criteria, thresholds, decision rules, principles, taboos"
-├── Tweet-style DB (tweets table):
-│   └── 1 teammate per 150-200 tweet batch
-│       → "Extract recurring patterns, signature expressions, analysis frameworks, risk rules"
-├── Video-style DB (videos + community tables):
-│   └── 1 teammate per 10-15 videos
-│       → "Extract quantitative frameworks, thresholds, regime classifications, analysis methods"
-└── TeamDelete after all tasks completed
-
-Phase 3: Methodology Synthesis (Main Agent + Clear Thought)
-├── Synthesize teammate outputs (much more compressed than originals)
-├── Identify core methodology elements
-├── Analyze differentiation from existing experts
-└── Draft expert architecture
+Phase 2: Knowledge Extraction (Main Agent + Clear Thought)
+├── Read .db content directly, chunking as needed to manage context
+├── Extract explicit knowledge: frameworks, criteria, thresholds, decision rules, taboos
+├── Apply Tacit Knowledge Extraction Protocol (§Clear Thought Integration)
+│   to surface implicit patterns, principles, and values
+└── Output: Values → Principles → Rules hierarchy
+    (architecture follows Principles_Design.md §4)
 ```
 
-### Implementation Phase (.db Processing in Plan Output)
+### Implementation Phase
 
-The plan must specify for each implementation step **which .db data to read and how**:
-- "Write persona file X.md → teammate reads .db chapters 1-5, extracts [specific methodology]"
-- "Write persona file Y.md → teammate reads .db chapters 6-10, extracts [specific methodology]"
+Evolve completes all .db reading and knowledge extraction during planning. The plan output contains the fully extracted methodology (Values → Principles → Rules hierarchy) and per-file content specifications. The implementer writes files based on the plan without re-processing the .db.
+
+## Clear Thought Integration
+
+CT is the meta-reasoning instrument for Evolve — it externalizes complex analytical processes that arise during knowledge extraction and principle synthesis. CT is essential when processing large knowledge bases (.db files) where tacit knowledge must be surfaced from patterns spanning hundreds of data points.
+
+### CT Activation Principles
+
+1. **Complexity Threshold** — Use CT when extraction complexity exceeds what linear thinking can handle: conflicting data across .db chunks, implicit patterns spanning hundreds of posts, or multi-principle trade-offs. When the expert's rules are explicitly stated, CT adds no value — record them directly.
+
+2. **Structure Matching** — Select the CT operation whose cognitive structure matches the extraction challenge. Pattern discovery across many data points needs graph/analogical reasoning. Adversarial validation of inferred principles needs multi-persona debate. Impact assessment needs systems thinking.
+
+3. **Depth Proportionality** — Start with lightweight operations (`sequential_thinking`, `decision_framework`). Escalate to heavier operations (`collaborative_reasoning`, `analogical_reasoning`) only when initial analysis reveals unexpected depth or contradictions.
+
+4. **Empirical Servitude** — CT serves the source material, not the other way around. CT helps *discover* what the expert actually believes; it must never *invent* principles the expert never held. When CT surfaces a candidate principle, verify it against at least 3 independent data points from the .db. If verification fails, discard the principle.
+
+### Tacit Knowledge Extraction Protocol
+
+[HARD] For Type A (New Expert) and Type B (Methodology Enhancement with .db), apply this protocol during Phase 2 knowledge extraction.
+
+The transformation chain: **Rules** (visible in text) → **Principles** (inferred from patterns across many data points) → **Values** (the deepest layer of the expert's worldview). Principle-based agents handle novel situations; rule-based agents break on them.
+
+| Step | Goal | CT Operations |
+|------|------|--------------|
+| 1. Rule Catalog | Read .db and catalog all explicit rules, frameworks, thresholds, taboos. Map relationships (supports/contradicts) between rules | `sequential_thinking` (graph) |
+| 2. Principle Inference | For each cluster of 3+ related rules, infer the shared underlying principle. Identify recurring judgment patterns across different contexts — the same logic applied in different situations reveals the hidden principle | `analogical_reasoning` |
+| 3. Critical Comparison | For each inferred principle, generate alternative interpretations. Compare each interpretation's pros and cons from multiple perspectives: agent performance, edge-case handling, faithfulness to source material. Select the interpretation that maximizes agent performance in real-world analysis | `collaborative_reasoning` (multi-perspective critical debate) + `decision_framework` (weighted comparison of options) |
+| 4. Value Distillation | Condense validated principles into core values. Values must be mutually exclusive and collectively exhaustive of the principle set | `mental_model` (first_principles) |
+
+Step 3 is the most critical — it is NOT a simple pass/fail test. It is a detailed comparative analysis where multiple candidate interpretations are critically debated to find the optimal principle that will drive the best agent performance.
+
+After Step 4, allocate extracted Values → Principles → Rules to components (command/persona/pipeline/module) per `Principles_Design.md §4`. Architecture mapping is governed by design principles, not by Evolve.
+
+### CT Operation Repertoire
+
+| Operation | Cognitive Structure | Evolve Use Case |
+|-----------|--------------------|----|
+| `sequential_thinking` (graph) | Node-relationship mapping | Rule consolidation: deduplication, conflict detection across chunk extractions |
+| `analogical_reasoning` | Cross-domain mapping | Principle inference: finding shared structure across rule clusters |
+| `collaborative_reasoning` | Multi-persona adversarial debate | Critical comparison: multi-perspective debate on alternative principle interpretations |
+| `decision_framework` | Multi-criteria weighted evaluation | Critical comparison: pros/cons analysis of each interpretation. Also: Critical Review design principle conflict evaluation |
+| `mental_model` (first_principles) | Foundational decomposition | Value distillation: stripping principles to core beliefs |
+| `systems_thinking` | Feedback loops, leverage points | Critical Review: second-order effects, failure cascades |
+| `metacognitive_monitoring` | Confidence calibration | Critical Review: detecting fabricated precision |
+| `structured_argumentation` | Premise-conclusion chains | Critical Review: code vs document boundary arguments |
+
+### CT Discipline
+
+- **No CT on explicit knowledge**: When the expert directly states a rule, record it as-is. CT is for inferring what the expert never explicitly stated.
+- **CT discovers, never fabricates**: CT surfaces patterns from data. If a CT-inferred principle cannot be traced to 3+ source data points, discard it.
 
 ## Critical Review Protocol
 
-Before finalizing the plan, use `clear_thought` to answer these questions:
+Before finalizing the plan, validate using grouped CT calls per §CT Discipline.
 
+### CT Group A — Problem & Persona Validation (1 CT call)
+
+Use `collaborative_reasoning` with two personas:
+
+**Problem Analyst** answers:
 1. **Are we solving the right problem?** Is there a deeper root cause?
-2. **Does it conflict with design principles?** Verify against each of the 8 principles in Principles_Design.md §2
-3. **Empirical Fidelity?** Are we fabricating thresholds, named tests, or frameworks the expert never used? Express qualitative judgments qualitatively
-4. **Code vs Document Boundary?** Is deterministic logic in code (not docs)? Is ambiguous judgment in docs (not code)?
-5. **Second-order effects?** Impact of this change on other experts/modules
-6. **Is there a simpler alternative?** Prevent over-engineering
-7. **What could go wrong during implementation?** Pre-identify risks
 8. **Would the original author agree with this change?** Maintain persona purity
+
+**Design Skeptic** answers:
+3. **Empirical Fidelity?** Are we fabricating thresholds, named tests, or frameworks the expert never used?
+6. **Is there a simpler alternative?** Prevent over-engineering
+
+### CT Group B — Impact & Risk Assessment (1 CT call)
+
+Use `systems_thinking` to answer:
+5. **Second-order effects?** Impact of this change on other experts/modules
+7. **What could go wrong during implementation?** Pre-identify risks
+
+### Inline Checks (No CT — straightforward)
+
+2. **Design principle conflict?** Walk through each of the 8 principles in Principles_Design.md §2. Use `decision_framework` only if a genuine conflict is detected.
+4. **Code vs Document Boundary?** Apply the boundary test from Principles_Design.md §4.3. Use `structured_argumentation` only for genuinely ambiguous cases.
 
 ### When to Use AskUserQuestion()
 
@@ -125,24 +171,15 @@ Before finalizing the plan, use `clear_thought` to answer these questions:
 ## Agent Orchestration Guidelines
 
 ### Main Agent Responsibilities
-- Overall workflow coordination
-- Architecture decisions
-- Deep analysis via sequential thinking
+- .db knowledge extraction with CT (Type A)
+- Architecture decisions informed by Principles_Design.md
+- Critical Review via grouped CT calls
 - Final plan synthesis
 - User alignment via `AskUserQuestion()`
 
-### Teammate Responsibilities
-- .db content chunk processing (Type A)
-- Codebase exploration (Explore type)
-- Cross-file pattern analysis
-- Independent research tasks
-
-### Rules
-- [HARD] Use Agent Team (TeamCreate + Task with team_name) for parallel independent tasks
-- [HARD] Maximum 5 concurrent teammates per team
-- Provide each teammate with sufficient context (overall workflow context, design principle summary, etc.)
-- Main agent must validate all teammate outputs before synthesis
-- TeamDelete after all team tasks are completed
+### Subagent Usage
+- Use Explore subagents for codebase exploration (existing file analysis, cross-file pattern search)
+- The main agent handles .db extraction and CT reasoning directly — do not delegate knowledge extraction to subagents
 
 ## Plan Quality Gates
 
@@ -188,7 +225,16 @@ understand design principles and current state before starting work.
 [What currently exists, what works, what is lacking]
 
 ## Source Material Summary (For Type A)
-[Key methodology summary extracted from .db]
+### Extracted Knowledge Hierarchy
+| Layer | Count | Examples |
+|-------|-------|----------|
+| Values | N | [1-line summaries of deepest beliefs] |
+| Principles | N | [1-line summaries of inferred patterns] |
+| Rules | N | [Count only — referenced in per-file changes] |
+### CT Validation Summary
+[Principle confidence levels. Tentative principles flagged for user review]
+### Differentiation from Existing Experts
+[How this expert's value hierarchy differs from existing personas]
 
 ## Proposed Changes
 ### Per-file Detailed Changes
