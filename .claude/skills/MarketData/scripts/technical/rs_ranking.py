@@ -145,14 +145,35 @@ def _compute_rs(symbol, benchmark="SPY", period="1y"):
 	bench_returns = {}
 	stock_weighted = 0
 	bench_weighted = 0
+	total_weight = sum(w for _, _, w in periods_config)
+	available_weight = 0
+	periods_with_data = 0
 
 	for label, days, weight in periods_config:
 		s_ret = _period_return(closes_stock, days)
 		b_ret = _period_return(closes_bench, days)
 		stock_returns[label] = s_ret if s_ret is not None else 0
 		bench_returns[label] = b_ret if b_ret is not None else 0
-		stock_weighted += (s_ret or 0) * weight
-		bench_weighted += (b_ret or 0) * weight
+		if s_ret is not None:
+			stock_weighted += s_ret * weight
+			available_weight += weight
+			periods_with_data += 1
+		if b_ret is not None:
+			bench_weighted += b_ret * weight
+
+	# Re-normalize weights for young stocks with missing periods
+	if 0 < available_weight < total_weight:
+		stock_weighted = stock_weighted * total_weight / available_weight
+
+	# Data quality classification
+	if periods_with_data >= 4:
+		data_quality = "full"
+	elif periods_with_data >= 2:
+		data_quality = "partial"
+	elif periods_with_data >= 1:
+		data_quality = "minimal"
+	else:
+		data_quality = "none"
 
 	# Calculate ratio and map to 0-99 score
 	if bench_weighted == 0:
@@ -180,7 +201,9 @@ def _compute_rs(symbol, benchmark="SPY", period="1y"):
 	elif ratio <= 0:
 		score = 1
 	else:
-		score = int(max(1, min(99, 50 * (1 + math.log(ratio, 2)))))
+		# Sigmoid-like mapping preserving granularity at extremes
+		log_ratio = math.log(max(ratio, 0.01), 2)
+		score = int(max(1, min(99, 50 + 49 * math.tanh(log_ratio * 0.7))))
 
 	return {
 		"rs_score": score,
@@ -189,6 +212,13 @@ def _compute_rs(symbol, benchmark="SPY", period="1y"):
 		"weighted_composite_stock": round(stock_weighted, 2),
 		"weighted_composite_benchmark": round(bench_weighted, 2),
 		"vs_benchmark_ratio": round(ratio, 3),
+		"data_quality": data_quality,
+		"periods_available": periods_with_data,
+		"thresholds": {
+			"scoring_method": "Q1(both+): tanh(log2(ratio)*0.7) scaled 1-99 | Q2(stock+ bench-): 85-99 | Q3(both-): 15-45 | Q4(stock- bench+): 1-25",
+			"data_quality": "full: 4 periods | partial: 2-3 periods | minimal: 1 period",
+			"weight_renormalization": "active when periods_available < 4",
+		},
 	}
 
 

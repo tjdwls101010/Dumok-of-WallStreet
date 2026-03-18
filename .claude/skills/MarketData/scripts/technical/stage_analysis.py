@@ -34,13 +34,19 @@ Returns:
 			"higher_highs": bool,
 			"higher_lows": bool,
 			"volatility_expanding": bool,
-			"largest_decline_pct": float
+			"largest_decline_pct": float,
+			"swing_highs_used": int,
+			"swing_lows_used": int
 		},
 		"runner_up_stage": int or null,
 		"runner_up_score": int,
 		"stage_gap": int,
 		"transition_risk": str,
-		"stage_scores": dict
+		"stage_scores": dict,
+		"thresholds": {
+			"confidence": str,
+			"stage3_decline_scaling": str
+		}
 	}
 
 Example:
@@ -72,7 +78,9 @@ Notes:
 	- Stage 3 detection relies on volatility increase and MA flattening
 	- 20-day volume ratio < 0.5 adds +10 to Stage 3 score (early warning)
 	- 20d/50d divergence (20d < 0.5 but 50d > 0.8) adds +5 to Stage 3
-	- Confidence below 60% suggests ambiguous stage (possible transition)
+	- Confidence uses theoretical max for winning stage as denominator
+	- Higher highs/lows use swing point detection (5-bar confirmation)
+	- Stage 3 decline scoring is graduated: -15to-20% +10, -20to-30% +20, >-30% +30
 	- Transition signals are forward-looking indicators of stage change
 	- Transition risk: high (<20 gap to Stage 3), moderate (<40), low (>=40)
 
@@ -105,6 +113,15 @@ STAGE_NAMES = {
 	4: "Declining (Capitulation)",
 }
 
+# Theoretical maximum scores per stage, used for confidence calculation
+# Derived from code: sum of all possible positive contributions to each stage
+_STAGE_THEORETICAL_MAX = {
+	1: 90,   # 30+20+15+15+10
+	2: 105,  # 20+15+20+15+15+10+10
+	3: 120,  # 20+15+20+15+15+30+25+15+20+10+10+5 (but many mutually exclusive; realistic max ~120)
+	4: 115,  # 25+20+15+20+10+10+10+5
+}
+
 
 def _ma_slope(series, lookback=20):
 	"""Calculate slope direction of a moving average over lookback days."""
@@ -123,28 +140,68 @@ def _ma_slope(series, lookback=20):
 	return (slope / mean_val) * 100
 
 
-def _higher_highs_higher_lows(highs, lows, window=20, count=3):
-	"""Check for pattern of higher highs and higher lows."""
-	if len(highs) < window * count:
-		return False, False
+def _find_swing_points(series, confirmation_bars=5):
+	"""Find swing highs and swing lows using N-bar confirmation.
 
+	A swing high is a local maximum with confirmation_bars lower highs on each side.
+	A swing low is a local minimum with confirmation_bars higher lows on each side.
+
+	Returns (swing_highs, swing_lows) as lists of (index, value) tuples,
+	sorted by index (chronological order).
+	"""
+	values = series.values.astype(float)
+	n = len(values)
 	swing_highs = []
 	swing_lows = []
-	for i in range(count):
-		start = -(window * (count - i))
-		end = -(window * (count - i - 1)) if i < count - 1 else None
-		segment_h = highs.iloc[start:end]
-		segment_l = lows.iloc[start:end]
-		if len(segment_h) > 0:
-			swing_highs.append(float(segment_h.max()))
-		if len(segment_l) > 0:
-			swing_lows.append(float(segment_l.min()))
 
-	hh = (
-		all(swing_highs[i] > swing_highs[i - 1] for i in range(1, len(swing_highs))) if len(swing_highs) >= 2 else False
-	)
-	hl = all(swing_lows[i] > swing_lows[i - 1] for i in range(1, len(swing_lows))) if len(swing_lows) >= 2 else False
-	return hh, hl
+	for i in range(confirmation_bars, n - confirmation_bars):
+		# Check swing high: values[i] >= all neighbors within confirmation_bars
+		is_high = True
+		for j in range(1, confirmation_bars + 1):
+			if values[i] < values[i - j] or values[i] < values[i + j]:
+				is_high = False
+				break
+		if is_high:
+			swing_highs.append((i, float(values[i])))
+
+		# Check swing low: values[i] <= all neighbors within confirmation_bars
+		is_low = True
+		for j in range(1, confirmation_bars + 1):
+			if values[i] > values[i - j] or values[i] > values[i + j]:
+				is_low = False
+				break
+		if is_low:
+			swing_lows.append((i, float(values[i])))
+
+	return swing_highs, swing_lows
+
+
+def _higher_highs_higher_lows(highs, lows, window=20, count=3):
+	"""Check for pattern of higher highs and higher lows using swing point detection.
+
+	Uses 5-bar confirmation to find swing highs and swing lows.
+	HH = True if last 2 swing highs are ascending.
+	HL = True if last 2 swing lows are ascending.
+	"""
+	if len(highs) < window * count:
+		return False, False, 0, 0
+
+	swing_highs, _ = _find_swing_points(highs, confirmation_bars=5)
+	_, swing_lows = _find_swing_points(lows, confirmation_bars=5)
+
+	# HH: last 2 swing highs are ascending
+	hh = False
+	if len(swing_highs) >= 2:
+		last_two_highs = swing_highs[-2:]
+		hh = last_two_highs[1][1] > last_two_highs[0][1]
+
+	# HL: last 2 swing lows are ascending
+	hl = False
+	if len(swing_lows) >= 2:
+		last_two_lows = swing_lows[-2:]
+		hl = last_two_lows[1][1] > last_two_lows[0][1]
+
+	return hh, hl, len(swing_highs), len(swing_lows)
 
 
 def _volume_trend(volumes, closes, lookback=50):
@@ -224,7 +281,7 @@ def cmd_classify(args):
 	price_above_200 = current_price > c_sma200
 	sma200_slope = _ma_slope(sma200, lookback=40)
 	sma50_slope = _ma_slope(sma50, lookback=20)
-	hh, hl = _higher_highs_higher_lows(highs, lows)
+	hh, hl, n_swing_highs, n_swing_lows = _higher_highs_higher_lows(highs, lows)
 	vol_pattern, vol_ratio = _volume_trend(volumes, closes)
 
 	# Richer volume metrics
@@ -303,9 +360,22 @@ def cmd_classify(args):
 	if current_price < c_sma50 < c_sma200:
 		scores[4] += 20
 
-	# Enhanced Stage 3: severe decline and transition zone detection
-	if largest_decline < -25:
-		scores[3] += 30  # Severe decline strongly suggests Stage 3+
+	# Enhanced Stage 3: graduated decline scoring (Fix 6)
+	# Check if this is a momentum correction vs true distribution
+	ma_still_bullish = (c_sma50 > c_sma150 > c_sma200) or (current_price > c_sma200 and sma200_slope > 0.02)
+	if largest_decline < -30:
+		s3_decline_bonus = 30
+	elif largest_decline < -20:
+		s3_decline_bonus = 20
+	elif largest_decline < -15:
+		s3_decline_bonus = 10
+	else:
+		s3_decline_bonus = 0
+	# If price still above 200MA AND MAs still bullish, halve the bonus (momentum correction)
+	if s3_decline_bonus > 0 and price_above_200 and ma_still_bullish:
+		s3_decline_bonus = s3_decline_bonus // 2
+	scores[3] += s3_decline_bonus
+
 	if (c_sma50 > c_sma150 > c_sma200) and not price_above_200:
 		scores[3] += 25  # Bullish MA alignment but price below 200MA = transition zone
 	price_distance_below_200 = (current_price / c_sma200 - 1) * 100
@@ -348,13 +418,15 @@ def cmd_classify(args):
 	if largest_decline < -30:
 		scores[1] -= 20  # Large decline incompatible with Stage 1 consolidation
 
-	# Determine stage with highest score (Stage 2 wins ties — Minervini's actionable stage)
+	# Determine stage with highest score (Stage 2 wins ties -- Minervini actionable stage)
 	max_score = max(scores.values())
 	tied_stages = [s for s, v in scores.items() if v == max_score]
 	current_stage = 2 if 2 in tied_stages else min(tied_stages)
 	max_score = scores[current_stage]
-	total_possible = max(sum(scores.values()), 1)
-	confidence = round(max_score / total_possible * 100, 1)
+
+	# Fix 4: Use theoretical maximum for winning stage as denominator
+	stage_max = _STAGE_THEORETICAL_MAX.get(current_stage, 100)
+	confidence = round(min(max_score / stage_max * 100, 100.0), 1)
 
 	# Transition risk: how close is the runner-up stage?
 	sorted_stages = sorted(scores.items(), key=lambda x: x[1], reverse=True)
@@ -393,6 +465,8 @@ def cmd_classify(args):
 		"volume_grade": vol_grade,
 		"higher_highs": hh,
 		"higher_lows": hl,
+		"swing_highs_used": n_swing_highs,
+		"swing_lows_used": n_swing_lows,
 		"volatility_expanding": volatility_expanding,
 		"largest_decline_pct": round(largest_decline, 2),
 	}
@@ -415,6 +489,11 @@ def cmd_classify(args):
 				"sma50": round(c_sma50, 2),
 				"sma150": round(c_sma150, 2),
 				"sma200": round(c_sma200, 2),
+			},
+			"thresholds": {
+				"confidence": f"winning_stage_score / theoretical_max (Stage 1: {_STAGE_THEORETICAL_MAX[1]}, Stage 2: {_STAGE_THEORETICAL_MAX[2]}, Stage 3: {_STAGE_THEORETICAL_MAX[3]}, Stage 4: {_STAGE_THEORETICAL_MAX[4]})",
+				"stage3_decline_scaling": "-15to-20%: +10 | -20to-30%: +20 | >-30%: +30 (halved if price>200MA and MAs bullish)",
+				"hh_hl_method": "swing point detection with 5-bar confirmation on each side",
 			},
 		}
 	)
@@ -485,7 +564,7 @@ def cmd_transitions(args):
 	)
 
 	# 3. Price makes higher high above prior resistance
-	hh, hl = _higher_highs_higher_lows(highs, lows, window=20, count=3)
+	hh, hl, _, _ = _higher_highs_higher_lows(highs, lows, window=20, count=3)
 	signals.append(
 		{
 			"signal": "Higher highs and higher lows forming",

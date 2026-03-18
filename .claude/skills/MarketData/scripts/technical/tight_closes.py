@@ -96,8 +96,9 @@ Use Cases:
 Notes:
 	- Tight closes indicate decreasing selling pressure and supply exhaustion
 	- Sliding window scan uses sizes 3-20 for daily, 2-10 for weekly
-	- Overlapping clusters are merged, keeping the longest span
+	- Overlapping clusters are merged, keeping the tightest spread (duration as tiebreaker)
 	- Volume dryup ratio < 0.7 indicates significant supply reduction
+	- low_liquidity flag set when 50-day avg volume < 100,000 shares/day
 	- Location classification: pivot_area (within 3% of recent high),
 	  base_consolidation (>3% below high, in base range),
 	  pullback (lower half of recent range)
@@ -174,16 +175,17 @@ def _find_tight_clusters(closes, volumes, tolerance_pct, min_duration):
 
 
 def _merge_overlapping_clusters(clusters):
-	"""Merge overlapping clusters, keeping the longest span.
+	"""Merge overlapping clusters, keeping the tightest spread.
 
-	Sorts clusters by start index then end index descending. When two
-	clusters overlap, the longer one absorbs the shorter one.
+	Sorts clusters by start index then spread ascending. When two
+	clusters overlap, the one with tighter spread (lower spread_pct)
+	is kept. If spreads are equal, longer duration wins as tiebreaker.
 	"""
 	if not clusters:
 		return []
 
-	# Sort by start_idx ascending, then by duration descending (keep longest)
-	sorted_clusters = sorted(clusters, key=lambda c: (c["start_idx"], -c["duration"]))
+	# Sort by start_idx ascending, then by spread_pct ascending (keep tightest)
+	sorted_clusters = sorted(clusters, key=lambda c: (c["start_idx"], c["spread_pct"]))
 
 	merged = []
 	current = sorted_clusters[0]
@@ -191,11 +193,11 @@ def _merge_overlapping_clusters(clusters):
 	for cluster in sorted_clusters[1:]:
 		# Check overlap: next cluster starts before current ends
 		if cluster["start_idx"] <= current["end_idx"]:
-			# Keep the one with longer duration
-			if cluster["duration"] > current["duration"]:
+			# Keep the one with tighter spread (lower spread_pct)
+			if cluster["spread_pct"] < current["spread_pct"]:
 				current = cluster
-			# If same duration, keep the one with tighter spread
-			elif cluster["duration"] == current["duration"] and cluster["spread_pct"] < current["spread_pct"]:
+			# If same spread, keep the one with longer duration as tiebreaker
+			elif cluster["spread_pct"] == current["spread_pct"] and cluster["duration"] > current["duration"]:
 				current = cluster
 		else:
 			merged.append(current)
@@ -246,19 +248,23 @@ def _classify_location(cluster, closes, highs):
 	return "pullback"
 
 
-def _compute_volume_metrics(cluster, volumes, vol_50d_avg):
-	"""Compute volume trend and dryup ratio for a cluster.
+def _compute_volume_metrics(cluster, volumes, vol_50d_avg, min_liquidity_threshold=100000):
+	"""Compute volume trend, dryup ratio, and liquidity flag for a cluster.
 
 	Volume trend compares average volume of first half vs second half.
 	Dryup ratio compares cluster average volume to 50-day average volume.
+	low_liquidity flag is set when vol_50d_avg is below min_liquidity_threshold,
+	indicating that dryup readings may not reflect genuine institutional supply exhaustion.
 	"""
 	vol_arr = volumes.values.astype(float)
 	start = cluster["start_idx"]
 	end = cluster["end_idx"]
 	segment = vol_arr[start : end + 1]
 
+	low_liquidity = vol_50d_avg < min_liquidity_threshold
+
 	if len(segment) < 2:
-		return "flat", 1.0
+		return "flat", 1.0, low_liquidity
 
 	mid = len(segment) // 2
 	first_half_avg = float(np.mean(segment[:mid])) if mid > 0 else float(segment[0])
@@ -281,7 +287,7 @@ def _compute_volume_metrics(cluster, volumes, vol_50d_avg):
 	else:
 		dryup_ratio = 1.0
 
-	return volume_trend, dryup_ratio
+	return volume_trend, dryup_ratio, low_liquidity
 
 
 def _grade_cluster(cluster, interval):
@@ -369,7 +375,7 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 	enriched_clusters = []
 	for cluster in merged:
 		location = _classify_location(cluster, closes, highs)
-		volume_trend, dryup_ratio = _compute_volume_metrics(cluster, volumes, vol_50d_avg)
+		volume_trend, dryup_ratio, low_liquidity = _compute_volume_metrics(cluster, volumes, vol_50d_avg)
 
 		enriched = {
 			"start_date": cluster["start_date"],
@@ -381,6 +387,7 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 			"avg_close": cluster["avg_close"],
 			"volume_trend": volume_trend,
 			"volume_dryup_ratio": dryup_ratio,
+			"low_liquidity": low_liquidity,
 			"location": location,
 		}
 

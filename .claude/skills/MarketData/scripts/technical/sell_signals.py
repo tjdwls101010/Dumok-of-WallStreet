@@ -200,7 +200,7 @@ def _high_vol_reversal(data):
 
 	avg_vol_50 = float(volumes.iloc[-51:-1].mean())
 
-	for i in range(-1, -4, -1):
+	for i in range(-1, -6, -1):
 		idx = len(data) + i
 		if idx < 1:
 			continue
@@ -264,7 +264,18 @@ def _vertical_acceleration(data):
 			break
 		days_since_ema += 1
 
-	weeks_of_advance = days_since_ema // 5
+	# Use actual calendar days for weeks calculation
+	if days_since_ema > 0 and len(data) >= 2:
+		latest_date = data.index[-1]
+		ema_cross_idx = len(close) - days_since_ema
+		if ema_cross_idx >= 0:
+			ema_cross_date = data.index[ema_cross_idx]
+			calendar_days = (latest_date - ema_cross_date).days
+			weeks_of_advance = calendar_days // 7
+		else:
+			weeks_of_advance = days_since_ema * 7 // 5 // 7  # fallback estimate
+	else:
+		weeks_of_advance = 0
 
 	return {
 		"active": extension_pct > 25.0 and range_expanding and weeks_of_advance >= 8,
@@ -371,7 +382,7 @@ def _distribution_cluster(data):
 	volumes = data["Volume"]
 
 	# Use the 50-day avg volume ending before the 25-day window
-	avg_vol_50 = float(volumes.iloc[-76:-26].mean()) if len(data) >= 76 else float(volumes.iloc[:-26].mean()) if len(data) > 26 else float(volumes.mean())
+	avg_vol_50 = float(volumes.iloc[-75:-25].mean()) if len(data) >= 75 else float(volumes.iloc[:-25].mean()) if len(data) > 25 else float(volumes.mean())
 
 	window = data.iloc[-25:]
 	dist_days = 0

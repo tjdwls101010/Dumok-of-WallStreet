@@ -99,7 +99,7 @@ Use Cases:
 Notes:
 	- Pivot is identified as the highest swing high in the last 60 trading days
 	- Tight zone requires range < 3%, within 5% below pivot, minimum 3 days
-	- Volume dryup ratio < 0.5 with range < 1.5% indicates institutional accumulation
+	- Volume dryup ratio < 0.65 with range < 1.5% indicates institutional accumulation
 	- Quality grades: high, moderate, low based on tightness, volume, and duration
 	- Risk reduction of 30%+ is typical for well-formed low cheat setups
 
@@ -228,21 +228,23 @@ def _calculate_entry_risk(tight_zone, pivot_price):
 	"""Calculate low cheat entry, stop loss, and risk comparison vs pivot entry.
 
 	Entry: max close in tight zone + 0.1% buffer
-	Stop: min low in tight zone - 0.5% buffer
+	Common stop: min low in tight zone - 0.5% buffer (same stop for both entries)
+	Both pivot_entry_risk and low_cheat risk use the same common stop level
+	for an apples-to-apples risk reduction comparison.
 	"""
 	low_cheat_entry = round(tight_zone["max_close"] * 1.001, 2)
-	stop_loss = round(tight_zone["min_low"] * 0.995, 2)
+	common_stop = round(tight_zone["min_low"] * 0.995, 2)
 
-	risk_pct = round((low_cheat_entry - stop_loss) / low_cheat_entry * 100, 2) if low_cheat_entry > 0 else 0.0
-	pivot_entry_risk = round((pivot_price - stop_loss) / pivot_price * 100, 2) if pivot_price > 0 else 0.0
+	low_cheat_entry_risk = round((low_cheat_entry - common_stop) / low_cheat_entry * 100, 2) if low_cheat_entry > 0 else 0.0
+	pivot_entry_risk = round((pivot_price - common_stop) / pivot_price * 100, 2) if pivot_price > 0 else 0.0
 	risk_reduction_pct = (
-		round((pivot_entry_risk - risk_pct) / pivot_entry_risk * 100, 1) if pivot_entry_risk > 0 else 0.0
+		round((pivot_entry_risk - low_cheat_entry_risk) / pivot_entry_risk * 100, 1) if pivot_entry_risk > 0 else 0.0
 	)
 
 	return {
 		"low_cheat_entry": low_cheat_entry,
-		"stop_loss": stop_loss,
-		"risk_pct": risk_pct,
+		"stop_loss": common_stop,
+		"risk_pct": low_cheat_entry_risk,
 		"pivot_entry": round(pivot_price, 2),
 		"pivot_entry_risk": pivot_entry_risk,
 		"risk_reduction_pct": risk_reduction_pct,
@@ -252,16 +254,16 @@ def _calculate_entry_risk(tight_zone, pivot_price):
 def _grade_quality(tight_zone, volume_dryup_ratio):
 	"""Assess quality grade of the low cheat setup.
 
-	High:     range < 1.5%, volume_dryup_ratio < 0.5, duration >= 5 days
-	Moderate: range < 2.5%, volume_dryup_ratio < 0.7, duration >= 3 days
+	High:     range < 1.5%, volume_dryup_ratio < 0.65, duration >= 5 days
+	Moderate: range < 2.5%, volume_dryup_ratio < 0.8, duration >= 3 days
 	Low:      everything else that meets basic criteria (range < 3%, within 5% of pivot)
 	"""
 	range_pct = tight_zone["range_pct"]
 	duration = tight_zone["duration_days"]
 
-	if range_pct < 1.5 and volume_dryup_ratio < 0.5 and duration >= 5:
+	if range_pct < 1.5 and volume_dryup_ratio < 0.65 and duration >= 5:
 		return "high"
-	elif range_pct < 2.5 and volume_dryup_ratio < 0.7 and duration >= 3:
+	elif range_pct < 2.5 and volume_dryup_ratio < 0.8 and duration >= 3:
 		return "moderate"
 	else:
 		return "low"

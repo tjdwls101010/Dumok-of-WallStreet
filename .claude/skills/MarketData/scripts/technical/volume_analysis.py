@@ -138,8 +138,45 @@ def _count_accumulation_days(volumes, closes, vol_50avg, lookback=50):
 	return count, dates
 
 
-def _grade_accumulation(up_down_ratio, acc_days, dist_days, vol_trend_ratio):
+def _calc_volume_weighted_ratio(volumes, closes, vol_50avg, lookback):
+	"""Calculate volume-weighted up/down ratio.
+
+	Each day's contribution is weighted by its volume magnitude relative
+	to the 50-day average. A 3x-average-volume day counts 3x more than
+	a 0.5x-average-volume day.
+
+	Returns:
+		tuple: (volume_weighted_ratio, count_based_ratio)
+	"""
+	recent_vol = volumes.tail(lookback)
+	recent_close = closes.tail(lookback)
+	price_change = recent_close.diff()
+
+	weighted_up = 0.0
+	weighted_down = 0.0
+	count_up = 0
+	count_down = 0
+
+	for i in range(1, len(recent_vol)):
+		v = float(recent_vol.iloc[i])
+		magnitude = v / vol_50avg if vol_50avg > 0 else 1.0
+		if price_change.iloc[i] > 0:
+			weighted_up += magnitude
+			count_up += 1
+		elif price_change.iloc[i] < 0:
+			weighted_down += magnitude
+			count_down += 1
+
+	vw_ratio = round(weighted_up / weighted_down, 3) if weighted_down > 0 else 2.0
+	count_ratio = round(count_up / count_down, 3) if count_down > 0 else 2.0
+	return vw_ratio, count_ratio
+
+
+def _grade_accumulation(up_down_ratio, acc_days, dist_days, vol_trend_ratio, volume_weighted_ratio=None):
 	"""Grade accumulation/distribution on A-E scale.
+
+	Uses volume_weighted_ratio as primary grading input when available.
+	Falls back to count-based up_down_ratio otherwise.
 
 	A+: Strong accumulation (ratio > 1.8, acc >> dist)
 	A:  Clear accumulation (ratio > 1.5)
@@ -149,17 +186,19 @@ def _grade_accumulation(up_down_ratio, acc_days, dist_days, vol_trend_ratio):
 	D:  Slight distribution (ratio 0.7 - 0.85)
 	E:  Heavy distribution (ratio < 0.7)
 	"""
-	if up_down_ratio > 1.8 and acc_days > dist_days * 2:
+	primary_ratio = volume_weighted_ratio if volume_weighted_ratio is not None else up_down_ratio
+
+	if primary_ratio > 1.8 and acc_days > dist_days * 2:
 		return "A+"
-	elif up_down_ratio > 1.5:
+	elif primary_ratio > 1.5:
 		return "A"
-	elif up_down_ratio > 1.3:
+	elif primary_ratio > 1.3:
 		return "B+"
-	elif up_down_ratio > 1.15:
+	elif primary_ratio > 1.15:
 		return "B"
-	elif up_down_ratio > 0.85:
+	elif primary_ratio > 0.85:
 		return "C"
-	elif up_down_ratio > 0.7:
+	elif primary_ratio > 0.7:
 		return "D"
 	else:
 		return "E"
@@ -241,7 +280,7 @@ def _detect_distribution_clusters(dist_dates, cluster_window=25, min_cluster_siz
 		"clusters_found": len(clusters),
 		"clusters": clusters,
 		"max_cluster_size": max_size,
-		"cluster_warning": max_size >= min_cluster_size,
+		"cluster_warning": max_size >= 5,
 	}
 
 
@@ -356,8 +395,12 @@ def cmd_analyze(args):
 	acc_days, acc_dates = _count_accumulation_days(volumes, closes, vol_50avg, 50)
 	dist_days, dist_dates = _count_distribution_days(volumes, closes, vol_50avg, 50)
 
-	# Grade
-	grade = _grade_accumulation(ratio_50, acc_days, dist_days, vol_vs_50avg_pct)
+	# Volume-weighted ratio (Fix 7: weight each day by volume magnitude)
+	vw_ratio_50, count_ratio_50 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, 50)
+	vw_ratio_20, count_ratio_20 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, 20)
+
+	# Grade (uses volume_weighted_ratio as primary)
+	grade = _grade_accumulation(ratio_50, acc_days, dist_days, vol_vs_50avg_pct, volume_weighted_ratio=vw_ratio_50)
 
 	# Breakout volume confirmation
 	# Recent 5 days: any day with price up AND volume 25%+ above 50-day avg?
@@ -403,6 +446,10 @@ def cmd_analyze(args):
 			"avg_volume_50d": int(vol_50avg),
 			"breakout_volume_confirmation": breakout_confirmed,
 			"volume_trend": vol_trend,
+			"volume_weighted_ratio_50d": vw_ratio_50,
+			"volume_weighted_ratio_20d": vw_ratio_20,
+			"count_based_ratio_50d": count_ratio_50,
+			"count_based_ratio_20d": count_ratio_20,
 			"accumulation_days_50d": acc_days,
 			"distribution_days_50d": dist_days,
 			"net_acc_dist": acc_days - dist_days,
@@ -412,6 +459,12 @@ def cmd_analyze(args):
 			"distribution_clusters": distribution_clusters,
 			"climactic_volume": climactic,
 			"volume_direction_summary_20d": vol_summary,
+			"thresholds": {
+				"grade": "A+: vw_ratio > 1.8 & acc > 2x dist | A: > 1.5 | B+: > 1.3 | B: > 1.15 | C: 0.85-1.15 | D: 0.7-0.85 | E: < 0.7",
+				"grade_input": "volume_weighted_ratio (primary), count_based_ratio (fallback)",
+				"cluster_warning": "max_cluster_size >= 5 distribution days in a cluster",
+				"breakout_confirmation": "volume 25%+ above 50-day avg on an up day in last 5 days",
+			},
 		}
 	)
 

@@ -66,6 +66,7 @@ Use Cases:
 
 Notes:
 	- A pocket pivot is an up-day where volume exceeds max down-day volume in prior 10 sessions
+	- Down-day requires minimum 0.3% decline to filter noise (close < prior_close * 0.997)
 	- Close position within day's range >= 50% from low filters weak closes
 	- Quality grades: high (vol_ratio >= 2.0, close_range >= 0.7, above 50MA), moderate, low
 	- Location classification: right_side (constructive), handle (late-base), extended (risky)
@@ -101,12 +102,12 @@ def _calculate_close_range_pct(close, high, low):
 	return round((close - low) / day_range, 2)
 
 
-def _get_max_down_volume(closes, volumes, idx, lookback=10):
+def _get_max_down_volume(closes, volumes, idx, lookback=10, min_decline_pct=0.3):
 	"""Find the maximum volume on down-days within the prior lookback sessions.
 
-	An down-day is defined as a day where close < prior close.  Returns the
-	maximum volume among those down-days, which is the threshold a pocket
-	pivot must exceed.
+	A down-day is defined as a day where close < prior_close * (1 - min_decline_pct/100),
+	filtering out noise days with trivial declines.  Returns the maximum volume
+	among those down-days, which is the threshold a pocket pivot must exceed.
 	"""
 	start = max(0, idx - lookback)
 	max_down_vol = 0
@@ -114,10 +115,12 @@ def _get_max_down_volume(closes, volumes, idx, lookback=10):
 	close_arr = closes.values.astype(float)
 	vol_arr = volumes.values.astype(float)
 
+	decline_threshold = 1.0 - min_decline_pct / 100.0  # 0.997
+
 	for i in range(start, idx):
 		if i == 0:
 			continue
-		if close_arr[i] < close_arr[i - 1]:
+		if close_arr[i] < close_arr[i - 1] * decline_threshold:
 			if vol_arr[i] > max_down_vol:
 				max_down_vol = vol_arr[i]
 

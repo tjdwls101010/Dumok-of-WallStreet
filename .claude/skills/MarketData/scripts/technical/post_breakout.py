@@ -95,11 +95,99 @@ from technical.indicators import calculate_sma
 from utils import output_json, safe_run
 
 
+def _analyze_single_pullback(close_arr, vol_arr, peak_idx, trough_idx, peak_val, trough_val):
+	"""Analyze a single pullback between a peak and trough.
+
+	Returns:
+		dict: pullback details including depth, days, volume behavior.
+	"""
+	if peak_val <= 0:
+		return None
+
+	depth_pct = (peak_val - trough_val) / peak_val * 100
+	days = trough_idx - peak_idx
+
+	# Volume during pullback
+	pb_vols = vol_arr[peak_idx:trough_idx + 1]
+	if len(pb_vols) >= 2:
+		first_half = np.mean(pb_vols[:len(pb_vols) // 2])
+		second_half = np.mean(pb_vols[len(pb_vols) // 2:])
+		vol_declining = second_half < first_half
+	else:
+		vol_declining = True
+
+	# Average volume during pullback
+	avg_pb_vol = float(np.mean(pb_vols)) if len(pb_vols) > 0 else 0.0
+
+	return {
+		"peak_idx": int(peak_idx),
+		"trough_idx": int(trough_idx),
+		"depth_pct": round(depth_pct, 2),
+		"days": int(days),
+		"vol_declining": vol_declining,
+		"avg_volume": round(avg_pb_vol, 0),
+	}
+
+
+def _find_all_pullbacks(close_arr, vol_arr, start_idx, min_depth_pct=3.0):
+	"""Find all pullbacks from start_idx onward.
+
+	A pullback is defined as a decline > min_depth_pct from a local high,
+	followed by a recovery (price rises > 2% from trough).
+
+	Returns:
+		list[dict]: all pullbacks found.
+	"""
+	pullbacks = []
+	n = len(close_arr)
+	i = start_idx
+
+	while i < n - 1:
+		# Find local high: advance while price keeps going up
+		peak_idx = i
+		for j in range(i + 1, n):
+			if close_arr[j] > close_arr[peak_idx]:
+				peak_idx = j
+			else:
+				break
+
+		if peak_idx >= n - 1:
+			break
+
+		# Find trough after peak
+		trough_idx = peak_idx + 1
+		for j in range(peak_idx + 1, n):
+			if close_arr[j] < close_arr[trough_idx]:
+				trough_idx = j
+			# Recovery: price rises > 2% from trough
+			if close_arr[trough_idx] > 0 and close_arr[j] > close_arr[trough_idx] * 1.02:
+				break
+
+		peak_val = close_arr[peak_idx]
+		trough_val = close_arr[trough_idx]
+		if peak_val <= 0:
+			i = trough_idx + 1
+			continue
+
+		depth = (peak_val - trough_val) / peak_val * 100
+		if depth >= min_depth_pct:
+			pb = _analyze_single_pullback(close_arr, vol_arr, peak_idx, trough_idx, peak_val, trough_val)
+			if pb is not None:
+				pullbacks.append(pb)
+
+		i = trough_idx + 1
+
+	return pullbacks
+
+
 def _classify_pullback_behavior(closes, volumes, entry_idx, vol_50d_avg):
 	"""Classify pullback as tennis_ball or egg.
 
 	Tennis ball: bounces back quickly with declining volume (constructive).
 	Egg: drops and stays down or worsens (destructive).
+
+	Also tracks ALL pullbacks (> 3% decline from local high, followed by
+	recovery) and reports the worst pullback behavior.
 	"""
 	close_arr = closes.values.astype(float)
 	vol_arr = volumes.values.astype(float)
@@ -116,7 +204,7 @@ def _classify_pullback_behavior(closes, volumes, entry_idx, vol_50d_avg):
 	if post_high_idx >= len(close_arr) - 1:
 		return "no_pullback", {}
 
-	# Find pullback from post-entry high
+	# Find pullback from post-entry high (primary -- deepest from overall high)
 	after_high = close_arr[post_high_idx:]
 	pullback_low_offset = np.argmin(after_high)
 	pullback_low_idx = post_high_idx + pullback_low_offset
@@ -128,14 +216,32 @@ def _classify_pullback_behavior(closes, volumes, entry_idx, vol_50d_avg):
 	pullback_depth_pct = (post_high - pullback_low) / post_high * 100
 	pullback_days = pullback_low_idx - post_high_idx
 
+	# Track ALL pullbacks (> 3% decline from local high)
+	all_pullbacks = _find_all_pullbacks(close_arr, vol_arr, entry_idx, min_depth_pct=3.0)
+	pullbacks_count = len(all_pullbacks)
+
+	# Determine worst pullback across all dimensions
+	worst_pullback = None
+	if all_pullbacks:
+		deepest = max(all_pullbacks, key=lambda p: p["depth_pct"])
+		longest = max(all_pullbacks, key=lambda p: p["days"])
+		highest_vol = max(all_pullbacks, key=lambda p: p["avg_volume"])
+		worst_pullback = {
+			"deepest": {"depth_pct": deepest["depth_pct"], "days": deepest["days"]},
+			"longest": {"depth_pct": longest["depth_pct"], "days": longest["days"]},
+			"highest_volume": {"depth_pct": highest_vol["depth_pct"], "days": highest_vol["days"], "avg_volume": highest_vol["avg_volume"]},
+		}
+
 	# No meaningful pullback yet
 	if pullback_depth_pct < 1.0:
 		return "no_pullback", {
 			"pullback_depth_pct": round(pullback_depth_pct, 2),
 			"pullback_days": pullback_days,
+			"pullbacks_count": pullbacks_count,
+			"worst_pullback": worst_pullback,
 		}
 
-	# Volume during pullback
+	# Volume during primary pullback
 	pb_start = post_high_idx
 	pb_end = min(pullback_low_idx + 1, len(vol_arr))
 	pullback_vols = vol_arr[pb_start:pb_end]
@@ -158,17 +264,30 @@ def _classify_pullback_behavior(closes, volumes, entry_idx, vol_50d_avg):
 		"pullback_days": pullback_days,
 		"vol_declining_during_pullback": vol_declining_during_pb,
 		"recovered_to_new_high": recovered_to_new_high,
+		"pullbacks_count": pullbacks_count,
+		"worst_pullback": worst_pullback,
 	}
 
+	# Classification uses worst pullback behavior when multiple exist
+	# Use deepest pullback for classification if it's worse than primary
+	classify_depth = pullback_depth_pct
+	classify_days = pullback_days
+	classify_vol_declining = vol_declining_during_pb
+	if worst_pullback:
+		if worst_pullback["deepest"]["depth_pct"] > classify_depth:
+			classify_depth = worst_pullback["deepest"]["depth_pct"]
+		if worst_pullback["longest"]["days"] > classify_days:
+			classify_days = worst_pullback["longest"]["days"]
+
 	# Tennis ball criteria
-	if pullback_days <= 7 and pullback_depth_pct < 7 and vol_declining_during_pb:
+	if classify_days <= 7 and classify_depth < 7 and classify_vol_declining:
 		if recovered_to_new_high:
 			return "tennis_ball", details
 		else:
 			return "tennis_ball_pending", details
 
 	# Egg criteria
-	if pullback_days >= 10 or pullback_depth_pct >= 10 or not vol_declining_during_pb:
+	if classify_days >= 10 or classify_depth >= 10 or not classify_vol_declining:
 		return "egg", details
 
 	# In between -- mild pullback, not yet classified
@@ -313,11 +432,11 @@ def _detect_failure_reset(closes, volumes, entry_idx, entry_price, stop_loss_pct
 	if pivot_end - pivot_start >= 10:
 		pivot_closes = close_arr[pivot_start:pivot_end]
 		pivot_vols = vol_arr[pivot_start:pivot_end]
-		entry_lo = entry_price * 0.95
-		entry_hi = entry_price * 1.05
+		entry_lo = stop_price * 0.98
+		entry_hi = stop_price * 1.05
 
-		# Scan for 3+ consecutive days of tight range near
-		# entry price with declining volume
+		# Scan for 3+ consecutive days of tight range above
+		# stop-loss price with declining volume
 		consec = 0
 		best_run = 0
 		for j in range(len(pivot_closes)):

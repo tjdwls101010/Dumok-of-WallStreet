@@ -84,7 +84,7 @@ Use Cases:
 
 Notes:
 	- MA_PULLBACK: Price within ±1% of 10 SMA, 21 EMA, or 50 SMA with below-avg volume
-	- CONSOLIDATION_PIVOT: 10-25 day tight range (<10%) with defined pivot breakout level
+	- CONSOLIDATION_PIVOT: 10-25 day tight range (<10%) with trigger 0.3% above resistance for slippage
 	- INSIDE_DAY: Latest bar high < prior high AND low > prior low
 	- DOUBLE_INSIDE_DAY: Two consecutive inside days (bar[-1] inside bar[-2], bar[-2] inside bar[-3])
 	- TIGHT_DAY: Today's range < 50% of 20-day ADR
@@ -125,7 +125,7 @@ def _detect_ma_pullback(close_arr, vol_arr):
 
 	For each key MA (10 SMA, 21 EMA, 50 SMA):
 	- Check if current price is within ±1% of the MA
-	- Check if pullback volume (last 3 days avg) < 50-day avg volume
+	- Check if pullback volume (last 3 days avg) < 80% of 50-day avg volume
 	Quality: high if near 21 EMA or 50 SMA with declining volume; moderate otherwise.
 	"""
 	n = len(close_arr)
@@ -153,7 +153,7 @@ def _detect_ma_pullback(close_arr, vol_arr):
 	if avg_vol_50 <= 0:
 		return []
 	pullback_vol_ratio = round(pullback_vol / avg_vol_50, 2)
-	low_volume = pullback_vol_ratio < 1.0
+	low_volume = pullback_vol_ratio < 0.8
 
 	if not low_volume:
 		return []
@@ -201,6 +201,7 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 
 	Look at last 10-25 days. Find range high (resistance) = max(High).
 	Range is tight if (max High - min Low) / min Low < 10%.
+	Trigger price set 0.3% above resistance to account for execution slippage.
 	Quality: high if range < 7% and 15+ days; moderate if range < 10% and 10+ days.
 	"""
 	n = len(high_arr)
@@ -223,7 +224,7 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 			continue
 
 		pivot_price = round(resistance, 2)
-		trigger_price = round(resistance * 1.001, 2)
+		trigger_price = round(resistance * 1.003, 2)
 		stop_price = round(support, 2)
 
 		if range_pct < 7.0 and window >= 15:

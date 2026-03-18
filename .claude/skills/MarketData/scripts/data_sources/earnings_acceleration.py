@@ -20,22 +20,31 @@ Returns:
 			"symbol": str,
 			"code33_status": str,
 			"eps_accelerating": bool,
+			"eps_improving": bool,
 			"sales_accelerating": bool,
+			"sales_improving": bool,
 			"margin_expanding": bool,
+			"margin_data_quality": str,
 			"quarters_analyzed": int,
 			"eps_growth_rates": [float],
 			"sales_growth_rates": [float],
 			"margin_trend": [float],
 			"eps_quarters_available": int,
 			"sales_quarters_available": int,
-			"data_quality": str
+			"data_quality": str,
+			"thresholds": {
+				"acceleration": str,
+				"improving": str,
+				"margin_expansion": str,
+				"margin_min_change_ppt": float
+			}
 		}
 
 	For acceleration:
 		dict: {
 			"symbol": str,
-			"eps_acceleration": [{"quarter": str, "growth_rate": float, "accelerating": bool}],
-			"sales_acceleration": [{"quarter": str, "growth_rate": float, "accelerating": bool}],
+			"eps_acceleration": [{"quarter": str, "growth_rate": float, "accelerating": bool, "improving": bool}],
+			"sales_acceleration": [{"quarter": str, "growth_rate": float, "accelerating": bool, "improving": bool}],
 			"overall_trend": str
 		}
 
@@ -72,8 +81,11 @@ Example:
 		"symbol": "NVDA",
 		"code33_status": "PASS",
 		"eps_accelerating": true,
+		"eps_improving": true,
 		"sales_accelerating": true,
+		"sales_improving": true,
 		"margin_expanding": true,
+		"margin_data_quality": "full",
 		"eps_growth_rates": [25.3, 38.5, 52.1],
 		"sales_growth_rates": [18.2, 28.7, 42.3]
 	}
@@ -82,8 +94,8 @@ Example:
 	{
 		"symbol": "AAPL",
 		"eps_acceleration": [
-			{"quarter": "2025Q4", "growth_rate": 12.5, "accelerating": true},
-			{"quarter": "2025Q3", "growth_rate": 8.2, "accelerating": false}
+			{"quarter": "2025Q4", "growth_rate": 12.5, "accelerating": true, "improving": true},
+			{"quarter": "2025Q3", "growth_rate": 8.2, "accelerating": false, "improving": false}
 		],
 		"overall_trend": "accelerating"
 	}
@@ -119,11 +131,14 @@ Notes:
 	- Code 33 requires 3 consecutive quarters of acceleration in ALL three metrics
 	- EPS growth rates compare to same quarter prior year (YoY)
 	- Margin expansion uses gross or operating margin trend
+	- Margin expansion requires 3+ consecutive quarters with >= 0.5 ppt improvement each
 	- Analyst revisions of 5%+ are generally considered significant
 	- Post-Earnings Drift: market underreacts to earnings surprises
 	- Data quality levels: full (3+ quarters), partial (2 quarters), minimal (0-1 quarters)
 	- Surprise % set to null when |estimate| < 0.05 (near-zero denominator floor)
 	- Average surprise uses trimmed mean (top/bottom 10% removed) when 5+ data points available
+	- accelerating: each quarter's growth rate > prior quarter's growth rate (rate of change)
+	- improving: trajectory getting better (rates becoming less negative or more positive)
 
 See Also:
 	- trend_template.py: Trend Template check (price-based qualification)
@@ -242,13 +257,18 @@ def _extract_growth_series(income_df, metric_name):
 
 
 def _is_accelerating(growth_rates, min_quarters=3):
-	"""Check if growth rates are accelerating (each quarter faster than prior).
+	"""Check if growth rates are accelerating (each quarter's rate > prior quarter's rate).
+
+	Acceleration means the rate of change is improving, regardless of sign.
+	Example: -20% -> -10% -> +5% IS acceleration (improving trajectory).
 
 	growth_rates: list of (quarter, rate) tuples, most recent first.
-	Returns (is_accelerating, rates_used).
+	Returns (is_accelerating, is_improving, rates_used).
+	  - accelerating: each rate > prior rate (rate of change improvement)
+	  - improving: same as accelerating (rates becoming less negative or more positive)
 	"""
 	if len(growth_rates) < min_quarters:
-		return False, []
+		return False, False, []
 
 	# Take most recent min_quarters
 	recent = growth_rates[:min_quarters]
@@ -257,10 +277,12 @@ def _is_accelerating(growth_rates, min_quarters=3):
 	# Accelerating means each quarter's growth > the previous quarter's growth
 	# Since list is most-recent-first, rates[0] > rates[1] > rates[2]
 	accelerating = all(rates[i] > rates[i + 1] for i in range(len(rates) - 1))
-	# Also all positive
-	all_positive = all(r > 0 for r in rates)
 
-	return accelerating and all_positive, rates
+	# Improving: trajectory getting better (rates becoming less negative or more positive)
+	# Same check as accelerating -- each rate > prior rate regardless of sign
+	improving = accelerating
+
+	return accelerating, improving, rates
 
 
 def _assess_data_quality(eps_count, sales_count):
@@ -272,6 +294,10 @@ def _assess_data_quality(eps_count, sales_count):
 		return "partial"
 	else:
 		return "minimal"
+
+
+# Minimum margin change in percentage points to count as real expansion
+_MARGIN_MIN_CHANGE_PPT = 0.5
 
 
 @safe_run
@@ -297,7 +323,7 @@ def cmd_code33(args):
 			"NetIncome",
 		)
 		eps_growth = _extract_growth_series(income, eps_metric)
-	eps_acc, eps_rates = _is_accelerating(eps_growth)
+	eps_acc, eps_improving, eps_rates = _is_accelerating(eps_growth)
 
 	# Sales acceleration
 	sales_metric = next(
@@ -305,16 +331,18 @@ def cmd_code33(args):
 		"TotalRevenue",
 	)
 	sales_growth = _extract_growth_series(income, sales_metric)
-	sales_acc, sales_rates = _is_accelerating(sales_growth)
+	sales_acc, sales_improving, sales_rates = _is_accelerating(sales_growth)
 
 	# Margin expansion (gross margin or operating margin)
+	# Fix 3: require 3+ consecutive quarters with >= 0.5 ppt improvement
 	margin_expanding = False
+	margin_data_quality = "full"
 	margin_values = []
 	gp_metric = next((m for m in ["GrossProfit", "Gross Profit"] if m in income.index), None)
 	if gp_metric is not None and sales_metric in income.index:
 		gross_profit = income.loc[gp_metric].sort_index(ascending=False)
 		revenue = income.loc[sales_metric].sort_index(ascending=False)
-		for i in range(min(4, len(gross_profit))):
+		for i in range(min(5, len(gross_profit))):
 			gp = gross_profit.iloc[i]
 			rev = revenue.iloc[i]
 			if gp is not None and rev is not None and rev != 0:
@@ -323,11 +351,34 @@ def cmd_code33(args):
 				if rev_f != 0:
 					margin_values.append(round(gp_f / rev_f * 100, 2))
 
-		if len(margin_values) >= 3:
-			# Expanding means most recent > prior quarters
-			margin_expanding = all(
-				margin_values[i] > margin_values[i + 1] for i in range(min(2, len(margin_values) - 1))
-			)
+		if len(margin_values) >= 4:
+			# Need 3+ consecutive quarters of margin improvement with >= 0.5 ppt change
+			# margin_values is most-recent-first, so margin_values[i] > margin_values[i+1]
+			# means most recent margin > prior margin
+			consecutive_expansions = 0
+			for i in range(len(margin_values) - 1):
+				change = margin_values[i] - margin_values[i + 1]
+				if change >= _MARGIN_MIN_CHANGE_PPT:
+					consecutive_expansions += 1
+				else:
+					break
+			margin_expanding = consecutive_expansions >= 3
+			margin_data_quality = "full"
+		elif len(margin_values) >= 3:
+			# 3 values = only 2 comparisons possible, cannot reach 3 consecutive
+			consecutive_expansions = 0
+			for i in range(len(margin_values) - 1):
+				change = margin_values[i] - margin_values[i + 1]
+				if change >= _MARGIN_MIN_CHANGE_PPT:
+					consecutive_expansions += 1
+				else:
+					break
+			margin_expanding = False  # Cannot have 3+ consecutive with only 2 comparisons
+			margin_data_quality = "insufficient"
+		else:
+			margin_data_quality = "insufficient"
+	else:
+		margin_data_quality = "insufficient"
 
 	code33_pass = eps_acc and sales_acc and margin_expanding
 
@@ -336,19 +387,28 @@ def cmd_code33(args):
 			"symbol": symbol,
 			"code33_status": "PASS" if code33_pass else "FAIL",
 			"eps_accelerating": eps_acc,
+			"eps_improving": eps_improving,
 			"eps_metric_used": eps_metric,
 			"eps_growth_rates": eps_rates,
 			"eps_quarters": [q[0] for q in eps_growth[:3]] if eps_growth else [],
 			"sales_accelerating": sales_acc,
+			"sales_improving": sales_improving,
 			"sales_metric_used": sales_metric,
 			"sales_growth_rates": sales_rates,
 			"sales_quarters": [q[0] for q in sales_growth[:3]] if sales_growth else [],
 			"margin_expanding": margin_expanding,
-			"margin_values_pct": margin_values[:4] if margin_values else [],
+			"margin_data_quality": margin_data_quality,
+			"margin_values_pct": margin_values[:5] if margin_values else [],
 			"quarters_analyzed": min(len(eps_growth), len(sales_growth)),
 			"eps_quarters_available": len(eps_growth),
 			"sales_quarters_available": len(sales_growth),
 			"data_quality": _assess_data_quality(len(eps_growth), len(sales_growth)),
+			"thresholds": {
+				"acceleration": "each quarter growth rate > prior quarter growth rate (sign-agnostic)",
+				"improving": "rates becoming less negative or more positive",
+				"margin_expansion": "3+ consecutive quarters with >= 0.5 ppt margin improvement",
+				"margin_min_change_ppt": _MARGIN_MIN_CHANGE_PPT,
+			},
 		}
 	)
 
@@ -378,12 +438,18 @@ def cmd_acceleration(args):
 
 	eps_results = []
 	for i, (quarter, rate) in enumerate(eps_growth):
-		acc = rate > eps_growth[i + 1][1] if i + 1 < len(eps_growth) else None
+		if i + 1 < len(eps_growth):
+			acc = rate > eps_growth[i + 1][1]
+			imp = acc  # improving = same as accelerating (rate of change improvement)
+		else:
+			acc = None
+			imp = None
 		eps_results.append(
 			{
 				"quarter": quarter,
 				"growth_rate_yoy": rate,
 				"accelerating": acc,
+				"improving": imp,
 			}
 		)
 
@@ -396,12 +462,18 @@ def cmd_acceleration(args):
 
 	sales_results = []
 	for i, (quarter, rate) in enumerate(sales_growth):
-		acc = rate > sales_growth[i + 1][1] if i + 1 < len(sales_growth) else None
+		if i + 1 < len(sales_growth):
+			acc = rate > sales_growth[i + 1][1]
+			imp = acc
+		else:
+			acc = None
+			imp = None
 		sales_results.append(
 			{
 				"quarter": quarter,
 				"growth_rate_yoy": rate,
 				"accelerating": acc,
+				"improving": imp,
 			}
 		)
 
@@ -428,6 +500,10 @@ def cmd_acceleration(args):
 			"sales_metric_used": sales_metric,
 			"sales_acceleration": sales_results,
 			"overall_trend": overall,
+			"thresholds": {
+				"accelerating": "current quarter growth rate > prior quarter growth rate (sign-agnostic)",
+				"improving": "rates becoming less negative or more positive",
+			},
 		}
 	)
 
@@ -650,7 +726,7 @@ def cmd_surprise(args):
 				rev_dates = list(rev_series.index)
 				rev_values = list(rev_series.values)
 
-				# Match each surprise entry to nearest income_stmt quarter (±45 days)
+				# Match each surprise entry to nearest income_stmt quarter (+-45 days)
 				for entry in surprises:
 					try:
 						entry_dt = pd.Timestamp(entry["date"])
@@ -733,15 +809,21 @@ def cmd_surprise(args):
 		else:
 			break
 
-	# Average surprise
+	# Average surprise (Fix 1: trimmed mean with empty-slice fallback)
 	valid_surprises = [s["surprise_pct"] for s in surprises if s["surprise_pct"] is not None]
 	if len(valid_surprises) >= 5:
 		# Trimmed mean: remove top and bottom 10%
+		import numpy as np
 		sorted_vals = sorted(valid_surprises)
 		trim_count = max(1, len(sorted_vals) // 10)
 		trimmed = sorted_vals[trim_count:-trim_count]
-		avg_surprise = round(sum(trimmed) / len(trimmed), 2) if trimmed else 0
-		avg_surprise_method = "trimmed_mean"
+		if not trimmed:
+			# Fallback: trimming removed all values (small sample edge case)
+			trimmed = sorted_vals
+			avg_surprise_method = "simple_mean_fallback"
+		else:
+			avg_surprise_method = "trimmed_mean"
+		avg_surprise = round(float(np.mean(trimmed)), 2)
 	else:
 		avg_surprise = round(sum(valid_surprises) / len(valid_surprises), 2) if valid_surprises else 0
 		avg_surprise_method = "simple_mean"
