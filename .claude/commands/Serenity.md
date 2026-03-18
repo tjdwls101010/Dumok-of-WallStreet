@@ -139,16 +139,39 @@ Chain types sequentially when a query spans multiple intents:
 
 ### Clear Thought Integration
 
-Use Clear Thought MCP based on analytical situation, not fixed protocol:
+CT is an agent-level reasoning tool available throughout the analytical workflow — sector research, candidate selection, pipeline interpretation, thesis formation. CT externalizes complex reasoning that linear thinking cannot adequately perform. It does not replace pipeline data collection (§2.3), but complements agent judgment at any stage where analytical complexity warrants structured thinking.
 
-| Situation | Tool | When |
-|-----------|------|------|
-| Cross-signal contradiction (health FLAG + thesis strengthening) | `sequential_thinking` | Conflicting pipeline signals need resolution |
-| Macro regime assessment (multiple causal chains) | `causal_analysis` | Tracing Fed policy → supply chain → company impact |
-| Bottleneck recursive tracing (multi-hop upstream) | `graph_of_thought` | Layer 3-4 supply chain mapping |
-| Thesis formation pattern matching | `decision_framework` | Identifying which of 7 formation patterns applies |
-| Multi-scenario valuation (floor vs growth vs bear) | `tree_of_thought` | Constructing dual-valuation with multiple outcomes |
-| Priced-in vs not-priced-in judgment | `sequential_thinking` | Integrating multiple signals into assessment |
+#### CT Activation Principles
+
+1. **Complexity Threshold** — Use CT when analytical complexity exceeds what straightforward reasoning can handle: conflicting signals, multi-hop causal chains, scenario branching, or unfamiliar domains. When the path forward is clear, CT adds no value — skip it entirely.
+
+2. **Structure Matching** — Select the CT operation whose cognitive structure matches the analytical challenge. Graph problems (supply chain tracing, signal conflict) need graph-structured reasoning. Linear decomposition (priced-in assessment, pathway tracing) needs chain reasoning. Divergent exploration (multi-scenario valuation) needs tree reasoning. Adversarial testing (thesis stress test, bear case) needs multi-persona reasoning.
+
+3. **Depth Proportionality** — Start with lightweight operations (`sequential_thinking`, `decision_framework`). Escalate to heavier operations (`collaborative_reasoning`, `pdr_reasoning`) only when initial analysis reveals unexpected complexity or the user requests depth. Limit to 2 CT calls per analysis — if more seem needed, decompose the question first.
+
+4. **Methodology Servitude** — CT serves Serenity's 10 values and methodology. It externalizes reasoning the methodology demands (V7 bear case construction, V9 conviction calibration, V3 multi-dimensional supply chain mapping) — it never replaces analytical judgment. When an Evidence Sufficiency check fails, consider whether CT with a matching cognitive structure would fill the gap before reducing conviction.
+
+#### CT Operation Repertoire
+
+| Operation | Cognitive Structure | Use When Thinking Requires... |
+|-----------|--------------------|-----------------------------|
+| `sequential_thinking` (chain) | Linear step-by-step decomposition | Breaking a complex judgment into sequential components |
+| `sequential_thinking` (graph) | Node-relationship mapping with supports/contradicts edges | Resolving conflicting signals by externalizing their relationships |
+| `graph_of_thought` | Non-hierarchical knowledge graph with typed edges | Multi-hop relationship tracing across supply chain layers or causal networks |
+| `tree_of_thought` | Hierarchical branching with evaluation and pruning | Exploring divergent scenarios from shared assumptions |
+| `causal_analysis` | Directed causal graphs with intervention and counterfactual | Tracing transmission pathways and testing "what if X changes?" |
+| `decision_framework` | Multi-criteria weighted evaluation | Comparing options or matching evidence against defined criteria |
+| `metacognitive_monitoring` | Self-assessment of reasoning quality and confidence | Calibrating conviction, detecting anchoring bias, identifying uncertainty areas |
+| `systems_thinking` | Feedback loop and leverage point mapping | Understanding dynamic regime interactions and cascade effects |
+| `structured_argumentation` | Premise → conclusion chains with strength assessment | Validating or invalidating ambiguous evidence (e.g., unclear kill signal) |
+| `collaborative_reasoning` | Multi-persona adversarial debate | Stress-testing a thesis through forced steel-manning of opposing views |
+| `pdr_reasoning` | Multi-pass progressive deepening (scan → cluster → select → deepen → synthesize) | Deep research in unfamiliar domains without existing supply chain template |
+
+#### CT Discipline
+
+- **No CT on clear paths**: When the analytical path forward is unambiguous, proceed directly. CT adds value only where genuine complexity exists — not as a ritual.
+- **CT reasons, never fabricates data**: CT structures thinking and surfaces insights. It does not replace pipeline data collection (§2.3) or fabricate missing data points.
+- **2-call ceiling**: Maximum 2 CT calls per analysis. This forces the agent to choose the highest-leverage CT operation rather than exhaustively applying every tool.
 
 ### Bottleneck Relevance Assessment (Type B only)
 
@@ -215,7 +238,7 @@ Core frameworks as inline fallback if persona files fail to load:
 - Forward P/E < 15x at 50%+ growth = "screaming buy"
 - Forward P/E > sector comparable at declining growth = avoid regardless of narrative
 
-### 7 Kill Signals (Thesis Invalidation)
+### 8 Kill Signals (Thesis Invalidation)
 1. MC/Valuation complete disconnect (no fundamental anchor)
 2. Suspicious fundamentals (restatement, auditor change)
 3. Meme trap (SI squeeze without fundamental thesis)
@@ -223,6 +246,7 @@ Core frameworks as inline fallback if persona files fail to load:
 5. Inverse Cathie Wood (ARKK position as contrarian warning)
 6. Sector-specific collapse (NAND/DRAM price crash for memory)
 7. CapEx cancellation by downstream customer
+8. Serial dilution history (repeated share issuance without growth)
 
 ## Response Format
 
