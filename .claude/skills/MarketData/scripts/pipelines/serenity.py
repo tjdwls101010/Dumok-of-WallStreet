@@ -42,10 +42,9 @@ Commands:
 		composite signal with position sizing + control layer:
 		materiality_signals, causal_bridge_data, priced_in_assessment,
 		institutional_flow, expression_layer)
-	discover: Automated theme discovery (lightweight macro stress check +
-		sector_leaders + finviz cross-reference + bottleneck_scorer validation,
-		grouped by industry theme, with macro_context and discovery workflow note.
-		--industry for direct industry search, --sector for sector-based search)
+	discover: Candidate comparator (takes ticker list, runs 22 quantitative
+		metrics on each in parallel, returns comparison table for agent to
+		select analyze candidates)
 
 Args:
 	For macro:
@@ -56,14 +55,7 @@ Args:
 		--skip-macro (bool): Skip Level 1 macro assessment (default: false)
 
 	For discover:
-		--top-groups (int): Number of top industry groups (default: 5)
-		--max-mcap (str): Maximum market cap filter (default: "10B")
-		--limit (int): Maximum candidates per theme (default: 10)
-		--industry (str): Direct industry search — skips sector_leaders, goes
-			straight to finviz industry-screen (default: None)
-		--sector (str): Direct sector search — uses finviz sector-screen
-			(default: None)
-		--skip-macro (bool): Skip lightweight macro stress check (default: false)
+		tickers (str[]): Ticker symbols to compare (2-30 tickers)
 
 Returns:
 	For macro:
@@ -125,11 +117,10 @@ Returns:
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
 	For discover:
-		dict with macro_context (vix_regime, fear_greed, net_liq_direction,
-		stress_note — skipped when --skip-macro), themes (list of
-		industry_group with candidates sorted by asymmetry_score),
-		total_themes, total_candidates, filters_applied,
-		requires_agent_review, discovery_workflow_note.
+		dict with candidates (list of dicts with 22 fields per ticker),
+		thresholds (field interpretation guide), missing_data (fields
+		that failed to collect per ticker), metadata (total_candidates,
+		execution_time_seconds).
 
 Example:
 	>>> python serenity.py macro --extended
@@ -213,31 +204,11 @@ def main():
 
 	# discover
 	sp_discover = sub.add_parser(
-		"discover", help="Automated theme discovery with bottleneck candidates"
+		"discover", help="Candidate comparator — compare tickers across 22 metrics"
 	)
 	sp_discover.add_argument(
-		"--top-groups", type=int, default=5,
-		help="Number of top industry groups to surface (default: 5)",
-	)
-	sp_discover.add_argument(
-		"--max-mcap", default="10B",
-		help="Maximum market cap filter (default: 10B)",
-	)
-	sp_discover.add_argument(
-		"--limit", type=int, default=10,
-		help="Maximum candidates per theme (default: 10)",
-	)
-	sp_discover.add_argument(
-		"--industry", default=None,
-		help="Direct industry search (skips sector_leaders). Partial name match supported.",
-	)
-	sp_discover.add_argument(
-		"--sector", default=None,
-		help="Direct sector search (e.g. 'Defense'). Uses finviz sector-screen.",
-	)
-	sp_discover.add_argument(
-		"--skip-macro", action="store_true", default=False,
-		help="Skip lightweight macro stress check (default: false)",
+		"tickers", nargs="+",
+		help="Ticker symbols to compare (2-30 tickers)",
 	)
 	sp_discover.set_defaults(func=cmd_discover)
 

@@ -471,8 +471,12 @@ def cmd_analyze(args):
 	if dilution_class.get("classification") != "unknown":
 		financial_health["dilution"] = dilution_class
 
-	# Market Structure: institutional_quality + iv_context + insider_transactions + short_squeeze
+	# Market Structure: institutional_quality + iv_context + insider_transactions + short_squeeze + superinvestor
 	market_structure = {}
+	# Superinvestor (Dataroma) — via neutral module
+	si_data = _run_script("data_sources/superinvestor.py", ["get-superinvestor-info", ticker])
+	if isinstance(si_data, dict) and not si_data.get("error") and si_data.get("manager_count", 0) > 0:
+		market_structure["superinvestor"] = si_data
 	if not iq.get("error"):
 		iq_clean = {k: v for k, v in iq.items()
 					if k not in ("symbol", "io_interpretation", "error")}
@@ -566,382 +570,222 @@ def cmd_analyze(args):
 	output_json(output)
 
 
-@safe_run
-def cmd_discover(args):
-	"""Automated Theme Discovery — surface top industry groups with bottleneck candidates.
+def _extract_discover_metrics(ticker, script_results, si_data):
+	"""Extract 22 discover comparator fields from script results."""
+	info = script_results.get("info", {})
+	rs = script_results.get("rs", {})
+	code33 = script_results.get("code33", {})
+	surprise = script_results.get("surprise", {})
+	earnings_dates = script_results.get("earnings_dates", {})
+	fwd_pe = script_results.get("forward_pe", {})
+	no_growth = script_results.get("no_growth", {})
+	sbc = script_results.get("sbc", {})
+	debt = script_results.get("debt", {})
+	iv = script_results.get("iv", {})
+	insider = script_results.get("insider", {})
 
-	Phase 1: Runs sector_leaders scan to identify top industry groups by leader_count.
-	Phase 2: Runs finviz industry-screen for each top group in parallel to get
-	candidates with exact industry matching.
-	Phase 3: Applies max_mcap filter, then validates each candidate with
-	bottleneck_scorer. Groups results by theme/industry_group sorted by
-	asymmetry_score.
+	# price_vs_52w_high
+	current = info.get("currentPrice")
+	high52 = info.get("fiftyTwoWeekHigh")
+	price_vs_high = round((current / high52 - 1) * 100, 1) if current and high52 else None
 
-	When --industry is provided, skips Phase 1 (sector_leaders) and directly
-	runs finviz industry-screen for the specified industry. Useful for thematic
-	discovery where the agent already knows the target industry.
+	# eps_growth_pct from code33 growth rates
+	growth_rates = code33.get("eps_growth_rates", [])
+	eps_growth = growth_rates[0] if growth_rates else None
 
-	When --sector is provided, uses finviz sector-screen for broader sector-level
-	discovery (absorbs former screen subcommand). Runs in parallel with macro
-	context and discovery workflow guidance.
-	"""
-	top_groups = getattr(args, "top_groups", 5)
-	max_mcap = getattr(args, "max_mcap", "10B")
-	limit = getattr(args, "limit", 10)
-	industry = getattr(args, "industry", None)
-	sector = getattr(args, "sector", None)
-	skip_macro = getattr(args, "skip_macro", False)
-	max_mcap_val = _parse_mcap_string(max_mcap)
+	# revenue_growth_pct — try code33 sales first, fallback to forward_pe
+	sales_rates = code33.get("sales_growth_rates", [])
+	rev_growth = sales_rates[0] if sales_rates else fwd_pe.get("revenue_growth_yoy")
 
-	# Lightweight macro stress check (3 scripts only)
-	macro_context = None
-	if not skip_macro:
-		mini_scripts = {
-			"vix": ("macro/vix_curve.py", ["analyze"]),
-			"fear_greed": ("analysis/sentiment/fear_greed.py", []),
-			"net_liq": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "5"]),
-		}
-		with concurrent.futures.ThreadPoolExecutor(max_workers=3) as ex:
-			futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in mini_scripts.items()}
-			mini_macro = {k: f.result() for k, f in futs.items()}
+	# operating_margin
+	op_margin = info.get("operatingMargins")
+	if isinstance(op_margin, (int, float)):
+		op_margin = round(op_margin * 100, 2) if abs(op_margin) < 1 else round(op_margin, 2)
 
-		vix_regime = mini_macro.get("vix", {}).get("regime")
-		fg_score = mini_macro.get("fear_greed", {}).get("current", {}).get("score")
-		net_liq_dir = mini_macro.get("net_liq", {}).get("net_liquidity", {}).get("direction")
+	# forward_pe
+	fpe = fwd_pe.get("forward_1y_pe")
 
-		stress_note = None
-		if vix_regime in ("elevated", "crisis") or (isinstance(fg_score, (int, float)) and fg_score < 25):
-			stress_note = "Market stress detected. Discovery should prioritize defensive/counter-cyclical sectors."
-		elif vix_regime == "low" and isinstance(fg_score, (int, float)) and fg_score > 75:
-			stress_note = "Euphoria regime. Discovery should check priced-in risk on popular themes."
+	# margin_of_safety_pct
+	mos = no_growth.get("margin_of_safety_pct")
 
-		macro_context = {
-			"vix_regime": vix_regime,
-			"fear_greed": fg_score,
-			"net_liq_direction": net_liq_dir,
-			"stress_note": stress_note,
-		}
+	# sbc
+	sbc_pct = sbc.get("sbc_pct_revenue")
+
+	# net_cash
+	cash = debt.get("cash_and_equivalents")
+	total_debt = debt.get("total_debt")
+	net_cash_val = None
+	if isinstance(cash, (int, float)) and isinstance(total_debt, (int, float)):
+		net_cash_val = cash - total_debt
+
+	# consecutive_beats & avg_surprise_pct & avg_er_gap
+	history = surprise.get("history") or surprise.get("surprise_history") or []
+	beats = surprise.get("consecutive_beats")
+	avg_surp = surprise.get("avg_surprise_pct")
+	er_gaps = [h.get("post_er_gap") for h in history if isinstance(h.get("post_er_gap"), (int, float))]
+	avg_gap = round(sum(er_gaps) / len(er_gaps), 2) if er_gaps else None
+
+	# days_to_earnings — find first future date from EPS Estimate keys
+	days_to_er = None
+	if isinstance(earnings_dates, dict) and not earnings_dates.get("error"):
+		eps_est = earnings_dates.get("EPS Estimate", {})
+		if isinstance(eps_est, dict):
+			_now = datetime.now()
+			for date_str in eps_est:
+				try:
+					er_date = datetime.fromisoformat(str(date_str))
+					delta = (er_date.replace(tzinfo=None) - _now).days
+					if delta >= 0:
+						days_to_er = delta
+						break
+				except (ValueError, TypeError):
+					continue
+
+	# insider
+	insider_summary = insider if isinstance(insider, dict) else {}
+	if isinstance(insider_summary.get("summary"), dict):
+		insider_dir = insider_summary["summary"].get("net_direction", "unknown")
+	elif isinstance(insider, list):
+		# Raw list from module — summarize
+		filtered = [r for r in insider if isinstance(r, dict) and r.get("transaction") in ("Sale", "Buy")]
+		buy_amt = sum(r.get("value", 0) or 0 for r in filtered if r.get("transaction") == "Buy")
+		sell_amt = sum(r.get("value", 0) or 0 for r in filtered if r.get("transaction") == "Sale")
+		if buy_amt > sell_amt * 1.2:
+			insider_dir = "net_buying"
+		elif sell_amt > buy_amt * 1.2:
+			insider_dir = "net_selling"
+		else:
+			insider_dir = "mixed"
 	else:
-		macro_context = {"skipped": True}
+		insider_dir = "unknown"
 
-	# Direct sector mode — finviz sector-screen (absorbs former cmd_screen)
-	if sector:
-		fv_result = _run_script("screening/finviz.py",
-			["sector-screen", "--sector", sector, "--limit", "50"])
+	# superinvestor
+	si = si_data.get(ticker, {})
 
-		if fv_result.get("error"):
-			output_json({
-				"macro_context": macro_context,
-				"themes": [], "total_themes": 0, "total_candidates": 0,
-				"filters_applied": {"sector": sector, "max_mcap": max_mcap},
-				"requires_agent_review": False,
-				"note": f"finviz sector-screen failed for '{sector}'.",
-				"degraded": True,
-			})
-			return
-
-		raw_candidates = fv_result.get("data", [])
-		filtered = []
-		for row in raw_candidates:
-			t = row.get("Ticker") or row.get("ticker")
-			if not t:
-				continue
-			raw_mcap = row.get("Market Cap") or row.get("market_cap")
-			mcap_str = str(int(round(float(raw_mcap)))) if raw_mcap else None
-			if max_mcap_val is not None and mcap_str:
-				row_mcap = _parse_mcap_string(mcap_str)
-				if row_mcap is not None and row_mcap > max_mcap_val:
-					continue
-			filtered.append((t, mcap_str))
-
-		if not filtered:
-			output_json({
-				"macro_context": macro_context,
-				"themes": [], "total_themes": 0, "total_candidates": 0,
-				"filters_applied": {"sector": sector, "max_mcap": max_mcap},
-				"requires_agent_review": False,
-				"note": f"No candidates passed mcap filter for sector '{sector}'.",
-			})
-			return
-
-		filtered = filtered[:limit]
-
-		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-			bn_futures = {
-				t: executor.submit(validate_ticker, t)
-				for t, _ in filtered
-			}
-			bn_results = {t: f.result() for t, f in bn_futures.items()}
-
-		candidates = []
-		for t, mcap_str in filtered:
-			validation = bn_results.get(t, {})
-			candidate = {"ticker": t, "market_cap": mcap_str}
-			if not validation.get("error"):
-				candidate["asymmetry_score"] = validation.get("asymmetry_score")
-				candidate["health_gates"] = validation.get("health_gates", {})
-			else:
-				candidate["asymmetry_score"] = None
-				candidate["health_gates"] = {"error": validation.get("error", "Validation failed")}
-			candidates.append(candidate)
-
-		candidates.sort(
-			key=lambda c: c.get("asymmetry_score") if c.get("asymmetry_score") is not None else -999,
-			reverse=True,
-		)
-
-		output_json({
-			"macro_context": macro_context,
-			"themes": [{
-				"industry_group": sector,
-				"sector": sector,
-				"leader_count": None,
-				"candidates": candidates,
-			}],
-			"total_themes": 1,
-			"total_candidates": len(candidates),
-			"filters_applied": {"sector": sector, "max_mcap": max_mcap},
-			"requires_agent_review": True,
-			"note": f"Direct sector search for '{sector}'. Agent should evaluate supply chain relevance.",
-			"discovery_workflow_note": (
-				"WORKFLOW GUIDANCE: This output is candidate pool generation (Step 4 of 5). "
-				"Serenity-faithful discovery follows: (1) macro stress check [included above], "
-				"(2) supply chain stress mapping [agent WebSearch], (3) bottleneck hypothesis, "
-				"(4) candidate generation [this output], (5) validation via analyze."
-			),
-		})
-		return
-
-	# Direct industry mode — skip sector_leaders, go straight to finviz
-	if industry:
-		fv_result = _run_script("screening/finviz.py",
-			["industry-screen", "--industry", industry, "--limit", "30"])
-
-		if fv_result.get("error"):
-			output_json({
-				"themes": [], "total_themes": 0, "total_candidates": 0,
-				"filters_applied": {"industry": industry, "max_mcap": max_mcap},
-				"requires_agent_review": False,
-				"note": f"finviz industry-screen failed for '{industry}'.",
-				"degraded": True,
-			})
-			return
-
-		raw_candidates = fv_result.get("data", [])
-		filtered = []
-		for row in raw_candidates:
-			t = row.get("Ticker") or row.get("ticker")
-			if not t:
-				continue
-			raw_mcap = row.get("Market Cap") or row.get("market_cap")
-			mcap_str = str(int(round(float(raw_mcap)))) if raw_mcap else None
-			if max_mcap_val is not None and mcap_str:
-				row_mcap = _parse_mcap_string(mcap_str)
-				if row_mcap is not None and row_mcap > max_mcap_val:
-					continue
-			filtered.append((t, mcap_str))
-
-		if not filtered:
-			output_json({
-				"themes": [], "total_themes": 0, "total_candidates": 0,
-				"filters_applied": {"industry": industry, "max_mcap": max_mcap},
-				"requires_agent_review": False,
-				"note": f"No candidates passed mcap filter for '{industry}'.",
-			})
-			return
-
-		filtered = filtered[:limit]
-
-		with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-			bn_futures = {
-				t: executor.submit(validate_ticker, t)
-				for t, _ in filtered
-			}
-			bn_results = {t: f.result() for t, f in bn_futures.items()}
-
-		candidates = []
-		for t, mcap_str in filtered:
-			validation = bn_results.get(t, {})
-			candidate = {"ticker": t, "market_cap": mcap_str}
-			if not validation.get("error"):
-				candidate["asymmetry_score"] = validation.get("asymmetry_score")
-				candidate["health_gates"] = validation.get("health_gates", {})
-			else:
-				candidate["asymmetry_score"] = None
-				candidate["health_gates"] = {"error": validation.get("error", "Validation failed")}
-			candidates.append(candidate)
-
-		candidates.sort(
-			key=lambda c: c.get("asymmetry_score") if c.get("asymmetry_score") is not None else -999,
-			reverse=True,
-		)
-
-		output_json({
-			"macro_context": macro_context,
-			"themes": [{
-				"industry_group": industry,
-				"sector": "Direct Search",
-				"leader_count": None,
-				"candidates": candidates,
-			}],
-			"total_themes": 1,
-			"total_candidates": len(candidates),
-			"filters_applied": {"industry": industry, "max_mcap": max_mcap},
-			"requires_agent_review": True,
-			"note": f"Direct industry search for '{industry}'. Agent should evaluate supply chain relevance.",
-			"discovery_workflow_note": (
-				"WORKFLOW GUIDANCE: This output is candidate pool generation (Step 4 of 5). "
-				"Serenity-faithful discovery follows: (1) macro stress check [included above], "
-				"(2) supply chain stress mapping [agent WebSearch], (3) bottleneck hypothesis, "
-				"(4) candidate generation [this output], (5) validation via analyze."
-			),
-		})
-		return
-
-	# Phase 1: Run sector_leaders scan
-	leaders_result = _run_script("screening/sector_leaders.py", ["scan"])
-	leaders_degraded = bool(leaders_result.get("error"))
-
-	# Extract top industry groups by leader_count
-	top_industry_groups = []
-	if not leaders_degraded:
-		leaders_list = leaders_result.get("leadership_dashboard", [])
-		leaders_list.sort(
-			key=lambda g: g.get("leader_count", 0) if isinstance(g.get("leader_count"), (int, float)) else 0,
-			reverse=True,
-		)
-		top_industry_groups = leaders_list[:top_groups]
-
-	if not top_industry_groups:
-		output_json({
-			"themes": [], "total_themes": 0, "total_candidates": 0,
-			"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
-			"requires_agent_review": False,
-			"note": "sector_leaders scan returned no groups." if leaders_degraded else "No industry groups found.",
-			"degraded": leaders_degraded,
-		})
-		return
-
-	# Phase 2: Run finviz industry-screen for each top group in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=len(top_industry_groups)) as executor:
-		fv_futures = {
-			group["industry_group"]: executor.submit(
-				_run_script, "screening/finviz.py",
-				["industry-screen", "--industry", group["industry_group"], "--limit", "30"],
-			)
-			for group in top_industry_groups
-		}
-		finviz_results = {name: f.result() for name, f in fv_futures.items()}
-
-	# Phase 3: Build theme candidates with mcap filter
-	theme_candidates = []
-	for group in top_industry_groups:
-		group_name = group["industry_group"]
-		leader_count = group.get("leader_count", 0)
-		leader_tickers = group.get("leader_tickers", [])
-
-		fv_result = finviz_results.get(group_name, {})
-		if fv_result.get("error"):
-			# Fallback to leader_tickers from sector_leaders
-			raw_candidates = [{"Ticker": t} for t in leader_tickers] if leader_tickers else []
-		else:
-			raw_candidates = fv_result.get("data", [])
-
-		# Apply mcap filter
-		filtered = []
-		for row in raw_candidates:
-			t = row.get("Ticker") or row.get("ticker")
-			if not t:
-				continue
-			raw_mcap = row.get("Market Cap") or row.get("market_cap")
-			mcap_str = str(int(round(float(raw_mcap)))) if raw_mcap else None
-			if max_mcap_val is not None and mcap_str:
-				row_mcap = _parse_mcap_string(mcap_str)
-				if row_mcap is not None and row_mcap > max_mcap_val:
-					continue
-			filtered.append((t, mcap_str))
-
-		if filtered:
-			theme_candidates.append({
-				"industry_group": group_name,
-				"sector": group.get("sector", "Unknown"),
-				"leader_count": leader_count,
-				"raw_tickers": filtered,
-			})
-
-	# Apply per-theme limit (--limit is per theme, not global)
-	all_tickers = []
-	seen = set()
-	for idx, theme in enumerate(theme_candidates):
-		count = 0
-		for t, mcap_str in theme["raw_tickers"]:
-			if t not in seen and count < limit:
-				all_tickers.append((idx, t, mcap_str))
-				seen.add(t)
-				count += 1
-
-	if not all_tickers:
-		output_json({
-			"themes": [], "total_themes": 0, "total_candidates": 0,
-			"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
-			"requires_agent_review": False,
-			"note": "No candidates passed mcap filter.",
-		})
-		return
-
-	# Phase 4: Validate with bottleneck_scorer in parallel
-	ticker_list = [entry[1] for entry in all_tickers]
-	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-		bn_futures = {
-			t: executor.submit(validate_ticker, t)
-			for t in ticker_list
-		}
-		bn_results = {t: f.result() for t, f in bn_futures.items()}
-
-	# Phase 5: Group results by theme and sort by asymmetry_score
-	group_candidates = {}
-	for group_idx, t, mcap_str in all_tickers:
-		validation = bn_results.get(t, {})
-		candidate = {"ticker": t, "market_cap": mcap_str}
-		if not validation.get("error"):
-			candidate["asymmetry_score"] = validation.get("asymmetry_score")
-			candidate["health_gates"] = validation.get("health_gates", {})
-		else:
-			candidate["asymmetry_score"] = None
-			candidate["health_gates"] = {"error": validation.get("error", "Validation failed")}
-		group_candidates.setdefault(group_idx, []).append(candidate)
-
-	for idx in group_candidates:
-		group_candidates[idx].sort(
-			key=lambda c: c.get("asymmetry_score") if c.get("asymmetry_score") is not None else -999,
-			reverse=True,
-		)
-
-	themes = []
-	for idx, theme in enumerate(theme_candidates):
-		candidates = group_candidates.get(idx, [])
-		if candidates:
-			themes.append({
-				"industry_group": theme["industry_group"],
-				"sector": theme["sector"],
-				"leader_count": theme["leader_count"],
-				"candidates": candidates,
-			})
-
-	output = {
-		"macro_context": macro_context,
-		"themes": themes,
-		"total_themes": len(themes),
-		"total_candidates": sum(len(t["candidates"]) for t in themes),
-		"filters_applied": {"max_mcap": max_mcap, "top_groups": top_groups},
-		"requires_agent_review": True,
-		"note": "Automated theme discovery. Agent should evaluate supply chain relevance and apply 6-Criteria Scoring to promising candidates.",
-		"discovery_workflow_note": (
-			"WORKFLOW GUIDANCE: This output is candidate pool generation (Step 4 of 5). "
-			"Serenity-faithful discovery follows: (1) macro stress check [included above], "
-			"(2) supply chain stress mapping [agent WebSearch], (3) bottleneck hypothesis, "
-			"(4) candidate generation [this output], (5) validation via analyze."
-		),
+	return {
+		"ticker": ticker,
+		"industry": info.get("industry"),
+		"market_cap": info.get("marketCap"),
+		"rs_score": rs.get("rs_score"),
+		"price_vs_52w_high_pct": price_vs_high,
+		"eps_growth_pct": eps_growth,
+		"revenue_growth_pct": rev_growth,
+		"eps_accelerating": code33.get("eps_accelerating"),
+		"operating_margin": op_margin,
+		"forward_pe": fpe,
+		"margin_of_safety_pct": mos,
+		"sbc_pct_revenue": sbc_pct,
+		"net_cash": net_cash_val,
+		"consecutive_beats": beats,
+		"avg_surprise_pct": avg_surp,
+		"avg_er_gap": avg_gap,
+		"days_to_earnings": days_to_er,
+		"iv_rank": iv.get("iv_rank"),
+		"insider_net_direction": insider_dir,
+		"superinvestor_count": si.get("manager_count", 0),
+		"superinvestor_adding": si.get("adding_count", 0),
+		"superinvestor_reducing": si.get("reducing_count", 0),
+		"superinvestor_avg_pct": si.get("avg_portfolio_pct", 0),
 	}
 
-	output_json(output)
+
+def _collect_ticker_scripts(ticker):
+	"""Run all discover metric scripts for a single ticker in parallel."""
+	scripts = {
+		"info": ("data_sources/info.py", [
+			"get-info-fields", ticker,
+			"industry", "marketCap", "currentPrice", "fiftyTwoWeekHigh", "operatingMargins"]),
+		"rs": ("technical/rs_ranking.py", ["score", ticker]),
+		"code33": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
+		"surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
+		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker, "--limit", "1"]),
+		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
+		"no_growth": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
+		"sbc": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
+		"debt": ("analysis/debt_structure.py", ["analyze", ticker]),
+		"iv": ("analysis/iv_context.py", ["analyze", ticker]),
+		"insider": ("data_sources/holders.py", ["get-insider-transactions", ticker]),
+	}
+	with concurrent.futures.ThreadPoolExecutor(max_workers=len(scripts)) as ex:
+		futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in scripts.items()}
+		return {k: f.result() for k, f in futs.items()}
+
+
+@safe_run
+def cmd_discover(args):
+	"""Candidate Comparator — compare multiple tickers across 22 quantitative metrics.
+
+	Takes a list of ticker symbols and runs key analysis modules on each in
+	parallel, returning a comparison table for the agent to select analyze
+	candidates. Superinvestor data loaded from Dataroma cache.
+
+	All 22 fields are computed per ticker:
+	industry, market_cap, rs_score, price_vs_52w_high_pct, eps_growth_pct,
+	revenue_growth_pct, eps_accelerating, operating_margin, forward_pe,
+	margin_of_safety_pct, sbc_pct_revenue, net_cash, consecutive_beats,
+	avg_surprise_pct, avg_er_gap, days_to_earnings, iv_rank,
+	insider_net_direction, superinvestor_count, superinvestor_adding,
+	superinvestor_reducing, superinvestor_avg_pct.
+	"""
+	import time
+	start_time = time.time()
+	tickers = args.tickers
+
+	# Load superinvestor data once (Dataroma cache)
+	si_map = {}
+	try:
+		si_result = _run_script("data_sources/superinvestor.py", ["get-superinvestor-info", tickers[0]])
+		# We need bulk load — run for all tickers
+		with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
+			si_futs = {t: ex.submit(_run_script, "data_sources/superinvestor.py", ["get-superinvestor-info", t]) for t in tickers}
+			for t, f in si_futs.items():
+				result = f.result()
+				if isinstance(result, dict) and not result.get("error"):
+					si_map[t] = result
+	except Exception:
+		pass
+
+	# Run all metric scripts for all tickers in parallel
+	with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
+		ticker_futs = {t: ex.submit(_collect_ticker_scripts, t) for t in tickers}
+		ticker_results = {t: f.result() for t, f in ticker_futs.items()}
+
+	# Extract 22 fields per ticker
+	candidates = []
+	missing_data = {}
+	for t in tickers:
+		metrics = _extract_discover_metrics(t, ticker_results.get(t, {}), si_map)
+		candidates.append(metrics)
+		# Track missing fields
+		missing = [k for k, v in metrics.items() if v is None and k not in ("industry",)]
+		if missing:
+			missing_data[t] = missing
+
+	elapsed = round(time.time() - start_time, 1)
+
+	output_json({
+		"candidates": candidates,
+		"thresholds": {
+			"rs_score": "0-99, higher = stronger relative performance",
+			"price_vs_52w_high_pct": "0 = at high, -50 = 50% below high",
+			"eps_growth_pct": "latest quarterly EPS YoY %. null = no data",
+			"revenue_growth_pct": "latest quarterly revenue YoY %",
+			"operating_margin": "latest quarter %. negative = unprofitable",
+			"forward_pe": "forward 1Y P/E. null = unprofitable",
+			"margin_of_safety_pct": "no-growth fair value vs market cap (fail: <0% | caution: 0-20% | pass: >20%)",
+			"sbc_pct_revenue": "SBC as % of revenue (healthy: <10% | warning: 10-30% | toxic: >30%)",
+			"net_cash": "cash - total debt. positive = net cash, negative = net debt",
+			"avg_er_gap": "average post-earnings gap %. high surprise + low gap = priced in",
+			"iv_rank": "0-100 (compressed: <25 | elevated: >75)",
+			"insider_net_direction": "net_buying | net_selling | mixed (buy > sell x 1.2)",
+			"superinvestor_count": "Dataroma 81 tracked managers currently holding",
+			"superinvestor_adding": "managers with Buy or Add activity in latest quarter",
+			"superinvestor_reducing": "managers with Sell or Reduce activity in latest quarter",
+			"superinvestor_avg_pct": "average portfolio % among holding managers (higher = more conviction)",
+		},
+		"missing_data": missing_data if missing_data else None,
+		"metadata": {
+			"total_candidates": len(candidates),
+			"execution_time_seconds": elapsed,
+		},
+	})

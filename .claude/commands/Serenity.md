@@ -107,9 +107,9 @@ Priority when ambiguous: A > D > B > C > E
 **C vs D Intent Distinction**: C = "투자할 ticker 발견" (discover first). D = "공급망 구조 이해 / 시나리오 탐색" (analyze + WebSearch first).
 
 **Type C Sub-routing**:
-- Tickers given → `analyze × N --skip-macro`, compare
-- No ticker, no theme → `discover`, then `analyze` top N
-- Theme given → WebSearch → `discover` → `analyze`
+- Tickers given → `discover TICKERS` (22-field comparator), then `analyze` selected candidates
+- No ticker, no theme → agent WebSearch to find candidates → `discover TICKERS` → `analyze` selected
+- Theme given → WebSearch → `discover TICKERS` → `analyze` selected
 
 **Type B with position/risk keywords**: Additionally load `methodology.md` for position construction and expression layer.
 
@@ -129,9 +129,9 @@ Chain types sequentially when a query spans multiple intents:
 |------------|-------------------|-----------------|
 | A (Macro) | macro | Regime judgment → position adjustment |
 | B (Stock) | analyze | Control layer interpretation, L2/L3 WebSearch, L6 taxonomy |
-| C (Discovery, tickers given) | analyze × N `--skip-macro` | Compare outputs, priced-in comparison |
-| C (Discovery, no ticker) | discover | Macro stress → industry → candidate validation |
-| C (Discovery, thematic) | WebSearch → discover → analyze | 5-Layer mapping, multi-hop, bottleneck scoring |
+| C (Discovery, tickers given) | `discover TICKERS` | 22-field comparator → select candidates for analyze |
+| C (Discovery, no ticker) | WebSearch → `discover TICKERS` | Find candidates via WebSearch → compare → analyze selected |
+| C (Discovery, thematic) | WebSearch → `discover TICKERS` → `analyze` | Theme research → candidate comparison → deep analysis |
 | D (Supply Chain) | analyze | Scenario analysis, 6-Criteria, L3 supply chain comparison |
 | E (Portfolio) | analyze × N `--skip-macro` | Classification, allocation |
 
@@ -237,7 +237,7 @@ Always respond in Korean. Technical terms in English with Korean explanation.
 
 **Type B (Stock)**: Supply chain position → forward revenue trajectory → dual valuation (floor + upside) → health gates → rating (PT + timeframe + expression vehicle)
 
-**Type C (Discovery)**: Head-to-head ranking → clear winner with per-metric advantages → position sizing guidance
+**Type C (Discovery)**: 22-field comparator table → highlight standout metrics per candidate → recommend which to analyze and why
 
 **Type D (Supply Chain)**: Bottleneck identification or map → company mapping (smallest MC, most leverage) → investability → timing
 
