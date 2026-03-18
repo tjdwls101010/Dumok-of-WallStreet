@@ -2,15 +2,12 @@
 
 Combines entry signals (VCP, entry_patterns, pocket_pivot, low_cheat) and
 exit signals (sell_signals, post_breakout) into unified signal verdicts.
-Determines overall signal: BUY_READY / WATCH / HOLD / REDUCE / SELL.
+Determines overall action: BUY_READY / WATCH / HOLD / REDUCE / SELL.
 """
 
 
 def _check_breakout_volume(results):
-	"""Check breakout volume confirmation: 2+ days of heavy volume.
-
-	Pipeline-level rule: look at volume_analysis for confirmation.
-	"""
+	"""Check breakout volume confirmation: 2+ days of heavy volume."""
 	vol = results.get("volume_analysis", {})
 	if vol.get("error"):
 		return {
@@ -22,10 +19,13 @@ def _check_breakout_volume(results):
 	confirmed = vol.get("breakout_volume_confirmation", False)
 	ratio = vol.get("volume_vs_50day_avg_pct", 0)
 
-	# Also check VCP volume data
+	# VCP volume — not_applicable if VCP not detected
 	vcp = results.get("vcp", {})
-	vcp_vol = vcp.get("volume", {}) if not vcp.get("error") else {}
-	vcp_confirmed = vcp_vol.get("volume_confirmation", "neutral")
+	vcp_detected = vcp.get("vcp_detected", False) if not vcp.get("error") else False
+	if vcp_detected:
+		vcp_confirmed = vcp.get("volume", {}).get("volume_confirmation", "neutral")
+	else:
+		vcp_confirmed = "not_applicable"
 
 	if confirmed or vcp_confirmed in ("strongly_confirmed", "confirmed"):
 		return {
@@ -44,7 +44,7 @@ def _check_breakout_volume(results):
 
 
 def synthesize_entry_signals(results):
-	"""Combine entry signal sources into unified entry signal."""
+	"""Combine entry signal sources into unified entry signal list."""
 	signals = []
 
 	# VCP
@@ -68,23 +68,24 @@ def synthesize_entry_signals(results):
 				"pattern": p.get("pattern"),
 				"quality": p.get("quality"),
 			}
-			# Only include fields that have values (avoid null noise)
 			if p.get("trigger_price") is not None:
 				sig["trigger_price"] = p["trigger_price"]
 			if p.get("stop_price") is not None:
 				sig["stop_price"] = p["stop_price"]
 			signals.append(sig)
 
-	# Pocket pivot
+	# Pocket pivot — only if recent (≤15 days)
 	pp = results.get("pocket_pivot", {})
 	if not pp.get("error") and pp.get("pocket_pivot_count", 0) > 0:
 		recent = pp.get("most_recent_pp", {})
-		signals.append({
-			"source": "pocket_pivot",
-			"days_ago": recent.get("days_ago"),
-			"quality": recent.get("quality"),
-			"count": pp.get("pocket_pivot_count"),
-		})
+		days_ago = recent.get("days_ago", 999)
+		if days_ago <= 15:
+			signals.append({
+				"source": "pocket_pivot",
+				"days_ago": days_ago,
+				"quality": recent.get("quality"),
+				"count": pp.get("pocket_pivot_count"),
+			})
 
 	# Low cheat
 	lc = results.get("low_cheat", {})
@@ -111,14 +112,9 @@ def synthesize_entry_signals(results):
 
 
 def synthesize_exit_signals_ref(results):
-	"""Build lightweight exit signal references for signal section (A.3).
-
-	Full sell signal detail lives in risk_assessment.sell_signals.
-	Here we include only signal names + severity as cross-reference.
-	"""
+	"""Lightweight exit signal references (full detail in risk section)."""
 	refs = []
 
-	# Sell signals reference
 	sell = results.get("sell_signals", {})
 	if not sell.get("error") and sell.get("signal_count", 0) > 0:
 		refs.append({
@@ -127,7 +123,6 @@ def synthesize_exit_signals_ref(results):
 			"severity": sell.get("severity"),
 		})
 
-	# Post breakout
 	post = results.get("post_breakout", {})
 	if not post.get("error"):
 		hold_sell = post.get("hold_sell_signal", "hold")
@@ -140,17 +135,20 @@ def synthesize_exit_signals_ref(results):
 	return refs
 
 
-def determine_overall_signal(results, sepa_score_data, risk_data):
-	"""Determine overall signal: BUY_READY / WATCH / HOLD / REDUCE / SELL.
+def determine_overall_signal(results, sepa_total, classification, hard_gate_fail, hard_gates, risk_data):
+	"""Determine overall action: BUY_READY / WATCH / HOLD / REDUCE / SELL.
 
 	Args:
 		results: dict of module outputs
-		sepa_score_data: dict from compute_sepa_score
+		sepa_total: int (0-100)
+		classification: str
+		hard_gate_fail: bool
+		hard_gates: list of gate dicts
 		risk_data: dict from compute_risk_assessment
 
 	Returns:
-		dict with signal, entry_signals, exit_signals (ref only),
-		volume_confirmation, reasons, thresholds
+		dict with action, entry_signals, exit_signals, volume_confirmation,
+		reasons, thresholds
 	"""
 	entry_signals = synthesize_entry_signals(results)
 	exit_signals_ref = synthesize_exit_signals_ref(results)
@@ -167,34 +165,37 @@ def determine_overall_signal(results, sepa_score_data, risk_data):
 	post = results.get("post_breakout", {})
 	post_signal = post.get("hold_sell_signal", "hold") if not post.get("error") else "hold"
 
+	sell_count = sell.get("signal_count", 0) if not sell.get("error") else 0
+
 	if sell_severity == "critical" or post_signal == "sell":
-		overall = "SELL"
-		reasons.append("critical sell signals or post-breakout sell signal active")
+		action = "SELL"
+		reasons.append(f"{sell_count} active sell signals ({sell_severity} severity) override all other factors")
 	elif sell_severity == "warning" or post_signal == "reduce":
-		overall = "REDUCE"
-		reasons.append("warning-level sell signals or post-breakout reduce")
+		action = "REDUCE"
+		reasons.append(f"sell signals at {sell_severity} severity — reduce exposure")
 	elif post_signal == "watch":
-		overall = "HOLD"
+		action = "HOLD"
 		reasons.append("post-breakout watch signal — monitor closely")
 	# --- Entry signals ---
-	elif sepa_score_data.get("hard_gate_fail"):
-		overall = "WATCH"
-		reasons.append(f"hard gate fail: {sepa_score_data.get('hard_gate_reasons')}")
-	elif sepa_score_data.get("sepa_score", 0) >= 60 and entry_signals and volume_check.get("confirmed"):
-		overall = "BUY_READY"
-		reasons.append(f"SEPA score {sepa_score_data.get('sepa_score')}, entry signals active, volume confirmed")
-	elif sepa_score_data.get("sepa_score", 0) >= 60 and entry_signals:
-		overall = "WATCH"
-		reasons.append(f"SEPA score {sepa_score_data.get('sepa_score')}, entry signals active but volume not confirmed")
-	elif sepa_score_data.get("sepa_score", 0) >= 40:
-		overall = "WATCH"
-		reasons.append(f"SEPA score {sepa_score_data.get('sepa_score')}, developing setup")
+	elif hard_gate_fail:
+		failed_gates = [g["gate"] for g in hard_gates if not g["passed"]]
+		action = "WATCH"
+		reasons.append(f"hard gate fail ({', '.join(failed_gates)}) prevents BUY_READY; sell severity below SELL threshold")
+	elif sepa_total >= 60 and entry_signals and volume_check.get("confirmed"):
+		action = "BUY_READY"
+		reasons.append(f"SEPA {classification} ({sepa_total}), entry pattern active, no sell signals, volume confirmed")
+	elif sepa_total >= 60 and entry_signals:
+		action = "WATCH"
+		reasons.append(f"SEPA {classification} ({sepa_total}), entry signals active but volume not confirmed — wait for breakout volume")
+	elif sepa_total >= 40:
+		action = "WATCH"
+		reasons.append(f"SEPA {classification} ({sepa_total}) — setup developing, not yet actionable")
 	else:
-		overall = "WATCH"
-		reasons.append(f"SEPA score {sepa_score_data.get('sepa_score', 0)}, not ready")
+		action = "WATCH"
+		reasons.append(f"SEPA score {sepa_total} — not ready")
 
 	return {
-		"signal": overall,
+		"action": action,
 		"entry_signals": entry_signals,
 		"exit_signals": exit_signals_ref,
 		"volume_confirmation": volume_check,

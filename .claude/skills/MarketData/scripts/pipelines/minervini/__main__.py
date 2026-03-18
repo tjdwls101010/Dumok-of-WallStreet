@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minervini SEPA Pipeline v1.1.0 (Pipeline-Complete): SEPA analysis with
+"""Minervini SEPA Pipeline v1.2.0 (Pipeline-Complete): SEPA analysis with
 composite scoring, risk assessment, signal synthesis, and market leadership.
 
 Orchestrates the complete Minervini SEPA (Specific Entry Point Analysis) by
@@ -65,31 +65,34 @@ Returns:
 		trend_qualification (trend_template, stage_analysis, rs_detail,
 		base_count), technical_setup (vcp, entry_patterns, pocket_pivot
 		compressed, low_cheat, tight_closes max 3 clusters, volume_analysis,
-		closing_range compressed), fundamentals (earnings_acceleration,
-		code33_status, earnings_surprise, estimate_revisions, forward_pe,
-		margin_tracker, info), risk_assessment (sell_signals active only,
-		stock_character, risk_gate with stop_loss/risk_reward_ratio/
-		risk_reward_thresholds/position_sizing), metadata (missing_components
-		as list, modules_run, execution_time_seconds).
+		closing_range compressed), fundamentals (earnings_acceleration with
+		growth_rates_order, earnings_surprise max 4 quarters,
+		estimate_revisions compressed to direction/revision_pcts/growth,
+		forward_pe compressed, margin_tracker trajectory max 3 quarters,
+		info stripped of MA/52w duplicates), risk_assessment (sell_signals
+		active only, stock_character, risk_gate with stop_loss/
+		risk_reward_ratio/risk_reward_thresholds/position_sizing),
+		metadata (next_earnings_date, missing_components as list,
+		modules_run, execution_time_seconds).
 
 	For screen:
 		dict with candidates (list sorted by screen_score with ticker,
 		rs_score, tt_score_pct, eps/sales/margin acceleration flags,
-		code33_accel_count, screen_score), thresholds, metadata
-		(total_screened, tt_pass_count, qualified_count, preset,
+		code33_accel_count, screen_score, sector, industry), thresholds,
+		metadata (total_screened, tt_pass_count, qualified_count, preset,
 		execution_time_seconds).
 
 	For market-leaders:
 		dict with market_verdict (bull_early/bull_late/correction/bear),
 		verdict_evidence (new_highs_vs_lows, distribution_days_25d,
-		leader_stocks_breaking), breadth (new_highs, new_lows, ratio,
-		detail), distribution_days_25d, sector_leaders, thresholds
-		(verdict_rules), metadata.
+		leader_stocks_breaking), breadth (new_highs, new_lows, detail),
+		sector_leaders, thresholds (verdict_rules), metadata.
 
 	For compare:
 		dict with comparison (list sorted by sepa_score with ticker, sepa_score,
-		classification, hard_gate_fail, current_stage, tt_pass, rs_score,
-		base_number, vcp_detected, pattern_quality, eps/sales_accelerating,
+		classification, dimensions {trend/fundamentals/setup/risk},
+		hard_gate_fail, current_stage, tt_pass, rs_score, base_number,
+		vcp_detected, pattern_quality, eps/sales_accelerating,
 		character_grade, risk_reward_ratio, sector, industry), ranked_by,
 		thresholds, metadata.
 
@@ -143,6 +146,10 @@ Notes:
 	- Sell signals canonical location: risk_assessment.sell_signals (active only)
 	- RS ranking canonical location: trend_qualification.rs_detail
 	- Data compression: tight_closes (3 recent), pocket_pivot (summary), closing_range (ratios only)
+	- I3 compression: earnings_surprise (4 quarters), estimate_revisions (summary),
+	  forward_pe (6 fields), info (no MA/52w), margin_tracker (3 quarters)
+	- I3 additions: growth_rates_order, next_earnings_date, screen sector/industry,
+	  compare dimensions breakdown
 """
 
 import argparse

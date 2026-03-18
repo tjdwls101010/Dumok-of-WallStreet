@@ -130,6 +130,16 @@ def cmd_analyze(args):
 		tt_result.pop("rs_score", None)
 		results["trend_template"] = tt_result
 
+	# I3.8: Extract next earnings date from calendar
+	calendar_result = _run_script("data_sources/actions.py", ["get-calendar", ticker])
+	next_earnings_date = None
+	if not calendar_result.get("error"):
+		ed = calendar_result.get("Earnings Date")
+		if isinstance(ed, list) and ed:
+			next_earnings_date = ed[0]
+		elif isinstance(ed, str) and ed != "N/A":
+			next_earnings_date = ed
+
 	# Position sizing (uses info for current price, VCP for stop)
 	info = results.get("info", {})
 	current_price = info.get("currentPrice")
@@ -154,23 +164,19 @@ def cmd_analyze(args):
 	# Risk assessment (before postprocess so sell_signals raw is available)
 	risk_data = compute_risk_assessment(results)
 
-	# SEPA scoring (before postprocess)
-	sepa_score = compute_sepa_score(results, risk_data)
+	# SEPA scoring — returns tuple now
+	sepa_total, classification, hard_gate_fail, hard_gates, dim_scores = compute_sepa_score(results, risk_data)
 
-	# Signal synthesis (before postprocess)
-	signal = determine_overall_signal(results, sepa_score, risk_data)
+	# Signal synthesis — uses new tuple args
+	signal = determine_overall_signal(results, sepa_total, classification, hard_gate_fail, hard_gates, risk_data)
 
 	# Post-processing (compress before output)
 	results = postprocess_results(results, mode="analyze")
 
-	# --- Build output ---
-	# D.1: Move rs_ranking into trend_qualification as rs_detail
-	rs_data = results.get("rs_ranking", {})
-	rs_detail = None
-	if not isinstance(rs_data, dict) or not rs_data.get("error"):
-		rs_detail = rs_data
+	# --- Build SEPA dimension-centric output ---
 
-	# A.4: Override TT's RS score with rs_ranking's canonical score
+	# Override TT's RS score with rs_ranking canonical
+	rs_data = results.get("rs_ranking", {})
 	tt_data = results.get("trend_template")
 	if isinstance(tt_data, dict) and isinstance(rs_data, dict) and not rs_data.get("error"):
 		canonical_rs = rs_data.get("rs_score")
@@ -180,61 +186,58 @@ def cmd_analyze(args):
 					c["value"] = f"RS Score = {canonical_rs}"
 					c["passed"] = canonical_rs >= 70
 
-	trend_qualification = {
-		"trend_template": tt_data,
-		"stage_analysis": results.get("stage_analysis"),
-		"rs_detail": rs_detail,
-		"base_count": results.get("base_count"),
-	}
+	rs_detail = rs_data if isinstance(rs_data, dict) and not rs_data.get("error") else None
 
-	technical_setup = {
-		"vcp": results.get("vcp"),
-		"entry_patterns": results.get("entry_patterns"),
-		"pocket_pivot": results.get("pocket_pivot"),
-		"low_cheat": results.get("low_cheat"),
-		"tight_closes": results.get("tight_closes"),
-		"volume_analysis": results.get("volume_analysis"),
-		"closing_range": results.get("closing_range"),
-	}
-
-	# E.1: Map earnings_surprise and estimate_revisions to fundamentals
-	# E.2: Map code33_status correctly
 	ea = results.get("earnings_acceleration", {})
-	code33_status = None
-	if isinstance(ea, dict) and not ea.get("error"):
-		code33_status = ea.get("code33_status")
-
-	# Remove duplicate code33_status — keep it only inside earnings_acceleration
-	fundamentals = {
-		"earnings_acceleration": ea,
-		"earnings_surprise": results.get("earnings_surprise") if not (results.get("earnings_surprise", {}) or {}).get("error") else None,
-		"estimate_revisions": results.get("estimate_revisions") if not (results.get("estimate_revisions", {}) or {}).get("error") else None,
-		"forward_pe": results.get("forward_pe"),
-		"margin_tracker": results.get("margin_tracker"),
-		"info": results.get("info"),
-	}
-
-	# D.2: risk_assessment contains sell_signals (active only, canonical), risk_gate, stock_character
-	risk_assessment = {
-		"sell_signals": results.get("sell_signals"),
-		"stock_character": results.get("stock_character"),
-		"risk_gate": risk_data,
-	}
 
 	elapsed = round(time.time() - start, 1)
 
-	# E.3: missing_components as empty list, not null
 	output = {
 		"ticker": ticker,
-		"sepa_score": sepa_score,
+		"sepa_verdict": {
+			"score": sepa_total,
+			"classification": classification,
+			"hard_gate_fail": hard_gate_fail,
+			"hard_gates": hard_gates,
+			"thresholds": "prime: >=80 | actionable: 60-79 | developing: 40-59 | not_ready: 20-39 | avoid: <20 or hard_gate_fail",
+		},
 		"signal": signal,
-		"trend_qualification": trend_qualification,
-		"technical_setup": technical_setup,
-		"fundamentals": fundamentals,
-		"risk_assessment": risk_assessment,
+		"trend": {
+			"dimension_score": dim_scores["trend"],
+			"trend_template": tt_data,
+			"stage_analysis": results.get("stage_analysis"),
+			"rs_detail": rs_detail,
+			"base_count": results.get("base_count"),
+		},
+		"fundamentals": {
+			"dimension_score": dim_scores["fundamentals"],
+			"earnings_acceleration": ea,
+			"earnings_surprise": results.get("earnings_surprise") if not (results.get("earnings_surprise", {}) or {}).get("error") else None,
+			"estimate_revisions": results.get("estimate_revisions") if not (results.get("estimate_revisions", {}) or {}).get("error") else None,
+			"forward_pe": results.get("forward_pe"),
+			"margin_tracker": results.get("margin_tracker"),
+		},
+		"setup": {
+			"dimension_score": dim_scores["setup"],
+			"vcp": results.get("vcp"),
+			"entry_patterns": results.get("entry_patterns"),
+			"pocket_pivot": results.get("pocket_pivot"),
+			"low_cheat": results.get("low_cheat"),
+			"tight_closes": results.get("tight_closes"),
+			"volume_analysis": results.get("volume_analysis"),
+			"closing_range": results.get("closing_range"),
+		},
+		"risk": {
+			"dimension_score": dim_scores["risk"],
+			"sell_signals": results.get("sell_signals"),
+			"stock_character": results.get("stock_character"),
+			"risk_gate": risk_data,
+		},
+		"company": results.get("info"),
 		"metadata": {
+			"next_earnings_date": next_earnings_date,
 			"missing_components": missing if missing else [],
-			"modules_run": len(scripts) + 1,  # +1 for position_sizing
+			"modules_run": len(scripts) + 1,
 			"execution_time_seconds": elapsed,
 		},
 	}
@@ -295,23 +298,30 @@ def cmd_screen(args):
 	tt_pass = [t for t, r in tt_results.items()
 				if not r.get("error") and r.get("overall_pass")]
 
-	# Step 3: For TT-pass stocks, run Code 33 + RS ranking in parallel
+	# Step 3: For TT-pass stocks, run Code 33 + RS ranking + info in parallel
 	def _run_fundamentals(t):
 		code33 = _run_script("data_sources/earnings_acceleration.py", ["code33", t])
 		rs = _run_script("technical/rs_ranking.py", ["score", t])
-		return t, code33, rs
+		info = _run_script("data_sources/info.py", [
+			"get-info-fields", t, "sector", "industry",
+		])
+		return t, code33, rs, info
 
 	candidates = []
 	if tt_pass:
 		with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
 			fund_futures = {t: executor.submit(_run_fundamentals, t) for t in tt_pass}
 			for t, future in fund_futures.items():
-				_, code33, rs = future.result()
+				_, code33, rs, info = future.result()
 
 				rs_score = rs.get("rs_score", 0) if not rs.get("error") else 0
 				eps_accel = code33.get("eps_accelerating", False) if not code33.get("error") else False
 				sales_accel = code33.get("sales_accelerating", False) if not code33.get("error") else False
 				margin_exp = code33.get("margin_expanding", False) if not code33.get("error") else False
+
+				# I3.9: Extract sector/industry from info
+				t_sector = info.get("sector") if not info.get("error") else None
+				t_industry = info.get("industry") if not info.get("error") else None
 
 				# Simple screening score
 				accel_count = sum([eps_accel, sales_accel, margin_exp])
@@ -328,6 +338,8 @@ def cmd_screen(args):
 					"margin_expanding": margin_exp,
 					"code33_accel_count": accel_count,
 					"screen_score": screen_score,
+					"sector": t_sector,
+					"industry": t_industry,
 				})
 
 	# Sort by screen_score descending
@@ -442,10 +454,8 @@ def cmd_market_leaders(args):
 		"breadth": {
 			"new_highs": new_highs,
 			"new_lows": new_lows,
-			"highs_lows_ratio": highs_lows_ratio,
 			"breadth_detail": breadth_result if not breadth_result.get("error") else None,
 		},
-		"distribution_days_25d": dist_days,
 		"sector_leaders": sector_output,
 		"thresholds": {
 			"verdict_rules": (
@@ -488,7 +498,7 @@ def cmd_compare(args):
 		results["position_sizing"] = {"error": "skipped_for_compare"}
 
 		risk_data = compute_risk_assessment(results)
-		sepa_data = compute_sepa_score(results, risk_data)
+		sepa_total, classification, hard_gate_fail, hard_gates, dim_scores = compute_sepa_score(results, risk_data)
 
 		info = results.get("info", {})
 		tt = results.get("trend_template", {})
@@ -501,9 +511,10 @@ def cmd_compare(args):
 
 		return {
 			"ticker": ticker,
-			"sepa_score": sepa_data.get("sepa_score", 0),
-			"classification": sepa_data.get("classification"),
-			"hard_gate_fail": sepa_data.get("hard_gate_fail"),
+			"sepa_score": sepa_total,
+			"classification": classification,
+			"dimensions": {k: v["score"] for k, v in dim_scores.items()},
+			"hard_gate_fail": hard_gate_fail,
 			"current_stage": stage.get("current_stage") if not stage.get("error") else None,
 			"tt_pass": tt.get("overall_pass") if not tt.get("error") else None,
 			"tt_score_pct": tt.get("score_pct") if not tt.get("error") else None,

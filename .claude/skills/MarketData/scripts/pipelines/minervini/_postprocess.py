@@ -3,6 +3,14 @@
 Formats earnings data concisely, compresses volume analysis details,
 caps long lists, removes duplicate fields, and compresses noisy data
 per Context Efficiency (Section 2.4) and Self-Documenting Output (Section 2.8).
+
+Iteration 3 additions:
+- compress_earnings_surprise: Keep only most recent 4 quarters in surprise_history
+- compress_estimate_revisions: Replace verbose structure with direction/revision pcts
+- compress_forward_pe: Strip intermediate calculation fields
+- compress_info: Remove MA/52w fields (duplicated in trend_template)
+- compress_margin_tracker: Keep only most recent 3 quarters in trajectory
+- Add growth_rates_order to earnings_acceleration
 """
 
 
@@ -283,6 +291,103 @@ def filter_margin_trajectory(margin_result):
 	return result
 
 
+def compress_earnings_surprise(data):
+	"""Keep only most recent 4 entries in surprise_history (I3.1)."""
+	if not data or data.get("error"):
+		return data
+
+	result = dict(data)
+	history = result.get("surprise_history", [])
+	if len(history) > 4:
+		result["surprise_history"] = history[:4]
+
+	# Keep existing summary fields as-is
+	return result
+
+
+def compress_estimate_revisions(data):
+	"""Replace verbose revisions structure with compressed summary (I3.2)."""
+	if not data or data.get("error"):
+		return data
+
+	compressed = {}
+
+	# Direction: net upward vs downward in last 30 days
+	revisions = data.get("eps_revisions", {})
+	up_30d = revisions.get("upLast30days", {})
+	down_30d = revisions.get("downLast30days", {})
+	net_up = sum(up_30d.get(k, 0) for k in ("0q", "+1q", "0y", "+1y"))
+	net_down = sum(down_30d.get(k, 0) for k in ("0q", "+1q", "0y", "+1y"))
+	compressed["direction"] = "up" if net_up > net_down else "down" if net_down > net_up else "flat"
+
+	# Current quarter estimate from eps_trend
+	eps_trend = data.get("eps_trend", {})
+	current = eps_trend.get("current", {})
+	compressed["current_quarter_estimate"] = current.get("0q")
+
+	# Revision percentages from eps_trend changes
+	ago_7d = eps_trend.get("7daysAgo", {})
+	ago_30d = eps_trend.get("30daysAgo", {})
+	ago_90d = eps_trend.get("90daysAgo", {})
+
+	cq = current.get("0q")
+	if cq and ago_7d.get("0q"):
+		compressed["revision_7d_pct"] = round((cq - ago_7d["0q"]) / abs(ago_7d["0q"]) * 100, 1) if ago_7d["0q"] != 0 else 0.0
+	if cq and ago_30d.get("0q"):
+		compressed["revision_30d_pct"] = round((cq - ago_30d["0q"]) / abs(ago_30d["0q"]) * 100, 1) if ago_30d["0q"] != 0 else 0.0
+	if cq and ago_90d.get("0q"):
+		compressed["revision_90d_pct"] = round((cq - ago_90d["0q"]) / abs(ago_90d["0q"]) * 100, 1) if ago_90d["0q"] != 0 else 0.0
+
+	# Growth estimates
+	growth = data.get("growth_estimates", {})
+	stock_trend = growth.get("stockTrend", {})
+	if stock_trend.get("0y") is not None:
+		compressed["stock_growth_0y"] = round(stock_trend["0y"] * 100, 1)
+	if stock_trend.get("+1y") is not None:
+		compressed["stock_growth_1y"] = round(stock_trend["+1y"] * 100, 1)
+
+	compressed["thresholds"] = "5%+ revision in 30d is significant"
+
+	return compressed
+
+
+def compress_forward_pe(data):
+	"""Strip intermediate calculation fields from forward_pe (I3.3)."""
+	if not data or data.get("error"):
+		return data
+
+	keep_fields = (
+		"forward_1y_pe", "forward_2y_pe", "revenue_growth_yoy",
+		"assessment", "valuation_gap", "gross_margin_pct",
+	)
+	return {k: v for k, v in data.items() if k in keep_fields}
+
+
+def compress_info(data):
+	"""Remove MA/52w fields that duplicate trend_template data (I3.4)."""
+	if not data or data.get("error"):
+		return data
+
+	remove_fields = {
+		"fiftyDayAverage", "twoHundredDayAverage",
+		"fiftyTwoWeekLow", "fiftyTwoWeekHigh",
+	}
+	return {k: v for k, v in data.items() if k not in remove_fields}
+
+
+def compress_margin_tracker(data):
+	"""Keep only most recent 3 quarters in trajectory (I3.5)."""
+	if not data or data.get("error"):
+		return data
+
+	result = dict(data)
+	trajectory = result.get("trajectory", [])
+	if len(trajectory) > 3:
+		result["trajectory"] = trajectory[:3]
+
+	return result
+
+
 def strip_moving_averages_from_stage(stage_result):
 	"""Remove moving_averages from stage_analysis (A.2 — keep only in trend_template)."""
 	if not stage_result or stage_result.get("error"):
@@ -313,10 +418,13 @@ def postprocess_results(results, mode="analyze"):
 		processed["stage_analysis"] = strip_moving_averages_from_stage(
 			processed["stage_analysis"])
 
-	# Compress earnings
+	# Compress earnings + add growth_rates_order (I3.7)
 	if "earnings_acceleration" in processed:
 		processed["earnings_acceleration"] = compress_earnings(
 			processed["earnings_acceleration"])
+		ea = processed["earnings_acceleration"]
+		if isinstance(ea, dict) and not ea.get("error"):
+			ea["growth_rates_order"] = "newest_first"
 
 	# Compress volume analysis
 	if "volume_analysis" in processed:
@@ -355,5 +463,45 @@ def postprocess_results(results, mode="analyze"):
 	if "margin_tracker" in processed:
 		processed["margin_tracker"] = filter_margin_trajectory(
 			processed["margin_tracker"])
+
+	# --- Iteration 3 compressions (analyze mode only) ---
+	if mode == "analyze":
+		# I3.1: Compress earnings_surprise to 4 most recent quarters
+		if "earnings_surprise" in processed:
+			processed["earnings_surprise"] = compress_earnings_surprise(
+				processed["earnings_surprise"])
+
+		# I3.2: Compress estimate_revisions to summary
+		if "estimate_revisions" in processed:
+			processed["estimate_revisions"] = compress_estimate_revisions(
+				processed["estimate_revisions"])
+
+		# I3.3: Compress forward_pe — strip intermediate fields
+		if "forward_pe" in processed:
+			processed["forward_pe"] = compress_forward_pe(
+				processed["forward_pe"])
+
+		# I3.4: Compress info — remove MA/52w duplicates
+		if "info" in processed:
+			processed["info"] = compress_info(
+				processed["info"])
+
+		# I3.5: Compress margin_tracker trajectory to 3 quarters
+		if "margin_tracker" in processed:
+			processed["margin_tracker"] = compress_margin_tracker(
+				processed["margin_tracker"])
+
+	# --- Iteration 4 noise removal ---
+	# I4.9: Remove swing_highs_used/swing_lows_used from stage_analysis
+	sa = processed.get("stage_analysis")
+	if isinstance(sa, dict) and "evidence" in sa:
+		evidence = sa["evidence"]
+		evidence.pop("swing_highs_used", None)
+		evidence.pop("swing_lows_used", None)
+
+	# I4.10: Remove base_stage_assessment from base_count
+	bc = processed.get("base_count")
+	if isinstance(bc, dict):
+		bc.pop("base_stage_assessment", None)
 
 	return processed
