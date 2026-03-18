@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minervini SEPA Pipeline v1.0.0 (Pipeline-Complete): SEPA analysis with
+"""Minervini SEPA Pipeline v1.1.0 (Pipeline-Complete): SEPA analysis with
 composite scoring, risk assessment, signal synthesis, and market leadership.
 
 Orchestrates the complete Minervini SEPA (Specific Entry Point Analysis) by
@@ -10,25 +10,29 @@ to supplement.
 
 SEPA composite score (0-100) across 4 dimensions (25 pts each): Trend Quality,
 Fundamental Strength, Setup Readiness, Risk Profile. Hard gates: Stage 2 + Trend
-Template 8/8 must pass or stock is classified "avoid".
+Template 8/8 must pass or stock is classified "avoid". Dimensions are always
+computed (even on hard_gate_fail) for informational purposes.
 
 Commands:
-	analyze: Full SEPA analysis for a single ticker (~18 modules in parallel,
+	analyze: Full SEPA analysis for a single ticker (~20 modules in parallel,
 		SEPA composite score 0-100, risk assessment with stop-loss/R:R/position
 		sizing, unified entry/exit signals, 8-key JSON output grouped as
-		trend_qualification, technical_setup, fundamentals, risk_assessment)
+		trend_qualification, technical_setup, fundamentals, risk_assessment).
+		Module outputs stripped of symbol/date/current_price (top-level ticker
+		is canonical). RS ranking integrated as rs_detail in trend_qualification.
+		Sell signals canonical in risk_assessment (exit_signals has ref only).
 	screen: Screen for SEPA candidates using Finviz presets (finviz screen ->
 		trend template filter -> Code 33 + RS ranking on passes -> sorted
-		candidates with screening scores)
+		candidates with screening scores + thresholds)
 	market-leaders: Market leadership assessment (sector_leaders.scan,
 		finviz market-breadth, distribution day count -> market environment
-		verdict: bull_early / bull_late / correction / bear)
+		verdict with verdict_evidence and thresholds)
 	compare: Compare multiple tickers side-by-side on SEPA criteria (runs
 		analyze for each ticker in parallel, extracts SEPA scores and key
 		metrics, returns comparison table sorted by SEPA score)
 	recheck: Recheck existing position (post_breakout.monitor with entry
 		params, sell_signals, current SEPA status -> verdict: HOLD / REDUCE
-		/ SELL with reasons)
+		/ SELL with reasons, compressed volume_analysis)
 
 Args:
 	For analyze:
@@ -54,27 +58,33 @@ Args:
 
 Returns:
 	For analyze:
-		dict with ticker, sepa_score (score 0-100, classification, dimensions,
-		hard_gate_fail/reasons, thresholds), signal (overall BUY_READY/WATCH/
-		HOLD/REDUCE/SELL, entry_signals, exit_signals, volume_confirmation,
-		reasons), trend_qualification (trend_template, stage_analysis,
-		rs_ranking, base_count), technical_setup (vcp, entry_patterns,
-		pocket_pivot, low_cheat, tight_closes, volume_analysis, closing_range),
-		fundamentals (earnings_acceleration, forward_pe, margin_tracker, info),
-		risk_assessment (sell_signals, stock_character, risk_gate with
-		stop_loss/risk_reward_ratio/position_sizing/sell_signals_summary),
-		metadata (missing_components, modules_run, execution_time_seconds).
+		dict with ticker, sepa_score (score 0-100, classification, dimensions
+		always computed, hard_gate_fail/reasons, thresholds), signal (overall
+		BUY_READY/WATCH/HOLD/REDUCE/SELL with thresholds, entry_signals,
+		exit_signals as ref-only, volume_confirmation with thresholds, reasons),
+		trend_qualification (trend_template, stage_analysis, rs_detail,
+		base_count), technical_setup (vcp, entry_patterns, pocket_pivot
+		compressed, low_cheat, tight_closes max 3 clusters, volume_analysis,
+		closing_range compressed), fundamentals (earnings_acceleration,
+		code33_status, earnings_surprise, estimate_revisions, forward_pe,
+		margin_tracker, info), risk_assessment (sell_signals active only,
+		stock_character, risk_gate with stop_loss/risk_reward_ratio/
+		risk_reward_thresholds/position_sizing), metadata (missing_components
+		as list, modules_run, execution_time_seconds).
 
 	For screen:
 		dict with candidates (list sorted by screen_score with ticker,
 		rs_score, tt_score_pct, eps/sales/margin acceleration flags,
-		code33_accel_count, screen_score), metadata (total_screened,
-		tt_pass_count, qualified_count, preset, execution_time_seconds).
+		code33_accel_count, screen_score), thresholds, metadata
+		(total_screened, tt_pass_count, qualified_count, preset,
+		execution_time_seconds).
 
 	For market-leaders:
 		dict with market_verdict (bull_early/bull_late/correction/bear),
-		breadth (new_highs, new_lows, ratio, detail), distribution_days_25d,
-		sector_leaders, thresholds (verdict_rules), metadata.
+		verdict_evidence (new_highs_vs_lows, distribution_days_25d,
+		leader_stocks_breaking), breadth (new_highs, new_lows, ratio,
+		detail), distribution_days_25d, sector_leaders, thresholds
+		(verdict_rules), metadata.
 
 	For compare:
 		dict with comparison (list sorted by sepa_score with ticker, sepa_score,
@@ -88,18 +98,20 @@ Returns:
 		(entry_price, entry_date, current_price, gain_loss_pct,
 		days_since_entry), post_breakout (behavior, signal, squat_detected,
 		above_20ma, failure_reset), current_status (stage, tt_pass,
-		tt_score_pct, rs_score, sell_signals, sell_severity),
-		volume_analysis, metadata.
+		tt_score_pct, rs_score, sell_signals active only, sell_severity),
+		volume_analysis (compressed: grade, weighted_ratio_50d,
+		cluster_warning, breakout_volume_confirmation), metadata
+		(missing_components as list).
 
 Example:
 	>>> python -m pipelines.minervini analyze NVDA
 	{"ticker": "NVDA", "sepa_score": {"sepa_score": 72, "classification": "actionable", ...}, ...}
 
 	>>> python -m pipelines.minervini screen --preset minervini_leaders
-	{"candidates": [...], "metadata": {"total_screened": 50, ...}}
+	{"candidates": [...], "thresholds": "...", "metadata": {"total_screened": 50, ...}}
 
 	>>> python -m pipelines.minervini market-leaders
-	{"market_verdict": "bull_early", "breadth": {...}, ...}
+	{"market_verdict": "bull_early", "verdict_evidence": {...}, "breadth": {...}, ...}
 
 	>>> python -m pipelines.minervini compare NVDA PLTR CRWD
 	{"comparison": [...], "ranked_by": "sepa_score", ...}
@@ -118,13 +130,19 @@ Notes:
 	- Pipeline-Complete: all methodology-required module calls are contained within subcommands
 	- SEPA score hard gates: Stage 2 + Trend Template 8/8 must pass
 	- SEPA score dimensions: Trend Quality (25) + Fundamental Strength (25) + Setup Readiness (25) + Risk Profile (25)
+	- Dimensions computed even on hard_gate_fail (informational only)
 	- Graceful degradation: analysis continues with available data when modules fail
 	- SEPA score marked "provisional" if >2 modules failed
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Screen uses finviz presets (minervini_leaders default) with TT filter pass-through
-	- Market leaders verdict uses new highs/lows ratio + distribution day count
+	- Market leaders verdict uses new highs/lows ratio + distribution day count + leader breaking status
 	- Compare runs full analysis per ticker in parallel
 	- Recheck integrates post_breakout.monitor with sell_signals for hold/sell decision
+	- All outputs self-documenting with thresholds fields (Section 2.8)
+	- Module outputs stripped of symbol/date/current_price duplicates
+	- Sell signals canonical location: risk_assessment.sell_signals (active only)
+	- RS ranking canonical location: trend_qualification.rs_detail
+	- Data compression: tight_closes (3 recent), pocket_pivot (summary), closing_range (ratios only)
 """
 
 import argparse

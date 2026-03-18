@@ -244,7 +244,9 @@ def compute_sepa_score(results, risk_data):
 		risk_data: dict from _risk_gate with risk_reward_ratio
 
 	Returns:
-		dict with sepa_score, classification, dimension scores, hard_gate status
+		dict with sepa_score, classification, dimension scores, hard_gate status.
+		Dimensions are always computed (even on hard_gate_fail) for informational
+		purposes per B.5.
 	"""
 	# Hard gates
 	hard_gate_fail = False
@@ -266,21 +268,29 @@ def compute_sepa_score(results, risk_data):
 		hard_gate_fail = True
 		hard_gate_reasons.append(f"trend_template_fail ({tt.get('passed_count', 0)}/{tt.get('total_count', 8)})")
 
+	# Always compute dimensions (B.5)
+	trend_score, trend_detail = _score_trend_quality(results)
+	fund_score, fund_detail = _score_fundamental_strength(results)
+	setup_score, setup_detail = _score_setup_readiness(results)
+	risk_score, risk_detail = _score_risk_profile(results, risk_data)
+
+	dimensions = {
+		"trend_quality": {"score": trend_score, "max": 25, "detail": trend_detail},
+		"fundamental_strength": {"score": fund_score, "max": 25, "detail": fund_detail},
+		"setup_readiness": {"score": setup_score, "max": 25, "detail": setup_detail},
+		"risk_profile": {"score": risk_score, "max": 25, "detail": risk_detail},
+	}
+
 	if hard_gate_fail:
 		return {
 			"sepa_score": 0,
 			"classification": "avoid",
 			"hard_gate_fail": True,
 			"hard_gate_reasons": hard_gate_reasons,
-			"dimensions": None,
+			"dimensions": dimensions,
+			"note": "hard_gate_fail — dimensions are informational only (not actionable)",
 			"thresholds": "prime: >=80 | actionable: 60-79 | developing: 40-59 | not_ready: 20-39 | avoid: <20 or hard_gate_fail",
 		}
-
-	# Soft scoring
-	trend_score, trend_detail = _score_trend_quality(results)
-	fund_score, fund_detail = _score_fundamental_strength(results)
-	setup_score, setup_detail = _score_setup_readiness(results)
-	risk_score, risk_detail = _score_risk_profile(results, risk_data)
 
 	total = trend_score + fund_score + setup_score + risk_score
 
@@ -309,11 +319,6 @@ def compute_sepa_score(results, risk_data):
 		"hard_gate_fail": False,
 		"hard_gate_reasons": [],
 		"provisional": provisional,
-		"dimensions": {
-			"trend_quality": {"score": trend_score, "max": 25, "detail": trend_detail},
-			"fundamental_strength": {"score": fund_score, "max": 25, "detail": fund_detail},
-			"setup_readiness": {"score": setup_score, "max": 25, "detail": setup_detail},
-			"risk_profile": {"score": risk_score, "max": 25, "detail": risk_detail},
-		},
+		"dimensions": dimensions,
 		"thresholds": "prime: >=80 | actionable: 60-79 | developing: 40-59 | not_ready: 20-39 | avoid: <20 or hard_gate_fail",
 	}

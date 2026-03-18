@@ -1,7 +1,8 @@
 """Risk assessment module for Minervini SEPA pipeline.
 
 Calculates stop-loss levels from VCP pivot/low, R:R ratio, integrates
-position_sizing.calculate results, and summarizes sell signals.
+position_sizing.calculate results. Sell signal detail is provided by
+risk_assessment.sell_signals (not duplicated here).
 """
 
 
@@ -13,10 +14,11 @@ def compute_risk_assessment(results, account_size=100000):
 		account_size: account value for position sizing (default: 100000)
 
 	Returns:
-		dict with stop_loss, risk_reward_ratio, position_sizing, sell_signals_summary
+		dict with stop_loss, risk_reward_ratio (+ thresholds), position_sizing.
+		Does NOT include sell_signals_summary (D.2 — canonical location
+		is risk_assessment.sell_signals).
 	"""
 	vcp = results.get("vcp", {})
-	sell = results.get("sell_signals", {})
 	pos_sizing = results.get("position_sizing", {})
 
 	# --- Stop-loss calculation ---
@@ -57,6 +59,7 @@ def compute_risk_assessment(results, account_size=100000):
 
 	# --- R:R ratio ---
 	risk_reward_ratio = None
+	target_price = None
 	if pivot_price and stop_loss and pivot_price > stop_loss:
 		# Target = 3x the risk (standard SEPA target)
 		risk_per_share = pivot_price - stop_loss
@@ -75,7 +78,7 @@ def compute_risk_assessment(results, account_size=100000):
 		else:
 			target_mult = 2.0
 		target_gain = risk_per_share * target_mult
-		target_price = pivot_price + target_gain
+		target_price = round(pivot_price + target_gain, 2)
 		risk_reward_ratio = round(target_mult, 1)
 
 	# --- Position sizing ---
@@ -101,20 +104,12 @@ def compute_risk_assessment(results, account_size=100000):
 				"portfolio_pct": round((shares * pivot_price) / account_size * 100, 2),
 			}
 
-	# --- Sell signals summary ---
-	sell_summary = None
-	if not sell.get("error"):
-		sell_summary = {
-			"active_signals": sell.get("active_sell_signals", []),
-			"signal_count": sell.get("signal_count", 0),
-			"severity": sell.get("severity", "healthy"),
-		}
-
 	return {
 		"stop_loss": stop_loss,
 		"stop_pct": stop_pct,
 		"pivot_price": pivot_price,
+		"target_price": target_price,
 		"risk_reward_ratio": risk_reward_ratio,
+		"risk_reward_thresholds": "excellent: >=4:1 | good: 3:1 | acceptable: 2:1 | poor: <2:1",
 		"position_sizing": position_suggestion,
-		"sell_signals_summary": sell_summary,
 	}

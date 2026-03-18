@@ -42,6 +42,8 @@ def _analyze_scripts(ticker):
 		"closing_range": ("technical/closing_range.py", ["analyze", ticker]),
 		# Fundamentals
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
+		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
+		"estimate_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
 		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
 		"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
 		"info": ("data_sources/info.py", [
@@ -57,6 +59,38 @@ def _analyze_scripts(ticker):
 	}
 
 
+def _fix_rs_12m_null(rs_result):
+	"""E.6: Change 12m return from 0 to null when data unavailable."""
+	if not rs_result or rs_result.get("error"):
+		return rs_result
+	result = dict(rs_result)
+	period_returns = result.get("period_returns", {})
+	if isinstance(period_returns, dict):
+		period_returns = dict(period_returns)
+		# If data_quality is partial and 12m is 0, it means data unavailable
+		if result.get("data_quality") == "partial" or result.get("periods_available", 4) < 4:
+			if period_returns.get("12m") == 0:
+				period_returns["12m"] = None
+		result["period_returns"] = period_returns
+	bench_returns = result.get("benchmark_returns", {})
+	if isinstance(bench_returns, dict):
+		bench_returns = dict(bench_returns)
+		if result.get("data_quality") == "partial" or result.get("periods_available", 4) < 4:
+			if bench_returns.get("12m") == 0:
+				bench_returns["12m"] = None
+		result["benchmark_returns"] = bench_returns
+	return result
+
+
+def _strip_null_fields(d):
+	"""E.5: Remove null fields from a dict (recursive for nested dicts/lists)."""
+	if isinstance(d, dict):
+		return {k: _strip_null_fields(v) for k, v in d.items() if v is not None}
+	elif isinstance(d, list):
+		return [_strip_null_fields(item) for item in d]
+	return d
+
+
 # ---------------------------------------------------------------------------
 # cmd_analyze
 # ---------------------------------------------------------------------------
@@ -65,7 +99,7 @@ def _analyze_scripts(ticker):
 def cmd_analyze(args):
 	"""Full SEPA analysis for a single ticker.
 
-	Runs ~18 modules in parallel, computes SEPA composite score (0-100),
+	Runs ~20 modules in parallel, computes SEPA composite score (0-100),
 	risk assessment, and unified entry/exit signals.
 	"""
 	ticker = args.ticker.upper()
@@ -83,6 +117,18 @@ def cmd_analyze(args):
 
 	# Track missing components
 	missing = [k for k, v in results.items() if isinstance(v, dict) and v.get("error")]
+
+	# E.6: Fix rs_ranking 12m null
+	if "rs_ranking" in results:
+		results["rs_ranking"] = _fix_rs_12m_null(results["rs_ranking"])
+
+	# A.4: Use rs_ranking score as canonical — remove rs_score from trend_template
+	rs_result = results.get("rs_ranking", {})
+	tt_result = results.get("trend_template", {})
+	if not tt_result.get("error") and isinstance(tt_result, dict):
+		tt_result = dict(tt_result)
+		tt_result.pop("rs_score", None)
+		results["trend_template"] = tt_result
 
 	# Position sizing (uses info for current price, VCP for stop)
 	info = results.get("info", {})
@@ -105,24 +151,39 @@ def cmd_analyze(args):
 	else:
 		results["position_sizing"] = {"error": "missing current_price or stop_pct"}
 
-	# Risk assessment
+	# Risk assessment (before postprocess so sell_signals raw is available)
 	risk_data = compute_risk_assessment(results)
 
-	# SEPA scoring
+	# SEPA scoring (before postprocess)
 	sepa_score = compute_sepa_score(results, risk_data)
 
-	# Signal synthesis
+	# Signal synthesis (before postprocess)
 	signal = determine_overall_signal(results, sepa_score, risk_data)
 
 	# Post-processing (compress before output)
-	results = postprocess_results(results)
+	results = postprocess_results(results, mode="analyze")
 
 	# --- Build output ---
-	# Group results
+	# D.1: Move rs_ranking into trend_qualification as rs_detail
+	rs_data = results.get("rs_ranking", {})
+	rs_detail = None
+	if not isinstance(rs_data, dict) or not rs_data.get("error"):
+		rs_detail = rs_data
+
+	# A.4: Override TT's RS score with rs_ranking's canonical score
+	tt_data = results.get("trend_template")
+	if isinstance(tt_data, dict) and isinstance(rs_data, dict) and not rs_data.get("error"):
+		canonical_rs = rs_data.get("rs_score")
+		if canonical_rs is not None and "criteria" in tt_data:
+			for c in tt_data["criteria"]:
+				if c.get("id") == 8:
+					c["value"] = f"RS Score = {canonical_rs}"
+					c["passed"] = canonical_rs >= 70
+
 	trend_qualification = {
-		"trend_template": results.get("trend_template"),
+		"trend_template": tt_data,
 		"stage_analysis": results.get("stage_analysis"),
-		"rs_ranking": results.get("rs_ranking"),
+		"rs_detail": rs_detail,
 		"base_count": results.get("base_count"),
 	}
 
@@ -136,13 +197,24 @@ def cmd_analyze(args):
 		"closing_range": results.get("closing_range"),
 	}
 
+	# E.1: Map earnings_surprise and estimate_revisions to fundamentals
+	# E.2: Map code33_status correctly
+	ea = results.get("earnings_acceleration", {})
+	code33_status = None
+	if isinstance(ea, dict) and not ea.get("error"):
+		code33_status = ea.get("code33_status")
+
+	# Remove duplicate code33_status — keep it only inside earnings_acceleration
 	fundamentals = {
-		"earnings_acceleration": results.get("earnings_acceleration"),
+		"earnings_acceleration": ea,
+		"earnings_surprise": results.get("earnings_surprise") if not (results.get("earnings_surprise", {}) or {}).get("error") else None,
+		"estimate_revisions": results.get("estimate_revisions") if not (results.get("estimate_revisions", {}) or {}).get("error") else None,
 		"forward_pe": results.get("forward_pe"),
 		"margin_tracker": results.get("margin_tracker"),
 		"info": results.get("info"),
 	}
 
+	# D.2: risk_assessment contains sell_signals (active only, canonical), risk_gate, stock_character
 	risk_assessment = {
 		"sell_signals": results.get("sell_signals"),
 		"stock_character": results.get("stock_character"),
@@ -151,6 +223,7 @@ def cmd_analyze(args):
 
 	elapsed = round(time.time() - start, 1)
 
+	# E.3: missing_components as empty list, not null
 	output = {
 		"ticker": ticker,
 		"sepa_score": sepa_score,
@@ -160,7 +233,7 @@ def cmd_analyze(args):
 		"fundamentals": fundamentals,
 		"risk_assessment": risk_assessment,
 		"metadata": {
-			"missing_components": missing if missing else None,
+			"missing_components": missing if missing else [],
 			"modules_run": len(scripts) + 1,  # +1 for position_sizing
 			"execution_time_seconds": elapsed,
 		},
@@ -242,14 +315,14 @@ def cmd_screen(args):
 
 				# Simple screening score
 				accel_count = sum([eps_accel, sales_accel, margin_exp])
-				screen_score = rs_score + (accel_count * 10)
-
 				tt = tt_results.get(t, {})
+				tt_score_pct = tt.get("score_pct", 0)
+				screen_score = rs_score + (accel_count * 10)
 
 				candidates.append({
 					"ticker": t,
 					"rs_score": rs_score,
-					"tt_score_pct": tt.get("score_pct", 0),
+					"tt_score_pct": tt_score_pct,
 					"eps_accelerating": eps_accel,
 					"sales_accelerating": sales_accel,
 					"margin_expanding": margin_exp,
@@ -264,6 +337,7 @@ def cmd_screen(args):
 
 	output_json({
 		"candidates": candidates,
+		"thresholds": "screen_score = rs_score(0-99) + code33_accel_count(0-3) * 10",
 		"metadata": {
 			"total_screened": len(tickers),
 			"tt_pass_count": len(tt_pass),
@@ -318,6 +392,25 @@ def cmd_market_leaders(args):
 		new_lows = total.get("new_lows", 0)
 
 	# Verdict logic
+	highs_lows_ratio = round(new_highs / max(new_lows, 1), 2)
+	leader_breaking = False
+
+	# Check if leaders are breaking down from sector data
+	if not leaders_result.get("error"):
+		sectors = leaders_result.get("sectors", leaders_result.get("sector_dashboard", {}))
+		if isinstance(sectors, dict):
+			# Count sectors with deteriorating leaders
+			deteriorating = 0
+			total_sectors = 0
+			for sector_name, sector_data in sectors.items():
+				if isinstance(sector_data, dict):
+					total_sectors += 1
+					leaders_list = sector_data.get("leaders", [])
+					if isinstance(leaders_list, list) and len(leaders_list) == 0:
+						deteriorating += 1
+			if total_sectors > 0 and deteriorating > total_sectors * 0.5:
+				leader_breaking = True
+
 	if new_highs > new_lows * 2 and dist_days < 4:
 		verdict = "bull_early"
 	elif new_highs > new_lows and dist_days >= 4:
@@ -329,18 +422,31 @@ def cmd_market_leaders(args):
 	else:
 		verdict = "bull_early" if dist_days < 4 else "bull_late"
 
+	# B.3: verdict_evidence
+	verdict_evidence = {
+		"new_highs_vs_lows": highs_lows_ratio,
+		"distribution_days_25d": dist_days,
+		"leader_stocks_breaking": leader_breaking,
+	}
+
+	# E.5: Strip ALL null fields from sector dashboard (recursive)
+	sector_output = leaders_result if not leaders_result.get("error") else {"error": leaders_result.get("error")}
+	if isinstance(sector_output, dict) and not sector_output.get("error"):
+		sector_output = _strip_null_fields(sector_output)
+
 	elapsed = round(time.time() - start, 1)
 
 	output_json({
 		"market_verdict": verdict,
+		"verdict_evidence": verdict_evidence,
 		"breadth": {
 			"new_highs": new_highs,
 			"new_lows": new_lows,
-			"highs_lows_ratio": round(new_highs / max(new_lows, 1), 2),
+			"highs_lows_ratio": highs_lows_ratio,
 			"breadth_detail": breadth_result if not breadth_result.get("error") else None,
 		},
 		"distribution_days_25d": dist_days,
-		"sector_leaders": leaders_result if not leaders_result.get("error") else {"error": leaders_result.get("error")},
+		"sector_leaders": sector_output,
 		"thresholds": {
 			"verdict_rules": (
 				"bull_early: highs > lows*2 AND dist_days < 4 | "
@@ -482,6 +588,11 @@ def cmd_recheck(args):
 	tt = results.get("trend_template", {})
 	rs = results.get("rs_ranking", {})
 
+	# E.6: Fix rs_ranking 12m null
+	if "rs_ranking" in results:
+		results["rs_ranking"] = _fix_rs_12m_null(results["rs_ranking"])
+		rs = results["rs_ranking"]
+
 	# Determine verdict
 	reasons = []
 
@@ -520,6 +631,26 @@ def cmd_recheck(args):
 		else:
 			reasons.append("position healthy — continue holding")
 
+	# C.3: Filter inactive sell signals for current_status
+	active_signals = []
+	if not sell.get("error"):
+		raw_signals = sell.get("signals", {})
+		for sig_name, sig_data in raw_signals.items():
+			if isinstance(sig_data, dict) and sig_data.get("active"):
+				active_signals.append(sig_name)
+
+	# C.6: Compress volume for recheck
+	vol_result = results.get("volume_analysis", {})
+	compressed_vol = None
+	if not vol_result.get("error"):
+		clusters = vol_result.get("distribution_clusters", {})
+		compressed_vol = {
+			"grade": vol_result.get("accumulation_distribution_rating"),
+			"weighted_ratio_50d": vol_result.get("up_down_volume_ratio_50d"),
+			"cluster_warning": clusters.get("cluster_warning") if isinstance(clusters, dict) else None,
+			"breakout_volume_confirmation": vol_result.get("breakout_volume_confirmation"),
+		}
+
 	elapsed = round(time.time() - start, 1)
 
 	output_json({
@@ -545,12 +676,12 @@ def cmd_recheck(args):
 			"tt_pass": tt_pass,
 			"tt_score_pct": tt.get("score_pct") if not tt.get("error") else None,
 			"rs_score": rs.get("rs_score") if not rs.get("error") else None,
-			"sell_signals": sell.get("active_sell_signals", []) if not sell.get("error") else [],
+			"sell_signals": active_signals,
 			"sell_severity": sell_severity,
 		},
-		"volume_analysis": results.get("volume_analysis") if not results.get("volume_analysis", {}).get("error") else None,
+		"volume_analysis": compressed_vol,
 		"metadata": {
-			"missing_components": missing if missing else None,
+			"missing_components": missing if missing else [],
 			"execution_time_seconds": elapsed,
 		},
 	})

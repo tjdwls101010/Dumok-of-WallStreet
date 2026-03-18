@@ -13,7 +13,11 @@ def _check_breakout_volume(results):
 	"""
 	vol = results.get("volume_analysis", {})
 	if vol.get("error"):
-		return {"confirmed": False, "reason": "volume_analysis_unavailable"}
+		return {
+			"confirmed": False,
+			"reason": "volume_analysis_unavailable",
+			"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+		}
 
 	confirmed = vol.get("breakout_volume_confirmation", False)
 	ratio = vol.get("volume_vs_50day_avg_pct", 0)
@@ -24,9 +28,19 @@ def _check_breakout_volume(results):
 	vcp_confirmed = vcp_vol.get("volume_confirmation", "neutral")
 
 	if confirmed or vcp_confirmed in ("strongly_confirmed", "confirmed"):
-		return {"confirmed": True, "volume_vs_avg_pct": ratio, "vcp_confirmation": vcp_confirmed}
+		return {
+			"confirmed": True,
+			"volume_vs_avg_pct": ratio,
+			"vcp_confirmation": vcp_confirmed,
+			"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+		}
 
-	return {"confirmed": False, "volume_vs_avg_pct": ratio, "vcp_confirmation": vcp_confirmed}
+	return {
+		"confirmed": False,
+		"volume_vs_avg_pct": ratio,
+		"vcp_confirmation": vcp_confirmed,
+		"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+	}
 
 
 def synthesize_entry_signals(results):
@@ -49,13 +63,17 @@ def synthesize_entry_signals(results):
 	entry = results.get("entry_patterns", {})
 	if not entry.get("error") and entry.get("pattern_count", 0) > 0:
 		for p in entry.get("active_patterns", []):
-			signals.append({
+			sig = {
 				"source": "entry_pattern",
 				"pattern": p.get("pattern"),
 				"quality": p.get("quality"),
-				"trigger_price": p.get("trigger_price"),
-				"stop_price": p.get("stop_price"),
-			})
+			}
+			# Only include fields that have values (avoid null noise)
+			if p.get("trigger_price") is not None:
+				sig["trigger_price"] = p["trigger_price"]
+			if p.get("stop_price") is not None:
+				sig["stop_price"] = p["stop_price"]
+			signals.append(sig)
 
 	# Pocket pivot
 	pp = results.get("pocket_pivot", {})
@@ -92,17 +110,20 @@ def synthesize_entry_signals(results):
 	return signals
 
 
-def synthesize_exit_signals(results):
-	"""Combine exit signal sources into unified exit signal."""
-	signals = []
+def synthesize_exit_signals_ref(results):
+	"""Build lightweight exit signal references for signal section (A.3).
 
-	# Sell signals
+	Full sell signal detail lives in risk_assessment.sell_signals.
+	Here we include only signal names + severity as cross-reference.
+	"""
+	refs = []
+
+	# Sell signals reference
 	sell = results.get("sell_signals", {})
 	if not sell.get("error") and sell.get("signal_count", 0) > 0:
-		signals.append({
+		refs.append({
 			"source": "sell_signals",
-			"active": sell.get("active_sell_signals", []),
-			"count": sell.get("signal_count"),
+			"signals": sell.get("active_sell_signals", []),
 			"severity": sell.get("severity"),
 		})
 
@@ -111,14 +132,12 @@ def synthesize_exit_signals(results):
 	if not post.get("error"):
 		hold_sell = post.get("hold_sell_signal", "hold")
 		if hold_sell != "hold":
-			signals.append({
+			refs.append({
 				"source": "post_breakout",
 				"signal": hold_sell,
-				"behavior": post.get("behavior"),
-				"gain_loss_pct": post.get("gain_loss_pct"),
 			})
 
-	return signals
+	return refs
 
 
 def determine_overall_signal(results, sepa_score_data, risk_data):
@@ -130,10 +149,11 @@ def determine_overall_signal(results, sepa_score_data, risk_data):
 		risk_data: dict from compute_risk_assessment
 
 	Returns:
-		dict with signal, entry_signals, exit_signals, volume_confirmation, reasons
+		dict with signal, entry_signals, exit_signals (ref only),
+		volume_confirmation, reasons, thresholds
 	"""
 	entry_signals = synthesize_entry_signals(results)
-	exit_signals = synthesize_exit_signals(results)
+	exit_signals_ref = synthesize_exit_signals_ref(results)
 	volume_check = _check_breakout_volume(results)
 
 	reasons = []
@@ -176,7 +196,14 @@ def determine_overall_signal(results, sepa_score_data, risk_data):
 	return {
 		"signal": overall,
 		"entry_signals": entry_signals,
-		"exit_signals": exit_signals,
+		"exit_signals": exit_signals_ref,
 		"volume_confirmation": volume_check,
 		"reasons": reasons,
+		"thresholds": {
+			"BUY_READY": "SEPA prime/actionable + entry pattern active + no sell signals + volume confirmed",
+			"WATCH": "SEPA developing or entry not ready",
+			"HOLD": "position exists + no sell signals",
+			"REDUCE": "moderate sell signals OR egg behavior",
+			"SELL": "critical sell signals OR hard stop hit",
+		},
 	}
