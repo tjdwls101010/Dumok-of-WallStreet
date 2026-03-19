@@ -2,12 +2,13 @@
 """Minervini Stage Analysis: classify stocks into Stage 1-4 lifecycle phases.
 
 Determines which of the four stock lifecycle stages a stock is currently in,
-along with confidence level and transition signals. Based on Mark Minervini's
-stage analysis framework from "Trade Like a Stock Market Wizard."
+based on Mark Minervini's stage analysis framework from "Trade Like a Stock
+Market Wizard" (Chapter 5). Each stage is scored using specific factor-based
+criteria derived from Minervini's stage characteristics.
 
-Uses both 50-day and 20-day Up/Down volume ratios for early transition
-detection. When the 20-day ratio diverges from the 50-day ratio, it signals
-an emerging stage transition before it becomes obvious in price action.
+9 evidence measurements are computed for every stock (stage-agnostic). Each
+evidence includes a value and thresholds string showing how it maps to each
+stage's scoring rules, enabling full score traceability.
 
 Commands:
 	classify: Determine current stage (1-4) for a ticker
@@ -18,71 +19,67 @@ Args:
 	--period (str): Historical data period (default: "2y")
 
 Returns:
-	dict: {
-		"symbol": str,
-		"date": str,
-		"current_price": float,
-		"current_stage": int,
-		"stage_name": str,
-		"stage_confidence": float,
-		"evidence": {
-			"price_vs_200ma": str,
-			"up_down_volume_ratio": float,
-			"up_down_volume_ratio_20d": float,
-			"volume_divergence_50d_vs_20d": str,
-			"volume_grade": str,
-			"higher_highs": bool,
-			"higher_lows": bool,
-			"volatility_expanding": bool,
-			"largest_decline_pct": float,
-			"swing_highs_used": int,
-			"swing_lows_used": int
-		},
-		"runner_up_stage": int or null,
-		"runner_up_score": int,
-		"stage_gap": int,
-		"transition_risk": str,
-		"stage_scores": dict,
-		"thresholds": {
-			"confidence": str,
-			"stage3_decline_scaling": str
+	For classify:
+		dict: {
+			"symbol": str,
+			"date": str,
+			"current_price": float,
+			"stage": int,
+			"scores": {"1": int, "2": int, ...},  # only non-zero stages
+			"evidences": {
+				"200ma_slope": {"value": float, "thresholds": str},
+				"price_vs_200ma_pct": {"value": float, "thresholds": str},
+				"trend_structure": {"value": {"higher_highs": bool, "higher_lows": bool}, "thresholds": str},
+				"volume_balance": {"value": {"50d_ratio": float, "20d_ratio": float}, "thresholds": str},
+				"volatility_regime": {"value": float, "thresholds": str},
+				"ma_alignment": {"value": {"50>150": bool, "150>200": bool}, "thresholds": str},
+				"decline_severity": {"value": float, "thresholds": str},
+				"proximity_to_lows": {"value": float, "thresholds": str},
+				"50ma_momentum": {"value": float, "thresholds": str}
+			},
+			"max_scores": "S1:80 | S2:95 | S3:90 | S4:95"
 		}
-	}
+
+	For transitions:
+		dict: {
+			"symbol": str,
+			"date": str,
+			"current_price": float,
+			"transition_type": str,
+			"signals": list,
+			"detected_count": int,
+			"total_signals": int,
+			"transition_strength": str
+		}
 
 Example:
 	>>> python stage_analysis.py classify NVDA --period 2y
 	{
 		"symbol": "NVDA",
-		"date": "2026-02-07",
+		"date": "2026-03-18",
 		"current_price": 135.50,
-		"current_stage": 2,
-		"stage_name": "Advancing (Accumulation)",
-		"stage_confidence": 85.0,
-		"evidence": {
-			"price_vs_200ma": "above",
-			"up_down_volume_ratio": 1.45,
-			"up_down_volume_ratio_20d": 1.32,
-			"volume_divergence_50d_vs_20d": "stable",
-			"volume_pattern": "accumulation"
-		}
+		"stage": 2,
+		"scores": {"2": 80, "1": 25},
+		"evidences": {
+			"200ma_slope": {"value": 0.0312, "thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20"},
+			...
+		},
+		"max_scores": "S1:80 | S2:95 | S3:90 | S4:95"
 	}
 
 Use Cases:
 	- Identify Stage 2 stocks for SEPA methodology entry
-	- Detect Stage 2->3 transitions via 20d/50d volume ratio divergence
+	- Detect Stage 2->3 transitions via evidence tracing
 	- Filter out Stage 4 declining stocks
 	- Monitor Stage 1->2 transitions for early entry
 
 Notes:
 	- Stage 2 (Advancing) is the only stage to buy in SEPA methodology
-	- Stage 3 detection relies on volatility increase and MA flattening
-	- 20-day volume ratio < 0.5 adds +10 to Stage 3 score (early warning)
-	- 20d/50d divergence (20d < 0.5 but 50d > 0.8) adds +5 to Stage 3
-	- Confidence uses theoretical max for winning stage as denominator
+	- 9 evidences are always computed for every stock, regardless of winning stage
+	- Each evidence has value + thresholds for full score traceability
+	- Stage 2 wins ties (Minervini actionable stage preference)
+	- Scoring factors derived from Minervini Chapter 5 stage characteristics
 	- Higher highs/lows use swing point detection (5-bar confirmation)
-	- Stage 3 decline scoring is graduated: -15to-20% +10, -20to-30% +20, >-30% +30
-	- Transition signals are forward-looking indicators of stage change
-	- Transition risk: high (<20 gap to Stage 3), moderate (<40), low (>=40)
 
 See Also:
 	- trend_template.py: 8-criteria Trend Template for Stage 2 confirmation
@@ -113,14 +110,8 @@ STAGE_NAMES = {
 	4: "Declining (Capitulation)",
 }
 
-# Theoretical maximum scores per stage, used for confidence calculation
-# Derived from code: sum of all possible positive contributions to each stage
-_STAGE_THEORETICAL_MAX = {
-	1: 90,   # 30+20+15+15+10
-	2: 105,  # 20+15+20+15+15+10+10
-	3: 120,  # 20+15+20+15+15+30+25+15+20+10+10+5 (but many mutually exclusive; realistic max ~120)
-	4: 115,  # 25+20+15+20+10+10+10+5
-}
+# Theoretical maximum scores per stage (sum of all factor points)
+_STAGE_THEORETICAL_MAX = {1: 80, 2: 95, 3: 90, 4: 95}
 
 
 def _ma_slope(series, lookback=20):
@@ -246,6 +237,165 @@ def _largest_decline_since_start(closes, sma200, stage2_start_idx=None):
 	return float(drawdowns.min())
 
 
+def _max_daily_decline_90d(closes):
+	"""Find the largest single-day percentage decline in the last 90 trading days."""
+	recent = closes.tail(90)
+	daily_returns = recent.pct_change() * 100
+	return float(daily_returns.min()) if len(daily_returns) > 1 else 0.0
+
+
+def _compute_all_scores(metrics):
+	"""Compute all 9 evidence measurements and apply each stage's scoring rules.
+
+	Args:
+		metrics: dict with all pre-computed technical measurements
+
+	Returns:
+		(scores_dict, evidences_dict) where:
+		- scores_dict: {1: int, 2: int, 3: int, 4: int}
+		- evidences_dict: 9-field dict with value + thresholds per evidence
+	"""
+	sma200_slope = metrics["sma200_slope"]
+	sma50_slope = metrics["sma50_slope"]
+	price_distance_200ma_pct = metrics["price_distance_200ma_pct"]
+	hh = metrics["hh"]
+	hl = metrics["hl"]
+	vol_ratio = metrics["vol_ratio"]
+	vol_ratio_20d = metrics["vol_ratio_20d"]
+	volatility_ratio = metrics["volatility_ratio"]
+	c_sma50 = metrics["c_sma50"]
+	c_sma150 = metrics["c_sma150"]
+	c_sma200 = metrics["c_sma200"]
+	current_price = metrics["current_price"]
+	max_daily_decline = metrics["max_daily_decline_90d"]
+	pct_above_52w_low = metrics["pct_above_52w_low"]
+	largest_decline = metrics["largest_decline"]
+	vol_50avg = metrics["vol_50avg"]
+	vol_200avg = metrics["vol_200avg"]
+
+	# Build evidences (stage-agnostic, always 9 fields)
+	evidences = {
+		"200ma_slope": {
+			"value": round(sma200_slope, 4),
+			"thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20",
+		},
+		"price_vs_200ma_pct": {
+			"value": round(price_distance_200ma_pct, 1),
+			"thresholds": "S1:within_5%->20 | S2:above->15 | S3:within_15%->15 | S4:below->15",
+		},
+		"trend_structure": {
+			"value": {"higher_highs": hh, "higher_lows": hl},
+			"thresholds": "S1:no_HH_&_no_HL->10 | S2:HH_&_HL->20 | S3:lost_HH->15 | S4:no_HH+HL_&_decline>20%->15",
+		},
+		"volume_balance": {
+			"value": {"50d_ratio": round(vol_ratio, 3), "20d_ratio": round(vol_ratio_20d, 3)},
+			"thresholds": "S1:50d_vol<70%_of_200d->15 | S2:ratio>1.15->15 | S3:0.85~1.15->15 | S4:<0.85->10",
+		},
+		"volatility_regime": {
+			"value": round(volatility_ratio, 2),
+			"thresholds": "S1:<1.2->10 | S3:>1.2->20",
+		},
+		"ma_alignment": {
+			"value": {"50>150": c_sma50 > c_sma150, "150>200": c_sma150 > c_sma200},
+			"thresholds": "S2:50>150>200->20 | S4:50<150_or_price<150&200->20",
+		},
+		"decline_severity": {
+			"value": round(max_daily_decline, 1),
+			"thresholds": "S3:max_daily_drop>5%_in_90d->10",
+		},
+		"proximity_to_lows": {
+			"value": round(pct_above_52w_low, 1),
+			"thresholds": "S4:within_20%_of_52w_low->15",
+		},
+		"50ma_momentum": {
+			"value": round(sma50_slope, 4),
+			"thresholds": "S2:slope>0->10",
+		},
+	}
+
+	# Score each stage
+	scores = {1: 0, 2: 0, 3: 0, 4: 0}
+
+	# --- Stage 1 (Consolidation) — max 80 ---
+	# |200ma_slope| < 0.02 -> 25
+	if abs(sma200_slope) < 0.02:
+		scores[1] += 25
+	# |price_vs_200ma_pct| < 5 -> 20
+	if abs(price_distance_200ma_pct) < 5:
+		scores[1] += 20
+	# volume: 50d_avg < 70% of 200d_avg -> 15
+	if vol_200avg > 0 and vol_50avg < vol_200avg * 0.7:
+		scores[1] += 15
+	# not hh and not hl -> 10
+	if not hh and not hl:
+		scores[1] += 10
+	# volatility_ratio < 1.2 -> 10
+	if volatility_ratio < 1.2:
+		scores[1] += 10
+
+	# --- Stage 2 (Advancing) — max 95 ---
+	# price > 200ma (price_vs_200ma_pct > 0) -> 15
+	if price_distance_200ma_pct > 0:
+		scores[2] += 15
+	# 200ma_slope > 0.02 -> 15
+	if sma200_slope > 0.02:
+		scores[2] += 15
+	# 50>150>200 -> 20
+	if c_sma50 > c_sma150 > c_sma200:
+		scores[2] += 20
+	# hh and hl -> 20
+	if hh and hl:
+		scores[2] += 20
+	# vol_ratio > 1.15 -> 15
+	if vol_ratio > 1.15:
+		scores[2] += 15
+	# 50ma_slope > 0 -> 10
+	if sma50_slope > 0:
+		scores[2] += 10
+
+	# --- Stage 3 (Topping) — max 90 ---
+	# volatility_ratio > 1.2 -> 20
+	if volatility_ratio > 1.2:
+		scores[3] += 20
+	# 200ma_slope between -0.02 and +0.02 -> 15
+	if -0.02 <= sma200_slope <= 0.02:
+		scores[3] += 15
+	# |price_vs_200ma_pct| < 15 -> 15
+	if abs(price_distance_200ma_pct) < 15:
+		scores[3] += 15
+	# vol_ratio between 0.85 and 1.15 -> 15
+	if 0.85 <= vol_ratio <= 1.15:
+		scores[3] += 15
+	# not hh (lost uptrend) -> 15
+	if not hh:
+		scores[3] += 15
+	# max_daily_decline_90d < -5 -> 10
+	if max_daily_decline < -5:
+		scores[3] += 10
+
+	# --- Stage 4 (Declining) — max 95 ---
+	# price < 200ma (price_vs_200ma_pct < 0) -> 15
+	if price_distance_200ma_pct < 0:
+		scores[4] += 15
+	# 200ma_slope < -0.02 -> 20
+	if sma200_slope < -0.02:
+		scores[4] += 20
+	# 50<150 or (price<150 and price<200) -> 20
+	if (c_sma50 < c_sma150) or (current_price < c_sma150 and current_price < c_sma200):
+		scores[4] += 20
+	# pct_above_52w_low < 20 -> 15
+	if pct_above_52w_low < 20:
+		scores[4] += 15
+	# not hh and not hl and largest_decline < -20 -> 15
+	if not hh and not hl and largest_decline < -20:
+		scores[4] += 15
+	# vol_ratio < 0.85 -> 10
+	if vol_ratio < 0.85:
+		scores[4] += 10
+
+	return scores, evidences
+
+
 @safe_run
 def cmd_classify(args):
 	"""Classify a stock into Stage 1-4."""
@@ -278,25 +428,19 @@ def cmd_classify(args):
 	c_sma200 = float(sma200.iloc[-1])
 
 	# Key metrics
-	price_above_200 = current_price > c_sma200
 	sma200_slope = _ma_slope(sma200, lookback=40)
 	sma50_slope = _ma_slope(sma50, lookback=20)
-	hh, hl, n_swing_highs, n_swing_lows = _higher_highs_higher_lows(highs, lows)
-	vol_pattern, vol_ratio = _volume_trend(volumes, closes)
+	hh, hl, _, _ = _higher_highs_higher_lows(highs, lows)
+	_, vol_ratio = _volume_trend(volumes, closes)
 
-	# Richer volume metrics
+	# Volume averages
 	vol_50avg = float(volumes.tail(50).mean())
 	vol_200avg = float(volumes.tail(200).mean()) if len(volumes) >= 200 else vol_50avg
-	acc_days, _ = _count_accumulation_days(volumes, closes, vol_50avg, 50)
-	dist_days, _ = _count_distribution_days(volumes, closes, vol_50avg, 50)
-	current_vol = float(volumes.iloc[-1])
-	vol_vs_50avg_pct = round(current_vol / vol_50avg * 100, 1) if vol_50avg > 0 else 0.0
-	vol_grade = _grade_accumulation(vol_ratio, acc_days, dist_days, vol_vs_50avg_pct)
 
-	# 20-day Up/Down volume ratio for early transition detection
+	# 20-day Up/Down volume ratio
 	vol_ratio_20d, _, _ = _calc_up_down_ratio(volumes, closes, 20)
 
-	# Recent volatility (30-day vs 90-day ATR ratio)
+	# Volatility ratio (30-day vs 90-day ATR)
 	tr = np.maximum(
 		highs.values - lows.values,
 		np.maximum(
@@ -306,195 +450,61 @@ def cmd_classify(args):
 	)
 	atr_30 = float(np.mean(tr[-30:])) if len(tr) >= 30 else 0
 	atr_90 = float(np.mean(tr[-90:])) if len(tr) >= 90 else atr_30
-	volatility_expanding = atr_30 > atr_90 * 1.2 if atr_90 > 0 else False
+	volatility_ratio = round(atr_30 / atr_90, 2) if atr_90 > 0 else 0.0
 
-	# Largest decline
+	# Price distance from 200MA
+	price_distance_200ma_pct = (current_price / c_sma200 - 1) * 100
+
+	# Largest decline since Stage 2 start
 	largest_decline = _largest_decline_since_start(closes, sma200)
 
-	# Stage classification scoring
-	scores = {1: 0, 2: 0, 3: 0, 4: 0}
+	# Max single-day decline in last 90 days
+	max_daily_decline = _max_daily_decline_90d(closes)
 
-	# Stage 1: Price oscillating around flat 200MA, low volume
-	if abs(sma200_slope) < 0.02:
-		scores[1] += 30
-	if abs(current_price / c_sma200 - 1) < 0.05:
-		scores[1] += 20
-	if vol_pattern == "neutral":
-		scores[1] += 15
-	if not hh and not hl:
-		scores[1] += 15
+	# Proximity to 52-week low
+	week52_low = float(lows.tail(252).min()) if len(lows) >= 252 else float(lows.min())
+	pct_above_52w_low = (current_price / week52_low - 1) * 100 if week52_low > 0 else 0.0
 
-	# Stage 2: Price > 200MA, uptrend, higher highs/lows, accumulation
-	if price_above_200:
-		scores[2] += 20
-	if sma200_slope > 0.02:
-		scores[2] += 15
-	if current_price > c_sma50 > c_sma150 > c_sma200:
-		scores[2] += 20
-	if hh and hl:
-		scores[2] += 15
-	if vol_pattern == "accumulation":
-		scores[2] += 15
-	if sma50_slope > 0:
-		scores[2] += 10
+	# Build metrics dict for scoring
+	metrics = {
+		"sma200_slope": sma200_slope,
+		"sma50_slope": sma50_slope,
+		"price_distance_200ma_pct": price_distance_200ma_pct,
+		"hh": hh,
+		"hl": hl,
+		"vol_ratio": vol_ratio,
+		"vol_ratio_20d": vol_ratio_20d,
+		"volatility_ratio": volatility_ratio,
+		"c_sma50": c_sma50,
+		"c_sma150": c_sma150,
+		"c_sma200": c_sma200,
+		"current_price": current_price,
+		"max_daily_decline_90d": max_daily_decline,
+		"pct_above_52w_low": pct_above_52w_low,
+		"largest_decline": largest_decline,
+		"vol_50avg": vol_50avg,
+		"vol_200avg": vol_200avg,
+	}
 
-	# Stage 3: Increased volatility, MA flattening, distribution
-	if volatility_expanding:
-		scores[3] += 20
-	if abs(sma200_slope) < 0.03 and sma200_slope >= 0:
-		scores[3] += 15
-	if vol_pattern == "distribution":
-		scores[3] += 20
-	if largest_decline < -15:
-		scores[3] += 15
-	if price_above_200 and not (c_sma50 > c_sma150):
-		scores[3] += 15
-
-	# Stage 4: Price < 200MA, downtrend, lower lows
-	if not price_above_200:
-		scores[4] += 25
-	if sma200_slope < -0.02:
-		scores[4] += 20
-	if vol_pattern == "distribution":
-		scores[4] += 15
-	if current_price < c_sma50 < c_sma200:
-		scores[4] += 20
-
-	# Enhanced Stage 3: graduated decline scoring (Fix 6)
-	# Check if this is a momentum correction vs true distribution
-	ma_still_bullish = (c_sma50 > c_sma150 > c_sma200) or (current_price > c_sma200 and sma200_slope > 0.02)
-	if largest_decline < -30:
-		s3_decline_bonus = 30
-	elif largest_decline < -20:
-		s3_decline_bonus = 20
-	elif largest_decline < -15:
-		s3_decline_bonus = 10
-	else:
-		s3_decline_bonus = 0
-	# If price still above 200MA AND MAs still bullish, halve the bonus (momentum correction)
-	if s3_decline_bonus > 0 and price_above_200 and ma_still_bullish:
-		s3_decline_bonus = s3_decline_bonus // 2
-	scores[3] += s3_decline_bonus
-
-	if (c_sma50 > c_sma150 > c_sma200) and not price_above_200:
-		scores[3] += 25  # Bullish MA alignment but price below 200MA = transition zone
-	price_distance_below_200 = (current_price / c_sma200 - 1) * 100
-	if price_distance_below_200 < -10:
-		scores[3] += 15  # Price 10%+ below 200MA
-		scores[4] += 10  # Also contributes to Stage 4
-	if sma200_slope > 0 and not price_above_200:
-		scores[3] += 20  # Rising 200MA but price collapse = distribution
-		scores[4] += 10  # Contributes to Stage 4 when 200MA still rising
-
-	# Stage-specific volume scoring (graduated by vol_grade)
-	# Stage 1: volume contraction (50d avg < 70% of 200d avg)
-	if vol_200avg > 0 and vol_50avg < vol_200avg * 0.7:
-		scores[1] += 10
-	# Stage 2: graduated by accumulation grade
-	if vol_grade in ("A+", "A"):
-		scores[2] += 10
-	elif vol_grade in ("B+", "B"):
-		scores[2] += 5
-	elif vol_grade == "D":
-		scores[2] -= 5
-	elif vol_grade == "E":
-		scores[2] -= 10
-	# Stage 3: distribution grade boosts topping signal
-	if vol_grade in ("D", "E"):
-		scores[3] += 10
-	# Stage 4: severe distribution
-	if vol_grade == "E":
-		scores[4] += 10
-
-	# 20-day volume ratio cross-cutting influence
-	if vol_ratio_20d < 0.5:
-		scores[3] += 10  # Recent volume heavily distribution-weighted
-	if vol_ratio_20d < 0.5 and vol_ratio > 0.8:
-		scores[3] += 5  # 50d vs 20d divergence: early transition signal
-	if vol_ratio_20d < 0.3:
-		scores[4] += 5  # Severe recent distribution
-
-	# Stage 1 overscoring prevention for severe declines
-	if largest_decline < -30:
-		scores[1] -= 20  # Large decline incompatible with Stage 1 consolidation
+	scores, evidences = _compute_all_scores(metrics)
 
 	# Determine stage with highest score (Stage 2 wins ties -- Minervini actionable stage)
 	max_score = max(scores.values())
 	tied_stages = [s for s, v in scores.items() if v == max_score]
-	current_stage = 2 if 2 in tied_stages else min(tied_stages)
-	max_score = scores[current_stage]
+	winning_stage = 2 if 2 in tied_stages else min(tied_stages)
 
-	# Fix 4: Use theoretical maximum for winning stage as denominator
-	stage_max = _STAGE_THEORETICAL_MAX.get(current_stage, 100)
-	confidence = round(min(max_score / stage_max * 100, 100.0), 1)
-
-	# Transition risk: how close is the runner-up stage?
-	sorted_stages = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-	runner_up_stage = sorted_stages[1][0] if len(sorted_stages) > 1 else None
-	runner_up_score = sorted_stages[1][1] if len(sorted_stages) > 1 else 0
-	stage_gap = max_score - runner_up_score
-
-	if runner_up_stage and runner_up_stage == 3 and stage_gap < 20:
-		transition_risk = "high"
-	elif runner_up_stage and runner_up_stage == 3 and stage_gap < 40:
-		transition_risk = "moderate"
-	else:
-		transition_risk = "low"
-
-	# Evidence
-	evidence = {
-		"price_vs_200ma": "above" if price_above_200 else "below",
-		"price_distance_from_200ma_pct": round((current_price / c_sma200 - 1) * 100, 2),
-		"sma200_slope_pct_per_day": round(sma200_slope, 4),
-		"ma_alignment": "bullish (50>150>200)"
-		if c_sma50 > c_sma150 > c_sma200
-		else "bearish"
-		if c_sma50 < c_sma150 < c_sma200
-		else "mixed",
-		"volume_pattern": vol_pattern,
-		"up_down_volume_ratio": round(vol_ratio, 2),
-		"up_down_volume_ratio_20d": round(vol_ratio_20d, 2),
-		"volume_divergence_50d_vs_20d": "deteriorating"
-		if vol_ratio_20d < vol_ratio * 0.7
-		else "improving"
-		if vol_ratio_20d > vol_ratio * 1.3
-		else "stable",
-		"accumulation_days_50d": acc_days,
-		"distribution_days_50d": dist_days,
-		"net_acc_dist": acc_days - dist_days,
-		"volume_grade": vol_grade,
-		"higher_highs": hh,
-		"higher_lows": hl,
-		"swing_highs_used": n_swing_highs,
-		"swing_lows_used": n_swing_lows,
-		"volatility_expanding": volatility_expanding,
-		"largest_decline_pct": round(largest_decline, 2),
-	}
+	# Build output: only non-zero scores
+	non_zero_scores = {str(k): v for k, v in scores.items() if v > 0}
 
 	output_json(
 		{
 			"symbol": symbol,
 			"date": date_str,
 			"current_price": round(current_price, 2),
-			"current_stage": current_stage,
-			"stage_name": STAGE_NAMES[current_stage],
-			"stage_confidence": confidence,
-			"runner_up_stage": runner_up_stage,
-			"runner_up_score": runner_up_score,
-			"stage_gap": stage_gap,
-			"transition_risk": transition_risk,
-			"stage_scores": {f"stage_{k}": v for k, v in scores.items()},
-			"evidence": evidence,
-			"moving_averages": {
-				"sma50": round(c_sma50, 2),
-				"sma150": round(c_sma150, 2),
-				"sma200": round(c_sma200, 2),
-			},
-			"thresholds": {
-				"confidence": f"winning_stage_score / theoretical_max (Stage 1: {_STAGE_THEORETICAL_MAX[1]}, Stage 2: {_STAGE_THEORETICAL_MAX[2]}, Stage 3: {_STAGE_THEORETICAL_MAX[3]}, Stage 4: {_STAGE_THEORETICAL_MAX[4]})",
-				"stage3_decline_scaling": "-15to-20%: +10 | -20to-30%: +20 | >-30%: +30 (halved if price>200MA and MAs bullish)",
-				"hh_hl_method": "swing point detection with 5-bar confirmation on each side",
-			},
+			"stage": winning_stage,
+			"scores": non_zero_scores,
+			"evidences": evidences,
+			"max_scores": "S1:80 | S2:95 | S3:90 | S4:95",
 		}
 	)
 

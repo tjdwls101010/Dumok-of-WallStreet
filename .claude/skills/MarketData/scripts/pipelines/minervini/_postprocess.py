@@ -388,12 +388,35 @@ def compress_margin_tracker(data):
 	return result
 
 
-def strip_moving_averages_from_stage(stage_result):
-	"""Remove moving_averages from stage_analysis (A.2 — keep only in trend_template)."""
-	if not stage_result or stage_result.get("error"):
-		return stage_result
-	result = dict(stage_result)
+def compress_trend_template(tt_result):
+	"""Compress trend_template: remove passed_count/total_count/overall_pass/score_pct/moving_averages/week52.
+
+	Add passed: "N/8". Remove description from each criterion (threshold suffices).
+	"""
+	if not tt_result or tt_result.get("error"):
+		return tt_result
+
+	result = dict(tt_result)
+
+	# Build "N/8" from passed_count/total_count before removing them
+	passed_count = result.pop("passed_count", 0)
+	total_count = result.pop("total_count", 8)
+	result.pop("overall_pass", None)
+	result.pop("score_pct", None)
 	result.pop("moving_averages", None)
+	result.pop("week52", None)
+
+	result["passed"] = f"{passed_count}/{total_count}"
+
+	# Remove description from each criterion (threshold field already covers it)
+	criteria = result.get("criteria", [])
+	if criteria:
+		compressed_criteria = []
+		for c in criteria:
+			entry = {k: v for k, v in c.items() if k != "description"}
+			compressed_criteria.append(entry)
+		result["criteria"] = compressed_criteria
+
 	return result
 
 
@@ -413,10 +436,10 @@ def postprocess_results(results, mode="analyze"):
 	for key in list(processed.keys()):
 		processed[key] = _strip_module_meta(processed[key])
 
-	# A.2: Remove moving_averages from stage_analysis (keep only in trend_template)
-	if "stage_analysis" in processed:
-		processed["stage_analysis"] = strip_moving_averages_from_stage(
-			processed["stage_analysis"])
+	# A.2: Compress trend_template (remove passed_count/total_count/overall_pass/score_pct/moving_averages/week52, add passed: "N/8")
+	if "trend_template" in processed:
+		processed["trend_template"] = compress_trend_template(
+			processed["trend_template"])
 
 	# Compress earnings + add growth_rates_order (I3.7)
 	if "earnings_acceleration" in processed:
@@ -492,13 +515,6 @@ def postprocess_results(results, mode="analyze"):
 				processed["margin_tracker"])
 
 	# --- Iteration 4 noise removal ---
-	# I4.9: Remove swing_highs_used/swing_lows_used from stage_analysis
-	sa = processed.get("stage_analysis")
-	if isinstance(sa, dict) and "evidence" in sa:
-		evidence = sa["evidence"]
-		evidence.pop("swing_highs_used", None)
-		evidence.pop("swing_lows_used", None)
-
 	# I4.10: Remove base_stage_assessment from base_count
 	bc = processed.get("base_count")
 	if isinstance(bc, dict):

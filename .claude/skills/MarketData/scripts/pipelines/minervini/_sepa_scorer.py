@@ -49,9 +49,18 @@ def _score_trend_quality(results):
 	rs_pts = min(15, round(rs_score * 15 / 99)) if rs_score else 0
 	score += rs_pts
 
-	# Stage 2 confidence (0-5)
+	# Stage 2 confidence (0-5) — derived from winning stage score / theoretical max
 	stage = results.get("stage_analysis", {})
-	confidence = stage.get("stage_confidence", 0) if not stage.get("error") else 0
+	if not stage.get("error"):
+		stage_scores = stage.get("scores", {})
+		winning_stage = stage.get("stage", 0)
+		# Theoretical max per stage
+		_max_map = {1: 80, 2: 95, 3: 90, 4: 95}
+		winning_score = stage_scores.get(str(winning_stage), 0)
+		theo_max = _max_map.get(winning_stage, 95)
+		confidence = min(winning_score / theo_max * 100, 100.0) if theo_max > 0 else 0
+	else:
+		confidence = 0
 	conf_pts = min(5, round(confidence * 5 / 100))
 	score += conf_pts
 
@@ -211,7 +220,7 @@ def compute_sepa_score(results, risk_data):
 	hard_gates = []
 
 	stage = results.get("stage_analysis", {})
-	current_stage = stage.get("current_stage") if not stage.get("error") else None
+	current_stage = stage.get("stage") if not stage.get("error") else None
 	stage_passed = current_stage == 2
 	hard_gates.append({
 		"gate": "stage_2",

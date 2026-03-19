@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minervini SEPA Pipeline v1.2.0 (Pipeline-Complete): SEPA analysis with
+"""Minervini SEPA Pipeline v1.3.0 (Pipeline-Complete): SEPA analysis with
 composite scoring, risk assessment, signal synthesis, and market leadership.
 
 Orchestrates the complete Minervini SEPA (Specific Entry Point Analysis) by
@@ -13,14 +13,25 @@ Fundamental Strength, Setup Readiness, Risk Profile. Hard gates: Stage 2 + Trend
 Template 8/8 must pass or stock is classified "avoid". Dimensions are always
 computed (even on hard_gate_fail) for informational purposes.
 
+Output structure (analyze): ticker, sepa_verdict, signal, trend (trend_template,
+stage_analysis, rs_detail, base_count), fundamentals, setup, risk, company,
+metadata.
+
+stage_analysis output: stage (int), scores (non-zero only), evidences (9 fields
+with value + thresholds for full score traceability), max_scores string.
+
+trend_template output (compressed): passed "N/8", criteria (id, passed, value,
+threshold — no description/moving_averages/week52/passed_count/total_count/
+overall_pass/score_pct).
+
 Commands:
 	analyze: Full SEPA analysis for a single ticker (~20 modules in parallel,
 		SEPA composite score 0-100, risk assessment with stop-loss/R:R/position
-		sizing, unified entry/exit signals, 8-key JSON output grouped as
-		trend_qualification, technical_setup, fundamentals, risk_assessment).
-		Module outputs stripped of symbol/date/current_price (top-level ticker
-		is canonical). RS ranking integrated as rs_detail in trend_qualification.
-		Sell signals canonical in risk_assessment (exit_signals has ref only).
+		sizing, unified entry/exit signals, output grouped as
+		sepa_verdict, signal, trend, fundamentals, setup, risk, company,
+		metadata). Module outputs stripped of symbol/date/current_price
+		(top-level ticker is canonical). RS ranking integrated as rs_detail
+		in trend. Sell signals canonical in risk (active only).
 	screen: Screen for SEPA candidates using Finviz presets (finviz screen ->
 		trend template filter -> Code 33 + RS ranking on passes -> sorted
 		candidates with screening scores + thresholds)
@@ -58,22 +69,24 @@ Args:
 
 Returns:
 	For analyze:
-		dict with ticker, sepa_score (score 0-100, classification, dimensions
-		always computed, hard_gate_fail/reasons, thresholds), signal (overall
+		dict with ticker, sepa_verdict (score 0-100, classification,
+		hard_gate_fail, hard_gates, thresholds), signal (overall action
 		BUY_READY/WATCH/HOLD/REDUCE/SELL with thresholds, entry_signals,
-		exit_signals as ref-only, volume_confirmation with thresholds, reasons),
-		trend_qualification (trend_template, stage_analysis, rs_detail,
-		base_count), technical_setup (vcp, entry_patterns, pocket_pivot
-		compressed, low_cheat, tight_closes max 3 clusters, volume_analysis,
-		closing_range compressed), fundamentals (earnings_acceleration with
-		growth_rates_order, earnings_surprise max 4 quarters,
-		estimate_revisions compressed to direction/revision_pcts/growth,
-		forward_pe compressed, margin_tracker trajectory max 3 quarters,
-		info stripped of MA/52w duplicates), risk_assessment (sell_signals
-		active only, stock_character, risk_gate with stop_loss/
-		risk_reward_ratio/risk_reward_thresholds/position_sizing),
-		metadata (next_earnings_date, missing_components as list,
-		modules_run, execution_time_seconds).
+		exit_signals, volume_confirmation, reasons),
+		trend (dimension_score, trend_template compressed with passed "N/8",
+		stage_analysis with stage/scores/evidences/max_scores, rs_detail,
+		base_count), fundamentals (dimension_score, earnings_acceleration
+		with growth_rates_order, earnings_surprise max 4 quarters,
+		estimate_revisions compressed, forward_pe compressed,
+		margin_tracker trajectory max 3 quarters),
+		setup (dimension_score, vcp, entry_patterns, pocket_pivot compressed,
+		low_cheat, tight_closes max 3 clusters, volume_analysis,
+		closing_range compressed),
+		risk (dimension_score, sell_signals active only, stock_character,
+		risk_gate with stop_loss/risk_reward_ratio/position_sizing),
+		company (info stripped of MA/52w duplicates),
+		metadata (next_earnings_date, missing_components, modules_run,
+		execution_time_seconds).
 
 	For screen:
 		dict with candidates (list sorted by screen_score with ticker,
@@ -108,7 +121,7 @@ Returns:
 
 Example:
 	>>> python -m pipelines.minervini analyze NVDA
-	{"ticker": "NVDA", "sepa_score": {"sepa_score": 72, "classification": "actionable", ...}, ...}
+	{"ticker": "NVDA", "sepa_verdict": {"score": 72, "classification": "actionable", ...}, ...}
 
 	>>> python -m pipelines.minervini screen --preset minervini_leaders
 	{"candidates": [...], "thresholds": "...", "metadata": {"total_screened": 50, ...}}
@@ -137,19 +150,19 @@ Notes:
 	- Graceful degradation: analysis continues with available data when modules fail
 	- SEPA score marked "provisional" if >2 modules failed
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
+	- stage_analysis: factor-based scoring (Ch.5), 9 evidences with value+thresholds, max S1:80|S2:95|S3:90|S4:95
+	- trend_template: compressed to passed "N/8" + criteria without description/moving_averages/week52
 	- Screen uses finviz presets (minervini_leaders default) with TT filter pass-through
 	- Market leaders verdict uses new highs/lows ratio + distribution day count + leader breaking status
 	- Compare runs full analysis per ticker in parallel
 	- Recheck integrates post_breakout.monitor with sell_signals for hold/sell decision
 	- All outputs self-documenting with thresholds fields (Section 2.8)
 	- Module outputs stripped of symbol/date/current_price duplicates
-	- Sell signals canonical location: risk_assessment.sell_signals (active only)
-	- RS ranking canonical location: trend_qualification.rs_detail
+	- Sell signals canonical location: risk.sell_signals (active only)
+	- RS ranking canonical location: trend.rs_detail
 	- Data compression: tight_closes (3 recent), pocket_pivot (summary), closing_range (ratios only)
-	- I3 compression: earnings_surprise (4 quarters), estimate_revisions (summary),
-	  forward_pe (6 fields), info (no MA/52w), margin_tracker (3 quarters)
-	- I3 additions: growth_rates_order, next_earnings_date, screen sector/industry,
-	  compare dimensions breakdown
+	- Earnings compression: surprise (4 quarters), revisions (summary), forward_pe (6 fields),
+	  info (no MA/52w), margin_tracker (3 quarters), growth_rates_order added
 """
 
 import argparse

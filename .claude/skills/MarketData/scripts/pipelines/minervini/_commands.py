@@ -515,7 +515,7 @@ def cmd_compare(args):
 			"classification": classification,
 			"dimensions": {k: v["score"] for k, v in dim_scores.items()},
 			"hard_gate_fail": hard_gate_fail,
-			"current_stage": stage.get("current_stage") if not stage.get("error") else None,
+			"current_stage": stage.get("stage") if not stage.get("error") else None,
 			"tt_pass": tt.get("overall_pass") if not tt.get("error") else None,
 			"tt_score_pct": tt.get("score_pct") if not tt.get("error") else None,
 			"rs_score": rs.get("rs_score") if not rs.get("error") else None,
@@ -609,7 +609,7 @@ def cmd_recheck(args):
 
 	post_signal = post.get("hold_sell_signal", "hold") if not post.get("error") else "hold"
 	sell_severity = sell.get("severity", "healthy") if not sell.get("error") else "healthy"
-	current_stage = stage.get("current_stage") if not stage.get("error") else None
+	current_stage = stage.get("stage") if not stage.get("error") else None
 	tt_pass = tt.get("overall_pass") if not tt.get("error") else None
 
 	# SELL conditions
