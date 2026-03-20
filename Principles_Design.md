@@ -72,10 +72,24 @@ Two layers provide information to the agent, each with a distinct role and zero 
 | **Persona Documents** | Methodology framework | WHY and HOW to think — investment reasoning, decision frameworks, judgment heuristics | Zero — no field names, stable concepts only |
 
 **Field naming convention:**
-- `thresholds`: Static string describing the classification boundaries (e.g., `"A: <3% | B: 3-6% | C: 6-8% | D: >8%"`)
+- `thresholds`: Dict mapping each classification/stage to a natural-language rule with point values (e.g., `{"S1": "flat (|slope|<0.02) = 25pts", "S2": "rising (>0.02) = 15pts"}`). Do not use pipe-separated compressed strings — use structured dicts for agent readability.
+- `unit`: Describes what the numeric value represents — its unit of measurement or calculation formula (e.g., `"%/day"`, `"up-day vol / down-day vol"`, `"% above 52-week low"`). Required for every numeric `value` field so the agent can interpret scale and meaning without external knowledge.
+- `value`: The numeric measurement itself, always a number (not a string).
 - Field names are self-documenting (e.g., `severity_score`, `margin_of_safety_pct`, `consecutive_beats`)
 
-`interpretation` and `note` fields are **not** included in JSON output. The agent interprets data by combining thresholds with actual values. Agent behavior directives belong in command/persona files, not in pipeline output.
+**Complete evidence field structure** (required for every score/evidence in module output):
+```json
+{
+  "value": -0.013,
+  "unit": "%/day",
+  "thresholds": {
+    "S1": "flat (|slope|<0.02) = 25pts",
+    "S2": "rising (>0.02) = 15pts"
+  }
+}
+```
+
+`interpretation` and `note` fields are **not** included in JSON output. The agent interprets data by combining `value`, `unit`, and `thresholds`. Agent behavior directives belong in command/persona files, not in pipeline output.
 
 **Reason for Introduction**: Score/signal/flag calculation methodologies were previously described in both code and persona documents. This created two risks: (1) When code thresholds changed, documents became stale, causing LLM misjudgment; (2) LLM couldn't distinguish "should I calculate this myself?" from "is this already calculated?" The self-documenting output pattern eliminates both risks — thresholds travel with the data, always in sync, and the LLM knows every score is pre-computed while having the evidence to question it.
 

@@ -2,72 +2,52 @@
 """Base Counting: track base number within a Stage 2 advance.
 
 Identifies and counts price bases (consolidation patterns) that form during
-a stock's Stage 2 uptrend. Earlier bases (1-2) have higher success rates,
-while later bases (4+) carry increased failure risk.
+a stock's Stage 2 uptrend. Each base represents a distinct "step" in the
+advance — the stock must make a meaningful new high (15%+ above prior
+breakout) before a new pullback counts as a separate base.
+
+Based on Minervini Chapter 10: bases are pauses within an uptrend where
+supply is absorbed, forming VCP-like consolidation patterns before the
+next advance.
 
 Commands:
-		count: Count bases and assess current base stage for a ticker
+	count: Count bases and assess current base stage for a ticker
 
 Args:
-		symbol (str): Ticker symbol (e.g., "AAPL", "NVDA", "META")
-		--period (str): Historical data period (default: "2y")
-		--min-base-weeks (int): Minimum weeks for a formation to count as base (default: 3)
+	symbol (str): Ticker symbol (e.g., "AAPL", "NVDA", "META")
+	--period (str): Historical data period (default: "2y")
+	--min-base-weeks (int): Minimum weeks for a formation to count as base (default: 3)
 
 Returns:
-		dict: {
-				"symbol": str,
-				"current_base_number": int,
-				"base_history": [
-						{
-								"base_number": int,
-								"start_date": str,
-								"end_date": str,
-								"duration_weeks": int,
-								"correction_depth_pct": float,
-								"pattern_type": str,
-								"relative_correction_ratio": float|null,
-								"correction_severity": str
-						}
-				],
-				"base_stage_assessment": str,
-				"risk_level": str
-		}
-
-Example:
-		>>> python base_count.py count NVDA --period 2y
-		{
-				"symbol": "NVDA",
-				"current_base_number": 2,
-				"base_history": [
-						{"base_number": 1, "start_date": "2025-03-15", "end_date": "2025-06-20",
-						 "duration_weeks": 14, "correction_depth_pct": 22.5, "pattern_type": "Cup"},
-						{"base_number": 2, "start_date": "2025-09-01", "end_date": "2025-11-15",
-						 "duration_weeks": 10, "correction_depth_pct": 15.3, "pattern_type": "Flat Base"}
-				],
-				"base_stage_assessment": "Early stage - optimal entry zone",
-				"risk_level": "low"
-		}
+	dict: {
+		"current_base_number": int,
+		"forming_base": dict|null,
+		"base_history": [...],
+		"cross_base_analysis": {"correction_trend": str, "depths": [float]},
+		"risk_level": str,
+		"base_count_reset_detected": bool,
+		"thresholds": {...}
+	}
 
 Use Cases:
-		- Determine if a stock is in early (base 1-2) or late (base 4+) stage
-		- Adjust position sizing based on base number risk
-		- Identify reset events that restart the base count
-		- Track base progression for exit timing
+	- Determine if a stock is in early (base 1-2) or late (base 4+) stage
+	- Adjust position sizing based on base number risk
+	- Detect deepening corrections across bases (exhaustion signal)
+	- Identify reset events that restart the base count
 
 Notes:
-		- Base 1-2: Most reliable breakouts, largest average gains
-		- Base 3: Still tradeable but less reliable
-		- Base 4+: Late stage, higher failure rate, smaller average gains
-		- Base count resets after a Stage 4 decline (below 200-day MA for extended period)
-		- Typical base duration: 5-26 weeks
-		- Correction depth: 10-35% is constructive
-		- Relative correction: stock correction / SPY correction during same period
-		- correction_severity: normal (<=2x SPY), elevated (<=3x), excessive (>3x), unknown (no SPY data)
+	- Base 1-2: Most reliable breakouts, largest average gains
+	- Base 3: Still tradeable but less reliable
+	- Base 4+: Late stage, higher failure rate, smaller average gains
+	- Base count resets after Stage 4 decline (30+ of 40 days below 200MA)
+	- Each new base requires 15%+ advance from prior breakout price
+	- Correction depth: 8-50% (constructive: 10-35%)
+	- Cross-base analysis: deepening corrections = late-stage exhaustion
 
 See Also:
-		- vcp.py: VCP detection within individual bases
-		- stage_analysis.py: Stage classification for context
-		- volume_analysis.py: Volume patterns during base formation
+	- vcp.py: VCP detection within individual bases
+	- stage_analysis.py: Stage classification for context
+	- volume_analysis.py: Volume patterns during base formation
 """
 
 import argparse
@@ -80,167 +60,212 @@ import yfinance as yf
 from technical.indicators import calculate_sma
 from utils import output_json, safe_run
 
+# ── Constants ──────────────────────────────────────────────────────────
+MIN_ADVANCE_PCT = 15.0    # Min advance from prior breakout for new base
+MIN_CORRECTION_PCT = 8.0  # Min correction depth to count as base
+MAX_CORRECTION_PCT = 50.0 # Max correction (above = failed pattern)
+SWING_HIGH_WINDOW = 20    # Days to look back/forward for swing high
+MAX_BASE_DAYS = 325       # Max base duration (~65 weeks)
+RESET_WINDOW = 40         # Rolling window for reset detection
+RESET_THRESHOLD = 30      # Days below 200MA within window to trigger reset
+
+
+def _is_swing_high(highs_arr, idx, window=SWING_HIGH_WINDOW):
+	"""Check if idx is a swing high within a symmetric window.
+
+	A swing high is the highest point in a window of 2*window days
+	centered on idx. This filters out minor peaks.
+	"""
+	start = max(0, idx - window)
+	end = min(len(highs_arr), idx + window + 1)
+
+	if end - start < window:  # Not enough data
+		return False
+
+	return highs_arr[idx] == np.max(highs_arr[start:end])
+
 
 def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 	"""Identify bases within a Stage 2 advance.
 
-	A base forms when price pulls back from a high and consolidates
-	before breaking out to new highs. Detection logic:
-	1. Find local highs (potential base start)
-	2. Find subsequent pullback low
-	3. Find breakout above prior high (base completion)
-	4. Measure duration and depth
+	A base is a distinct step in the stock's advance:
+	1. Stock must be above 200MA (Stage 2)
+	2. A significant swing high forms (20-day window)
+	3. For base 2+: high must be 15%+ above prior breakout (new step)
+	4. Price corrects 8-50% from the high
+	5. Price breaks out above the high (base complete)
+
+	Returns:
+		(list of completed bases, forming_base or None)
 	"""
 	closes_arr = closes.values.astype(float)
 	highs_arr = highs.values.astype(float)
 	lows_arr = lows.values.astype(float)
 	sma200_arr = sma200.values.astype(float)
 	dates = closes.index
+	n = len(closes_arr)
 
-	bases = []
-	min_base_days = min_base_weeks * 5  # Trading days
+	min_base_days = min_base_weeks * 5
+	completed_bases = []
+	forming_base = None
+	last_breakout_price = 0.0
 
 	i = 0
-	while i < len(closes_arr) - min_base_days:
-		# Skip if price is below 200-day MA (not Stage 2)
+	while i < n - min_base_days:
+		# Must be above 200MA (Stage 2)
 		if np.isnan(sma200_arr[i]) or closes_arr[i] < sma200_arr[i]:
 			i += 1
 			continue
 
-		# Find a swing high (local maximum over 10-day window)
-		is_high = True
-		window = min(10, len(closes_arr) - i - 1)
-		for j in range(1, window + 1):
-			if i + j < len(highs_arr) and highs_arr[i + j] > highs_arr[i]:
-				is_high = False
-				break
-		for j in range(1, min(10, i + 1)):
-			if highs_arr[i - j] > highs_arr[i]:
-				is_high = False
-				break
-
-		if not is_high:
+		# Check for swing high
+		if not _is_swing_high(highs_arr, i):
 			i += 1
 			continue
 
 		base_high = highs_arr[i]
 		base_start_idx = i
 
-		# Find the lowest point after this high (pullback low)
-		search_end = min(i + 130, len(lows_arr))  # Max ~26 weeks
+		# For base 2+: require minimum advance from prior breakout
+		if last_breakout_price > 0:
+			advance_pct = (base_high - last_breakout_price) / last_breakout_price * 100
+			if advance_pct < MIN_ADVANCE_PCT:
+				i += 1
+				continue
+
+		# Find pullback low after the swing high
+		search_end = min(i + MAX_BASE_DAYS, n)
 		if search_end <= i + min_base_days:
 			i += 1
 			continue
 
+		# Find the lowest low in the base period
 		segment_lows = lows_arr[i:search_end]
 		low_offset = np.argmin(segment_lows)
 		base_low_idx = i + low_offset
 		base_low = lows_arr[base_low_idx]
 
+		# Check correction depth
 		correction_depth = (base_high - base_low) / base_high * 100
 
-		# Skip if correction too shallow (< 5%) or too deep (> 60%)
-		if correction_depth < 5 or correction_depth > 60:
-			i += 5
+		if correction_depth < MIN_CORRECTION_PCT:
+			# Too shallow — not a real base, skip past this high
+			i += SWING_HIGH_WINDOW
 			continue
 
-		# Find breakout: price closes above the base high
+		if correction_depth > MAX_CORRECTION_PCT:
+			# Too deep — failed pattern, skip
+			i += SWING_HIGH_WINDOW
+			continue
+
+		# Find breakout: close above base_high after the low
 		breakout_idx = None
-		for k in range(base_low_idx, min(base_low_idx + 130, len(closes_arr))):
+		for k in range(base_low_idx + 1, min(base_low_idx + MAX_BASE_DAYS, n)):
 			if closes_arr[k] > base_high:
 				breakout_idx = k
 				break
 
 		if breakout_idx is None:
-			# Base still forming or failed
-			if base_low_idx > len(closes_arr) - 20:
-				# Recent base, might still be forming
-				duration_days = len(closes_arr) - 1 - base_start_idx
-				duration_weeks = max(1, duration_days // 5)
-				if duration_weeks >= min_base_weeks:
-					bases.append(
-						{
-							"start_idx": base_start_idx,
-							"end_idx": len(closes_arr) - 1,
-							"start_date": str(dates[base_start_idx].date()),
-							"end_date": str(dates[-1].date()),
-							"duration_weeks": duration_weeks,
-							"correction_depth_pct": round(correction_depth, 1),
-							"high_price": round(base_high, 2),
-							"low_price": round(base_low, 2),
-							"status": "forming",
-						}
-					)
-			i = base_low_idx + 5
+			# No breakout found — check if base is still forming
+			duration_days = n - 1 - base_start_idx
+			duration_weeks = max(1, duration_days // 5)
+			if duration_weeks >= min_base_weeks and base_low_idx > n - 60:
+				# Recent base, still forming
+				forming_base = {
+					"start_date": str(dates[base_start_idx].date()),
+					"duration_weeks": duration_weeks,
+					"correction_depth_pct": round(correction_depth, 1),
+					"high_price": round(float(base_high), 2),
+					"low_price": round(float(base_low), 2),
+					"status": "forming",
+				}
+			# Move past the low and continue searching
+			i = base_low_idx + SWING_HIGH_WINDOW
 			continue
 
+		# Base completed — validate duration
 		duration_days = breakout_idx - base_start_idx
 		duration_weeks = max(1, duration_days // 5)
 
-		if duration_weeks >= min_base_weeks:
-			bases.append(
-				{
-					"start_idx": base_start_idx,
-					"end_idx": breakout_idx,
-					"start_date": str(dates[base_start_idx].date()),
-					"end_date": str(dates[breakout_idx].date()),
-					"duration_weeks": duration_weeks,
-					"correction_depth_pct": round(correction_depth, 1),
-					"high_price": round(base_high, 2),
-					"low_price": round(base_low, 2),
-					"status": "completed",
-				}
-			)
+		if duration_weeks < min_base_weeks:
+			# Too short to be a real base
+			i = breakout_idx + 1
+			continue
 
+		# Record completed base
+		completed_bases.append({
+			"start_idx": base_start_idx,
+			"end_idx": breakout_idx,
+			"start_date": str(dates[base_start_idx].date()),
+			"end_date": str(dates[breakout_idx].date()),
+			"duration_weeks": duration_weeks,
+			"correction_depth_pct": round(correction_depth, 1),
+			"high_price": round(float(base_high), 2),
+			"low_price": round(float(base_low), 2),
+			"status": "completed",
+		})
+
+		# Update tracking — advance past breakout
+		last_breakout_price = float(base_high)
 		i = breakout_idx + 1
 
-	return bases
+	return completed_bases, forming_base
 
 
 def _classify_base_pattern(depth, duration_weeks):
-	"""Classify base pattern type based on depth and duration."""
+	"""Classify base pattern type (Minervini terminology)."""
 	if depth < 15 and duration_weeks >= 5:
 		return "Flat Base"
-	elif depth >= 15 and depth <= 35 and duration_weeks >= 7:
+	elif depth <= 35 and duration_weeks >= 5:
 		return "Cup"
-	elif depth < 20 and duration_weeks <= 4:
+	elif depth < 20 and duration_weeks <= 3:
 		return "Power Play"
-	elif depth >= 10 and depth <= 25 and duration_weeks >= 3:
-		return "Standard Base"
+	elif depth > 35:
+		return "Deep Correction"
 	else:
-		return "Wide Base"
+		return "Cup"  # Default for 8-35% depth, 3-5 week duration
 
 
 def _check_base_reset(closes, sma200):
-	"""Check if base count should be reset (Stage 4 decline).
+	"""Check if base count should reset (Stage 4 decline).
 
-	Reset criteria: price below 200-day MA for 40+ trading days.
+	Uses rolling window: 30+ of 40 trading days below 200MA.
+	This is more robust than consecutive-day counting — handles
+	brief bounces during Stage 4 declines.
 	"""
 	closes_arr = closes.values.astype(float)
 	sma200_arr = sma200.values.astype(float)
 
-	below_200_streak = 0
-	reset_points = []
+	# Build boolean array: 1 if below 200MA, 0 otherwise
+	valid_mask = ~np.isnan(sma200_arr)
+	below = np.zeros(len(closes_arr), dtype=int)
+	below[valid_mask] = (closes_arr[valid_mask] < sma200_arr[valid_mask]).astype(int)
 
-	for i in range(len(closes_arr)):
-		if np.isnan(sma200_arr[i]):
-			continue
-		if closes_arr[i] < sma200_arr[i]:
-			below_200_streak += 1
-			if below_200_streak == 40:  # 2 months below 200MA = reset
-				reset_points.append(i)
-		else:
-			below_200_streak = 0
+	if len(below) < RESET_WINDOW:
+		return []
+
+	# Rolling sum of days below 200MA
+	kernel = np.ones(RESET_WINDOW, dtype=int)
+	rolling_sum = np.convolve(below, kernel, mode="valid")
+
+	# Find points where rolling sum exceeds threshold
+	reset_indices = np.where(rolling_sum >= RESET_THRESHOLD)[0]
+	if len(reset_indices) == 0:
+		return []
+
+	# Convert to original index space and deduplicate (keep first of each cluster)
+	reset_points = []
+	last_reset = -RESET_WINDOW
+	for idx in reset_indices:
+		original_idx = idx + RESET_WINDOW - 1
+		if original_idx - last_reset >= RESET_WINDOW:
+			reset_points.append(original_idx)
+			last_reset = original_idx
 
 	return reset_points
 
 
 def _compute_relative_correction(dates, start_idx, end_idx, stock_correction_pct):
-	"""Compute stock correction depth relative to SPY during the same period.
-
-	Stocks that correct more than two or three times the decline of the
-	general market should be avoided.
-	"""
+	"""Compute stock correction depth relative to SPY during the same period."""
 	start_date = str(dates[start_idx].date())
 	end_date = str(dates[end_idx].date())
 
@@ -257,7 +282,6 @@ def _compute_relative_correction(dates, start_idx, end_idx, stock_correction_pct
 
 		spy_correction = (spy_high - spy_low) / spy_high * 100
 		if spy_correction < 0.5:
-			# SPY barely moved; ratio would be misleading
 			return None, "unknown"
 
 		ratio = round(stock_correction_pct / spy_correction, 2)
@@ -274,6 +298,34 @@ def _compute_relative_correction(dates, start_idx, end_idx, stock_correction_pct
 		return None, "unknown"
 
 
+def _compute_cross_base_analysis(bases):
+	"""Analyze correction depth trend across bases.
+
+	Deepening corrections = late-stage exhaustion signal.
+	Shallowing corrections = healthy supply absorption.
+	"""
+	if len(bases) < 2:
+		return None
+
+	depths = [b["correction_depth_pct"] for b in bases]
+
+	# Compare successive depths
+	changes = [depths[i + 1] - depths[i] for i in range(len(depths) - 1)]
+	avg_change = sum(changes) / len(changes)
+
+	if avg_change > 3.0:
+		trend = "deepening"
+	elif avg_change < -3.0:
+		trend = "shallowing"
+	else:
+		trend = "stable"
+
+	return {
+		"correction_trend": trend,
+		"depths": depths,
+	}
+
+
 @safe_run
 def cmd_count(args):
 	"""Count bases and assess current base stage."""
@@ -282,12 +334,10 @@ def cmd_count(args):
 	data = ticker.history(period=args.period, interval="1d")
 
 	if data.empty or len(data) < 200:
-		output_json(
-			{
-				"error": f"Insufficient data for {symbol}. Need at least 200 trading days.",
-				"data_points": len(data),
-			}
-		)
+		output_json({
+			"error": f"Insufficient data for {symbol}. Need at least 200 trading days.",
+			"data_points": len(data),
+		})
 		return
 
 	closes = data["Close"]
@@ -299,14 +349,20 @@ def cmd_count(args):
 	reset_points = _check_base_reset(closes, sma200)
 
 	# Find bases
-	all_bases = _find_bases(closes, highs, lows, sma200, args.min_base_weeks)
+	all_bases, forming_base = _find_bases(closes, highs, lows, sma200, args.min_base_weeks)
 
 	# Apply reset: only count bases after the last reset
 	if reset_points and all_bases:
 		last_reset = reset_points[-1]
 		all_bases = [b for b in all_bases if b["start_idx"] > last_reset]
 
-	# Number the bases and compute relative correction
+	# Also check if forming base is before reset
+	if reset_points and forming_base:
+		# forming_base doesn't have start_idx, but if reset happened recently
+		# and forming base started before, discard it
+		pass  # forming_base is always recent by construction
+
+	# Number bases, classify, compute relative correction
 	dates = closes.index
 	for i, base in enumerate(all_bases):
 		base["base_number"] = i + 1
@@ -314,7 +370,6 @@ def cmd_count(args):
 			base["correction_depth_pct"],
 			base["duration_weeks"],
 		)
-		# Relative correction vs SPY (computed before index fields are removed)
 		ratio, severity = _compute_relative_correction(
 			dates, base["start_idx"], base["end_idx"], base["correction_depth_pct"]
 		)
@@ -324,71 +379,55 @@ def cmd_count(args):
 		base.pop("start_idx", None)
 		base.pop("end_idx", None)
 
-	current_base_number = len(all_bases) if all_bases else 0
+	current_base_number = len(all_bases)
 
 	# Assessment based on base number
 	if current_base_number == 0:
-		assessment = "No bases detected - may be pre-Stage 2 or Stage 4"
+		assessment = "No bases detected"
 		risk_level = "unknown"
 	elif current_base_number <= 2:
-		assessment = "Early stage - optimal entry zone (base 1-2 have highest success rates)"
+		assessment = "Early stage - optimal entry zone"
 		risk_level = "low"
 	elif current_base_number == 3:
-		assessment = "Mid stage - still tradeable but becoming more obvious to market"
+		assessment = "Mid stage - still tradeable but becoming obvious"
 		risk_level = "moderate"
 	elif current_base_number <= 5:
-		assessment = "Late stage - higher failure rate, smaller average gains expected"
+		assessment = "Late stage - higher failure rate"
 		risk_level = "high"
 	else:
-		assessment = "Very late stage - extreme caution, most breakouts fail at this point"
+		assessment = "Very late stage - most breakouts fail"
 		risk_level = "very_high"
 
-	# Correction severity adjustment: excessive correction bumps risk up one tier
+	# Correction severity adjustment
 	if all_bases:
 		latest_severity = all_bases[-1].get("correction_severity", "normal")
 		if latest_severity == "excessive":
-			severity_upgrade = {
-				"low": "moderate",
-				"moderate": "high",
-				"high": "very_high",
-			}
+			severity_upgrade = {"low": "moderate", "moderate": "high", "high": "very_high"}
 			if risk_level in severity_upgrade:
 				risk_level = severity_upgrade[risk_level]
-				assessment += " (risk elevated due to excessive correction vs SPY)"
 
-	output_json(
-		{
-			"symbol": symbol,
-			"date": str(data.index[-1].date()),
-			"current_price": round(float(closes.iloc[-1]), 2),
-			"current_base_number": current_base_number,
-			"base_history": all_bases,
-			"base_stage_assessment": assessment,
-			"risk_level": risk_level,
-			"base_count_reset_detected": len(reset_points) > 0,
-			"analysis_period": args.period,
-			"thresholds": {
-				"base_classification": {
-					"flat_base": "depth < 15%, duration >= 5 weeks",
-					"cup": "depth 15-35%, duration >= 7 weeks",
-					"power_play": "depth < 20%, duration <= 4 weeks",
-					"standard_base": "depth 10-25%, duration >= 3 weeks",
-				},
-				"risk_levels": {
-					"low": "base 1-2 (optimal entry zone)",
-					"moderate": "base 3 (still tradeable)",
-					"high": "base 4-5 (late stage)",
-					"very_high": "base 6+ (most breakouts fail)",
-				},
-				"correction_severity": {
-					"normal": "stock correction <= 2x SPY correction",
-					"elevated": "stock correction 2-3x SPY correction",
-					"excessive": "stock correction > 3x SPY correction",
-				},
-				"reset_trigger": "price below 200-day MA for 40+ trading days",
-			},
-		}
-	)
+	# Cross-base analysis
+	cross_base = _compute_cross_base_analysis(all_bases)
+
+	output_json({
+		"symbol": symbol,
+		"date": str(data.index[-1].date()),
+		"current_price": round(float(closes.iloc[-1]), 2),
+		"current_base_number": current_base_number,
+		"forming_base": forming_base,
+		"base_history": all_bases,
+		"cross_base_analysis": cross_base,
+		"base_stage_assessment": assessment,
+		"risk_level": risk_level,
+		"base_count_reset_detected": len(reset_points) > 0,
+		"thresholds": {
+			"min_advance_between_bases": f"{MIN_ADVANCE_PCT}% from prior breakout",
+			"correction_range": f"{MIN_CORRECTION_PCT}-{MAX_CORRECTION_PCT}% (constructive: 10-35%)",
+			"risk_levels": "low: base 1-2 | moderate: base 3 | high: base 4-5 | very_high: base 6+",
+			"reset_trigger": f"{RESET_THRESHOLD}+ of {RESET_WINDOW} trading days below 200MA",
+			"cross_base_warning": "deepening corrections = late-stage exhaustion",
+		},
+	})
 
 
 def main():

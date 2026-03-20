@@ -160,7 +160,7 @@ def cmd_check(args):
 			"description": "200-day MA trending up (at least 1 month)",
 			"passed": c3_pass,
 			"value": f"SMA200 now={current_sma200:.2f} vs 1mo ago={sma200_1mo_ago:.2f} ({c3_change:+.2f}%)",
-			"threshold": "SMA200 rising over last month",
+			"threshold": "SMA200 rising for 1+ month (4-5 months preferred)",
 		}
 	)
 

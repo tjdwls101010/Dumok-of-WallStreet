@@ -37,7 +37,7 @@ Returns:
 				"proximity_to_lows": {"value": float, "thresholds": str},
 				"50ma_momentum": {"value": float, "thresholds": str}
 			},
-			"max_scores": "S1:80 | S2:95 | S3:90 | S4:95"
+			"max_scores": "S1:80 | S2:95 | S3:90 | S4:100"
 		}
 
 	For transitions:
@@ -64,7 +64,7 @@ Example:
 			"200ma_slope": {"value": 0.0312, "thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20"},
 			...
 		},
-		"max_scores": "S1:80 | S2:95 | S3:90 | S4:95"
+		"max_scores": "S1:80 | S2:95 | S3:90 | S4:100"
 	}
 
 Use Cases:
@@ -111,7 +111,7 @@ STAGE_NAMES = {
 }
 
 # Theoretical maximum scores per stage (sum of all factor points)
-_STAGE_THEORETICAL_MAX = {1: 80, 2: 95, 3: 90, 4: 95}
+_STAGE_THEORETICAL_MAX = {1: 80, 2: 95, 3: 90, 4: 100}
 
 
 def _ma_slope(series, lookback=20):
@@ -168,31 +168,37 @@ def _find_swing_points(series, confirmation_bars=5):
 
 
 def _higher_highs_higher_lows(highs, lows, window=20, count=3):
-	"""Check for pattern of higher highs and higher lows using swing point detection.
+	"""Check for pattern of higher highs/lows and lower highs/lows using swing points.
 
 	Uses 5-bar confirmation to find swing highs and swing lows.
 	HH = True if last 2 swing highs are ascending.
 	HL = True if last 2 swing lows are ascending.
+	LH = True if last 2 swing highs are descending (Stage 4 downtrend).
+	LL = True if last 2 swing lows are descending (Stage 4 downtrend).
 	"""
 	if len(highs) < window * count:
-		return False, False, 0, 0
+		return False, False, False, False, 0, 0
 
 	swing_highs, _ = _find_swing_points(highs, confirmation_bars=5)
 	_, swing_lows = _find_swing_points(lows, confirmation_bars=5)
 
 	# HH: last 2 swing highs are ascending
 	hh = False
+	lh = False
 	if len(swing_highs) >= 2:
 		last_two_highs = swing_highs[-2:]
 		hh = last_two_highs[1][1] > last_two_highs[0][1]
+		lh = last_two_highs[1][1] < last_two_highs[0][1]
 
 	# HL: last 2 swing lows are ascending
 	hl = False
+	ll = False
 	if len(swing_lows) >= 2:
 		last_two_lows = swing_lows[-2:]
 		hl = last_two_lows[1][1] > last_two_lows[0][1]
+		ll = last_two_lows[1][1] < last_two_lows[0][1]
 
-	return hh, hl, len(swing_highs), len(swing_lows)
+	return hh, hl, lh, ll, len(swing_highs), len(swing_lows)
 
 
 def _volume_trend(volumes, closes, lookback=50):
@@ -244,6 +250,81 @@ def _max_daily_decline_90d(closes):
 	return float(daily_returns.min()) if len(daily_returns) > 1 else 0.0
 
 
+def _rally_volume_spike_ratio(volumes, closes, lookback=50):
+	"""Fraction of up-days with volume > 150% of 50-day average.
+
+	High ratio = institutional buying on rallies (Stage 2 characteristic).
+	"""
+	if len(volumes) < lookback or len(closes) < lookback:
+		return 0.0
+	recent_vol = volumes.tail(lookback).values.astype(float)
+	recent_ret = closes.tail(lookback).pct_change().values
+	avg_vol = float(volumes.tail(50).mean())
+	if avg_vol <= 0:
+		return 0.0
+
+	up_mask = recent_ret > 0
+	up_volumes = recent_vol[up_mask]
+	if len(up_volumes) == 0:
+		return 0.0
+
+	spike_count = (up_volumes > avg_vol * 1.5).sum()
+	return round(float(spike_count) / len(up_volumes), 3)
+
+
+def _down_volume_spike_ratio(volumes, closes, lookback=50):
+	"""Fraction of down-days with volume > 150% of 50-day average.
+
+	High ratio = institutional selling on declines (Stage 4 characteristic).
+	"""
+	if len(volumes) < lookback or len(closes) < lookback:
+		return 0.0
+	recent_vol = volumes.tail(lookback).values.astype(float)
+	recent_ret = closes.tail(lookback).pct_change().values
+	avg_vol = float(volumes.tail(50).mean())
+	if avg_vol <= 0:
+		return 0.0
+
+	down_mask = recent_ret < 0
+	down_volumes = recent_vol[down_mask]
+	if len(down_volumes) == 0:
+		return 0.0
+
+	spike_count = (down_volumes > avg_vol * 1.5).sum()
+	return round(float(spike_count) / len(down_volumes), 3)
+
+
+def _weekly_volume_bias(volumes, closes, weeks=10):
+	"""Up-week volume / down-week volume ratio over recent weeks.
+
+	> 1.2 = more volume on up weeks (Stage 2 accumulation).
+	< 0.8 = more volume on down weeks (Stage 4 distribution).
+	"""
+	if len(volumes) < weeks * 5:
+		return 1.0
+
+	try:
+		weekly_close = closes.resample("W").last().dropna()
+		weekly_vol = volumes.resample("W").sum().dropna()
+
+		# Align and take recent weeks
+		min_len = min(len(weekly_close), len(weekly_vol))
+		weekly_close = weekly_close.tail(min(weeks, min_len))
+		weekly_vol = weekly_vol.tail(min(weeks, min_len))
+
+		weekly_returns = weekly_close.pct_change().dropna()
+		weekly_vol = weekly_vol.iloc[-len(weekly_returns):]
+
+		up_weeks_vol = float(weekly_vol[weekly_returns > 0].sum())
+		down_weeks_vol = float(weekly_vol[weekly_returns <= 0].sum())
+
+		if down_weeks_vol == 0:
+			return 2.0
+		return round(up_weeks_vol / down_weeks_vol, 3)
+	except Exception:
+		return 1.0
+
+
 def _compute_all_scores(metrics):
 	"""Compute all 9 evidence measurements and apply each stage's scoring rules.
 
@@ -260,6 +341,8 @@ def _compute_all_scores(metrics):
 	price_distance_200ma_pct = metrics["price_distance_200ma_pct"]
 	hh = metrics["hh"]
 	hl = metrics["hl"]
+	lh = metrics["lh"]
+	ll = metrics["ll"]
 	vol_ratio = metrics["vol_ratio"]
 	vol_ratio_20d = metrics["vol_ratio_20d"]
 	volatility_ratio = metrics["volatility_ratio"]
@@ -272,44 +355,106 @@ def _compute_all_scores(metrics):
 	largest_decline = metrics["largest_decline"]
 	vol_50avg = metrics["vol_50avg"]
 	vol_200avg = metrics["vol_200avg"]
+	rally_spike = metrics["rally_spike_ratio"]
+	down_spike = metrics["down_spike_ratio"]
+	weekly_bias = metrics["weekly_volume_bias"]
 
-	# Build evidences (stage-agnostic, always 9 fields)
+	# Build evidences (stage-agnostic, 11 fields)
+	# Each evidence: value + unit + thresholds (§2.8 Self-Documenting Output)
 	evidences = {
 		"200ma_slope": {
 			"value": round(sma200_slope, 4),
-			"thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20",
+			"unit": "%/day",
+			"thresholds": {
+				"S1": "flat (|slope|<0.02) = 25pts",
+				"S2": "rising (>0.02) = 15pts",
+				"S3": "rolling (-0.02~+0.02) = 15pts",
+				"S4": "declining (<-0.02) = 20pts",
+			},
 		},
 		"price_vs_200ma_pct": {
 			"value": round(price_distance_200ma_pct, 1),
-			"thresholds": "S1:within_5%->20 | S2:above->15 | S3:within_15%->15 | S4:below->15",
+			"unit": "% distance from 200MA",
+			"thresholds": {
+				"S1": "near 200MA (within ±5%) = 20pts",
+				"S2": "above 200MA = 5pts",
+				"S3": "oscillating near 200MA (within ±10%) = 15pts",
+				"S4": "below 200MA = 15pts",
+			},
 		},
 		"trend_structure": {
-			"value": {"higher_highs": hh, "higher_lows": hl},
-			"thresholds": "S1:no_HH_&_no_HL->10 | S2:HH_&_HL->20 | S3:lost_HH->15 | S4:no_HH+HL_&_decline>20%->15",
+			"value": {"higher_highs": hh, "higher_lows": hl, "lower_highs": lh, "lower_lows": ll},
+			"unit": "boolean flags (5-bar swing confirmation)",
+			"thresholds": {
+				"S1": "no HH and no HL = 10pts",
+				"S2": "HH and HL = 20pts",
+				"S3": "not HH (lost uptrend) = 15pts",
+				"S4": "LH and LL, or (no HH+HL and decline>20%) = 15pts",
+			},
 		},
 		"volume_balance": {
-			"value": {"50d_ratio": round(vol_ratio, 3), "20d_ratio": round(vol_ratio_20d, 3)},
-			"thresholds": "S1:50d_vol<70%_of_200d->15 | S2:ratio>1.15->15 | S3:0.85~1.15->15 | S4:<0.85->10",
+			"value": {"updown_50d": round(vol_ratio, 3), "updown_20d": round(vol_ratio_20d, 3)},
+			"unit": "up-day vol / down-day vol",
+			"thresholds": {
+				"S1": "50d avg vol < 70% of 200d avg = 15pts",
+				"S2": "ratio > 1.15 (accumulation) = 10pts",
+				"S3": "ratio 0.85~1.15 (neutral) = 15pts",
+				"S4": "ratio < 0.85 (distribution) = 10pts",
+			},
 		},
 		"volatility_regime": {
 			"value": round(volatility_ratio, 2),
-			"thresholds": "S1:<1.2->10 | S3:>1.2->20",
+			"unit": "ATR30 / ATR90",
+			"thresholds": {
+				"S1": "low volatility (<1.2) = 10pts",
+				"S3": "expanding volatility (>1.2) = 20pts",
+			},
 		},
 		"ma_alignment": {
 			"value": {"50>150": c_sma50 > c_sma150, "150>200": c_sma150 > c_sma200},
-			"thresholds": "S2:50>150>200->20 | S4:50<150_or_price<150&200->20",
+			"unit": "boolean flags",
+			"thresholds": {
+				"S2": "bullish stack (50>150>200) = 20pts",
+				"S4": "bearish (50<150 or price<150 and price<200) = 20pts",
+			},
 		},
 		"decline_severity": {
 			"value": round(max_daily_decline, 1),
-			"thresholds": "S3:max_daily_drop>5%_in_90d->10",
+			"unit": "% (max single-day decline in last 90 trading days)",
+			"thresholds": {
+				"S3": "severe daily drop (>5%) = 10pts",
+			},
 		},
 		"proximity_to_lows": {
 			"value": round(pct_above_52w_low, 1),
-			"thresholds": "S4:within_20%_of_52w_low->15",
+			"unit": "% above 52-week low",
+			"thresholds": {
+				"S2": "rallied 25%+ from lows = 5pts",
+				"S4": "near 52w low (within 20%) = 15pts",
+			},
 		},
 		"50ma_momentum": {
 			"value": round(sma50_slope, 4),
-			"thresholds": "S2:slope>0->10",
+			"unit": "%/day",
+			"thresholds": {
+				"S2": "rising (slope>0) = 10pts",
+			},
+		},
+		"rally_volume_spike": {
+			"value": {"up_spike_ratio": rally_spike, "down_spike_ratio": down_spike},
+			"unit": "fraction of up/down days with vol > 150% of 50d avg",
+			"thresholds": {
+				"S2": "up-day spikes > 20% frequency = 5pts",
+				"S4": "down-day spikes > 20% frequency = 5pts",
+			},
+		},
+		"weekly_volume_bias": {
+			"value": round(weekly_bias, 3),
+			"unit": "up-week vol / down-week vol",
+			"thresholds": {
+				"S2": "up-week dominant (>1.2) = 5pts",
+				"S4": "down-week dominant (<0.8) = 5pts",
+			},
 		},
 	}
 
@@ -317,26 +462,21 @@ def _compute_all_scores(metrics):
 	scores = {1: 0, 2: 0, 3: 0, 4: 0}
 
 	# --- Stage 1 (Consolidation) — max 80 ---
-	# |200ma_slope| < 0.02 -> 25
 	if abs(sma200_slope) < 0.02:
 		scores[1] += 25
-	# |price_vs_200ma_pct| < 5 -> 20
 	if abs(price_distance_200ma_pct) < 5:
 		scores[1] += 20
-	# volume: 50d_avg < 70% of 200d_avg -> 15
 	if vol_200avg > 0 and vol_50avg < vol_200avg * 0.7:
 		scores[1] += 15
-	# not hh and not hl -> 10
 	if not hh and not hl:
 		scores[1] += 10
-	# volatility_ratio < 1.2 -> 10
 	if volatility_ratio < 1.2:
 		scores[1] += 10
 
 	# --- Stage 2 (Advancing) — max 95 ---
-	# price > 200ma (price_vs_200ma_pct > 0) -> 15
+	# above_200ma -> 5 (reduced: MA stacking already implies this)
 	if price_distance_200ma_pct > 0:
-		scores[2] += 15
+		scores[2] += 5
 	# 200ma_slope > 0.02 -> 15
 	if sma200_slope > 0.02:
 		scores[2] += 15
@@ -346,52 +486,57 @@ def _compute_all_scores(metrics):
 	# hh and hl -> 20
 	if hh and hl:
 		scores[2] += 20
-	# vol_ratio > 1.15 -> 15
+	# accumulation_volume (up/down ratio) -> 10 (reduced: rally_spike shares role)
 	if vol_ratio > 1.15:
-		scores[2] += 15
+		scores[2] += 10
 	# 50ma_slope > 0 -> 10
 	if sma50_slope > 0:
 		scores[2] += 10
+	# NEW: rally_from_lows — 25%+ above 52w low -> 5
+	if pct_above_52w_low >= 25:
+		scores[2] += 5
+	# NEW: rally_volume_spike — up-day spikes > 20% frequency -> 5
+	if rally_spike > 0.20:
+		scores[2] += 5
+	# NEW: weekly_volume_bias > 1.2 -> 5
+	if weekly_bias > 1.2:
+		scores[2] += 5
 
 	# --- Stage 3 (Topping) — max 90 ---
-	# volatility_ratio > 1.2 -> 20
 	if volatility_ratio > 1.2:
 		scores[3] += 20
-	# 200ma_slope between -0.02 and +0.02 -> 15
 	if -0.02 <= sma200_slope <= 0.02:
 		scores[3] += 15
-	# |price_vs_200ma_pct| < 15 -> 15
-	if abs(price_distance_200ma_pct) < 15:
+	# FIX: ±15% -> ±10% (stock 14% above 200MA is Stage 2, not oscillating)
+	if abs(price_distance_200ma_pct) < 10:
 		scores[3] += 15
-	# vol_ratio between 0.85 and 1.15 -> 15
 	if 0.85 <= vol_ratio <= 1.15:
 		scores[3] += 15
 	# not hh (lost uptrend) -> 15
+	# Caveat: cannot distinguish "lost HH" from "never had HH" — other factors
+	# (200MA slope, volatility, price position) mitigate Stage 1 vs Stage 3 confusion
 	if not hh:
 		scores[3] += 15
-	# max_daily_decline_90d < -5 -> 10
 	if max_daily_decline < -5:
 		scores[3] += 10
 
-	# --- Stage 4 (Declining) — max 95 ---
-	# price < 200ma (price_vs_200ma_pct < 0) -> 15
+	# --- Stage 4 (Declining) — max 100 ---
 	if price_distance_200ma_pct < 0:
 		scores[4] += 15
-	# 200ma_slope < -0.02 -> 20
 	if sma200_slope < -0.02:
 		scores[4] += 20
-	# 50<150 or (price<150 and price<200) -> 20
 	if (c_sma50 < c_sma150) or (current_price < c_sma150 and current_price < c_sma200):
 		scores[4] += 20
-	# pct_above_52w_low < 20 -> 15
 	if pct_above_52w_low < 20:
 		scores[4] += 15
-	# not hh and not hl and largest_decline < -20 -> 15
-	if not hh and not hl and largest_decline < -20:
+	# FIX: Check for actual downtrend structure (LH & LL) OR fallback
+	if (lh and ll) or (not hh and not hl and largest_decline < -20):
 		scores[4] += 15
-	# vol_ratio < 0.85 -> 10
 	if vol_ratio < 0.85:
 		scores[4] += 10
+	# NEW: distribution spike on down-days -> 5
+	if down_spike > 0.20:
+		scores[4] += 5
 
 	return scores, evidences
 
@@ -430,7 +575,7 @@ def cmd_classify(args):
 	# Key metrics
 	sma200_slope = _ma_slope(sma200, lookback=40)
 	sma50_slope = _ma_slope(sma50, lookback=20)
-	hh, hl, _, _ = _higher_highs_higher_lows(highs, lows)
+	hh, hl, lh, ll, _, _ = _higher_highs_higher_lows(highs, lows)
 	_, vol_ratio = _volume_trend(volumes, closes)
 
 	# Volume averages
@@ -465,6 +610,11 @@ def cmd_classify(args):
 	week52_low = float(lows.tail(252).min()) if len(lows) >= 252 else float(lows.min())
 	pct_above_52w_low = (current_price / week52_low - 1) * 100 if week52_low > 0 else 0.0
 
+	# New metrics: volume spike ratios and weekly bias
+	rally_spike = _rally_volume_spike_ratio(volumes, closes)
+	down_spike = _down_volume_spike_ratio(volumes, closes)
+	weekly_bias = _weekly_volume_bias(volumes, closes)
+
 	# Build metrics dict for scoring
 	metrics = {
 		"sma200_slope": sma200_slope,
@@ -472,6 +622,8 @@ def cmd_classify(args):
 		"price_distance_200ma_pct": price_distance_200ma_pct,
 		"hh": hh,
 		"hl": hl,
+		"lh": lh,
+		"ll": ll,
 		"vol_ratio": vol_ratio,
 		"vol_ratio_20d": vol_ratio_20d,
 		"volatility_ratio": volatility_ratio,
@@ -484,6 +636,9 @@ def cmd_classify(args):
 		"largest_decline": largest_decline,
 		"vol_50avg": vol_50avg,
 		"vol_200avg": vol_200avg,
+		"rally_spike_ratio": rally_spike,
+		"down_spike_ratio": down_spike,
+		"weekly_volume_bias": weekly_bias,
 	}
 
 	scores, evidences = _compute_all_scores(metrics)
@@ -504,7 +659,7 @@ def cmd_classify(args):
 			"stage": winning_stage,
 			"scores": non_zero_scores,
 			"evidences": evidences,
-			"max_scores": "S1:80 | S2:95 | S3:90 | S4:95",
+			"max_scores": "S1:80 | S2:95 | S3:90 | S4:100",
 		}
 	)
 
@@ -574,7 +729,7 @@ def cmd_transitions(args):
 	)
 
 	# 3. Price makes higher high above prior resistance
-	hh, hl, _, _ = _higher_highs_higher_lows(highs, lows, window=20, count=3)
+	hh, hl, _, _, _, _ = _higher_highs_higher_lows(highs, lows, window=20, count=3)
 	signals.append(
 		{
 			"signal": "Higher highs and higher lows forming",
