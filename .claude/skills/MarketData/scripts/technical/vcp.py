@@ -809,89 +809,102 @@ def _detect_cup_and_handle(highs, lows, closes, volumes, vol_50d_avg):
 
 
 def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg):
-	"""Detect Power Play pattern independently.
+	"""Detect Power Play (high tight flag) pattern.
 
-	A Power Play occurs when a stock gaps up on high volume then consolidates
-	tightly.  The pivot is the highest high during the post-gap consolidation.
+	Minervini Ch.10: An explosive price move of 100%+ in less than 8 weeks,
+	followed by tight sideways consolidation (not correcting more than 20-25%)
+	over 3-6 weeks. This is a velocity pattern signaling dramatic shift in
+	company prospects. We use 50%+ as acceptable threshold since 100% is rare.
 	"""
-	open_arr = opens.values.astype(float)
-	high_arr = highs.values.astype(float)
 	close_arr = closes.values.astype(float)
+	high_arr = highs.values.astype(float)
+	low_arr = closes.index  # just for dates
 	vol_arr = volumes.values.astype(float)
 	n = len(close_arr)
+	dates = closes.index
 
-	if n < 30:
+	if n < 60:
 		return {"detected": False, "reason": "insufficient_data"}
 
-	# Scan for gap-up days in the last 60 bars
-	scan_start = max(0, n - 60)
-	best_gap = None
+	# Scan for rapid advance: find any 40-day window with 50%+ gain
+	best_play = None
+	scan_end = n - 15  # Need at least 15 days after advance for consolidation
 
-	for i in range(scan_start + 1, n - 5):
-		gap_pct = (open_arr[i] - close_arr[i - 1]) / close_arr[i - 1] * 100
-		vol_ratio = vol_arr[i] / vol_50d_avg if vol_50d_avg > 0 else 0
+	for end_i in range(40, scan_end):
+		start_i = end_i - 40
+		advance_pct = (close_arr[end_i] - close_arr[start_i]) / close_arr[start_i] * 100
 
-		if gap_pct >= 3.0 and vol_ratio >= 1.5:
-			# Check post-gap consolidation (5-20 days)
-			consol_end = min(i + 21, n)
-			consol_bars = consol_end - (i + 1)
-			if consol_bars < 5:
-				continue
+		if advance_pct < 50.0:
+			continue
 
-			consol_closes = close_arr[i + 1 : consol_end]
-			consol_highs = high_arr[i + 1 : consol_end]
-			consol_vols = vol_arr[i + 1 : consol_end]
+		# Found 50%+ advance in 40 days. Now check consolidation after.
+		advance_high = float(np.max(high_arr[start_i:end_i + 1]))
+		consol_start = end_i + 1
+		consol_end = min(consol_start + 30, n)  # Max 30 days (6 weeks) consolidation
+		consol_bars = consol_end - consol_start
 
-			if len(consol_closes) < 5:
-				continue
+		if consol_bars < 15:  # Min 15 days (3 weeks)
+			continue
 
-			consol_range_pct = round(
-				(float(np.max(consol_closes)) - float(np.min(consol_closes))) / float(np.min(consol_closes)) * 100, 2
-			)
+		consol_highs = high_arr[consol_start:consol_end]
+		consol_lows = close_arr[consol_start:consol_end]  # use closes for range
+		consol_vols = vol_arr[consol_start:consol_end]
 
-			# Volume contracting during consolidation
-			if len(consol_vols) >= 4:
-				first_half = float(np.mean(consol_vols[: len(consol_vols) // 2]))
-				second_half = float(np.mean(consol_vols[len(consol_vols) // 2 :]))
-				vol_contracting = second_half < first_half
-			else:
-				vol_contracting = True
+		consol_high = float(np.max(consol_highs))
+		consol_low = float(np.min(consol_lows))
+		consol_range_pct = (consol_high - consol_low) / consol_low * 100 if consol_low > 0 else 999
 
-			if consol_range_pct <= 7.0 and vol_contracting:
-				pivot = round(float(np.max(consol_highs)), 2)
-				# Prefer the strongest gap
-				if best_gap is None or gap_pct > best_gap["gap_pct"]:
-					best_gap = {
-						"gap_day_idx": i,
-						"gap_pct": round(gap_pct, 2),
-						"gap_volume_ratio": round(vol_ratio, 2),
-						"consolidation_days": consol_bars,
-						"consolidation_range_pct": consol_range_pct,
-						"volume_contracting": vol_contracting,
-						"pivot_price": pivot,
-					}
+		# Correction from advance high
+		correction_from_high = (advance_high - consol_low) / advance_high * 100
 
-	if best_gap is None:
-		return {"detected": False, "reason": "no_qualifying_gap_up_consolidation"}
+		if correction_from_high > 25.0:
+			continue  # Too deep — not a power play
+
+		if consol_range_pct > 20.0:
+			continue  # Consolidation too wide
+
+		# Volume contracting during consolidation
+		if len(consol_vols) >= 6:
+			first_half = float(np.mean(consol_vols[:len(consol_vols) // 2]))
+			second_half = float(np.mean(consol_vols[len(consol_vols) // 2:]))
+			vol_contracting = second_half < first_half
+		else:
+			vol_contracting = True
+
+		pivot = round(float(np.max(consol_highs)), 2)
+
+		# Prefer the largest advance
+		if best_play is None or advance_pct > best_play["advance_pct"]:
+			best_play = {
+				"advance_pct": round(advance_pct, 1),
+				"advance_days": 40,
+				"advance_start_date": str(dates[start_i].date()),
+				"advance_end_date": str(dates[end_i].date()),
+				"consolidation_days": consol_bars,
+				"consolidation_range_pct": round(consol_range_pct, 2),
+				"correction_from_high_pct": round(correction_from_high, 2),
+				"volume_contracting": vol_contracting,
+				"pivot_price": pivot,
+			}
+
+	if best_play is None:
+		return {"detected": False, "reason": "no_50pct_advance_with_tight_consolidation"}
 
 	# Quality assessment
-	gp = best_gap["gap_pct"]
-	vr = best_gap["gap_volume_ratio"]
-	cr = best_gap["consolidation_range_pct"]
+	adv = best_play["advance_pct"]
+	cr = best_play["consolidation_range_pct"]
+	corr = best_play["correction_from_high_pct"]
 
-	if gp >= 5.0 and vr >= 2.0 and cr < 4.0:
+	if adv >= 100.0 and cr < 10.0 and corr < 15.0:
 		quality = "textbook"
-	elif gp >= 3.0 and vr >= 1.5 and cr <= 7.0:
+	elif adv >= 50.0 and cr <= 20.0 and corr <= 25.0:
 		quality = "acceptable"
 	else:
-		quality = "marginal"
+		quality = "acceptable"  # Already passed 50% filter
 
-	dates = closes.index
-	gap_idx = best_gap["gap_day_idx"]
-	best_gap["gap_date"] = str(dates[gap_idx].date()) if gap_idx < len(dates) else None
-	best_gap["quality"] = quality
-	best_gap["detected"] = True
-	return best_gap
+	best_play["quality"] = quality
+	best_play["detected"] = True
+	return best_play
 
 
 def _detect_3c_entry(closes, highs, lows, volumes, vol_50d_avg):
@@ -1186,7 +1199,18 @@ def _calculate_setup_readiness(
 	else:
 		classification = "weak"
 
-	return {"score": score, "classification": classification}
+	return {
+		"score": score,
+		"unit": "weighted composite (contraction 25 + volume 20 + pivot_tightness 15 + shakeout 15 + time_symmetry 10 + demand 10 + pattern 5 = 100 max)",
+		"thresholds": {
+			"prime": ">=80",
+			"actionable": "60-79",
+			"developing": "40-59",
+			"early": "20-39",
+			"weak": "<20",
+		},
+		"classification": classification,
+	}
 
 
 @safe_run
@@ -1400,6 +1424,16 @@ def cmd_detect(args):
 		power_play,
 	)
 
+	# Integrate ratio/grade into contractions_detail
+	for i, c in enumerate(relevant_contractions):
+		if i > 0 and i - 1 < len(contraction_ratios):
+			c["ratio_vs_prior"] = contraction_ratios[i - 1]
+			c["ratio_grade"] = ratio_grades[i - 1] if i - 1 < len(ratio_grades) else None
+
+	# Add thresholds to pivot_tightness
+	pivot_tightness["unit"] = "5d ATR / 50d ATR"
+	pivot_tightness["thresholds"] = {"tight": "atr_ratio < 0.5 AND volume_percentile < 30"}
+
 	output_json(
 		{
 			"symbol": symbol,
@@ -1408,8 +1442,6 @@ def cmd_detect(args):
 			"current_price": round(current_price, 2),
 			"vcp_detected": vcp_detected,
 			"contractions_count": len(relevant_contractions),
-			"contraction_ratios": contraction_ratios,
-			"contraction_ratio_grades": ratio_grades,
 			"correction_depths": correction_depths,
 			"base_duration_weeks": base_weeks,
 			"pivot_price": round(pivot_price, 2),
@@ -1444,6 +1476,11 @@ def cmd_detect(args):
 				"breakout_vol_target_ideal": breakout_vol["breakout_target_ideal"],
 				"breakout_volume_confirmed": breakout_vol["breakout_volume_confirmed"],
 				"volume_confirmation": vol_grade,
+				"thresholds": {
+					"declining": "each contraction avg vol < prior",
+					"dryup": "pivot area avg vol < 70% of base avg",
+					"confirmation": "strongly_confirmed: declining+dryup | confirmed: one of two | supportive: stable | neutral: mixed | suspect: rising | divergent: expanding at pivot",
+				},
 			},
 		}
 	)

@@ -116,11 +116,14 @@ def _compress_contractions_detail(vcp_result, price_data=None):
 			"low_price": c.get("low_price"),
 			"depth_pct": c.get("depth_pct"),
 		}
-		# If dates are available (from module), use them; otherwise keep prices only
 		if "high_date" in c:
 			entry["high_date"] = c["high_date"]
 		if "low_date" in c:
 			entry["low_date"] = c["low_date"]
+		if "ratio_vs_prior" in c:
+			entry["ratio_vs_prior"] = c["ratio_vs_prior"]
+		if "ratio_grade" in c:
+			entry["ratio_grade"] = c["ratio_grade"]
 		compressed_detail.append(entry)
 
 	vcp_result = dict(vcp_result)
@@ -141,8 +144,8 @@ def compress_vcp(vcp_result):
 
 	compressed = {}
 	# Core pattern fields
-	for key in ("vcp_detected", "contractions_count", "contraction_ratios",
-				"contraction_ratio_grades", "base_duration_weeks",
+	for key in ("vcp_detected", "contractions_count",
+				"base_duration_weeks",
 				"correction_depths", "pivot_price", "technical_footprint",
 				"pattern_type", "pattern_quality", "first_correction_zone",
 				"setup_readiness", "contractions_detail"):
@@ -184,6 +187,8 @@ def compress_vcp(vcp_result):
 			"breakout_vol_target_min": vol.get("breakout_vol_target_min"),
 			"volume_confirmation": vol.get("volume_confirmation"),
 		}
+		if "thresholds" in vol:
+			compressed["volume"]["thresholds"] = vol["thresholds"]
 
 	# Pivot tightness
 	pt = vcp_result.get("pivot_tightness", {})

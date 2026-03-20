@@ -88,7 +88,6 @@ Notes:
 	- INSIDE_DAY: Latest bar high < prior high AND low > prior low
 	- DOUBLE_INSIDE_DAY: Two consecutive inside days (bar[-1] inside bar[-2], bar[-2] inside bar[-3])
 	- TIGHT_DAY: Today's range < 50% of 20-day ADR
-	- GAP_REVERSAL: Gap down >2% within last 3 bars with close recovery above prior low
 	- SUPPORT_RECLAIM: Undercut 50 SMA by >1% within last 5 days then reclaimed above it
 	- Quality: "high" (strongest conviction), "moderate" (developing)
 	- setup_readiness: "actionable" (1+ high quality), "developing" (1+ moderate), "none"
@@ -327,38 +326,6 @@ def _detect_tight_day(high_arr, low_arr, close_arr):
 	return []
 
 
-def _detect_gap_reversal(open_arr, close_arr, low_arr, dates):
-	"""Detect GAP_REVERSAL pattern.
-
-	Check last 3 bars for: Open < prior Close by >2% (gap down) AND
-	Close > prior Low (recovery).
-	"""
-	n = len(close_arr)
-	if n < 4:
-		return []
-
-	for offset in range(1, 4):
-		idx = n - offset
-		if idx < 1:
-			break
-
-		prior_close = float(close_arr[idx - 1])
-		if prior_close <= 0:
-			continue
-
-		gap_pct = (prior_close - open_arr[idx]) / prior_close * 100
-
-		if gap_pct > 2.0 and close_arr[idx] > low_arr[idx - 1]:
-			return [{
-				"pattern": "GAP_REVERSAL",
-				"gap_pct": round(float(gap_pct), 2),
-				"recovery": True,
-				"date": str(dates[idx].date()),
-				"quality": "high",
-			}]
-
-	return []
-
 
 def _detect_support_reclaim(close_arr, low_arr, dates):
 	"""Detect SUPPORT_RECLAIM pattern.
@@ -450,7 +417,6 @@ def _scan_symbol(symbol):
 		active_patterns.extend(_detect_inside_day(high_arr, low_arr, close_arr))
 
 	active_patterns.extend(_detect_tight_day(high_arr, low_arr, close_arr))
-	active_patterns.extend(_detect_gap_reversal(open_arr, close_arr, low_arr, dates))
 	active_patterns.extend(_detect_support_reclaim(close_arr, low_arr, dates))
 
 	return {
