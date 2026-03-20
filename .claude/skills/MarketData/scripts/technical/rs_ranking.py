@@ -1,84 +1,70 @@
 #!/usr/bin/env python3
-"""RS (Relative Strength) Ranking: dual-approach relative strength scoring.
+"""RS (Relative Strength) Ranking: IBD-style RS Rating via ibd-rs-rating library.
 
-Provides two complementary methods for evaluating a stock's relative strength:
-1. YFinance-based individual RS score calculation (weighted multi-period returns)
-2. Finviz-based high-RS universe screening (performance filters)
+Provides percentile-based Relative Strength ratings (1-99) calculated across
+~4,600 US-listed stocks. Powered by the ibd-rs-rating library which uses
+daily-updated data from Supabase.
 
-Based on IBD's Relative Strength Rating methodology adapted for open data sources.
+Formula: 0.4*ROC(63) + 0.2*ROC(126) + 0.2*ROC(189) + 0.2*ROC(252)
+         -> percentile ranked 1-99
 
 Commands:
-	score: Calculate RS score (0-99) for a single ticker vs S&P 500
-	screen: Screen for high-RS stocks using Finviz performance filters
-	compare: Compare RS scores across multiple tickers
+	score: RS Rating with benchmark comparison and history for a single ticker
+	screen: Screen for high-RS stocks by minimum rating
+	compare: Compare RS ratings across multiple tickers
 
 Args:
 	For score:
 		symbol (str): Ticker symbol (e.g., "AAPL", "NVDA")
-		--benchmark (str): Benchmark symbol (default: "SPY")
-		--period (str): Data period for calculation (default: "1y")
 
 	For screen:
-		--min-year-perf (float): Minimum 1-year performance % (default: 20)
-		--min-quarter-perf (float): Minimum quarterly performance % (default: 10)
-		--max-from-high (str): Maximum distance from 52-week high (default: "0-10%")
+		--min-rating (int): Minimum RS rating (default: 80)
 		--limit (int): Maximum results (default: 50)
 
 	For compare:
 		symbols (list): List of ticker symbols to compare
-		--benchmark (str): Benchmark symbol (default: "SPY")
 
 Returns:
 	For score:
 		dict: {
-			"symbol": str,
-			"rs_score": int,
-			"percentile_approx": int,
-			"period_returns": {
-				"3m": float, "6m": float, "9m": float, "12m": float
-			},
-			"benchmark_returns": {
-				"3m": float, "6m": float, "9m": float, "12m": float
-			},
-			"weighted_composite": float,
-			"vs_benchmark_ratio": float
+			"rs_rating": int,
+			"vs_spy": int,
+			"history": {"1w_ago": int, "1m_ago": int, "3m_ago": int, "6m_ago": int},
+			"threshold": str
 		}
 
 	For screen:
 		dict: {
-			"data": [...],
-			"metadata": {"count": int, "filters": dict}
+			"data": [{"ticker": str, "rs_rating": int, "rs_raw": float}, ...],
+			"metadata": {"count": int, "min_rating": int}
 		}
 
 	For compare:
 		dict: {
-			"rankings": [
-				{"symbol": str, "rs_score": int, "12m_return": float}
-			],
-			"benchmark": str
+			"rankings": [{"ticker": str, "rs_rating": int, "rs_raw": float}, ...],
+			"count": int
 		}
 
 Example:
 	>>> python rs_ranking.py score NVDA
 	{
-		"symbol": "NVDA",
-		"rs_score": 92,
-		"period_returns": {"3m": 25.3, "6m": 45.2, "9m": 68.1, "12m": 120.5},
-		"weighted_composite": 284.2,
-		"vs_benchmark_ratio": 2.85
+		"rs_rating": 69,
+		"vs_spy": 16,
+		"history": {"1w_ago": 70, "1m_ago": 65, "3m_ago": 58, "6m_ago": 45},
+		"threshold": "RS >= 70 for TT criterion 8"
 	}
 
-	>>> python rs_ranking.py screen --min-year-perf 30 --limit 20
+	>>> python rs_ranking.py screen --min-rating 90 --limit 10
 	{
-		"data": [{"Ticker": "NVDA", "Perf Year": "120.5%", ...}],
-		"metadata": {"count": 20}
+		"data": [{"ticker": "MU", "rs_rating": 98}, ...],
+		"metadata": {"count": 10, "min_rating": 90}
 	}
 
-	>>> python rs_ranking.py compare NVDA AMD AVGO MRVL
+	>>> python rs_ranking.py compare NVDA AMD AVGO MU
 	{
 		"rankings": [
-			{"symbol": "NVDA", "rs_score": 92, "12m_return": 120.5},
-			{"symbol": "AVGO", "rs_score": 85, "12m_return": 78.2},
+			{"ticker": "MU", "rs_rating": 98},
+			{"ticker": "AVGO", "rs_rating": 85},
 			...
 		]
 	}
@@ -87,20 +73,18 @@ Use Cases:
 	- Identify market leaders with strongest relative price performance
 	- Filter SEPA candidates by RS >= 70 (Trend Template criterion 8)
 	- Compare sector peers to find the strongest name
-	- Screen for high-momentum universe using Finviz data
-	- Track RS divergences (price at new high but RS declining)
+	- Track RS trend over time (history) for divergence detection
+	- Screen for high-RS universe for momentum strategies
 
 Notes:
-	- RS scoring uses weighted returns: 3m(2x) + 6m(1x) + 9m(1x) + 12m(1x)
-	- Weight emphasis on recent 3-month performance captures current momentum
-	- Score 0-99 approximation based on ratio vs benchmark composite
-	- Finviz screen approximates IBD RS 80+ stocks per MEMO methodology
-	- For full S&P 500 percentile ranking, use the score command with live data
+	- RS Rating is percentile-based: 99 = top 1%, 70 = top 30% of ~4,600 stocks
+	- Data updated daily after market close via GitHub Actions
+	- History enables divergence detection: price down but RS stable = institutional support
+	- No yfinance dependency — all data from ibd-rs-rating library (Supabase backend)
 
 See Also:
 	- trend_template.py: Uses RS >= 70 as criterion 8
 	- stage_analysis.py: RS improving is a Stage 1->2 transition signal
-	- minervini.py: RS ranking integrated in full SEPA pipeline
 """
 
 import argparse
@@ -108,267 +92,175 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-import yfinance as yf
 from utils import error_json, output_json, safe_run
 
+from rs_rating import RS
 
-def _period_return(closes, days):
-	"""Calculate return over a specific number of trading days."""
-	if len(closes) < days:
-		return None
-	return round((float(closes.iloc[-1]) / float(closes.iloc[-days]) - 1) * 100, 2)
+_rs = RS()
+
+# Trading day targets for history lookups
+_HISTORY_TARGETS = {
+	"1w_ago": 5,
+	"1m_ago": 20,
+	"3m_ago": 63,
+	"6m_ago": 126,
+}
 
 
-def _compute_rs(symbol, benchmark="SPY", period="1y"):
-	"""Compute RS score for a symbol vs benchmark.
+def _find_rs_at_offset(history, target_days, tolerance=3):
+	"""Find RS rating at approximately target_days ago from history list.
 
-	Weighted composite: 3m(2x) + 6m(1x) + 9m(1x) + 12m(1x)
-	Score mapped to 0-99 scale based on ratio to benchmark.
+	History is sorted newest-first. We look for the entry closest to target_days
+	offset from the first entry, within tolerance.
 	"""
-	data_stock = yf.Ticker(symbol).history(period=period)
-	data_bench = yf.Ticker(benchmark).history(period=period)
-
-	if data_stock.empty or data_bench.empty:
+	if not history or len(history) <= target_days - tolerance:
 		return None
 
-	closes_stock = data_stock["Close"]
-	closes_bench = data_bench["Close"]
+	# Clamp to available range
+	idx = min(target_days, len(history) - 1)
 
-	periods_config = [
-		("3m", 63, 2),
-		("6m", 126, 1),
-		("9m", 189, 1),
-		("12m", 252, 1),
-	]
+	# Search within tolerance window for best match
+	best_idx = idx
+	for candidate in range(max(0, idx - tolerance), min(len(history), idx + tolerance + 1)):
+		if abs(candidate - target_days) < abs(best_idx - target_days):
+			best_idx = candidate
 
-	stock_returns = {}
-	bench_returns = {}
-	stock_weighted = 0
-	bench_weighted = 0
-	total_weight = sum(w for _, _, w in periods_config)
-	available_weight = 0
-	periods_with_data = 0
-
-	for label, days, weight in periods_config:
-		s_ret = _period_return(closes_stock, days)
-		b_ret = _period_return(closes_bench, days)
-		stock_returns[label] = s_ret if s_ret is not None else 0
-		bench_returns[label] = b_ret if b_ret is not None else 0
-		if s_ret is not None:
-			stock_weighted += s_ret * weight
-			available_weight += weight
-			periods_with_data += 1
-		if b_ret is not None:
-			bench_weighted += b_ret * weight
-
-	# Re-normalize weights for young stocks with missing periods
-	if 0 < available_weight < total_weight:
-		stock_weighted = stock_weighted * total_weight / available_weight
-
-	# Data quality classification
-	if periods_with_data >= 4:
-		data_quality = "full"
-	elif periods_with_data >= 2:
-		data_quality = "partial"
-	elif periods_with_data >= 1:
-		data_quality = "minimal"
-	else:
-		data_quality = "none"
-
-	# Calculate ratio and map to 0-99 score
-	if bench_weighted == 0:
-		ratio = 1.0
-	else:
-		ratio = stock_weighted / bench_weighted if bench_weighted != 0 else 1.0
-
-	# Map ratio to score: <0.5 -> ~1, 1.0 -> ~50, 2.0 -> ~90, 3.0+ -> ~99
-	import math
-
-	# 4-quadrant RS scoring for meaningful differentiation across all market conditions
-	if stock_weighted < 0 and bench_weighted > 0:
-		# Stock declining while benchmark rises: weakest RS, map to 1-25
-		severity = min(abs(stock_weighted) / bench_weighted, 3.0)
-		score = int(max(1, round(25 - 24 * severity / 3)))
-	elif stock_weighted > 0 and bench_weighted < 0:
-		# Stock rising while benchmark declines: strongest RS, map to 85-99
-		strength = min(stock_weighted / abs(bench_weighted), 3.0)
-		score = int(min(99, round(85 + 14 * strength / 3)))
-	elif stock_weighted < 0 and bench_weighted < 0:
-		# Both declining: proportional mapping, less bad = higher, map to 15-45
-		ratio_abs = abs(stock_weighted) / abs(bench_weighted)
-		clamped = min(ratio_abs, 3.0)
-		score = int(max(1, min(45, round(45 - 30 * clamped / 3))))
-	elif ratio <= 0:
-		score = 1
-	else:
-		# Sigmoid-like mapping preserving granularity at extremes
-		log_ratio = math.log(max(ratio, 0.01), 2)
-		score = int(max(1, min(99, 50 + 49 * math.tanh(log_ratio * 0.7))))
-
-	return {
-		"rs_score": score,
-		"period_returns": stock_returns,
-		"benchmark_returns": bench_returns,
-		"weighted_composite_stock": round(stock_weighted, 2),
-		"weighted_composite_benchmark": round(bench_weighted, 2),
-		"vs_benchmark_ratio": round(ratio, 3),
-		"data_quality": data_quality,
-		"periods_available": periods_with_data,
-		"thresholds": {
-			"scoring_method": "Q1(both+): tanh(log2(ratio)*0.7) scaled 1-99 | Q2(stock+ bench-): 85-99 | Q3(both-): 15-45 | Q4(stock- bench+): 1-25",
-			"data_quality": "full: 4 periods | partial: 2-3 periods | minimal: 1 period",
-			"weight_renormalization": "active when periods_available < 4",
-		},
-	}
+	return history[best_idx].get("rs_rating")
 
 
-def compute_rs_score(symbol, benchmark="SPY", period="1y"):
+def _build_history(ticker):
+	"""Build history dict with RS ratings at 1w, 1m, 3m, 6m ago."""
+	try:
+		hist = _rs.history(ticker, days=130)
+	except Exception:
+		return {}
+
+	if not hist:
+		return {}
+
+	result = {}
+	for label, target_days in _HISTORY_TARGETS.items():
+		rs_val = _find_rs_at_offset(hist, target_days)
+		if rs_val is not None:
+			result[label] = rs_val
+
+	return result
+
+
+def _get_spy_rs():
+	"""Get SPY's current RS rating from reference endpoint."""
+	try:
+		ref = _rs.reference()
+		for item in ref:
+			if item.get("ticker") == "SPY":
+				return item.get("rs_rating")
+	except Exception:
+		pass
+	return None
+
+
+def compute_rs_score(symbol):
 	"""Public API: compute RS score (0-99) for use by other modules.
 
-	Centralized RS engine using 4-quadrant weighted multi-period scoring.
-	Called by trend_template.py criterion 8 and minervini.py RS component.
+	Called by trend_template.py criterion 8 and minervini pipeline RS component.
 
 	Args:
 		symbol: Ticker symbol (e.g., "NVDA")
-		benchmark: Benchmark symbol (default: "SPY")
-		period: Data period for calculation (default: "1y")
 
 	Returns:
-		int or None: RS score 0-99, or None if data unavailable
+		int or None: RS rating 0-99, or None if data unavailable
 	"""
-	result = _compute_rs(symbol, benchmark, period)
-	if result is None:
+	try:
+		result = _rs.get(symbol.upper())
+		if result and "rs_rating" in result:
+			return result["rs_rating"]
 		return None
-	return result["rs_score"]
+	except Exception:
+		return None
 
 
 @safe_run
 def cmd_score(args):
-	"""Calculate RS score for a single ticker."""
-	symbol = args.symbol.upper()
-	benchmark = args.benchmark.upper()
+	"""RS Rating with benchmark comparison and history."""
+	ticker = args.symbol.upper()
 
-	result = _compute_rs(symbol, benchmark, args.period)
-	if result is None:
-		error_json(f"Unable to retrieve data for {symbol} or {benchmark}")
+	try:
+		result = _rs.get(ticker)
+	except Exception as e:
+		error_json(f"RS data unavailable for {ticker}: {e}")
+		return
 
-	output_json(
-		{
-			"symbol": symbol,
-			"benchmark": benchmark,
-			"date": str(yf.Ticker(symbol).history(period="1d").index[-1].date()),
-			**result,
-		}
-	)
+	if not result or "rs_rating" not in result:
+		error_json(f"No RS data found for {ticker}")
+		return
+
+	rs_rating = result["rs_rating"]
+	spy_rs = _get_spy_rs()
+	history = _build_history(ticker)
+
+	output = {
+		"rs_rating": rs_rating,
+		"spy_rs": spy_rs,
+		"history": history if history else None,
+		"threshold": "RS >= 70 for TT criterion 8",
+	}
+
+	output_json(output)
 
 
 @safe_run
 def cmd_screen(args):
-	"""Screen for high-RS stocks using Finviz filters."""
-	from finvizfinance.screener.overview import Overview
+	"""Screen for high-RS stocks by minimum rating."""
+	min_rating = args.min_rating
+	limit = args.limit
 
-	# Build Finviz filters matching high-RS criteria
-	# Per MEMO: Perf Year +20%, Perf Quarter +10%, 52W High 0-10% below
-	# finvizfinance uses "Year +X%" and "Quarter +X%" format
-	perf_year_map = {
-		10: "Year +10%",
-		20: "Year +20%",
-		30: "Year +30%",
-		50: "Year +50%",
-		100: "Year +100%",
-	}
-	perf_quarter_map = {
-		10: "Quarter +10%",
-		20: "Quarter +20%",
-		30: "Quarter +30%",
-		50: "Quarter +50%",
-	}
-
-	# Find closest matching filter value
-	year_key = max((k for k in perf_year_map if k <= args.min_year_perf), default=10)
-	quarter_key = max((k for k in perf_quarter_map if k <= args.min_quarter_perf), default=10)
-
-	filters_dict = {
-		"Performance": perf_year_map[year_key],
-		"Performance 2": perf_quarter_map[quarter_key],
-		"52-Week High/Low": args.max_from_high,
-	}
-
-	foverview = Overview()
-	foverview.set_filter(filters_dict=filters_dict)
-
-	from datetime import datetime, timezone
-
-	df = foverview.screener_view(limit=args.limit, verbose=0)
-
-	if df is None or df.empty:
-		output_json(
-			{
-				"data": [],
-				"metadata": {
-					"filters": filters_dict,
-					"count": 0,
-					"timestamp": datetime.now(timezone.utc).isoformat(),
-				},
-			}
-		)
+	try:
+		stocks = _rs.filter(min_rating=min_rating)
+	except Exception as e:
+		error_json(f"RS screen failed: {e}")
 		return
 
-	records = df.to_dict(orient="records")
+	if not stocks:
+		output_json({
+			"data": [],
+			"metadata": {"count": 0, "min_rating": min_rating},
+		})
+		return
 
-	output_json(
-		{
-			"data": records,
-			"metadata": {
-				"description": "High-RS stocks screened via Finviz (approximates IBD RS 80+)",
-				"filters": filters_dict,
-				"count": len(records),
-				"timestamp": datetime.now(timezone.utc).isoformat(),
-			},
-		}
-	)
+	# Sort by rs_rating descending, limit results
+	stocks.sort(key=lambda x: x.get("rs_rating", 0), reverse=True)
+	if limit:
+		stocks = stocks[:limit]
+
+	output_json({
+		"data": stocks,
+		"metadata": {
+			"count": len(stocks),
+			"min_rating": min_rating,
+		},
+	})
 
 
 @safe_run
 def cmd_compare(args):
-	"""Compare RS scores across multiple tickers."""
-	benchmark = args.benchmark.upper()
-	results = []
+	"""Compare RS ratings across multiple tickers."""
+	tickers = [t.upper() for t in args.symbols]
 
-	for symbol in args.symbols:
-		symbol = symbol.upper()
-		rs_data = _compute_rs(symbol, benchmark, "1y")
-		if rs_data is not None:
-			results.append(
-				{
-					"symbol": symbol,
-					"rs_score": rs_data["rs_score"],
-					"3m_return": rs_data["period_returns"]["3m"],
-					"6m_return": rs_data["period_returns"]["6m"],
-					"12m_return": rs_data["period_returns"]["12m"],
-					"weighted_composite": rs_data["weighted_composite_stock"],
-					"vs_benchmark_ratio": rs_data["vs_benchmark_ratio"],
-				}
-			)
-		else:
-			results.append(
-				{
-					"symbol": symbol,
-					"rs_score": None,
-					"error": "Data unavailable",
-				}
-			)
+	try:
+		results = _rs.compare(tickers)
+	except Exception as e:
+		error_json(f"RS compare failed: {e}")
+		return
 
-	# Sort by RS score descending
-	results.sort(key=lambda x: x.get("rs_score") or 0, reverse=True)
+	if not results:
+		output_json({"rankings": [], "count": 0})
+		return
 
-	output_json(
-		{
-			"benchmark": benchmark,
-			"rankings": results,
-			"count": len(results),
-		}
-	)
+	# Already sorted by rs_rating descending from library
+	output_json({
+		"rankings": results,
+		"count": len(results),
+	})
 
 
 def main():
@@ -376,24 +268,19 @@ def main():
 	sub = parser.add_subparsers(dest="command", required=True)
 
 	# score
-	sp = sub.add_parser("score", help="Calculate RS score for a ticker")
+	sp = sub.add_parser("score", help="RS Rating for a single ticker")
 	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--benchmark", default="SPY", help="Benchmark symbol (default: SPY)")
-	sp.add_argument("--period", default="1y", help="Data period (default: 1y)")
 	sp.set_defaults(func=cmd_score)
 
 	# screen
-	sp = sub.add_parser("screen", help="Screen for high-RS stocks via Finviz")
-	sp.add_argument("--min-year-perf", type=float, default=20, help="Min 1-year performance %% (default: 20)")
-	sp.add_argument("--min-quarter-perf", type=float, default=10, help="Min quarterly performance %% (default: 10)")
-	sp.add_argument("--max-from-high", default="0-10% below High", help="Max distance from 52w high")
+	sp = sub.add_parser("screen", help="Screen for high-RS stocks")
+	sp.add_argument("--min-rating", type=int, default=80, help="Minimum RS rating (default: 80)")
 	sp.add_argument("--limit", type=int, default=50, help="Max results (default: 50)")
 	sp.set_defaults(func=cmd_screen)
 
 	# compare
-	sp = sub.add_parser("compare", help="Compare RS scores for multiple tickers")
+	sp = sub.add_parser("compare", help="Compare RS ratings for multiple tickers")
 	sp.add_argument("symbols", nargs="+", help="Ticker symbols to compare")
-	sp.add_argument("--benchmark", default="SPY", help="Benchmark symbol (default: SPY)")
 	sp.set_defaults(func=cmd_compare)
 
 	args = parser.parse_args()

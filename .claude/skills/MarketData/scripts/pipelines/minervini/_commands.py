@@ -59,28 +59,6 @@ def _analyze_scripts(ticker):
 	}
 
 
-def _fix_rs_12m_null(rs_result):
-	"""E.6: Change 12m return from 0 to null when data unavailable."""
-	if not rs_result or rs_result.get("error"):
-		return rs_result
-	result = dict(rs_result)
-	period_returns = result.get("period_returns", {})
-	if isinstance(period_returns, dict):
-		period_returns = dict(period_returns)
-		# If data_quality is partial and 12m is 0, it means data unavailable
-		if result.get("data_quality") == "partial" or result.get("periods_available", 4) < 4:
-			if period_returns.get("12m") == 0:
-				period_returns["12m"] = None
-		result["period_returns"] = period_returns
-	bench_returns = result.get("benchmark_returns", {})
-	if isinstance(bench_returns, dict):
-		bench_returns = dict(bench_returns)
-		if result.get("data_quality") == "partial" or result.get("periods_available", 4) < 4:
-			if bench_returns.get("12m") == 0:
-				bench_returns["12m"] = None
-		result["benchmark_returns"] = bench_returns
-	return result
-
 
 def _strip_null_fields(d):
 	"""E.5: Remove null fields from a dict (recursive for nested dicts/lists)."""
@@ -117,10 +95,6 @@ def cmd_analyze(args):
 
 	# Track missing components
 	missing = [k for k, v in results.items() if isinstance(v, dict) and v.get("error")]
-
-	# E.6: Fix rs_ranking 12m null
-	if "rs_ranking" in results:
-		results["rs_ranking"] = _fix_rs_12m_null(results["rs_ranking"])
 
 	# A.4: Use rs_ranking score as canonical — remove rs_score from trend_template
 	rs_result = results.get("rs_ranking", {})
@@ -179,11 +153,11 @@ def cmd_analyze(args):
 	rs_data = results.get("rs_ranking", {})
 	tt_data = results.get("trend_template")
 	if isinstance(tt_data, dict) and isinstance(rs_data, dict) and not rs_data.get("error"):
-		canonical_rs = rs_data.get("rs_score")
+		canonical_rs = rs_data.get("rs_rating")
 		if canonical_rs is not None and "criteria" in tt_data:
 			for c in tt_data["criteria"]:
 				if c.get("id") == 8:
-					c["value"] = f"RS Score = {canonical_rs}"
+					c["value"] = f"RS Rating = {canonical_rs}"
 					c["passed"] = canonical_rs >= 70
 
 	rs_detail = rs_data if isinstance(rs_data, dict) and not rs_data.get("error") else None
@@ -314,7 +288,7 @@ def cmd_screen(args):
 			for t, future in fund_futures.items():
 				_, code33, rs, info = future.result()
 
-				rs_score = rs.get("rs_score", 0) if not rs.get("error") else 0
+				rs_rating = rs.get("rs_rating", 0) if not rs.get("error") else 0
 				eps_accel = code33.get("eps_accelerating", False) if not code33.get("error") else False
 				sales_accel = code33.get("sales_accelerating", False) if not code33.get("error") else False
 				margin_exp = code33.get("margin_expanding", False) if not code33.get("error") else False
@@ -327,11 +301,11 @@ def cmd_screen(args):
 				accel_count = sum([eps_accel, sales_accel, margin_exp])
 				tt = tt_results.get(t, {})
 				tt_score_pct = tt.get("score_pct", 0)
-				screen_score = rs_score + (accel_count * 10)
+				screen_score = rs_rating + (accel_count * 10)
 
 				candidates.append({
 					"ticker": t,
-					"rs_score": rs_score,
+					"rs_rating": rs_rating,
 					"tt_score_pct": tt_score_pct,
 					"eps_accelerating": eps_accel,
 					"sales_accelerating": sales_accel,
@@ -349,7 +323,7 @@ def cmd_screen(args):
 
 	output_json({
 		"candidates": candidates,
-		"thresholds": "screen_score = rs_score(0-99) + code33_accel_count(0-3) * 10",
+		"thresholds": "screen_score = rs_rating(0-99) + code33_accel_count(0-3) * 10",
 		"metadata": {
 			"total_screened": len(tickers),
 			"tt_pass_count": len(tt_pass),
@@ -518,7 +492,7 @@ def cmd_compare(args):
 			"current_stage": stage.get("stage") if not stage.get("error") else None,
 			"tt_pass": tt.get("overall_pass") if not tt.get("error") else None,
 			"tt_score_pct": tt.get("score_pct") if not tt.get("error") else None,
-			"rs_score": rs.get("rs_score") if not rs.get("error") else None,
+			"rs_rating": rs.get("rs_rating") if not rs.get("error") else None,
 			"base_number": base.get("current_base_number") if not base.get("error") else None,
 			"vcp_detected": vcp.get("vcp_detected") if not vcp.get("error") else None,
 			"pattern_quality": vcp.get("pattern_quality") if not vcp.get("error") else None,
@@ -598,11 +572,6 @@ def cmd_recheck(args):
 	stage = results.get("stage_analysis", {})
 	tt = results.get("trend_template", {})
 	rs = results.get("rs_ranking", {})
-
-	# E.6: Fix rs_ranking 12m null
-	if "rs_ranking" in results:
-		results["rs_ranking"] = _fix_rs_12m_null(results["rs_ranking"])
-		rs = results["rs_ranking"]
 
 	# Determine verdict
 	reasons = []
@@ -686,7 +655,7 @@ def cmd_recheck(args):
 			"stage": current_stage,
 			"tt_pass": tt_pass,
 			"tt_score_pct": tt.get("score_pct") if not tt.get("error") else None,
-			"rs_score": rs.get("rs_score") if not rs.get("error") else None,
+			"rs_rating": rs.get("rs_rating") if not rs.get("error") else None,
 			"sell_signals": active_signals,
 			"sell_severity": sell_severity,
 		},

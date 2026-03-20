@@ -122,7 +122,7 @@ def cmd_check(args):
 	week52_low = float(one_year_data.min())
 
 	# RS Ranking
-	rs_score = compute_rs_score(symbol, period=args.period)
+	rs_score = compute_rs_score(symbol)
 
 	# Evaluate 8 criteria
 	criteria = []

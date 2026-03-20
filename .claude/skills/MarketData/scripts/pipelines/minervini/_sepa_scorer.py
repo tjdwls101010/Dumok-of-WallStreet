@@ -45,8 +45,8 @@ def _score_trend_quality(results):
 
 	# RS ranking percentile (0-15)
 	rs = results.get("rs_ranking", {})
-	rs_score = rs.get("rs_score", 0) if not rs.get("error") else 0
-	rs_pts = min(15, round(rs_score * 15 / 99)) if rs_score else 0
+	rs_val = rs.get("rs_rating", 0) if not rs.get("error") else 0
+	rs_pts = min(15, round(rs_val * 15 / 99)) if rs_val else 0
 	score += rs_pts
 
 	# Stage 2 confidence (0-5) — derived from winning stage score / theoretical max
