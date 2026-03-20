@@ -34,10 +34,11 @@ Commands:
 		stripped of symbol/date/current_price (top-level ticker is canonical).
 		RS ranking integrated as rs_detail in trend. Sell signals canonical
 		in risk (active only).
-	discover: Market environment + RS leader discovery (sector_leaders.scan,
-		finviz market-breadth, SPY distribution day count, ibd-rs-rating
-		reference + top 20 -> market environment verdict with RS leaders
-		and sector leadership dashboard)
+	discover: Market environment + RS leader discovery (market_breadth
+		homepage scrape, SPY distribution day count, ibd-rs-rating
+		sector_ranking + industry_ranking + industry_top + movers +
+		reference + top 20 -> market verdict with breadth + RS-based
+		sector/industry rankings and leadership dashboard, ~3s)
 
 Args:
 	For analyze:
@@ -73,12 +74,15 @@ Returns:
 
 	For discover:
 		dict with market_verdict (bull_early/bull_late/correction/bear),
-		verdict_evidence (new_highs_vs_lows, distribution_days_25d,
-		leader_stocks_breaking), breadth (new_highs, new_lows,
-		breadth_detail with per-exchange breakdown and sector counts),
-		rs_leaders (spy_rs, qqq_rs, top_20 with ticker/rs_rating/rs_raw),
-		sector_leaders (leadership_dashboard sorted by leader_count with
-		industry_group/sector/leader_tickers/leadership_rank),
+		verdict_evidence (new_highs_vs_lows, distribution_days_25d),
+		breadth (new_highs, new_lows, detail with advancing_declining/
+		new_high_low/sma50/sma200 each with pct+count),
+		rs_leaders (spy_rs, qqq_rs, top_20 with ticker/rs_rating/rs_raw,
+		movers_5d with ticker/rs_rating/prev_rating/change),
+		sector_ranking (sector/avg_rs/count/rank sorted by avg_rs),
+		leadership_dashboard (industry/sector/avg_rs/leader_count/
+		leader_tickers/leadership_rank sorted by avg_rs, top 15
+		industries enriched with leader_tickers via industry_top),
 		thresholds (verdict_rules), metadata (execution_time_seconds).
 
 Example:
@@ -103,7 +107,7 @@ Notes:
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- stage_analysis: factor-based scoring (Ch.5), 11 evidences with value+unit+thresholds, max S1:80|S2:95|S3:90|S4:100
 	- trend_template: compressed to passed "N/8" + criteria without description/moving_averages/week52
-	- Discover uses sector_leaders.scan + finviz market-breadth + SPY volume + ibd-rs-rating
+	- Discover uses market_breadth homepage scrape + SPY volume + ibd-rs-rating (sector/industry rankings, top, movers)
 	- All outputs self-documenting with thresholds dicts (Section 2.8)
 	- Module outputs stripped of symbol/date/current_price duplicates
 	- Sell signals canonical location: risk.sell_signals (active only)

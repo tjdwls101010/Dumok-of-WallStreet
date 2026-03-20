@@ -345,23 +345,42 @@ def cmd_analyze(args):
 def cmd_discover(args):
 	"""Market environment + RS leader discovery.
 
-	Assesses market health (breadth, distribution days, sector leaders) and
-	identifies RS leaders (top stocks, movers) for candidate discovery.
+	Assesses market health (breadth, distribution days) and identifies
+	RS leaders (sector/industry rankings, top stocks, movers) for
+	candidate discovery using the ibd-rs-rating library.
 	"""
 	start = time.time()
 
 	from rs_rating import RS
 	_rs = RS()
 
-	# Run sector leaders + market breadth + RS in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-		f_leaders = executor.submit(_run_script, "screening/sector_leaders.py", ["scan"])
-		f_breadth = executor.submit(_run_script, "screening/finviz.py", ["market-breadth"])
+	# Single executor: RS calls complete in ~1s, finviz market-breadth ~20-30s.
+	# Submit industry_top as soon as industry_ranking completes (overlaps with
+	# market-breadth wait, so adds zero wall-clock time).
+	with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+		f_breadth = executor.submit(_run_script, "screening/market_breadth.py", ["breadth"])
 		f_spy = executor.submit(_run_script, "technical/volume_analysis.py", ["analyze", "SPY"])
 		f_rs_ref = executor.submit(lambda: _rs.reference())
 		f_rs_top = executor.submit(lambda: _rs.top(20))
+		f_sector_rank = executor.submit(lambda: _rs.sector_ranking())
+		f_industry_rank = executor.submit(lambda: _rs.industry_ranking())
+		f_movers = executor.submit(lambda: _rs.movers(days=5, n=20, direction="up"))
 
-		leaders_result = f_leaders.result()
+		# Wait for industry_ranking first (~0.8s) then submit industry_top
+		# while market-breadth is still running (~20-30s remaining)
+		try:
+			industry_rank = f_industry_rank.result() or []
+		except Exception:
+			industry_rank = []
+
+		industry_futures = {}
+		for ind in industry_rank[:15]:
+			ind_name = ind.get("industry", "")
+			if ind_name:
+				f = executor.submit(lambda name=ind_name: _rs.industry_top(name, n=5))
+				industry_futures[f] = ind
+
+		# Collect remaining Phase 1 results (market-breadth is the bottleneck)
 		breadth_result = f_breadth.result()
 		spy_vol = f_spy.result()
 
@@ -374,6 +393,29 @@ def cmd_discover(args):
 			rs_top = f_rs_top.result()
 		except Exception:
 			rs_top = []
+		try:
+			sector_rank = f_sector_rank.result() or []
+		except Exception:
+			sector_rank = []
+		try:
+			movers_result = f_movers.result() or []
+		except Exception:
+			movers_result = []
+
+		# Collect industry_top results (already completed during breadth wait)
+		for f in concurrent.futures.as_completed(industry_futures):
+			ind = industry_futures[f]
+			try:
+				tickers = f.result() or []
+				ind["leader_tickers"] = [t["ticker"] for t in tickers]
+				ind["leader_count"] = len(ind["leader_tickers"])
+			except Exception:
+				ind["leader_tickers"] = []
+				ind["leader_count"] = 0
+
+	# Assign leadership ranks
+	for i, ind in enumerate(industry_rank):
+		ind["leadership_rank"] = i + 1
 
 	# Distribution day count from SPY volume analysis
 	dist_days = 0
@@ -381,36 +423,18 @@ def cmd_discover(args):
 		clusters = spy_vol.get("distribution_clusters", {})
 		dist_days = clusters.get("dist_days_25d", 0)
 		if dist_days == 0:
-			# Fallback: try alternate key
 			dist_days = spy_vol.get("distribution_clusters", {}).get("clusters_found", 0)
 
 	# Market breadth
 	new_highs = 0
 	new_lows = 0
 	if not breadth_result.get("error"):
-		total = breadth_result.get("total", {})
-		new_highs = total.get("new_highs", 0)
-		new_lows = total.get("new_lows", 0)
+		hl = breadth_result.get("new_high_low", {})
+		new_highs = hl.get("new_high", {}).get("count", 0)
+		new_lows = hl.get("new_low", {}).get("count", 0)
 
 	# Verdict logic
 	highs_lows_ratio = round(new_highs / max(new_lows, 1), 2)
-	leader_breaking = False
-
-	# Check if leaders are breaking down from sector data
-	if not leaders_result.get("error"):
-		sectors = leaders_result.get("sectors", leaders_result.get("sector_dashboard", {}))
-		if isinstance(sectors, dict):
-			# Count sectors with deteriorating leaders
-			deteriorating = 0
-			total_sectors = 0
-			for sector_name, sector_data in sectors.items():
-				if isinstance(sector_data, dict):
-					total_sectors += 1
-					leaders_list = sector_data.get("leaders", [])
-					if isinstance(leaders_list, list) and len(leaders_list) == 0:
-						deteriorating += 1
-			if total_sectors > 0 and deteriorating > total_sectors * 0.5:
-				leader_breaking = True
 
 	if new_highs > new_lows * 2 and dist_days < 4:
 		verdict = "bull_early"
@@ -423,45 +447,10 @@ def cmd_discover(args):
 	else:
 		verdict = "bull_early" if dist_days < 4 else "bull_late"
 
-	# B.3: verdict_evidence
 	verdict_evidence = {
 		"new_highs_vs_lows": highs_lows_ratio,
 		"distribution_days_25d": dist_days,
-		"leader_stocks_breaking": leader_breaking,
 	}
-
-	# E.5: Strip null fields + perf_ fields from sector dashboard
-	sector_output = leaders_result if not leaders_result.get("error") else {"error": leaders_result.get("error")}
-	if isinstance(sector_output, dict) and not sector_output.get("error"):
-		sector_output = _strip_null_fields(sector_output)
-		# Strip perf_/group_perf_ fields (noise from Finviz raw data)
-		dash = sector_output.get("leadership_dashboard", [])
-		if isinstance(dash, list):
-			for group_data in dash:
-				if isinstance(group_data, dict):
-					# Strip group_perf_ from group level
-					for k in [k for k in group_data if k.startswith("group_perf_")]:
-						del group_data[k]
-					# Strip perf_ from individual leaders
-					if "leaders" in group_data:
-						group_data["leaders"] = [
-							{k: v for k, v in leader.items() if not k.startswith("perf_")}
-							for leader in group_data["leaders"]
-							if isinstance(leader, dict)
-						]
-		elif isinstance(dash, dict):
-			for group_name, group_data in dash.items():
-				if isinstance(group_data, dict):
-					for k in [k for k in group_data if k.startswith("group_perf_")]:
-						del group_data[k]
-					if "leaders" in group_data:
-						group_data["leaders"] = [
-							{k: v for k, v in leader.items() if not k.startswith("perf_")}
-							for leader in group_data["leaders"]
-							if isinstance(leader, dict)
-						]
-
-	elapsed = round(time.time() - start, 1)
 
 	# Build RS leaders section
 	spy_rs = None
@@ -476,7 +465,14 @@ def cmd_discover(args):
 		"spy_rs": spy_rs,
 		"qqq_rs": qqq_rs,
 		"top_20": rs_top[:20] if rs_top else [],
+		"movers_5d": movers_result[:20],
 	}
+
+	# Add rank to sector_ranking
+	for i, s in enumerate(sector_rank):
+		s["rank"] = i + 1
+
+	elapsed = round(time.time() - start, 1)
 
 	output_json({
 		"market_verdict": verdict,
@@ -484,10 +480,11 @@ def cmd_discover(args):
 		"breadth": {
 			"new_highs": new_highs,
 			"new_lows": new_lows,
-			"breadth_detail": breadth_result if not breadth_result.get("error") else None,
+			"detail": breadth_result if not breadth_result.get("error") else None,
 		},
 		"rs_leaders": rs_leaders,
-		"sector_leaders": sector_output,
+		"sector_ranking": sector_rank,
+		"leadership_dashboard": industry_rank,
 		"thresholds": {
 			"verdict_rules": {
 				"bull_early": "highs > lows*2 AND dist_days < 4",
