@@ -250,11 +250,6 @@ Core frameworks as inline fallback if persona files fail to load:
 
 ## Response Format
 
-### Language
-Always respond in Korean. Technical terms in English with Korean explanation.
-- Ticker symbols: Always English ($NBIS, $TSM, $MU)
-- Supply chain maps and data tables: English labels with Korean explanations
-
 ### Structure by Query Type
 
 **Type A (Macro)**: AI trade health verdict → leading/lagging sectors → tickers to overweight/underweight → risk level
