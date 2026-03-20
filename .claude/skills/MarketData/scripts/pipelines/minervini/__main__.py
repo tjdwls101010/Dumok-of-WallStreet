@@ -172,9 +172,7 @@ import sys
 # Ensure scripts/ is on sys.path for utils import
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from pipelines.minervini._commands import (
-	cmd_analyze, cmd_screen, cmd_market_leaders, cmd_compare, cmd_recheck,
-)
+from pipelines.minervini._commands import cmd_analyze, cmd_discover
 
 
 def main():
@@ -183,39 +181,14 @@ def main():
 	)
 	sub = parser.add_subparsers(dest="command", required=True)
 
-	# analyze
+	# analyze — Full SEPA analysis for a single ticker
 	sp_analyze = sub.add_parser("analyze", help="Full SEPA analysis for a ticker")
 	sp_analyze.add_argument("ticker", help="Stock ticker symbol")
 	sp_analyze.set_defaults(func=cmd_analyze)
 
-	# screen
-	sp_screen = sub.add_parser("screen", help="Screen for SEPA candidates")
-	sp_screen.add_argument("--preset", default="minervini_leaders",
-						   help="Finviz preset name (default: minervini_leaders)")
-	sp_screen.add_argument("--sector", default=None, help="Screen within sector")
-	sp_screen.add_argument("--industry", default=None, help="Screen within industry")
-	sp_screen.add_argument("--limit", type=int, default=50, help="Max results")
-	sp_screen.set_defaults(func=cmd_screen)
-
-	# market-leaders
-	sp_leaders = sub.add_parser("market-leaders", help="Market leadership assessment")
-	sp_leaders.set_defaults(func=cmd_market_leaders)
-
-	# compare
-	sp_compare = sub.add_parser("compare", help="Compare tickers on SEPA criteria")
-	sp_compare.add_argument("tickers", nargs="+", help="Ticker symbols to compare")
-	sp_compare.set_defaults(func=cmd_compare)
-
-	# recheck
-	sp_recheck = sub.add_parser("recheck", help="Recheck existing position")
-	sp_recheck.add_argument("ticker", help="Stock ticker symbol")
-	sp_recheck.add_argument("--entry-price", type=float, required=True,
-							help="Position entry price")
-	sp_recheck.add_argument("--entry-date", required=True,
-							help="Entry date YYYY-MM-DD")
-	sp_recheck.add_argument("--stop-loss", type=float, default=7.0,
-							help="Stop-loss percentage (default: 7.0)")
-	sp_recheck.set_defaults(func=cmd_recheck)
+	# discover — Market environment + RS leaders
+	sp_discover = sub.add_parser("discover", help="Market environment + RS leader discovery")
+	sp_discover.set_defaults(func=cmd_discover)
 
 	args = parser.parse_args()
 	args.func(args)

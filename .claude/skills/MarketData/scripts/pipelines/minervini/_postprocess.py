@@ -57,9 +57,10 @@ def compress_volume_analysis(vol_result):
 	if not vol_result or vol_result.get("error"):
 		return vol_result
 
-	return {
+	compressed = {
 		"accumulation_distribution_rating": vol_result.get("accumulation_distribution_rating"),
 		"up_down_volume_ratio_50d": vol_result.get("up_down_volume_ratio_50d"),
+		"up_down_volume_ratio_50d_unit": vol_result.get("up_down_volume_ratio_50d_unit"),
 		"up_down_volume_ratio_20d": vol_result.get("up_down_volume_ratio_20d"),
 		"volume_vs_50day_avg_pct": vol_result.get("volume_vs_50day_avg_pct"),
 		"breakout_volume_confirmation": vol_result.get("breakout_volume_confirmation"),
@@ -67,6 +68,9 @@ def compress_volume_analysis(vol_result):
 		"pullback_volume_declining": vol_result.get("pullback_volume_declining"),
 		"distribution_clusters": vol_result.get("distribution_clusters"),
 	}
+	if "thresholds" in vol_result:
+		compressed["thresholds"] = vol_result["thresholds"]
+	return compressed
 
 
 def compress_volume_for_recheck(vol_result):
@@ -223,6 +227,10 @@ def compress_tight_closes(tight_result):
 	if "signal_strength" in tight_result:
 		compressed["signal_strength"] = tight_result["signal_strength"]
 
+	# thresholds (§2.8)
+	if "thresholds" in tight_result:
+		compressed["thresholds"] = tight_result["thresholds"]
+
 	return compressed
 
 
@@ -246,19 +254,24 @@ def compress_closing_range(cr_result):
 
 
 def compress_pocket_pivot(pp_result):
-	"""Compress pocket_pivot: keep only most_recent_pp + count (C.5)."""
+	"""Compress institutional demand (pocket_pivot): keep only most_recent + count (C.5)."""
 	if not pp_result or pp_result.get("error"):
 		return pp_result
 
 	compressed = {
-		"pocket_pivot_count": pp_result.get("pocket_pivot_count", 0),
+		"demand_day_count": pp_result.get("demand_day_count", pp_result.get("pocket_pivot_count", 0)),
 	}
 
-	if "most_recent_pp" in pp_result:
-		compressed["most_recent_pp"] = pp_result["most_recent_pp"]
+	if "most_recent" in pp_result:
+		compressed["most_recent"] = pp_result["most_recent"]
+	elif "most_recent_pp" in pp_result:
+		compressed["most_recent"] = pp_result["most_recent_pp"]
 
 	if "base_context" in pp_result:
 		compressed["base_context"] = pp_result["base_context"]
+
+	if "thresholds" in pp_result:
+		compressed["thresholds"] = pp_result["thresholds"]
 
 	return compressed
 
@@ -297,16 +310,15 @@ def filter_margin_trajectory(margin_result):
 
 
 def compress_earnings_surprise(data):
-	"""Keep only most recent 4 entries in surprise_history (I3.1)."""
+	"""Keep only most recent 8 entries in surprise_history (for eps_history)."""
 	if not data or data.get("error"):
 		return data
 
 	result = dict(data)
 	history = result.get("surprise_history", [])
-	if len(history) > 4:
-		result["surprise_history"] = history[:4]
+	if len(history) > 8:
+		result["surprise_history"] = history[:8]
 
-	# Keep existing summary fields as-is
 	return result
 
 
@@ -357,13 +369,15 @@ def compress_estimate_revisions(data):
 
 
 def compress_forward_pe(data):
-	"""Strip intermediate calculation fields from forward_pe (I3.3)."""
+	"""Strip intermediate fields from forward_pe, keep PEG + thresholds (I3.3)."""
 	if not data or data.get("error"):
 		return data
 
 	keep_fields = (
-		"forward_1y_pe", "forward_2y_pe", "revenue_growth_yoy",
-		"assessment", "valuation_gap", "gross_margin_pct",
+		"forward_pe_1y", "forward_pe_2y", "peg_ratio", "peg_ratio_unit",
+		"revenue_growth_yoy", "gross_margin_pct", "thresholds",
+		# Legacy field names (backward compat during transition)
+		"forward_1y_pe", "forward_2y_pe",
 	)
 	return {k: v for k, v in data.items() if k in keep_fields}
 
@@ -472,10 +486,6 @@ def postprocess_results(results, mode="analyze"):
 		processed["tight_closes"] = compress_tight_closes(
 			processed["tight_closes"])
 
-	# C.4: Compress closing_range
-	if "closing_range" in processed:
-		processed["closing_range"] = compress_closing_range(
-			processed["closing_range"])
 
 	# C.5: Compress pocket_pivot
 	if "pocket_pivot" in processed:
@@ -499,10 +509,7 @@ def postprocess_results(results, mode="analyze"):
 			processed["earnings_surprise"] = compress_earnings_surprise(
 				processed["earnings_surprise"])
 
-		# I3.2: Compress estimate_revisions to summary
-		if "estimate_revisions" in processed:
-			processed["estimate_revisions"] = compress_estimate_revisions(
-				processed["estimate_revisions"])
+		# I3.2: estimate_revisions — kept raw for _build_earnings_unified extraction
 
 		# I3.3: Compress forward_pe — strip intermediate fields
 		if "forward_pe" in processed:

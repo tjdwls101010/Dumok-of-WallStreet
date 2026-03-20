@@ -212,9 +212,9 @@ def cmd_detect(args):
 	for i in range(9, len(close_arr)):
 		sma10[i] = np.mean(close_arr[i - 9 : i + 1])
 
-	# Scan last 60 trading days for pocket pivots
+	# Scan last 60 trading days for institutional demand days
 	scan_start = max(11, len(close_arr) - 60)
-	pocket_pivots = []
+	demand_days = []
 
 	for i in range(scan_start, len(close_arr)):
 		# Must be an up-day: close > prior close
@@ -252,13 +252,14 @@ def cmd_detect(args):
 		# Quality grade
 		quality = _grade_pocket_pivot(volume_ratio, close_range_pct, above_50ma)
 
-		pocket_pivots.append(
+		demand_days.append(
 			{
 				"date": str(dates[i].date()),
 				"close": round(float(close_arr[i]), 2),
 				"volume": round(float(vol_arr[i])),
 				"max_down_vol_10d": round(float(max_down_vol)),
 				"volume_ratio": volume_ratio,
+				"volume_ratio_unit": "up-day vol / max down-day vol (10d)",
 				"close_range_pct": close_range_pct,
 				"above_50ma": above_50ma,
 				"in_base": in_base,
@@ -267,22 +268,20 @@ def cmd_detect(args):
 			}
 		)
 
-	# Most recent pocket pivot summary
-	most_recent_pp = None
-	if pocket_pivots:
-		last_pp = pocket_pivots[-1]
-		last_pp_date = last_pp["date"]
-		# Calculate days ago from the last trading day
-		last_trade_date = str(dates[-1].date())
+	# Most recent demand day summary
+	most_recent = None
+	if demand_days:
+		last_dd = demand_days[-1]
+		last_dd_date = last_dd["date"]
 		days_ago = 0
 		for j in range(len(dates) - 1, -1, -1):
-			if str(dates[j].date()) == last_pp_date:
+			if str(dates[j].date()) == last_dd_date:
 				days_ago = len(dates) - 1 - j
 				break
-		most_recent_pp = {
-			"date": last_pp_date,
+		most_recent = {
+			"date": last_dd_date,
 			"days_ago": days_ago,
-			"quality": last_pp["quality"],
+			"quality": last_dd["quality"],
 		}
 
 	# Current base context
@@ -295,10 +294,16 @@ def cmd_detect(args):
 			"symbol": symbol,
 			"date": str(dates[-1].date()),
 			"current_price": current_price,
-			"pocket_pivots": pocket_pivots,
-			"pocket_pivot_count": len(pocket_pivots),
-			"most_recent_pp": most_recent_pp,
+			"demand_days": demand_days,
+			"demand_day_count": len(demand_days),
+			"most_recent": most_recent,
 			"base_context": base_context,
+			"thresholds": {
+				"quality_high": "vol_ratio >= 2.0 AND close in upper 70% of range AND above 50MA",
+				"quality_moderate": "vol_ratio >= 1.5 AND close in upper 50% of range AND above 50MA",
+				"quality_low": "basic criteria met but fails higher thresholds",
+				"staleness": "only signals within 15 days are actionable",
+			},
 		}
 	)
 

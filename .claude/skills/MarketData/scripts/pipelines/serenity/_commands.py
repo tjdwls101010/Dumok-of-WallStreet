@@ -666,7 +666,7 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 		"ticker": ticker,
 		"industry": info.get("industry"),
 		"market_cap": info.get("marketCap"),
-		"rs_score": rs.get("rs_score"),
+		"rs_score": rs.get("rs_rating"),
 		"price_vs_52w_high_pct": price_vs_high,
 		"eps_growth_pct": eps_growth,
 		"revenue_growth_pct": rev_growth,

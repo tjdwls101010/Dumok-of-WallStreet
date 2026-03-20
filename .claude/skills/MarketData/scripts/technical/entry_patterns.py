@@ -2,8 +2,8 @@
 """Entry pattern detection for actionable trade setups.
 
 Scans for currently active entry patterns on individual stocks or batches.
-Detects MA pullback, consolidation pivot, inside day, double inside day,
-tight day, gap reversal, and support reclaim setups. Each pattern includes
+Detects MA pullback, consolidation pivot, and support reclaim setups — all
+grounded in Minervini's Chapter 10 methodology. Each pattern includes
 trigger price, stop price, and quality grading. Persona-neutral module
 reusable by any pipeline.
 
@@ -30,7 +30,10 @@ Returns:
 			}
 		],
 		"pattern_count": int,
-		"setup_readiness": str
+		"setup_readiness": {
+			"classification": str,
+			"thresholds": {...}
+		}
 	}
 
 	For screen:
@@ -64,41 +67,28 @@ Example:
 			}
 		],
 		"pattern_count": 1,
-		"setup_readiness": "actionable"
-	}
-
-	>>> python entry_patterns.py screen NVDA AAPL TSLA META
-	{
-		"results": [
-			{"symbol": "NVDA", "pattern_count": 1, "best_pattern": "MA_PULLBACK", "best_quality": "high", "setup_readiness": "actionable"}
-		],
-		"ranked_by": "pattern_count"
+		"setup_readiness": {"classification": "actionable", "thresholds": {...}}
 	}
 
 Use Cases:
 	- Identify low-risk pullback entries into leading stocks
-	- Detect volatility contraction setups (inside days, tight days) for breakout timing
-	- Find gap reversal patterns for mean-reversion trades
+	- Detect consolidation pivot breakout setups
+	- Find shakeout recovery (support reclaim) patterns
 	- Screen a watchlist for actionable setups ranked by pattern count and quality
-	- Combine with sell_signals.py for full trade lifecycle management
 
 Notes:
-	- MA_PULLBACK: Price within ±1% of 10 SMA, 21 EMA, or 50 SMA with below-avg volume
-	- CONSOLIDATION_PIVOT: 10-25 day tight range (<10%) with trigger 0.3% above resistance for slippage
-	- INSIDE_DAY: Latest bar high < prior high AND low > prior low
-	- DOUBLE_INSIDE_DAY: Two consecutive inside days (bar[-1] inside bar[-2], bar[-2] inside bar[-3])
-	- TIGHT_DAY: Today's range < 50% of 20-day ADR
-	- SUPPORT_RECLAIM: Undercut 50 SMA by >1% within last 5 days then reclaimed above it
+	- MA_PULLBACK: Price within 1% of 10 SMA, 21 EMA, or 50 SMA with below-avg volume (Ch.10: "lower volume on pullbacks")
+	- CONSOLIDATION_PIVOT: 10-25 day tight range (<10%) with trigger above resistance (Ch.10: "pivot point, line of least resistance")
+	- SUPPORT_RECLAIM: Undercut 50 SMA then reclaimed with volume (Ch.10: "after a shakeout, rallies back on big volume")
 	- Quality: "high" (strongest conviction), "moderate" (developing)
-	- setup_readiness: "actionable" (1+ high quality), "developing" (1+ moderate), "none"
 	- stop_pct = abs(trigger_price - stop_price) / trigger_price * 100
 	- All calculations use yfinance daily data with 1-year history
 	- Minimum 50 trading days required for meaningful analysis
 
 See Also:
+	- vcp.py: VCP detection for primary base breakout entries
 	- sell_signals.py: Sell signal detection for position management
 	- pocket_pivot.py: Pocket pivot buy signals for base accumulation
-	- volume_analysis.py: Volume pattern analysis for accumulation/distribution
 	- tight_closes.py: Tight close cluster detection for supply drying up
 """
 
@@ -122,8 +112,9 @@ def _stop_pct(entry_price, stop_price):
 def _detect_ma_pullback(close_arr, vol_arr):
 	"""Detect MA_PULLBACK pattern.
 
+	Ch.10: "pullbacks to key MAs with lower volume on pullbacks"
 	For each key MA (10 SMA, 21 EMA, 50 SMA):
-	- Check if current price is within ±1% of the MA
+	- Check if current price is within 1% of the MA
 	- Check if pullback volume (last 3 days avg) < 80% of 50-day avg volume
 	Quality: high if near 21 EMA or 50 SMA with declining volume; moderate otherwise.
 	"""
@@ -136,7 +127,7 @@ def _detect_ma_pullback(close_arr, vol_arr):
 	# Calculate MAs
 	sma10 = np.mean(close_arr[-10:])
 	sma50 = np.mean(close_arr[-50:])
-	# EMA 21: use pandas-style ewm via manual computation
+	# EMA 21
 	ema21_arr = np.full(n, np.nan)
 	if n >= 21:
 		ema21_arr[20] = np.mean(close_arr[:21])
@@ -147,7 +138,6 @@ def _detect_ma_pullback(close_arr, vol_arr):
 
 	# Pullback volume: avg of last 3 days
 	pullback_vol = float(np.mean(vol_arr[-3:]))
-	# 50-day avg volume
 	avg_vol_50 = float(np.mean(vol_arr[-50:]))
 	if avg_vol_50 <= 0:
 		return []
@@ -175,7 +165,6 @@ def _detect_ma_pullback(close_arr, vol_arr):
 		trigger_price = round(ma_val * 1.005, 2)
 		stop_price = round(ma_val * 0.985, 2)
 
-		# Quality: high if near 21 EMA or 50 SMA with declining volume
 		if ma_type in ("21_EMA", "50_SMA") and pullback_vol_ratio < 0.8:
 			quality = "high"
 		else:
@@ -185,10 +174,13 @@ def _detect_ma_pullback(close_arr, vol_arr):
 			"pattern": "MA_PULLBACK",
 			"ma_type": ma_type,
 			"distance_pct": round(distance_pct, 2),
+			"distance_pct_unit": "% from MA",
 			"pullback_volume_ratio": pullback_vol_ratio,
+			"pullback_volume_ratio_unit": "3d avg vol / 50d avg vol",
 			"trigger_price": trigger_price,
 			"stop_price": stop_price,
 			"stop_pct": _stop_pct(trigger_price, stop_price),
+			"stop_pct_unit": "% risk from trigger to stop",
 			"quality": quality,
 		})
 
@@ -198,16 +190,14 @@ def _detect_ma_pullback(close_arr, vol_arr):
 def _detect_consolidation_pivot(high_arr, low_arr):
 	"""Detect CONSOLIDATION_PIVOT pattern.
 
+	Ch.10: "pivot point = line of least resistance after tight consolidation"
 	Look at last 10-25 days. Find range high (resistance) = max(High).
 	Range is tight if (max High - min Low) / min Low < 10%.
-	Trigger price set 0.3% above resistance to account for execution slippage.
-	Quality: high if range < 7% and 15+ days; moderate if range < 10% and 10+ days.
 	"""
 	n = len(high_arr)
 	if n < 10:
 		return []
 
-	# Try the longest qualifying window first (25 down to 10)
 	for window in range(min(25, n), 9, -1):
 		segment_high = high_arr[-window:]
 		segment_low = low_arr[-window:]
@@ -235,109 +225,29 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 			"pattern": "CONSOLIDATION_PIVOT",
 			"pivot_price": pivot_price,
 			"range_pct": round(range_pct, 2),
+			"range_pct_unit": "% price range over N days",
 			"days_in_range": window,
 			"trigger_price": trigger_price,
 			"stop_price": stop_price,
 			"stop_pct": _stop_pct(trigger_price, stop_price),
+			"stop_pct_unit": "% risk from trigger to stop",
 			"quality": quality,
 		}]
 
 	return []
 
 
-def _detect_inside_day(high_arr, low_arr, close_arr):
-	"""Detect INSIDE_DAY pattern.
-
-	Latest bar: High < prior day High AND Low > prior day Low.
-	"""
-	n = len(high_arr)
-	if n < 2:
-		return []
-
-	if high_arr[-1] < high_arr[-2] and low_arr[-1] > low_arr[-2]:
-		trigger_price = round(float(high_arr[-1]), 2)
-		stop_price = round(float(low_arr[-1]), 2)
-		return [{
-			"pattern": "INSIDE_DAY",
-			"trigger_price": trigger_price,
-			"stop_price": stop_price,
-			"stop_pct": _stop_pct(trigger_price, stop_price),
-			"quality": "moderate",
-		}]
-
-	return []
-
-
-def _detect_double_inside_day(high_arr, low_arr):
-	"""Detect DOUBLE_INSIDE_DAY pattern.
-
-	bar[-1] inside bar[-2] AND bar[-2] inside bar[-3].
-	"""
-	n = len(high_arr)
-	if n < 3:
-		return []
-
-	cond1 = high_arr[-1] < high_arr[-2] and low_arr[-1] > low_arr[-2]
-	cond2 = high_arr[-2] < high_arr[-3] and low_arr[-2] > low_arr[-3]
-
-	if cond1 and cond2:
-		trigger_price = round(float(high_arr[-1]), 2)
-		stop_price = round(float(min(low_arr[-1], low_arr[-2])), 2)
-		return [{
-			"pattern": "DOUBLE_INSIDE_DAY",
-			"trigger_price": trigger_price,
-			"stop_price": stop_price,
-			"stop_pct": _stop_pct(trigger_price, stop_price),
-			"quality": "high",
-		}]
-
-	return []
-
-
-def _detect_tight_day(high_arr, low_arr, close_arr):
-	"""Detect TIGHT_DAY pattern.
-
-	20-day ADR = mean((High - Low) / Close) * 100.
-	Active if today's range < 50% of 20-day ADR.
-	"""
-	n = len(close_arr)
-	if n < 21:
-		return []
-
-	# 20-day ADR
-	ranges_pct = (high_arr[-20:] - low_arr[-20:]) / close_arr[-20:] * 100
-	adr_pct = float(np.mean(ranges_pct))
-
-	if adr_pct <= 0:
-		return []
-
-	today_range_pct = float((high_arr[-1] - low_arr[-1]) / close_arr[-1] * 100)
-	ratio = today_range_pct / adr_pct
-
-	if ratio < 0.5:
-		return [{
-			"pattern": "TIGHT_DAY",
-			"today_range_pct": round(today_range_pct, 2),
-			"adr_pct": round(adr_pct, 2),
-			"ratio": round(ratio, 2),
-			"quality": "moderate",
-		}]
-
-	return []
-
-
-
-def _detect_support_reclaim(close_arr, low_arr, dates):
+def _detect_support_reclaim(close_arr, low_arr, vol_arr, dates):
 	"""Detect SUPPORT_RECLAIM pattern.
 
-	Check if price undercut the 50 SMA by >1% (Low < 50 SMA * 0.99) within
-	last 5 days and then reclaimed (Close > 50 SMA).
+	Ch.10: "After a price shakeout, it's a good sign if the stock rallies back
+	on big volume." Detects undercut of 50 SMA by >1% within last 5 days,
+	followed by reclaim above 50 SMA. Volume surge on reclaim = higher quality.
 	"""
 	n = len(close_arr)
 	if n < 50:
 		return []
 
-	# Calculate 50 SMA at the latest bar
 	sma50_current = float(np.mean(close_arr[-50:]))
 	if sma50_current <= 0:
 		return []
@@ -358,32 +268,54 @@ def _detect_support_reclaim(close_arr, low_arr, dates):
 
 		if low_arr[idx] < sma50_at_idx * 0.99:
 			undercut_pct = round((sma50_at_idx - low_arr[idx]) / sma50_at_idx * 100, 2)
+
+			# Volume surge check: reclaim day volume vs 50d avg
+			avg_vol_50 = float(np.mean(vol_arr[-50:]))
+			reclaim_vol = float(vol_arr[-1])
+			vol_surge = reclaim_vol > avg_vol_50 * 1.5 if avg_vol_50 > 0 else False
+
+			# Quality: "high" if volume surge on reclaim (Minervini: "rallies back on big volume")
+			quality = "high" if vol_surge else "moderate"
+
+			trigger_price = round(sma50_current, 2)
+			stop_price = round(float(low_arr[idx]), 2)
+
 			return [{
 				"pattern": "SUPPORT_RECLAIM",
 				"support_level": round(sma50_current, 2),
 				"undercut_pct": undercut_pct,
+				"undercut_pct_unit": "% below 50 SMA",
 				"reclaim_date": str(dates[-1].date()),
-				"quality": "high",
+				"volume_surge_on_reclaim": vol_surge,
+				"trigger_price": trigger_price,
+				"stop_price": stop_price,
+				"stop_pct": _stop_pct(trigger_price, stop_price),
+				"stop_pct_unit": "% risk from trigger to stop",
+				"quality": quality,
 			}]
 
 	return []
 
 
 def _determine_readiness(patterns):
-	"""Determine setup readiness from detected patterns.
-
-	actionable: 1+ high quality pattern detected
-	developing: 1+ moderate quality pattern detected
-	none: no patterns detected
-	"""
+	"""Determine setup readiness from detected patterns."""
 	if not patterns:
-		return "none"
-	qualities = [p["quality"] for p in patterns]
-	if "high" in qualities:
-		return "actionable"
-	if "moderate" in qualities:
-		return "developing"
-	return "none"
+		classification = "none"
+	elif any(p["quality"] == "high" for p in patterns):
+		classification = "actionable"
+	elif any(p["quality"] == "moderate" for p in patterns):
+		classification = "developing"
+	else:
+		classification = "none"
+
+	return {
+		"classification": classification,
+		"thresholds": {
+			"actionable": "1+ high-quality pattern",
+			"developing": "1+ moderate-quality pattern (no high)",
+			"none": "no patterns detected",
+		},
+	}
 
 
 def _scan_symbol(symbol):
@@ -400,24 +332,14 @@ def _scan_symbol(symbol):
 	close_arr = data["Close"].values.astype(float)
 	high_arr = data["High"].values.astype(float)
 	low_arr = data["Low"].values.astype(float)
-	open_arr = data["Open"].values.astype(float)
 	vol_arr = data["Volume"].values.astype(float)
 	dates = data.index
 
-	# Run all detectors
+	# Run detectors (Minervini-grounded patterns only)
 	active_patterns = []
 	active_patterns.extend(_detect_ma_pullback(close_arr, vol_arr))
 	active_patterns.extend(_detect_consolidation_pivot(high_arr, low_arr))
-
-	# Double inside day first; if found, skip single inside day
-	double_inside = _detect_double_inside_day(high_arr, low_arr)
-	if double_inside:
-		active_patterns.extend(double_inside)
-	else:
-		active_patterns.extend(_detect_inside_day(high_arr, low_arr, close_arr))
-
-	active_patterns.extend(_detect_tight_day(high_arr, low_arr, close_arr))
-	active_patterns.extend(_detect_support_reclaim(close_arr, low_arr, dates))
+	active_patterns.extend(_detect_support_reclaim(close_arr, low_arr, vol_arr, dates))
 
 	return {
 		"symbol": symbol,
@@ -464,12 +386,13 @@ def cmd_screen(args):
 				best_pattern = p["pattern"]
 				best_quality = q
 
+		sr = scan["setup_readiness"]
 		results.append({
 			"symbol": symbol,
 			"pattern_count": scan["pattern_count"],
 			"best_pattern": best_pattern,
 			"best_quality": best_quality,
-			"setup_readiness": scan["setup_readiness"],
+			"setup_readiness": sr["classification"] if isinstance(sr, dict) else sr,
 		})
 
 	results.sort(key=lambda r: r["pattern_count"], reverse=True)

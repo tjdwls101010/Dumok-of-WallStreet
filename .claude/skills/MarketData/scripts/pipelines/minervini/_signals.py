@@ -1,6 +1,6 @@
 """Signal synthesis module for Minervini SEPA pipeline.
 
-Combines entry signals (VCP, entry_patterns, pocket_pivot, low_cheat) and
+Combines entry signals (VCP, entry_patterns, institutional_demand) and
 exit signals (sell_signals, post_breakout) into unified signal verdicts.
 Determines overall action: BUY_READY / WATCH / HOLD / REDUCE / SELL.
 """
@@ -13,7 +13,7 @@ def _check_breakout_volume(results):
 		return {
 			"confirmed": False,
 			"reason": "volume_analysis_unavailable",
-			"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+			"thresholds": {"confirmed": "2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot", "vcp_override": "VCP volume_confirmation strongly_confirmed or confirmed"},
 		}
 
 	confirmed = vol.get("breakout_volume_confirmation", False)
@@ -32,14 +32,14 @@ def _check_breakout_volume(results):
 			"confirmed": True,
 			"volume_vs_avg_pct": ratio,
 			"vcp_confirmation": vcp_confirmed,
-			"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+			"thresholds": {"confirmed": "2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot", "vcp_override": "VCP volume_confirmation strongly_confirmed or confirmed"},
 		}
 
 	return {
 		"confirmed": False,
 		"volume_vs_avg_pct": ratio,
 		"vcp_confirmation": vcp_confirmed,
-		"thresholds": "confirmed: 2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot",
+		"thresholds": {"confirmed": "2+ days with volume >= 125% of 50d avg on up-close within 2% of pivot", "vcp_override": "VCP volume_confirmation strongly_confirmed or confirmed"},
 	}
 
 
@@ -74,28 +74,19 @@ def synthesize_entry_signals(results):
 				sig["stop_price"] = p["stop_price"]
 			signals.append(sig)
 
-	# Pocket pivot — only if recent (≤15 days)
+	# Institutional demand day — only if recent (≤15 days)
 	pp = results.get("pocket_pivot", {})
-	if not pp.get("error") and pp.get("pocket_pivot_count", 0) > 0:
-		recent = pp.get("most_recent_pp", {})
+	count = pp.get("demand_day_count", pp.get("pocket_pivot_count", 0))
+	if not pp.get("error") and count > 0:
+		recent = pp.get("most_recent", pp.get("most_recent_pp", {}))
 		days_ago = recent.get("days_ago", 999)
 		if days_ago <= 15:
 			signals.append({
-				"source": "pocket_pivot",
+				"source": "institutional_demand",
 				"days_ago": days_ago,
 				"quality": recent.get("quality"),
-				"count": pp.get("pocket_pivot_count"),
+				"count": count,
 			})
-
-	# Low cheat
-	lc = results.get("low_cheat", {})
-	if not lc.get("error") and lc.get("low_cheat_detected"):
-		signals.append({
-			"source": "low_cheat",
-			"quality": lc.get("quality"),
-			"entry_price": lc.get("entry_analysis", {}).get("low_cheat_entry"),
-			"risk_reduction_pct": lc.get("entry_analysis", {}).get("risk_reduction_pct"),
-		})
 
 	# Cup completion cheat (3C) from VCP
 	if not vcp.get("error"):

@@ -325,13 +325,35 @@ def _assess_single(symbol, data):
 	return {
 		"symbol": symbol,
 		"adr_pct": adr_pct,
+		"adr_pct_unit": "mean((High-Low)/Close) * 100 over 20 days",
 		"adr_class": adr_class,
 		"character": character,
 		"dollar_volume_avg": dollar_vol,
 		"liquidity_tier": liquidity,
 		"ma_respect": ma_respect,
+		"ma_respect_unit": "bounce rate (0-1) at each MA over 60 days",
 		"gap_frequency_20d": gap_freq,
+		"gap_frequency_unit": "fraction of days with >1.5% gap in 20 days",
 		"character_grade": grade,
+		"thresholds": {
+			"adr_class": {
+				"high_momentum": ">=5%",
+				"moderate_momentum": "3-5%",
+				"low_momentum": "1.5-3%",
+				"tight_range": "<1.5%",
+			},
+			"character": {
+				"clean_trender": "avg MA respect >= 0.7 AND gap freq < 0.15",
+				"moderate": "avg MA respect >= 0.5 OR gap freq < 0.25",
+				"choppy": "otherwise",
+			},
+			"grade": {
+				"A": "clean_trender + moderate/high momentum + large/mega liquidity",
+				"B": "moderate character + acceptable momentum/liquidity",
+				"C": "mixed signals",
+				"D": "choppy + tight/low momentum OR micro liquidity",
+			},
+		},
 	}
 
 

@@ -285,6 +285,34 @@ def _is_accelerating(growth_rates, min_quarters=3):
 	return accelerating, improving, rates
 
 
+def _is_decelerating(growth_rates, min_quarters=3):
+	"""Check if growth rates are decelerating (each quarter's rate < prior quarter's rate).
+
+	Minervini Ch.5: "A trend of material deceleration should raise suspicion."
+	Example: 50% -> 40% -> 30% IS decelerating.
+	"""
+	if len(growth_rates) < min_quarters:
+		return False
+
+	recent = growth_rates[:min_quarters]
+	rates = [r[1] for r in recent]
+
+	# Decelerating: each rate < prior rate (most-recent-first: rates[0] < rates[1] < rates[2])
+	return all(rates[i] < rates[i + 1] for i in range(len(rates) - 1))
+
+
+def _is_growth_sufficient(growth_rates, min_pct=20.0):
+	"""Check if most recent quarter's YoY growth meets minimum threshold.
+
+	Minervini Ch.7: "20 to 25 percent year-over-year increases" minimum.
+	"Really successful companies report 30 to 40 percent or more."
+	"""
+	if not growth_rates:
+		return False
+	most_recent_rate = growth_rates[0][1]
+	return most_recent_rate >= min_pct
+
+
 def _assess_data_quality(eps_count, sales_count):
 	"""Assess earnings data completeness for analysis reliability."""
 	min_count = min(eps_count, sales_count)
@@ -381,6 +409,9 @@ def cmd_code33(args):
 		margin_data_quality = "insufficient"
 
 	code33_pass = eps_acc and sales_acc and margin_expanding
+	eps_sufficient = _is_growth_sufficient(eps_growth, min_pct=20.0)
+	eps_decel = _is_decelerating(eps_growth)
+	sales_decel = _is_decelerating(sales_growth)
 
 	output_json(
 		{
@@ -388,26 +419,26 @@ def cmd_code33(args):
 			"code33_status": "PASS" if code33_pass else "FAIL",
 			"eps_accelerating": eps_acc,
 			"eps_improving": eps_improving,
-			"eps_metric_used": eps_metric,
+			"eps_growth_sufficient": eps_sufficient,
+			"eps_decelerating": eps_decel,
 			"eps_growth_rates": eps_rates,
 			"eps_quarters": [q[0] for q in eps_growth[:3]] if eps_growth else [],
 			"sales_accelerating": sales_acc,
 			"sales_improving": sales_improving,
-			"sales_metric_used": sales_metric,
+			"sales_decelerating": sales_decel,
 			"sales_growth_rates": sales_rates,
 			"sales_quarters": [q[0] for q in sales_growth[:3]] if sales_growth else [],
 			"margin_expanding": margin_expanding,
 			"margin_data_quality": margin_data_quality,
 			"margin_values_pct": margin_values[:5] if margin_values else [],
 			"quarters_analyzed": min(len(eps_growth), len(sales_growth)),
-			"eps_quarters_available": len(eps_growth),
-			"sales_quarters_available": len(sales_growth),
 			"data_quality": _assess_data_quality(len(eps_growth), len(sales_growth)),
 			"thresholds": {
-				"acceleration": "each quarter growth rate > prior quarter growth rate (sign-agnostic)",
-				"improving": "rates becoming less negative or more positive",
+				"accelerating": "3 consecutive quarters with increasing YoY growth rate",
+				"growth_sufficient": "most recent quarter YoY >= 20% (preferred 30%+)",
+				"decelerating": "3 consecutive quarters with decreasing growth rate = warning",
+				"code33": "EPS + Sales + Margins all accelerating for 3 quarters",
 				"margin_expansion": "3+ consecutive quarters with >= 0.5 ppt margin improvement",
-				"margin_min_change_ppt": _MARGIN_MIN_CHANGE_PPT,
 			},
 		}
 	)

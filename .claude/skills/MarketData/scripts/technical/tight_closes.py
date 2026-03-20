@@ -384,9 +384,11 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 			"min_close": cluster["min_close"],
 			"max_close": cluster["max_close"],
 			"spread_pct": cluster["spread_pct"],
+			"spread_pct_unit": "(max_close - min_close) / min_close * 100",
 			"avg_close": cluster["avg_close"],
 			"volume_trend": volume_trend,
 			"volume_dryup_ratio": dryup_ratio,
+			"volume_dryup_ratio_unit": "cluster avg vol / 50d avg vol",
 			"low_liquidity": low_liquidity,
 			"location": location,
 		}
@@ -422,6 +424,15 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 		"cluster_count": len(enriched_clusters),
 		"best_cluster": best_cluster,
 		"signal_strength": signal_strength,
+		"thresholds": {
+			"signal_strong": "1+ high-quality cluster",
+			"signal_moderate": "1+ moderate-quality cluster",
+			"signal_weak": "only low-quality clusters",
+			"quality_high_daily": "spread < 1% AND vol declining AND pivot_area AND 5+ days",
+			"quality_moderate_daily": "spread < 1.5% AND (vol declining OR dryup < 0.7) AND 3+ days",
+			"quality_high_weekly": "spread < 1.5% AND vol declining AND 3+ weeks",
+			"dryup_threshold": "volume_dryup_ratio < 0.7 = significant supply reduction",
+		},
 	}
 
 

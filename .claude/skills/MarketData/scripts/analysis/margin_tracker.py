@@ -152,15 +152,23 @@ def _build_trajectory(ticker, quarters):
 	return trajectory
 
 
-def _classify_flag(yoy_change):
-	"""Classify margin trend based on YoY gross margin change in percentage points."""
-	if yoy_change is None:
+def _classify_flag(gross_yoy, operating_yoy):
+	"""Classify margin trend based on BEST of gross or operating YoY change.
+
+	Minervini Ch.8: "consistent improvement in operating margins and net profit margins."
+	Uses the better of gross/operating to avoid missing major operating improvements.
+	"""
+	# Use the better of the two
+	changes = [c for c in [gross_yoy, operating_yoy] if c is not None]
+	if not changes:
 		return "INSUFFICIENT_DATA"
-	if yoy_change > 5:
+	best_change = max(changes)
+
+	if best_change > 5:
 		return "EXPANDING"
-	if yoy_change >= -2:
+	if best_change >= -2:
 		return "STABLE"
-	if yoy_change >= -10:
+	if best_change >= -10:
 		return "COMPRESSION"
 	return "COLLAPSE"
 
@@ -235,10 +243,22 @@ def cmd_track(args):
 		result["gross_margin_yoy_change"] = None
 		result["operating_margin_yoy_change"] = None
 
+	# Add QoQ changes to trajectory entries
+	for i, entry in enumerate(trajectory):
+		if i + 1 < len(trajectory):
+			prev = trajectory[i + 1]
+			entry["gross_qoq"] = round(entry["gross"] - prev["gross"], 2) if entry["gross"] is not None and prev["gross"] is not None else None
+			entry["operating_qoq"] = round(entry["operating"] - prev["operating"], 2) if entry["operating"] is not None and prev["operating"] is not None else None
+
 	result["trajectory"] = trajectory
-	result["flag"] = _classify_flag(result["gross_margin_yoy_change"])
-	result["margin_thresholds"] = "EXPANDING: YoY gross margin >+5pp | STABLE: -2pp to +5pp | COMPRESSION: -10pp to -2pp | COLLAPSE: <-10pp"
-	result["margin_interpretation"] = _build_margin_interpretation(result["flag"], latest)
+	result["flag"] = _classify_flag(result["gross_margin_yoy_change"], result["operating_margin_yoy_change"])
+	result["change_unit"] = "percentage points (pp)"
+	result["thresholds"] = {
+		"EXPANDING": "best of gross/operating YoY change > +5pp",
+		"STABLE": "-2pp to +5pp",
+		"COMPRESSION": "-10pp to -2pp",
+		"COLLAPSE": "< -10pp",
+	}
 
 	output_json(result)
 

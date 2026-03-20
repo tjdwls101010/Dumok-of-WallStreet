@@ -469,6 +469,12 @@ def cmd_check(args):
 		"signal_count": len(active),
 		"severity": _severity(len(active)),
 		"signals": signals,
+		"thresholds": {
+			"healthy": "0 active signals",
+			"caution": "1 active signal",
+			"warning": "2 active signals",
+			"critical": "3+ active signals",
+		},
 	})
 
 

@@ -37,7 +37,7 @@ Returns:
 				"proximity_to_lows": {"value": float, "thresholds": str},
 				"50ma_momentum": {"value": float, "thresholds": str}
 			},
-			"max_scores": "S1:80 | S2:95 | S3:90 | S4:100"
+			"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100}
 		}
 
 	For transitions:
@@ -64,7 +64,7 @@ Example:
 			"200ma_slope": {"value": 0.0312, "thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20"},
 			...
 		},
-		"max_scores": "S1:80 | S2:95 | S3:90 | S4:100"
+		"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100}
 	}
 
 Use Cases:
@@ -659,7 +659,7 @@ def cmd_classify(args):
 			"stage": winning_stage,
 			"scores": non_zero_scores,
 			"evidences": evidences,
-			"max_scores": "S1:80 | S2:95 | S3:90 | S4:100",
+			"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100},
 		}
 	)
 
