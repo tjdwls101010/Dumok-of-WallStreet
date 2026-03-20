@@ -86,7 +86,7 @@ Priority when ambiguous: A > D > B > C > F > E
 
 Chain types sequentially when a query spans multiple intents:
 - "XX 사도 돼?" → B then D (diagnose then timing)
-- "지금 뭐 사야 해?" → A then C then B (market → screen → analyze)
+- "지금 뭐 사야 해?" → A then C then B (market → discover → analyze)
 - "보유 종목 괜찮아?" → A then E (market context → position check)
 
 ## Analysis Protocol
@@ -95,12 +95,12 @@ Chain types sequentially when a query spans multiple intents:
 
 | Query Type | Primary Subcommand | Agent-Level Work |
 |------------|-------------------|-----------------|
-| A (Market) | market-leaders | Environment verdict → exposure adjustment |
+| A (Market) | discover | Environment verdict → exposure adjustment, RS leader identification |
 | B (Stock) | analyze | SEPA convergence interpretation, catalyst WebSearch |
-| C (Discovery) | screen | Screening → TT filter → ranking by SEPA score |
+| C (Discovery) | discover → analyze (top candidates) | RS leaders + sector leaders → SEPA diagnosis of candidates |
 | D (Timing) | analyze | Entry pattern assessment, R:R calculation |
-| E (Position) | recheck | Post-breakout behavior, sell signal check |
-| F (Comparison) | compare | Multi-ticker SEPA score comparison |
+| E (Position) | analyze | Sell signal / risk focus interpretation, tennis ball/egg assessment |
+| F (Comparison) | analyze × N | Multi-ticker SEPA score comparison (agent-level aggregation) |
 
 **Pipeline-Complete (§2.3)**: All methodology-required module calls are within the pipeline. Do not call individual modules to supplement. WebSearch is for agent-driven context (catalyst research, company story) only.
 
@@ -188,8 +188,9 @@ If any gap: disclose, reduce conviction, flag as monitoring item.
 - Entry/exit plan if actionable
 
 **Type C (Discovery)**:
-- Screening results with SEPA ranking
-- Top candidates with key metrics
+- Market environment verdict from discover
+- RS leaders and sector leadership dashboard
+- Top candidates selected for full SEPA analysis
 - Why each qualifies (or doesn't)
 
 **Type D (Trade Timing)**:
@@ -199,9 +200,9 @@ If any gap: disclose, reduce conviction, flag as monitoring item.
 - If WAIT: what conditions would change the verdict
 
 **Type E (Position Management)**:
-- Post-breakout behavior classification (tennis ball/egg)
-- Active sell signals (if any)
-- Current SEPA status vs entry-time status
+- Current sell signal status and severity (from risk section)
+- Post-breakout behavior assessment: tennis ball or egg (agent judgment from stock_character + volume)
+- Current SEPA status (hard gates, dimension scores)
 - Hold/Reduce/Sell verdict with V1 reasoning
 
 **Type F (Comparison)**:

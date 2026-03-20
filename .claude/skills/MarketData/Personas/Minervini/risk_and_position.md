@@ -30,6 +30,17 @@ The VCP structure enables tight stops naturally: the logical stop is just below 
 - **Breakeven stop**: Once the stock advances 2-3x the initial risk, move the stop to breakeven. From this point, it's a "free trade" — you either win or break even.
 - **Trailing stop**: As the stock continues advancing, trail the stop using the 20-day MA or recent swing low — whichever is tighter.
 
+### Re-entry After Stop-Out
+
+Being stopped out does not invalidate the thesis — it invalidates the TIMING. If a stock triggers your stop-loss but the underlying SEPA setup remains intact (Stage 2, TT pass, earnings accelerating, VCP still forming), you can and should re-enter when a new proper entry point appears.
+
+This is psychologically the hardest discipline because it requires admitting you were wrong on timing while maintaining conviction on the thesis. Amateurs avoid re-entry out of ego ("it already stopped me out, I won't touch it again"). Professionals evaluate objectively: is the setup still valid? If yes, the prior stop was noise, not signal.
+
+Guidelines:
+- Re-entry requires a NEW valid entry signal (new VCP pivot, new demand day) — not re-buying at the same price hoping it works this time
+- Maximum 2-3 re-entries on the same stock. After 3 stops, the market is telling you something you're not seeing — step aside
+- Each re-entry uses the SAME position sizing discipline as initial entry. Never increase size to "make back" what the stops cost
+
 ### Progressive Exposure (Pyramiding)
 
 Do not commit full position size at once. Build position as the stock PROVES itself through price action:
@@ -86,6 +97,8 @@ Market timing is NOT about predicting tops and bottoms — it's about adjusting 
 - **Bear market**: Mostly cash. 90%+ of superperformance occurs during bull markets. The odds of VCP breakout success collapse in bear environments. Preserve capital for the next bull.
 
 Distribution day counting is the thermometer: a high-volume down day in the indexes = 1 distribution day. Track the count over 25 trading days. 4+ = the market is under distribution pressure, regardless of how the indexes "look" on the surface.
+
+**Seasonal Pacing**: Treat the trading year like a 12-inning game. Don't jump in with full exposure after a correction or at the start of a new year. Start with pilot buys at 25-50% of normal position size to test whether the market will reward your type of setup. If pilot buys are not profitable, there is no reason to move to 100% exposure — the market is telling you its current theme doesn't match your methodology. Scale up only when early results confirm the environment is favorable.
 
 ### After-Run Psychology
 

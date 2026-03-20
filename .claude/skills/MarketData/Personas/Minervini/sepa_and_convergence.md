@@ -58,10 +58,29 @@ Stage 2 is the ONLY stage to buy. This is not a suggestion — it is a non-negot
 Contraction quality matters more than contraction count. Evaluate:
 
 - **Contraction ratio**: Each successive correction should be ~50% of the prior (ideal). Ratios > 0.7 suggest supply isn't drying up fast enough. Expanding contractions (ratio > 1.0) = distribution, not accumulation.
-- **Volume behavior across contractions**: Declining average volume = supply exhaustion. Rising volume across contractions = distribution. This is the single most important VCP quality indicator.
+- **Volume behavior across contractions**: Declining average volume = supply exhaustion. Rising volume across contractions = distribution. This is the single most important VCP quality indicator. The psychological mechanism: each contraction eliminates a layer of trapped buyers — those who bought near the prior high and are selling at breakeven. The progressive tightening proves these weak holders have been absorbed. When the last layer clears, minimal buying pressure produces the breakout because supply has been structurally removed.
 - **Pivot tightness**: A tight pivot (low ATR ratio + low volume percentile near pivot) = highest reliability breakout. Wide, loose pivots are more failure-prone.
-- **Time symmetry**: The right side of the base should be constructive — neither too fast (V-shape, suggests fragile recovery) nor too slow (suggests persistent supply).
+- **Time symmetry**: The right side of the base should be constructive — neither too fast (V-shape, suggests fragile recovery) nor too slow (suggests persistent supply). A base that forms too quickly (time compression) is as suspect as one that forms too slowly — if a stock drops 30% and recovers in 2-3 weeks, the speed itself signals fragility, regardless of how the pattern "looks" on a chart. Give time for proper supply absorption.
 - **Shakeout quality**: A constructive shakeout (quick undercut + volume surge recovery) near the pivot is actually POSITIVE — it traps weak holders and clears supply before the real move.
+
+### Selectivity & Patience
+
+The cheetah waits until absolutely certain it can catch its prey — preferring the weak or lame, attacking only when the odds are overwhelmingly in its favor. Trading is the same: precision over frequency.
+
+This principle is distinct from convergence (V2). V2 says "all elements must align." The Cheetah Principle says "even when aligned setups appear, wait for the ONE that presents overwhelming asymmetry." Not every convergent setup deserves capital — only those where the risk-reward architecture is so favorable that the trade works even at a 50% win rate.
+
+Implications:
+- Long periods of inactivity are not failure — they are discipline
+- The best trades feel boring at entry (everything quietly aligned) and exciting only in hindsight
+- If you find yourself forcing trades to "stay active," you have abandoned selectivity — the most dangerous form of style drift
+
+### Expectation-Based Verification
+
+Do not predict what a stock will do — know what it SHOULD do given the setup, then verify. Like a train that normally arrives at 6:05-6:10: if it hasn't arrived by 7:00, something is wrong regardless of what the schedule says.
+
+An elite SEPA candidate that meets all criteria SHOULD act well — it should hold its breakout, pull back on low volume, and resume its advance. When it doesn't — when price action diverges from what the setup predicts — that divergence IS the signal, not the setup.
+
+This reframes trading from hope-based ("I hope it goes up") to verification-based ("Is it acting as it should?"). The pipeline provides the setup assessment; the agent's job is to verify whether subsequent price action CONFIRMS or CONTRADICTS the expected behavior.
 
 ### Company Categories
 
