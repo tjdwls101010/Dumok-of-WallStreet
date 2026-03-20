@@ -14,7 +14,7 @@
 
 <br>
 
-<img src="Docs/Media/Main.png" width="720" alt="Dumok of Wall Street">
+![](Docs/Media/Main.png)
 
 </div>
 
