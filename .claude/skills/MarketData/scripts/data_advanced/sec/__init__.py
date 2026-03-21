@@ -46,15 +46,9 @@ def get_company_info(cik: str) -> dict:
 # Import commands - use try/except for direct execution vs module import
 if __name__ == "__main__":
 	from data_advanced.sec.filings import cmd_filings, cmd_mda
-	from data_advanced.sec.ftd import cmd_ftd, cmd_litigation
-	from data_advanced.sec.insider import cmd_insider
-	from data_advanced.sec.institutions import cmd_institutions
 	from data_advanced.sec.supply_chain import cmd_supply_chain_extract, cmd_events
 else:
 	from .filings import cmd_filings, cmd_mda
-	from .ftd import cmd_ftd, cmd_litigation
-	from .insider import cmd_insider
-	from .institutions import cmd_institutions
 	from .supply_chain import cmd_supply_chain_extract, cmd_events
 
 
@@ -75,29 +69,6 @@ def main():
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--form", default="10-K", help="Form type (10-K or 10-Q)")
 	sp.set_defaults(func=cmd_mda)
-
-	# insider
-	sp = sub.add_parser("insider", help="Get Form 4 insider trading data")
-	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--limit", type=int, default=20, help="Maximum number of filings to return")
-	sp.set_defaults(func=cmd_insider)
-
-	# institutions
-	sp = sub.add_parser("institutions", help="Get 13F filings submitted by the entity's CIK (investment managers only)")
-	sp.add_argument("symbol", help="Ticker symbol")
-	sp.set_defaults(func=cmd_institutions)
-
-	# ftd
-	sp = sub.add_parser("ftd", help="Get Fail-to-Deliver data")
-	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--start-date", default=None, help="Start date (YYYY-MM-DD)")
-	sp.add_argument("--end-date", default=None, help="End date (YYYY-MM-DD)")
-	sp.set_defaults(func=cmd_ftd)
-
-	# litigation
-	sp = sub.add_parser("litigation", help="Get SEC enforcement actions (RSS feed)")
-	sp.add_argument("--limit", type=int, default=20, help="Maximum number of items to return")
-	sp.set_defaults(func=cmd_litigation)
 
 	# supply-chain
 	sp = sub.add_parser("supply-chain", help="Extract supply chain structure from 10-K/10-Q/20-F")

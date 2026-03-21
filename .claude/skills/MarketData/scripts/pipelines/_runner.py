@@ -1,12 +1,12 @@
-"""Script execution engine for Minervini SEPA pipeline."""
+"""Shared script execution engine for pipelines."""
 
 import json
 import os
 import subprocess
 import sys
 
-# pipelines/minervini/_runner.py -> pipelines/minervini/ -> pipelines/ -> scripts/
-SCRIPTS_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+# pipelines/_runner.py -> pipelines/ -> scripts/
+SCRIPTS_DIR = os.path.dirname(os.path.dirname(__file__))
 
 
 def _run_script(script_path, args_list, timeout=60):

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 from utils import output_json, safe_run
 
-from ._runner import _run_script
+from pipelines._runner import _run_script
 from ._health import _extract_health_gates, _build_readiness_codes
 from ._bottleneck import _build_l3_bottleneck
 from ._valuation import _build_valuation_frame

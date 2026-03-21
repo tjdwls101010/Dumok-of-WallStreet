@@ -6,7 +6,7 @@
 
 **Claude Code를 월스트릿 전문 애널리스트로 만드는 오픈소스 플러그인**
 
-[![Version](https://img.shields.io/badge/version-6.6.0-green?style=flat-square)](CHANGELOG.db)
+[![Version](https://img.shields.io/badge/version-6.7.0-green?style=flat-square)](CHANGELOG.db)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-cc785c?style=flat-square)](https://claude.ai/code)
@@ -521,7 +521,7 @@ Claude Code에서 `/Minervini` 또는 `/Serenity` 명령어를 사용합니다. 
 Dumok-of-WallStreet/
 ├── .claude/
 │   ├── .claude-plugin/
-│   │   └── plugin.json                    # 플러그인 메타데이터 (v6.6.0)
+│   │   └── plugin.json                    # 플러그인 메타데이터 (v6.7.0)
 │   ├── commands/
 │   │   ├── Minervini.md                   # Minervini 전문가 커맨드
 │   │   └── Serenity.md                    # Serenity 전문가 커맨드

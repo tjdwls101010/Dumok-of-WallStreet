@@ -14,7 +14,7 @@ import time
 
 from utils import output_json, safe_run
 
-from ._runner import _run_script
+from pipelines._runner import _run_script
 from ._sepa_scorer import compute_sepa_score
 from ._risk_gate import compute_risk_assessment
 from ._signals import determine_overall_signal

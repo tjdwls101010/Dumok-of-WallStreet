@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 # Try relative imports first, fall back to absolute imports
 try:
 	from .inflation import cmd_breakeven_inflation, cmd_cpi, cmd_michigan, cmd_pce
-	from .policy import cmd_credit_spreads, cmd_policy, cmd_tga
 	from .rates import (
 		cmd_fed_funds,
 		cmd_international_yield,
@@ -21,10 +20,8 @@ try:
 		cmd_yield_curve,
 		cmd_yield_spread,
 	)
-	from .series import cmd_series
 except ImportError:
 	from data_advanced.fred.inflation import cmd_breakeven_inflation, cmd_cpi, cmd_michigan, cmd_pce
-	from data_advanced.fred.policy import cmd_credit_spreads, cmd_policy, cmd_tga
 	from data_advanced.fred.rates import (
 		cmd_fed_funds,
 		cmd_international_yield,
@@ -34,7 +31,6 @@ except ImportError:
 		cmd_yield_curve,
 		cmd_yield_spread,
 	)
-	from data_advanced.fred.series import cmd_series
 
 
 def add_common_args(parser):
@@ -129,41 +125,6 @@ def main():
 	)
 	add_common_args(sp_michigan)
 
-	# Policy commands
-	sp_policy = subparsers.add_parser("policy", help="Fed Policy Rate")
-	sp_policy.add_argument(
-		"--indicator",
-		default="all",
-		choices=["all", "fed_balance_sheet", "policy_uncertainty", "tga_balance", "reverse_repo"],
-		help="Policy indicator type",
-	)
-	add_common_args(sp_policy)
-
-	sp_credit = subparsers.add_parser("credit-spreads", help="Credit Spreads")
-	sp_credit.add_argument(
-		"--spread-type",
-		default="all",
-		choices=["all", "hy_spread", "ig_spread", "bbb_spread"],
-		help="Type of credit spread",
-	)
-	add_common_args(sp_credit)
-
-	sp_tga = subparsers.add_parser("tga", help="Treasury General Account (TGA) balance with liquidity analysis")
-	sp_tga.add_argument(
-		"--series-type",
-		default="weekly_avg",
-		choices=["weekly_avg", "wednesday", "daily"],
-		help="TGA series type",
-	)
-	add_common_args(sp_tga)
-
-	# Series command
-	sp_series = subparsers.add_parser("series", help="Generic FRED series")
-	sp_series.add_argument(
-		"--series-id", required=True, help="FRED series ID(s), comma-separated (e.g., GDP,UNRATE,GDPC1)"
-	)
-	add_common_args(sp_series)
-
 	args = parser.parse_args()
 
 	# Dispatch
@@ -179,10 +140,6 @@ def main():
 		"pce": cmd_pce,
 		"breakeven-inflation": cmd_breakeven_inflation,
 		"michigan": cmd_michigan,
-		"policy": cmd_policy,
-		"credit-spreads": cmd_credit_spreads,
-		"tga": cmd_tga,
-		"series": cmd_series,
 	}
 
 	if args.command in command_map:
