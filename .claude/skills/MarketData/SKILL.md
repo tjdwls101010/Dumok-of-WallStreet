@@ -16,7 +16,6 @@ cd $SKILL_ROOT/scripts
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 ```
-> In Cowork sessions, the scripts directory is read-only. Create the venv in the session working directory instead and point `$VENV` to it.
 
 ## Environment Bootstrap Protocol
 
@@ -30,7 +29,7 @@ Before running any script, verify the following:
    ```
 
 ### Cowork Environment
-The plugin cache directory in Cowork is **read-only** — venv creation will fail in the scripts directory.
+The plugin cache directory in Cowork is **read-only** — venv creation will fail.
 Create the venv in the session working directory instead (e.g., `/sessions/{session-id}/.venv`),
 install requirements from the original scripts path, and set `$VENV` to the new venv's python path.
 Scripts remain executable from their original read-only location — no copying needed.
