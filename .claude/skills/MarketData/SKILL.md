@@ -135,33 +135,17 @@ Market breadth, trend template
 | `market_breadth` | Fast Finviz homepage scraper: advancing/declining, new high/low, SMA breadth | `screening/market_breadth.py` |
 | `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |
 
-#### Valuation
-
-CAPE ratio (dependency of macro/erp.py)
-
-| Function | Description | Script |
-|----------|-------------|--------|
-| `cape` | CAPE (Cyclically Adjusted Price-to-Earnings) Ratio data from YCharts | `valuation/cape.py` |
-
 ### Advanced Data Sources
 
 #### FRED
 
-Yield curve, inflation
+Yield curve, inflation, FedWatch
 
 | Function | Description | Script |
 |----------|-------------|--------|
+| `fedwatch` | CME FedWatch Tool - FOMC rate change probabilities via cme-fedwatch library (CME futures + FRED) | `data_advanced/fred/fedwatch.py` |
 | `inflation` | FRED inflation indicators and expectations data | `data_advanced/fred/inflation.py` |
 | `rates` | FRED interest rate and yield curve data access | `data_advanced/fred/rates.py` |
-
-#### Fed
-
-FedWatch Tool
-
-| Function | Description | Script |
-|----------|-------------|--------|
-| `fedwatch` | CME FedWatch Tool - FOMC rate change probabilities from Fed Funds futures | `data_advanced/fed/fedwatch.py` |
-| `fomc_calendar` | FOMC meeting calendar (dependency of fedwatch.py) | `data_advanced/fed/fomc_calendar.py` |
 
 #### SEC
 

@@ -39,7 +39,7 @@ def cmd_macro(args):
 	scripts = {
 		"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
 		"vix_curve": ("macro/vix_curve.py", ["analyze"]),
-		"fedwatch": ("data_advanced/fed/fedwatch.py", []),
+		"fedwatch": ("data_advanced/fred/fedwatch.py", []),
 		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 		"erp": ("macro/erp.py", ["erp"]),
 		"fear_greed": ("analysis/sentiment/fear_greed.py", []),
@@ -148,7 +148,7 @@ def cmd_analyze(args):
 		macro_scripts = {
 			"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
 			"vix_curve": ("macro/vix_curve.py", ["analyze"]),
-			"fedwatch": ("data_advanced/fed/fedwatch.py", []),
+			"fedwatch": ("data_advanced/fred/fedwatch.py", []),
 			"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
 			"erp": ("macro/erp.py", ["erp"]),
 			"fear_greed": ("analysis/sentiment/fear_greed.py", []),

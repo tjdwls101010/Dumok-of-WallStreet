@@ -105,6 +105,8 @@ See Also:
 
 import argparse
 import os
+import re
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -112,7 +114,53 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pandas as pd
 from fredapi import Fred
 from utils import error_json, output_json, safe_run
-from valuation.cape import fetch_ycharts_html, parse_cape_table
+
+YCHARTS_URL = "https://ycharts.com/indicators/cyclically_adjusted_pe_ratio"
+
+
+def fetch_ycharts_html() -> str:
+	"""Fetch HTML from YCharts using curl with browser-like headers."""
+	try:
+		result = subprocess.run(
+			["curl", "-L", "-s", "-A", "Mozilla/5.0", YCHARTS_URL],
+			capture_output=True,
+			text=True,
+			timeout=10,
+		)
+		if result.returncode != 0:
+			raise Exception(f"curl failed: {result.stderr}")
+		return result.stdout
+	except subprocess.TimeoutExpired:
+		raise Exception("Request timeout")
+	except Exception as e:
+		raise Exception(f"Failed to fetch data: {str(e)}")
+
+
+def parse_cape_table(html: str) -> list:
+	"""Parse CAPE data table from YCharts HTML.
+
+	Returns:
+		List of dicts with 'date' and 'cape' keys.
+	"""
+	pattern = (
+		r"(January|February|March|April|May|June|July|August|September|"
+		r"October|November|December)\s+(\d{1,2}),\s+(\d{4})\s*</td>\s*"
+		r"<td[^>]*>\s*([0-9.]+)"
+	)
+	matches = re.findall(pattern, html, re.IGNORECASE)
+	if not matches:
+		raise Exception("No CAPE data found in HTML")
+
+	month_map = {
+		"January": "01", "February": "02", "March": "03", "April": "04",
+		"May": "05", "June": "06", "July": "07", "August": "08",
+		"September": "09", "October": "10", "November": "11", "December": "12",
+	}
+	results = []
+	for month, day, year, value in matches:
+		date_str = f"{year}-{month_map[month]}-{day.zfill(2)}"
+		results.append({"date": date_str, "cape": float(value)})
+	return results
 
 FRED_API_KEY = "c383a49d4aa1a348f60780d92b7c6970"
 
