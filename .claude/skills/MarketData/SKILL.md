@@ -58,7 +58,7 @@ Persona-specific analysis orchestrators (Facade) — prefer these as the primary
 | Function | Description | Script |
 |----------|-------------|--------|
 | `minervini` | Full SEPA pipeline (Pipeline-Complete, 2 subcommands: analyze, discover): SEPA composite scoring (0-100) with hard-gate safety (Stage 2 + Trend Template 8/8), VCP/entry pattern synthesis, Code 33 and earnings quality integration, risk assessment with R:R calculation, position sizing, market leadership dashboard with distribution day counting | `pipelines/minervini/` |
-| `serenity` | Full Serenity 6-Level pipeline (Pipeline-Complete, 3 subcommands: macro, analyze, discover): macro regime assessment, fundamental validation (5 health gates), SEC supply chain extraction via edgartools + Gemini, 6-Criteria Bottleneck scoring, CapEx flow tracking, composite signal generation, control layer outputs. Sector-agnostic | `pipelines/serenity.py` |
+| `serenity` | Full Serenity 6-Level pipeline (Pipeline-Complete, 3 subcommands: macro, analyze, discover): macro regime assessment, fundamental validation (5 health gates), SEC supply chain extraction via edgartools + Gemini, 6-Criteria Bottleneck scoring, CapEx flow tracking, composite signal generation, control layer outputs. Sector-agnostic | `pipelines/serenity/` |
 
 ### Pipeline-Used Modules
 

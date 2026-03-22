@@ -123,17 +123,14 @@ Returns:
 		execution_time_seconds).
 
 Example:
-	>>> python serenity.py macro --extended
+	>>> python -m pipelines.serenity macro --extended
 	{"regime": "risk_on", "risk_level": "moderate", "signals": {...}, ...}
 
-	>>> python serenity.py analyze NBIS
+	>>> python -m pipelines.serenity analyze NBIS
 	{"ticker": "NBIS", "levels": {"L1_macro": {"regime": ..., "signals": {...}}, ...}, ...}
 
-	>>> python serenity.py analyze NBIS --skip-macro
-	{"ticker": "NBIS", "levels": {"L1_macro": {"skipped": true}, ...}, ...}
-
-	>>> python serenity.py discover --sector Defense --max-mcap 5B --skip-macro
-	{"macro_context": {"skipped": true}, "themes": [...], ...}
+	>>> python -m pipelines.serenity discover NVDA AAPL MSFT
+	{"candidates": [...], "thresholds": {...}, ...}
 
 Use Cases:
 	- Full due diligence automation for any ticker in any sector
@@ -168,9 +165,10 @@ import argparse
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+# Ensure scripts/ is on sys.path for utils import
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from serenity._commands import (
+from pipelines.serenity._commands import (
 	cmd_macro, cmd_analyze, cmd_discover,
 )
 
