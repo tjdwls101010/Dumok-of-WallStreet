@@ -148,7 +148,6 @@ def cmd_bdi(args):
 			"max": round(max_value, 4),
 		},
 		"shipping_demand": demand,
-		"interpretation": f"Global shipping demand indicator: {demand}",
 		"data_points": len(prices),
 		"recent_values": {str(idx.date()): round(float(val), 4) for idx, val in prices.tail(20).items()},
 	}

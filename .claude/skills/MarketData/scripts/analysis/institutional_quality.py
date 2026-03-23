@@ -314,9 +314,13 @@ def _compute_quality(symbol):
 		"total_institutional_holders": total_holders,
 		"classified_breakdown": breakdown,
 		"top_holders_classified": top_holders,
-		"interpretation": _interpret_score(quality_score),
-		"io_thresholds": "9-10: passive/index dominant | 7-8: long-only active dominant | 5-6: mixed/hedge | 3-4: quant/MM dominant | 1-2: no institutional support",
-		"io_interpretation": _build_io_interpretation(quality_score, breakdown),
+		"thresholds": {
+			"9-10": "passive/index dominant",
+			"7-8": "long-only active dominant",
+			"5-6": "mixed/hedge",
+			"3-4": "quant/MM dominant",
+			"1-2": "no institutional support",
+		},
 	}
 
 

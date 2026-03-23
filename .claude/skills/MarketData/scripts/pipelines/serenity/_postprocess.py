@@ -75,7 +75,11 @@ def _summarize_insider_transactions(data):
 			"sell_amount": total_sell_amount,
 			"net_direction": net_direction,
 			"net_value": total_buy_amount - total_sell_amount,
-			"thresholds": "net_buying: buy_amount > sell_amount \u00d7 1.2 | net_selling: sell_amount > buy_amount \u00d7 1.2 | mixed: otherwise",
+			"thresholds": {
+				"net_buying": "buy_amount > sell_amount × 1.2",
+				"net_selling": "sell_amount > buy_amount × 1.2",
+				"mixed": "otherwise",
+			},
 		},
 		"by_insider": by_insider,
 	}
@@ -430,5 +434,9 @@ def _clean_analyst_revisions(data, earnings_estimate=None, revenue_estimate=None
 		"trend_direction": trend_direction,
 		"net_revisions_7d": total_up_7d - total_down_7d,
 		"net_revisions_30d": total_up_30d - total_down_30d,
-		"thresholds": "trend_direction: rising(majority horizons eps current > eps 30d_ago) | falling(majority <) | stable(mixed)",
+		"thresholds": {
+			"rising": "majority horizons eps current > eps 30d_ago",
+			"falling": "majority horizons eps current < eps 30d_ago",
+			"stable": "mixed",
+		},
 	}

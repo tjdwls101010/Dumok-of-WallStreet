@@ -103,7 +103,6 @@ Financials, actions, holders, earnings, macro proxies
 | `financials` | Financial statements retrieval | `data_sources/financials.py` |
 | `holders` | Holder and insider transaction data | `data_sources/holders.py` |
 | `info` | Ticker information retrieval | `data_sources/info.py` |
-| `superinvestor` | Superinvestor holdings from Dataroma: 81 top fund managers, recent activity per ticker | `data_sources/superinvestor.py` |
 
 #### Analysis
 

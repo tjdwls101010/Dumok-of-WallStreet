@@ -42,7 +42,11 @@ def _extract_health_gates(results):
 			"cash_and_equivalents": debt.get("cash_and_equivalents"),
 			"net_debt": debt.get("net_debt"),
 			"debt_to_equity": debt.get("debt_to_equity"),
-			"thresholds": "FLAG: grade D or coverage < 1x | CAUTION: grade C or 1-3x | PASS: grade A-B and coverage > 3x",
+			"thresholds": {
+				"FLAG": "grade D or coverage < 1x",
+				"CAUTION": "grade C or 1-3x",
+				"PASS": "grade A-B and coverage > 3x",
+			},
 		}
 		if grade == "D" or (coverage is not None and coverage < 1.0):
 			gates["bear_bull_paradox"] = "FLAG"
@@ -82,11 +86,12 @@ def _extract_health_gates(results):
 			"sbc_flag": sbc_flag,
 			"revenue_growth_yoy_pct": rev_growth,
 			"high_growth_dilution_discount": high_growth,
-			"thresholds": (
-				"FLAG: shares_qoq > 2% | reported_fcf > 0 but real_fcf < 0 | sbc toxic (>30% rev) "
-				"| CAUTION: shares_qoq 1-2% | sbc warning (10-30% rev) | PASS: otherwise "
-				"| high_growth_discount: revenue_growth > 25% softens severity by one tier (V2 dilution quality)"
-			),
+			"thresholds": {
+				"FLAG": "shares_qoq > 2% or reported_fcf > 0 but real_fcf < 0 or sbc toxic (>30% rev)",
+				"CAUTION": "shares_qoq 1-2% or sbc warning (10-30% rev)",
+				"PASS": "otherwise",
+				"high_growth_discount": "revenue_growth > 25% softens severity by one tier",
+			},
 		}
 
 		# Priority 1: Direct share dilution (when data available)
@@ -146,7 +151,11 @@ def _extract_health_gates(results):
 			"current_market_cap": ngv.get("current_market_cap"),
 			"implied_earnings": ngv.get("implied_earnings"),
 			"net_margin_pct": ngv.get("net_margin_pct"),
-			"thresholds": "FLAG: MoS < 0% | CAUTION: 0-20% | PASS: > 20%",
+			"thresholds": {
+				"FLAG": "MoS < 0%",
+				"CAUTION": "MoS 0-20%",
+				"PASS": "MoS > 20%",
+			},
 		}
 		if mos is not None:
 			if mos < 0:
@@ -170,7 +179,11 @@ def _extract_health_gates(results):
 			"net_margin": latest_q.get("net_margin") if isinstance(latest_q, dict) else None,
 			"gross_margin_qoq_change": margin.get("gross_margin_qoq_change"),
 			"operating_margin_qoq_change": margin.get("operating_margin_qoq_change"),
-			"thresholds": "FLAG: collapse | CAUTION: stable/compression/contracting | PASS: expanding",
+			"thresholds": {
+				"FLAG": "collapse",
+				"CAUTION": "stable/compression/contracting",
+				"PASS": "expanding",
+			},
 		}
 		if "COLLAPSE" in margin_flag:
 			gates["margin_collapse"] = "FLAG"
@@ -191,7 +204,10 @@ def _extract_health_gates(results):
 		iq_detail = {
 			"io_quality_score": io_score,
 			"quant_mm_pct": quant_mm_pct,
-			"thresholds": "CAUTION: quant_mm_pct > 30% or io_score <= 3 | PASS: otherwise | never FLAG",
+			"thresholds": {
+				"CAUTION": "quant_mm_pct > 30% or io_score <= 3",
+				"PASS": "otherwise (never FLAG)",
+			},
 		}
 		if (isinstance(quant_mm_pct, (int, float)) and quant_mm_pct > 30) or \
 		   (isinstance(io_score, (int, float)) and io_score <= 3):

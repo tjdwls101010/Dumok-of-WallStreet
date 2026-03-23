@@ -473,10 +473,18 @@ def cmd_analyze(args):
 
 	# Market Structure: institutional_quality + iv_context + insider_transactions + short_squeeze + superinvestor
 	market_structure = {}
-	# Superinvestor (Dataroma) — via neutral module
-	si_data = _run_script("data_sources/superinvestor.py", ["get-superinvestor-info", ticker])
-	if isinstance(si_data, dict) and not si_data.get("error") and si_data.get("manager_count", 0) > 0:
-		market_structure["superinvestor"] = si_data
+	# Superinvestor (Dataroma) — direct library call
+	try:
+		from superinvestor import SI as _SI
+		_si_raw = _SI().stock(ticker)
+		if _si_raw.get("ownership_count", 0) > 0:
+			market_structure["superinvestor"] = {
+				"ownership_count": _si_raw["ownership_count"],
+				"ownership_rank": _si_raw.get("ownership_rank"),
+				"quarterly_activity": _si_raw.get("quarterly_activity", [])[:4],
+			}
+	except Exception:
+		pass
 	if not iq.get("error"):
 		iq_clean = {k: v for k, v in iq.items()
 					if k not in ("symbol", "io_interpretation", "error")}
@@ -659,8 +667,11 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 	else:
 		insider_dir = "unknown"
 
-	# superinvestor
+	# superinvestor — direct library call
 	si = si_data.get(ticker, {})
+	qa = si.get("quarterly_activity", [{}])[0] if si.get("quarterly_activity") else {}
+	si_adding = qa.get("buy", {}).get("count", 0) + qa.get("add", {}).get("count", 0)
+	si_reducing = qa.get("reduce", {}).get("count", 0) + qa.get("sell", {}).get("count", 0)
 
 	return {
 		"ticker": ticker,
@@ -682,10 +693,9 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 		"days_to_earnings": days_to_er,
 		"iv_rank": iv.get("iv_rank"),
 		"insider_net_direction": insider_dir,
-		"superinvestor_count": si.get("manager_count", 0),
-		"superinvestor_adding": si.get("adding_count", 0),
-		"superinvestor_reducing": si.get("reducing_count", 0),
-		"superinvestor_avg_pct": si.get("avg_portfolio_pct", 0),
+		"superinvestor_count": si.get("ownership_count", 0),
+		"superinvestor_adding": si_adding,
+		"superinvestor_reducing": si_reducing,
 	}
 
 
@@ -725,23 +735,26 @@ def cmd_discover(args):
 	margin_of_safety_pct, sbc_pct_revenue, net_cash, consecutive_beats,
 	avg_surprise_pct, avg_er_gap, days_to_earnings, iv_rank,
 	insider_net_direction, superinvestor_count, superinvestor_adding,
-	superinvestor_reducing, superinvestor_avg_pct.
+	superinvestor_reducing.
 	"""
 	import time
 	start_time = time.time()
 	tickers = args.tickers
 
-	# Load superinvestor data once (Dataroma cache)
+	# Load superinvestor data — direct library call
 	si_map = {}
 	try:
-		si_result = _run_script("data_sources/superinvestor.py", ["get-superinvestor-info", tickers[0]])
-		# We need bulk load — run for all tickers
+		from superinvestor import SI as _SI
+		_si_client = _SI()
 		with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
-			si_futs = {t: ex.submit(_run_script, "data_sources/superinvestor.py", ["get-superinvestor-info", t]) for t in tickers}
+			si_futs = {t: ex.submit(_si_client.stock, t) for t in tickers}
 			for t, f in si_futs.items():
-				result = f.result()
-				if isinstance(result, dict) and not result.get("error"):
-					si_map[t] = result
+				try:
+					result = f.result()
+					if isinstance(result, dict) and result.get("ownership_count", 0) > 0:
+						si_map[t] = result
+				except Exception:
+					pass
 	except Exception:
 		pass
 
@@ -778,10 +791,9 @@ def cmd_discover(args):
 			"avg_er_gap": "average post-earnings gap %. high surprise + low gap = priced in",
 			"iv_rank": "0-100 (compressed: <25 | elevated: >75)",
 			"insider_net_direction": "net_buying | net_selling | mixed (buy > sell x 1.2)",
-			"superinvestor_count": "Dataroma 81 tracked managers currently holding",
+			"superinvestor_count": "Dataroma 82 tracked managers currently holding",
 			"superinvestor_adding": "managers with Buy or Add activity in latest quarter",
 			"superinvestor_reducing": "managers with Sell or Reduce activity in latest quarter",
-			"superinvestor_avg_pct": "average portfolio % among holding managers (higher = more conviction)",
 		},
 		"missing_data": missing_data if missing_data else None,
 		"metadata": {

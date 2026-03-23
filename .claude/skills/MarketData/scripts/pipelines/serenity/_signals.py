@@ -116,7 +116,11 @@ def _detect_short_squeeze_risk(l4_results):
 		"days_to_cover": days_to_cover,
 		"si_trend": si_trend,
 		"squeeze_risk": squeeze_risk,
-		"thresholds": "high: SI > 20% or (SI > 10% + DTC > 5) | moderate: SI > 10% | low: SI <= 10%",
+		"thresholds": {
+			"high": "SI > 20% or (SI > 10% + DTC > 5)",
+			"moderate": "SI > 10%",
+			"low": "SI <= 10%",
+		},
 	}
 
 
@@ -182,13 +186,13 @@ def _classify_dilution(l4_results):
 		"reported_fcf": reported_fcf,
 		"real_fcf": real_fcf,
 		"shares_change_qoq_pct": shares_change,
-		"thresholds": (
-			"growth_dilution: rev_growth > 25% + sbc < 20% | "
-			"value_destruction: rev_growth < 5% + sbc > 15% | "
-			"accounting_illusion: reported_fcf > 0 + real_fcf < 0 | "
-			"acceptable: rev_growth > 15% + sbc < 30% | "
-			"moderate_concern: otherwise"
-		),
+		"thresholds": {
+			"growth_dilution": "rev_growth > 25% + sbc < 20%",
+			"value_destruction": "rev_growth < 5% + sbc > 15%",
+			"accounting_illusion": "reported_fcf > 0 + real_fcf < 0",
+			"acceptable": "rev_growth > 15% + sbc < 30%",
+			"moderate_concern": "otherwise",
+		},
 	}
 
 
