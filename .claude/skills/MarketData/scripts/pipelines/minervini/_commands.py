@@ -29,15 +29,15 @@ def _analyze_scripts(ticker):
 	"""Return the dict of all module scripts for cmd_analyze."""
 	return {
 		# Trend qualification
-		"trend_template": ("screening/trend_template.py", ["check", ticker]),
-		"stage_analysis": ("technical/stage_analysis.py", ["classify", ticker]),
+		"trend_template": ("pipelines/minervini/trend_template.py", ["check", ticker]),
+		"stage_analysis": ("pipelines/minervini/stage_analysis.py", ["classify", ticker]),
 		"rs_ranking": ("technical/rs_ranking.py", ["score", ticker]),
-		"base_count": ("technical/base_count.py", ["count", ticker]),
+		"base_count": ("pipelines/minervini/base_count.py", ["count", ticker]),
 		# Technical setup
-		"vcp": ("technical/vcp.py", ["detect", ticker]),
-		"entry_patterns": ("technical/entry_patterns.py", ["scan", ticker]),
+		"vcp": ("pipelines/minervini/vcp.py", ["detect", ticker]),
+		"entry_patterns": ("pipelines/minervini/entry_patterns.py", ["scan", ticker]),
 		"pocket_pivot": ("technical/pocket_pivot.py", ["detect", ticker]),
-		"tight_closes": ("technical/tight_closes.py", ["daily", ticker]),
+		"tight_closes": ("pipelines/minervini/tight_closes.py", ["daily", ticker]),
 		"volume_analysis": ("technical/volume_analysis.py", ["analyze", ticker]),
 		# Fundamentals
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
@@ -53,7 +53,7 @@ def _analyze_scripts(ticker):
 			"sharesOutstanding", "floatShares", "shortPercentOfFloat",
 		]),
 		# Risk
-		"sell_signals": ("technical/sell_signals.py", ["check", ticker]),
+		"sell_signals": ("pipelines/minervini/sell_signals.py", ["check", ticker]),
 		"stock_character": ("technical/stock_character.py", ["assess", ticker]),
 	}
 

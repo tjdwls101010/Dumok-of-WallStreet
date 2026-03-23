@@ -64,23 +64,31 @@ Persona-specific analysis orchestrators (Facade) — prefer these as the primary
 
 Modules actively called by Minervini and/or Serenity pipelines via subprocess.
 
-#### Technical
+#### Technical (shared)
 
-Stage Analysis, RS Ranking, VCP, Base Counting, Volume Analysis, Pocket Pivot, Tight Closes, Sell Signals, Stock Character, Entry Patterns
+RS Ranking, Volume Analysis, Pocket Pivot, Stock Character, Indicators
 
 | Function | Description | Script |
 |----------|-------------|--------|
-| `base_count` | Track base number within Stage 2 advance with pattern classification and risk assessment | `technical/base_count.py` |
-| `entry_patterns` | Entry pattern detection: MA pullback, consolidation pivot, inside day, double inside day, tight day, gap reversal, support reclaim with trigger/stop prices | `technical/entry_patterns.py` |
-| `indicators` | Technical indicator calculation functions (shared library used by multiple modules) | `technical/indicators.py` |
+| `indicators` | Technical indicator calculation functions (shared library) | `technical/indicators.py` |
 | `pocket_pivot` | Pocket pivot detection: institutional buying signals within base formations | `technical/pocket_pivot.py` |
-| `rs_ranking` | Dual-approach RS ranking: YFinance score calculation (0-99) and Finviz high-RS screening | `technical/rs_ranking.py` |
-| `sell_signals` | Sell signal detection: MA breach, high-volume reversal, vertical acceleration, key reversal, distribution cluster | `technical/sell_signals.py` |
-| `stage_analysis` | Minervini Stage 1-4 classification with confidence scoring and transition signal detection | `technical/stage_analysis.py` |
-| `stock_character` | Stock character assessment: ADR%, clean/choppy classification, personality grade (A-D), liquidity tier | `technical/stock_character.py` |
-| `tight_closes` | Tight close cluster detection (daily/weekly): supply dryup confirmation near pivots | `technical/tight_closes.py` |
-| `vcp` | VCP detection with Cup & Handle, Power Play, 3C entry point, shakeout grading, setup readiness scoring | `technical/vcp.py` |
-| `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading and breakout confirmation | `technical/volume_analysis.py` |
+| `rs_ranking` | Dual-approach RS ranking (0-99), used by Minervini + Serenity | `technical/rs_ranking.py` |
+| `stock_character` | Stock character assessment: ADR%, personality grade (A-D), liquidity tier | `technical/stock_character.py` |
+| `volume_analysis` | Institutional accumulation/distribution analysis with A-E grading | `technical/volume_analysis.py` |
+
+#### Technical (Minervini-specific)
+
+Stage Analysis, VCP, Base Counting, Entry Patterns, Sell Signals, Tight Closes, Trend Template — bundled in `pipelines/minervini/`
+
+| Function | Description | Script |
+|----------|-------------|--------|
+| `base_count` | Track base number within Stage 2 advance | `pipelines/minervini/base_count.py` |
+| `entry_patterns` | Entry pattern detection: MA pullback, consolidation pivot, support reclaim | `pipelines/minervini/entry_patterns.py` |
+| `sell_signals` | Sell signal detection: MA breach, high-volume reversal, distribution cluster | `pipelines/minervini/sell_signals.py` |
+| `stage_analysis` | Minervini Stage 1-4 classification with confidence scoring | `pipelines/minervini/stage_analysis.py` |
+| `tight_closes` | Tight close cluster detection (daily/weekly): supply dryup confirmation | `pipelines/minervini/tight_closes.py` |
+| `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification | `pipelines/minervini/trend_template.py` |
+| `vcp` | VCP detection with Cup & Handle, Power Play, shakeout grading | `pipelines/minervini/vcp.py` |
 
 #### Data Sources
 
@@ -128,12 +136,11 @@ ERP, net liquidity, VIX curve
 
 #### Screening
 
-Market breadth, trend template
+Market breadth
 
 | Function | Description | Script |
 |----------|-------------|--------|
 | `market_breadth` | Fast Finviz homepage scraper: advancing/declining, new high/low, SMA breadth | `screening/market_breadth.py` |
-| `trend_template` | Minervini Trend Template 8-criteria checklist for Stage 2 qualification screening | `screening/trend_template.py` |
 
 ### Advanced Data Sources
 
