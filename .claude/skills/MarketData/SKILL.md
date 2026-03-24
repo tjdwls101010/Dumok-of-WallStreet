@@ -160,8 +160,7 @@ Filings, supply chain intelligence
 | Function | Description | Script |
 |----------|-------------|--------|
 | `filings` | SEC company filings access and MD&A extraction | `data_advanced/sec/filings.py` |
-| `supply_chain` | SEC 10-K/10-Q/20-F supply chain intelligence extraction via edgartools + XBRL + Gemini | `data_advanced/sec/supply_chain.py` |
-| `events` | SEC 8-K supply chain event detection | `data_advanced/sec/supply_chain.py` |
+| `events` | SEC 8-K supply chain event detection | `data_advanced/sec/events.py` |
 
 ## How to Use
 

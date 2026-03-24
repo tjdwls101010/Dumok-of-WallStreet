@@ -7,7 +7,7 @@ from utils import output_json, safe_run
 
 from pipelines._runner import _run_script
 from ._health import _extract_health_gates, _build_readiness_codes
-from ._bottleneck import _build_l3_bottleneck
+from ._bottleneck import _build_l3_bottleneck, _label_supplier_geography, _assess_data_coverage
 from ._valuation import _build_valuation_frame
 from ._postprocess import (
 	_summarize_insider_transactions, _extract_revenue_trajectory,
@@ -27,6 +27,65 @@ from ._signals import (
 )
 from ._multi import _parse_mcap_string
 from ._scorer import validate_ticker
+
+_SC_CATEGORIES = (
+	"suppliers", "customers", "single_source_dependencies",
+	"geographic_concentration", "capacity_constraints",
+	"supply_chain_risks", "revenue_concentration",
+	"geographic_revenue", "purchase_obligations",
+	"market_risk_disclosures", "inventory_composition",
+)
+
+
+def _extract_sec_supply_chain(ticker):
+	"""Extract supply chain via sec-analyzer library + post-processing."""
+	try:
+		import os
+		from dotenv import load_dotenv
+		_env = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+			os.path.dirname(os.path.abspath(__file__))))), ".env")
+		load_dotenv(_env)
+		from sec_analyzer import extract as _sec_extract
+		from sec_analyzer.presets import SupplyChain as _SCPreset
+		result = _sec_extract(ticker, preset=_SCPreset)
+	except Exception as e:
+		import sys
+		print(f"[sec-analyzer] extraction failed: {e}", file=sys.stderr)
+		return {"error": f"sec-analyzer extraction failed: {e}"}
+
+	raw_data = result.get("data", {})
+	filing = result.get("filing", {})
+
+	_META = {"source_section": "llm_extraction", "confidence": "high"}
+	supply_chain = {}
+	entities = set()
+	for cat in _SC_CATEGORIES:
+		entries = []
+		for e in raw_data.get(cat, []):
+			entries.append({**e, **_META})
+			for f in ("entity", "supplier", "counterparty"):
+				if e.get(f):
+					entities.add(e[f])
+		supply_chain[cat] = entries
+
+	total = sum(len(v) for v in supply_chain.values())
+
+	_label_supplier_geography(supply_chain)
+	data_coverage = _assess_data_coverage(supply_chain)
+
+	return {
+		"data": {
+			"filing": filing,
+			"supply_chain": supply_chain,
+			"extraction_stats": {
+				"total_matches": total,
+				"unique_entities": len(entities),
+				"mode": "llm",
+			},
+			"data_coverage": data_coverage,
+		},
+		"metadata": {"symbol": ticker, "form": filing.get("form", "10-K")},
+	}
 
 
 @safe_run
@@ -263,12 +322,6 @@ def cmd_analyze(args):
 		"revenue_estimate": ("analysis/analysis.py", ["get-revenue-estimate", ticker]),
 	}
 
-	# --- SEC Supply Chain Intelligence (L3 pre-extraction) ---
-	sec_sc_scripts = {
-		"sec_supply_chain": ("data_advanced/sec/supply_chain.py", ["supply-chain", ticker], 120),
-		"sec_events": ("data_advanced/sec/supply_chain.py", ["events", ticker, "--limit", "5", "--days", "180"], 120),
-	}
-
 	# --- Hyperscaler CapEx Bridge (L2) ---
 	hyperscaler_tickers = ["MSFT", "GOOG", "META", "AMZN"]
 	hs_scripts = {
@@ -276,11 +329,11 @@ def cmd_analyze(args):
 		for t in hyperscaler_tickers
 	}
 
-	# Run L4, L5, SEC supply chain, and Hyperscaler CapEx in parallel
+	# Run L4, L5, SEC events, and Hyperscaler CapEx in parallel
+	# SEC supply chain uses sec-analyzer library (direct call, not script)
 	all_scripts = {}
 	all_scripts.update(l4_scripts)
 	all_scripts.update(l5_scripts)
-	all_scripts.update(sec_sc_scripts)
 	all_scripts.update(hs_scripts)
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -289,12 +342,20 @@ def cmd_analyze(args):
 			path, a = spec[0], spec[1]
 			t = spec[2] if len(spec) > 2 else 60
 			futures[name] = executor.submit(_run_script, path, a, t)
+		# SEC supply chain + events in parallel with scripts
+		futures["sec_supply_chain"] = executor.submit(_extract_sec_supply_chain, ticker)
+		futures["sec_events"] = executor.submit(
+			_run_script, "data_advanced/sec/events.py",
+			["events", ticker, "--limit", "5", "--days", "180"], 120)
 		all_results = {name: future.result() for name, future in futures.items()}
 
 	# Split results
 	l4_results = {k: all_results[k] for k in l4_scripts}
 	l5_results = {k: all_results[k] for k in l5_scripts}
-	sec_sc_results = {k: all_results[k] for k in sec_sc_scripts}
+	sec_sc_results = {
+		"sec_supply_chain": all_results["sec_supply_chain"],
+		"sec_events": all_results["sec_events"],
+	}
 
 	# --- Build Hyperscaler CapEx Bridge Signal ---
 	hyperscaler_signal = None
