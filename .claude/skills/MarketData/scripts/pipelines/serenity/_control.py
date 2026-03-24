@@ -18,16 +18,22 @@ def _build_materiality_signals(l3_data, l4_results, l5_results):
 	l3_inner = l3.get("data") or {}
 	sec_sc = l3_inner.get("sec_supply_chain") or {}
 	supply_chain = sec_sc.get("supply_chain") or {}
-	suppliers = supply_chain.get("suppliers") or []
-	customers = supply_chain.get("customers") or []
-	single_source = supply_chain.get("single_source_dependencies") or []
-	geo_conc = supply_chain.get("geographic_concentration") or []
+	supply_ents = supply_chain.get("supply_entities") or []
+	demand_ents = supply_chain.get("demand_entities") or []
+	geo_exp = supply_chain.get("geographic_exposure") or []
+	op_risks = supply_chain.get("operational_risks") or []
 
 	has_sec_data = sec_sc is not None and bool(supply_chain)
 
-	if len(single_source) >= 2 or len(geo_conc) >= 2:
+	# supply_disruption entries with sole/primary language act as SSD proxy
+	import re
+	_sole_pat = re.compile(r"sole|primary|only|exclusive|single.?source", re.IGNORECASE)
+	ssd_proxy = [r for r in op_risks if r.get("type") == "supply_disruption"
+		and _sole_pat.search((r.get("risk", "") or "") + " " + (r.get("context", "") or ""))]
+
+	if len(ssd_proxy) >= 2 or len(geo_exp) >= 4:
 		supply_chain_verdict = "material"
-	elif len(single_source) >= 1 or len(suppliers) >= 3:
+	elif len(ssd_proxy) >= 1 or len(supply_ents) >= 3:
 		supply_chain_verdict = "partial"
 	else:
 		supply_chain_verdict = "noise"

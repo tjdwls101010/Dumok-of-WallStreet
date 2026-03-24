@@ -10,7 +10,7 @@ from datetime import datetime
 
 
 # ---------------------------------------------------------------------------
-# Post-processing helpers (moved from supply_chain.py)
+# Post-processing helpers
 # ---------------------------------------------------------------------------
 
 _WESTERN_LOCATIONS = {
@@ -25,31 +25,57 @@ _INTERNATIONAL_HIGH_RISK = {
 	"indonesia", "philippines", "israel", "russia",
 }
 
+# Role keyword mapping for post-processing (Serenity tacit knowledge)
+_ROLE_KEYWORDS = {
+	"foundry": re.compile(r"foundry|foundries|fabricat|wafer\s*fab", re.IGNORECASE),
+	"memory": re.compile(r"memory|dram|hbm|nand|sram", re.IGNORECASE),
+	"assembly": re.compile(r"assembl|packag|testing\s*and\s*packag|subcontract", re.IGNORECASE),
+	"IP_licensor": re.compile(r"licens|intellectual\s*property|patent|royalt", re.IGNORECASE),
+	"connectivity": re.compile(r"switch|transceiver|optic|interconnect|network", re.IGNORECASE),
+	"substrate": re.compile(r"substrate|wafer|material\s*supplier|raw\s*material", re.IGNORECASE),
+	"power_mgmt": re.compile(r"voltage\s*regulat|power\s*management|power\s*supply", re.IGNORECASE),
+	"cooling": re.compile(r"cool|thermal|heat\s*sink|cdu|chiller", re.IGNORECASE),
+	"software": re.compile(r"software|middleware|orchestrat|platform|cloud\s*service", re.IGNORECASE),
+}
+
+
+def _classify_supplier_role(entry):
+	"""Classify a supply entity's free-text role into Serenity's taxonomy."""
+	text = " ".join([
+		entry.get("role", ""),
+		entry.get("relationship", ""),
+		entry.get("context", ""),
+	]).lower()
+	for role_name, pattern in _ROLE_KEYWORDS.items():
+		if pattern.search(text):
+			return role_name
+	return "other"
+
 
 def _label_supplier_geography(supply_chain):
-	"""Add geography labels to suppliers and single_source_dependencies."""
-	for cat_key in ("suppliers", "single_source_dependencies"):
-		for entry in (supply_chain.get(cat_key) or []):
-			if not isinstance(entry, dict):
-				continue
-			text = " ".join([
-				entry.get("context", ""),
-				entry.get("entity", entry.get("supplier", "")),
-				entry.get("relationship", ""),
-			]).lower()
+	"""Add geography labels to supply_entities."""
+	for entry in (supply_chain.get("supply_entities") or []):
+		if not isinstance(entry, dict):
+			continue
+		text = " ".join([
+			entry.get("context", ""),
+			entry.get("entity", ""),
+			entry.get("relationship", ""),
+		]).lower()
 
-			geo_label = "Unknown"
-			for loc in _INTERNATIONAL_HIGH_RISK:
+		geo_label = "Unknown"
+		for loc in _INTERNATIONAL_HIGH_RISK:
+			if loc in text:
+				geo_label = "International"
+				break
+		if geo_label == "Unknown":
+			for loc in _WESTERN_LOCATIONS:
 				if loc in text:
-					geo_label = "International"
+					geo_label = "Western"
 					break
-			if geo_label == "Unknown":
-				for loc in _WESTERN_LOCATIONS:
-					if loc in text:
-						geo_label = "Western"
-						break
 
-			entry["supplier_geography"] = geo_label
+		entry["supplier_geography"] = geo_label
+		entry["classified_role"] = _classify_supplier_role(entry)
 
 
 _BOILERPLATE_PATTERNS = [
@@ -64,10 +90,8 @@ _BOILERPLATE_PATTERNS = [
 def _assess_data_coverage(supply_chain):
 	"""Classify data coverage for each supply chain category."""
 	categories = [
-		"suppliers", "customers", "single_source_dependencies",
-		"geographic_concentration", "capacity_constraints",
-		"supply_chain_risks", "revenue_concentration",
-		"geographic_revenue", "purchase_obligations",
+		"supply_entities", "demand_entities", "geographic_exposure",
+		"operational_risks", "purchase_obligations",
 		"market_risk_disclosures", "inventory_composition",
 	]
 	all_contexts = []
@@ -93,12 +117,7 @@ def _assess_data_coverage(supply_chain):
 
 
 def _summarize_sec_supply_chain(data):
-	"""Trim and cap SEC supply chain extraction for context efficiency.
-
-	- Keeps context fields at full 400 chars (source extraction length)
-	- Caps high-volume categories (geographic_concentration, supply_chain_risks) to 10 entries
-	- Caps other categories to 15 entries
-	"""
+	"""Trim and cap SEC supply chain extraction for context efficiency."""
 	if not data or data.get("error") or not data.get("data"):
 		return data
 
@@ -106,11 +125,9 @@ def _summarize_sec_supply_chain(data):
 	if not sc:
 		return data
 
-	high_volume = ("geographic_concentration", "supply_chain_risks", "geographic_revenue")
-	for category in ("suppliers", "customers", "single_source_dependencies",
-					"geographic_concentration", "capacity_constraints",
-					"supply_chain_risks", "revenue_concentration",
-					"geographic_revenue", "purchase_obligations",
+	high_volume = ("geographic_exposure", "operational_risks")
+	for category in ("supply_entities", "demand_entities", "geographic_exposure",
+					"operational_risks", "purchase_obligations",
 					"market_risk_disclosures", "inventory_composition"):
 		items = sc.get(category, [])
 		cap = 10 if category in high_volume else 15
@@ -127,7 +144,6 @@ def _build_l3_bottleneck(sec_sc_results):
 
 	sec_sc_data = _summarize_sec_supply_chain(sec_sc_raw)
 
-	# Determine SEC data availability
 	has_sc_data = (
 		sec_sc_data
 		and not sec_sc_data.get("error")
@@ -140,22 +156,18 @@ def _build_l3_bottleneck(sec_sc_results):
 		and len(sec_events_raw.get("data", [])) > 0
 	)
 
-	# Pre-score bottleneck from SEC data
 	bottleneck_pre_score = None
 	if has_sc_data:
 		bottleneck_pre_score = _pre_score_bottleneck(sec_sc_raw)
 
-	# --- Build cleaned sec_supply_chain data ---
 	cleaned_sc = None
 	if sec_sc_data and not sec_sc_data.get("error") and sec_sc_data.get("data"):
 		sc_data = sec_sc_data["data"]
-		# Keep filing info, supply_chain; remove extraction_stats, data_coverage, metadata
 		cleaned_sc = {
 			"filing": sc_data.get("filing"),
 			"supply_chain": sc_data.get("supply_chain"),
 		}
 
-	# --- Build cleaned sec_events ---
 	cleaned_events = []
 	if has_events:
 		for ev in (sec_events_raw.get("data") or []):
@@ -166,20 +178,19 @@ def _build_l3_bottleneck(sec_sc_results):
 				"confidence": ev.get("confidence"),
 			})
 
-	# Absence Evidence Flags (H7)
+	# Absence Evidence Flags
 	absence_evidence_flags = []
 	if has_sc_data:
 		data_coverage = sec_sc_data.get("data", {}).get("data_coverage", {})
 		supply_chain = sec_sc_data.get("data", {}).get("supply_chain", {})
 		if data_coverage:
-			customers = supply_chain.get("customers", [])
-			rev_conc = supply_chain.get("revenue_concentration", [])
-			if not customers and not rev_conc and data_coverage.get("customers") == "not_disclosed":
+			demand = supply_chain.get("demand_entities", [])
+			if not demand and data_coverage.get("demand_entities") == "not_disclosed":
 				absence_evidence_flags.append({
 					"type": "no_major_customer_disclosed",
 					"signal": "negative",
 				})
-			if data_coverage.get("revenue_concentration") == "insufficient_context":
+			if data_coverage.get("demand_entities") == "insufficient_context":
 				absence_evidence_flags.append({
 					"type": "revenue_concentration_unknown",
 					"signal": "neutral",
@@ -189,19 +200,22 @@ def _build_l3_bottleneck(sec_sc_results):
 					"type": "no_fundamental_change_selloff",
 					"signal": "potential_entry",
 				})
-			geo_conc = supply_chain.get("geographic_concentration", [])
-			if geo_conc:
-				all_intl = all(
-					any(loc in (entry.get("location", "").lower())
-						for loc in ("taiwan", "china", "korea", "vietnam", "malaysia"))
-					for entry in geo_conc if isinstance(entry, dict) and entry.get("location")
-				)
-				if all_intl:
-					absence_evidence_flags.append({
-						"type": "no_domestic_production",
-						"signal": "geopolitical_risk",
-					})
-			cap_coverage = data_coverage.get("capacity_constraints", "")
+			geo_exp = supply_chain.get("geographic_exposure", [])
+			if geo_exp:
+				supply_entries = [e for e in geo_exp if isinstance(e, dict) and e.get("supply_activity")]
+				if supply_entries:
+					all_intl = all(
+						any(loc in (entry.get("region", "").lower())
+							for loc in ("taiwan", "china", "korea", "vietnam", "malaysia"))
+						for entry in supply_entries
+					)
+					if all_intl:
+						absence_evidence_flags.append({
+							"type": "no_domestic_production",
+							"signal": "geopolitical_risk",
+						})
+
+			cap_coverage = data_coverage.get("operational_risks", "")
 			po_coverage = data_coverage.get("purchase_obligations", "")
 			if cap_coverage == "extracted" and po_coverage in ("not_disclosed", "insufficient_context"):
 				absence_evidence_flags.append({
@@ -210,17 +224,11 @@ def _build_l3_bottleneck(sec_sc_results):
 				})
 
 		# V3 Contagion Isolation: Mag7 direct customer flag
-		# Companies with direct Mag7 contracts are isolated from intermediary credit contagion
 		MAG7_NAMES = {"microsoft", "google", "alphabet", "meta", "amazon", "apple", "nvidia"}
 		all_customer_names = []
-		for c in customers:
+		for c in demand:
 			if isinstance(c, dict):
-				all_customer_names.append(c.get("counterparty", "").lower())
-			elif isinstance(c, str):
-				all_customer_names.append(c.lower())
-		for rc in rev_conc:
-			if isinstance(rc, dict):
-				all_customer_names.append(rc.get("customer", "").lower())
+				all_customer_names.append(c.get("entity", "").lower())
 		mag7_matches = [n for n in all_customer_names if any(m in n for m in MAG7_NAMES)]
 		if mag7_matches:
 			absence_evidence_flags.append({
@@ -231,11 +239,11 @@ def _build_l3_bottleneck(sec_sc_results):
 			})
 
 		# V3 Domestic production: reshoring beneficiary flag
-		if geo_conc:
+		if geo_exp:
 			has_domestic = any(
-				any(loc in (entry.get("location", "").lower())
+				any(loc in (entry.get("region", "").lower())
 					for loc in ("united states", "usa", "u.s.", "texas", "california", "arizona", "ohio", "new york"))
-				for entry in geo_conc if isinstance(entry, dict) and entry.get("location")
+				for entry in geo_exp if isinstance(entry, dict) and entry.get("region")
 			)
 			if has_domestic:
 				absence_evidence_flags.append({
@@ -244,7 +252,7 @@ def _build_l3_bottleneck(sec_sc_results):
 					"thresholds": "US-based production = potential reshoring beneficiary (V3)",
 				})
 
-	# --- Clean bottleneck_pre_score ---
+	# Clean bottleneck_pre_score
 	cleaned_bn_score = None
 	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
 		cleaned_bn_score = {
@@ -258,6 +266,11 @@ def _build_l3_bottleneck(sec_sc_results):
 		stale = bottleneck_pre_score.get("stale_data_warning")
 		if stale:
 			cleaned_bn_score["stale_data_warning"] = stale
+		# Tacit knowledge flags
+		for flag_key in ("technology_transition_flag", "competitive_risk_flag", "demand_concentration_flag"):
+			val = bottleneck_pre_score.get(flag_key)
+			if val:
+				cleaned_bn_score[flag_key] = val
 
 	result = {
 		"data": {
@@ -272,13 +285,11 @@ def _build_l3_bottleneck(sec_sc_results):
 
 
 # ---------------------------------------------------------------------------
-# v4.0 Helpers: Bottleneck Pre-Scoring, Thesis Signals, SoP Triggers,
-# Trapped Asset Override, Auto-Classification, Composite Signal
+# Bottleneck Pre-Scoring
 # ---------------------------------------------------------------------------
 
 _HIGH_RISK_LOCATIONS = {"taiwan", "china", "hong kong", "mainland china"}
 _MEDIUM_RISK_LOCATIONS = {"south korea", "korea", "israel", "vietnam", "russia"}
-# Currency keywords → high-risk location mapping (for FX boost in _pre_score_bottleneck)
 _FX_HIGH_RISK_CURRENCIES = {
 	"nt dollar": "taiwan", "nt$": "taiwan", "new taiwan dollar": "taiwan", "twd": "taiwan",
 	"renminbi": "china", "rmb": "china", "cny": "china", "yuan": "china", "cnh": "china",
@@ -287,7 +298,7 @@ _FX_HIGH_RISK_CURRENCIES = {
 
 
 def _pre_score_bottleneck(sec_sc_data):
-	"""Score SEC supply chain data against the 6-Criteria Bottleneck Framework."""
+	"""Score SEC supply chain data against the 5-Criteria Bottleneck Framework."""
 	if sec_sc_data is None:
 		return {"error": "No SEC supply chain data available"}
 	if isinstance(sec_sc_data, dict) and "error" in sec_sc_data:
@@ -302,14 +313,13 @@ def _pre_score_bottleneck(sec_sc_data):
 
 	# Collect all text from all categories for broader search
 	all_texts = []
-	for cat_key in ("suppliers", "customers", "single_source_dependencies",
-		"geographic_concentration", "capacity_constraints", "supply_chain_risks",
-		"revenue_concentration", "geographic_revenue", "purchase_obligations",
+	for cat_key in ("supply_entities", "demand_entities", "geographic_exposure",
+		"operational_risks", "purchase_obligations",
 		"market_risk_disclosures", "inventory_composition"):
 		for entry in (supply_chain.get(cat_key) or []):
 			if isinstance(entry, dict):
-				for field in ("context", "constraint", "risk", "relationship", "activity",
-					"component", "obligation_type", "amount", "timeframe",
+				for field in ("context", "risk", "relationship", "role",
+					"supply_activity", "obligation_type", "amount", "timeframe",
 					"risk_type", "exposure", "sensitivity", "hedging",
 					"category", "pct_of_total"):
 					val = entry.get(field, "") or ""
@@ -317,51 +327,71 @@ def _pre_score_bottleneck(sec_sc_data):
 						all_texts.append(str(val))
 	all_text_blob = " ".join(all_texts)
 
-	# 1. Supply concentration (single_source_dependencies + purchase_obligations)
-	ssd = supply_chain.get("single_source_dependencies") or []
-	suppliers = supply_chain.get("suppliers") or []
+	supply_ents = supply_chain.get("supply_entities") or []
 	purchase_obs = supply_chain.get("purchase_obligations") or []
-	high_conf = [d for d in ssd if d.get("confidence") == "high"]
-	# Check for sole/primary keywords in supplier relationships
+	op_risks = supply_chain.get("operational_risks") or []
+
+	# 1. Supply concentration (sole/primary keywords in supply_entities + purchase_obligations)
 	sole_primary_pattern = re.compile(r"sole|primary|only|exclusive|single.?source|de\s*facto", re.IGNORECASE)
 	sole_supplier_count = sum(
-		1 for s in suppliers
-		if sole_primary_pattern.search(s.get("relationship", "") or "")
+		1 for s in supply_ents
+		if sole_primary_pattern.search((s.get("relationship", "") or "") + " " + (s.get("context", "") or ""))
 	)
-	# Named purchase obligations reinforce supply concentration
+	# supply_disruption risks mentioning single-source act as SSD proxy
+	ssd_proxy_count = sum(
+		1 for r in op_risks
+		if r.get("type") == "supply_disruption"
+		and sole_primary_pattern.search((r.get("risk", "") or "") + " " + (r.get("context", "") or ""))
+	)
 	named_obligations = sum(1 for po in purchase_obs if po.get("counterparty"))
-	if len(high_conf) >= 2 or (len(ssd) >= 1 and sole_supplier_count >= 1):
+
+	total_sole = sole_supplier_count + ssd_proxy_count
+	if total_sole >= 2:
 		criteria["supply_concentration"] = {
 			"score": 1.0,
-			"evidence": f"{len(high_conf)} high-conf SSD + {sole_supplier_count} sole/primary suppliers" + (f" + {named_obligations} named purchase obligations" if named_obligations else ""),
+			"evidence": f"{sole_supplier_count} sole/primary suppliers + {ssd_proxy_count} supply_disruption SSD mentions" + (f" + {named_obligations} named obligations" if named_obligations else ""),
 		}
-	elif len(ssd) >= 1 or sole_supplier_count >= 1 or named_obligations >= 2:
-		sc_score = 0.75 if named_obligations >= 2 else 0.5
+	elif total_sole >= 1 or named_obligations >= 2:
+		sc_score = 0.75 if (total_sole >= 1 and named_obligations >= 1) else 0.5 if total_sole >= 1 else 0.75
 		criteria["supply_concentration"] = {
 			"score": sc_score,
-			"evidence": f"{len(ssd)} SSD, {sole_supplier_count} sole/primary supplier mentions" + (f", {named_obligations} named purchase obligations" if named_obligations else ""),
+			"evidence": f"{total_sole} sole/primary mentions, {named_obligations} named purchase obligations",
 		}
 	else:
 		criteria["supply_concentration"] = {"score": 0.0, "evidence": "No single-source dependencies found"}
 
-	# 2. Capacity constraints (with duration extraction + purchase obligations)
-	cc = supply_chain.get("capacity_constraints") or []
+	# Tacit knowledge boost: foundry role + Taiwan/Korea geography → supply concentration reinforcement
+	for s in supply_ents:
+		classified = s.get("classified_role", _classify_supplier_role(s))
+		geo = s.get("supplier_geography", "Unknown")
+		if classified == "foundry" and geo == "International":
+			geo_text = " ".join([s.get("context", ""), s.get("entity", "")]).lower()
+			if any(loc in geo_text for loc in ("taiwan", "korea", "south korea")):
+				current_score = criteria["supply_concentration"]["score"]
+				if current_score > 0:
+					criteria["supply_concentration"]["score"] = min(1.0, current_score + 0.15)
+					criteria["supply_concentration"]["evidence"] += " + foundry in Taiwan/Korea (tacit boost)"
+				break
+
+	# 2. Capacity constraints (from operational_risks type=capacity_constraint + purchase_obligations)
+	cc_risks = [r for r in op_risks if r.get("type") == "capacity_constraint"]
 	duration_pattern = re.compile(r"(\d+)\s*(?:month|year|quarter)", re.IGNORECASE)
 	resolving_pattern = re.compile(r"resolv|improv|eas|normaliz", re.IGNORECASE)
 	billion_pattern = re.compile(r"\$[\d.]+\s*billion", re.IGNORECASE)
 	multi_year_pattern = re.compile(r"(?:through|until|ending)\s+(?:fiscal\s+)?\d{4}|multi.?year|\d+\s*year", re.IGNORECASE)
-	# Check purchase obligations for multi-year billion-dollar commitments
+
 	large_obligations = 0
 	for po in purchase_obs:
 		amt = (po.get("amount", "") or "") + " " + (po.get("context", "") or "")
 		tf = (po.get("timeframe", "") or "") + " " + (po.get("context", "") or "")
 		if billion_pattern.search(amt) and multi_year_pattern.search(tf):
 			large_obligations += 1
-	if cc or large_obligations:
+
+	if cc_risks or large_obligations:
 		max_duration_months = 0
 		is_resolving = False
-		for entry in cc:
-			ctx = (entry.get("context", "") or "") + " " + (entry.get("constraint", "") or "")
+		for entry in cc_risks:
+			ctx = (entry.get("context", "") or "") + " " + (entry.get("risk", "") or "")
 			m = duration_pattern.search(ctx)
 			if m:
 				val = int(m.group(1))
@@ -375,20 +405,20 @@ def _pre_score_bottleneck(sec_sc_data):
 				is_resolving = True
 		if max_duration_months >= 12 or large_obligations >= 1:
 			cc_score = 0.75
-			cc_evidence = f"{len(cc)} constraint(s), duration >= {max_duration_months} months"
+			cc_evidence = f"{len(cc_risks)} constraint(s), duration >= {max_duration_months} months"
 			if large_obligations:
 				cc_score = min(1.0, cc_score + 0.25)
 				cc_evidence += f" + {large_obligations} multi-year billion-dollar purchase obligation(s)"
-		elif cc:
+		elif cc_risks:
 			cc_score = 0.5
-			cc_evidence = f"{len(cc)} constraint(s) mentioned"
+			cc_evidence = f"{len(cc_risks)} constraint(s) mentioned"
 		else:
 			cc_score = 0.5
 			cc_evidence = f"{large_obligations} large purchase obligation(s) indicate capacity commitment"
 		if is_resolving:
 			cc_score = min(cc_score, 0.25)
 			cc_evidence += " (resolving language detected — capped)"
-		# Inventory composition boost: raw materials >50% or obsolescence → capacity signal
+		# Inventory composition boost
 		inv_comp = supply_chain.get("inventory_composition") or []
 		if inv_comp:
 			raw_pct = 0.0
@@ -406,15 +436,15 @@ def _pre_score_bottleneck(sec_sc_data):
 	else:
 		criteria["capacity_constraints"] = {"score": 0.0, "evidence": "No capacity constraints mentioned"}
 
-	# 3. Geopolitical risk (geographic concentration with risk tiers + geographic_revenue override)
-	geo_rev = supply_chain.get("geographic_revenue") or []
-	gc = supply_chain.get("geographic_concentration") or []
-	# Quantitative override: if geographic_revenue has % data, use it directly
+	# 3. Geopolitical risk (geographic_exposure with revenue_pct override)
+	geo_exp = supply_chain.get("geographic_exposure") or []
 	geo_risk_override = False
-	if geo_rev:
+
+	# Quantitative override: entries with revenue_pct
+	if geo_exp:
 		high_risk_rev_pct = 0.0
 		high_risk_regions = []
-		for entry in geo_rev:
+		for entry in geo_exp:
 			region = (entry.get("region", "") or "").strip().lower()
 			pct = entry.get("revenue_pct")
 			if pct and any(hr in region for hr in _HIGH_RISK_LOCATIONS):
@@ -425,48 +455,50 @@ def _pre_score_bottleneck(sec_sc_data):
 			if high_risk_rev_pct >= 30:
 				criteria["geopolitical_risk"] = {
 					"score": 1.0,
-					"evidence": f"HIGH_RISK geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
+					"evidence": f"HIGH_RISK geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (quantitative)",
 				}
 			elif high_risk_rev_pct >= 15:
 				criteria["geopolitical_risk"] = {
 					"score": 0.75,
-					"evidence": f"Moderate high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
+					"evidence": f"Moderate high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (quantitative)",
 				}
 			else:
 				criteria["geopolitical_risk"] = {
 					"score": 0.5,
-					"evidence": f"Low high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (Notes quantitative data)",
+					"evidence": f"Low high-risk geographic revenue: {high_risk_rev_pct:.1f}% in {', '.join(high_risk_regions)} (quantitative)",
 				}
-	# Heuristic fallback: use geographic_concentration activity count
+
+	# Heuristic fallback: use supply_activity entries
 	if not geo_risk_override:
-		if gc:
-			locations = [entry.get("location", "").strip().lower() for entry in gc if entry.get("location")]
-			total = len(locations)
+		supply_geo = [e for e in geo_exp if isinstance(e, dict) and e.get("supply_activity")]
+		if supply_geo:
+			regions = [entry.get("region", "").strip().lower() for entry in supply_geo if entry.get("region")]
+			total = len(regions)
 			if total > 0:
-				loc_counts = Counter(loc for loc in locations if loc)
+				loc_counts = Counter(r for r in regions if r)
 				high_risk_count = sum(c for loc, c in loc_counts.items() if loc in _HIGH_RISK_LOCATIONS)
 				medium_risk_count = sum(c for loc, c in loc_counts.items() if loc in _MEDIUM_RISK_LOCATIONS)
 				most_common_loc, most_common_count = loc_counts.most_common(1)[0] if loc_counts else ("", 0)
 				if high_risk_count > 0 and most_common_count / total > 0.3:
 					criteria["geopolitical_risk"] = {
 						"score": 1.0,
-						"evidence": f"HIGH_RISK location concentration: {high_risk_count}/{total} entries in {', '.join(l for l in loc_counts if l in _HIGH_RISK_LOCATIONS)}",
+						"evidence": f"HIGH_RISK supply concentration: {high_risk_count}/{total} entries in {', '.join(l for l in loc_counts if l in _HIGH_RISK_LOCATIONS)}",
 					}
 				elif medium_risk_count > 0 or most_common_count / total > 0.5:
 					criteria["geopolitical_risk"] = {
 						"score": 0.75,
-						"evidence": f"Geographic concentration in medium-risk or dominant location: '{most_common_loc}' ({most_common_count}/{total})",
+						"evidence": f"Supply concentration in medium-risk or dominant location: '{most_common_loc}' ({most_common_count}/{total})",
 					}
 				elif total > 0:
-					criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Geographic data present across {len(loc_counts)} locations"}
+					criteria["geopolitical_risk"] = {"score": 0.5, "evidence": f"Supply data present across {len(loc_counts)} locations"}
 				else:
-					criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
+					criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic data"}
 			else:
-				criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
+				criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic data"}
 		else:
-			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic concentration data"}
+			criteria["geopolitical_risk"] = {"score": 0.0, "evidence": "No geographic data"}
 
-	# FX market risk reinforcement: high-risk location FX exposure → geo-risk boost
+	# FX market risk reinforcement
 	mrd = supply_chain.get("market_risk_disclosures") or []
 	fx_high_risk = False
 	for mr_entry in mrd:
@@ -483,9 +515,9 @@ def _pre_score_bottleneck(sec_sc_data):
 		if geo_score > 0:
 			new_geo = min(1.0, geo_score + 0.15)
 			criteria["geopolitical_risk"]["score"] = new_geo
-			criteria["geopolitical_risk"]["evidence"] += " + FX high-risk location exposure (Item 7A)"
+			criteria["geopolitical_risk"]["evidence"] += " + FX high-risk exposure (Item 7A)"
 
-	# 4. Long lead times (search all categories + numeric extraction)
+	# 4. Long lead times (search all text + numeric extraction)
 	lead_time_pattern = re.compile(r"lead\s*time|backlog|wait\s*time|delivery\s*delay|allocation|extended\s*lead", re.IGNORECASE)
 	lead_duration_pattern = re.compile(r"(\d+)\s*(?:month|week|year|quarter)", re.IGNORECASE)
 	lead_time_found = lead_time_pattern.search(all_text_blob) is not None
@@ -508,7 +540,7 @@ def _pre_score_bottleneck(sec_sc_data):
 	else:
 		criteria["long_lead_times"] = {"score": 0.0, "evidence": "No lead time indicators found"}
 
-	# 5. No substitutes (search all categories + expanded patterns)
+	# 5. No substitutes (search all categories + supply_disruption entries)
 	no_sub_pattern = re.compile(
 		r"cannot\s.*?replace|no\s.*?alternative|sole\s.*?source|only\s.*?supplier|"
 		r"irreplaceable|no\s+viable\s+substitute|proprietary\s+process|"
@@ -516,21 +548,16 @@ def _pre_score_bottleneck(sec_sc_data):
 		re.IGNORECASE,
 	)
 	no_sub_found = no_sub_pattern.search(all_text_blob) is not None
-	# Also check single_source_dependencies entries
-	if not no_sub_found and ssd:
-		for entry in ssd:
-			ctx = (entry.get("context", "") or "") + " " + (entry.get("component", "") or "")
-			if no_sub_pattern.search(ctx):
-				no_sub_found = True
-				break
-	if no_sub_found and len(ssd) >= 1:
-		criteria["no_substitutes"] = {"score": 0.75, "evidence": "Sole source language + single-source dependencies confirmed"}
+	# Also check supply_disruption entries as SSD proxy
+	ssd_confirmed = ssd_proxy_count > 0
+	if no_sub_found and ssd_confirmed:
+		criteria["no_substitutes"] = {"score": 0.75, "evidence": "Sole source language + supply_disruption single-source confirmed"}
 	elif no_sub_found:
 		criteria["no_substitutes"] = {"score": 0.5, "evidence": "Sole source / no substitute language found"}
 	else:
 		criteria["no_substitutes"] = {"score": 0.0, "evidence": "No sole-source language found"}
 
-	# Commodity market risk reinforcement: commodity exposure + existing score → boost
+	# Commodity market risk reinforcement
 	commodity_found = any(
 		(mr.get("risk_type") or "").lower() == "commodity" for mr in mrd
 	)
@@ -539,7 +566,6 @@ def _pre_score_bottleneck(sec_sc_data):
 		criteria["no_substitutes"]["score"] = ns_score
 		criteria["no_substitutes"]["evidence"] += " + commodity price exposure (Item 7A)"
 
-	# criterion 6 (cost_insignificance) requires agent assessment — excluded from automated scoring
 	pre_score = sum(c["score"] for c in criteria.values())
 	pre_score_max = 4.25
 
@@ -552,19 +578,24 @@ def _pre_score_bottleneck(sec_sc_data):
 
 	# Sole Western Flag (H10 Defense Heuristic #2)
 	sole_western_flag = False
-	suppliers = supply_chain.get("suppliers", [])
-	ssd = supply_chain.get("single_source_dependencies", [])
 	western_count = 0
 	intl_count = 0
-	for entry in suppliers + ssd:
+	for entry in supply_ents:
 		geo = entry.get("supplier_geography", "Unknown")
 		if geo == "Western":
 			western_count += 1
 		elif geo == "International":
 			intl_count += 1
-	# Flag when there's exactly 1 Western supplier and it's single-source or sole
-	if western_count == 1 and intl_count >= 1 and len(ssd) >= 1:
+	if western_count == 1 and intl_count >= 1 and ssd_proxy_count >= 1:
 		sole_western_flag = True
+
+	# Tacit knowledge flags
+	tech_transition_flag = any(r.get("type") == "technology_transition" for r in op_risks)
+	competitive_risk_flag = any(r.get("type") == "competitive" for r in op_risks)
+	demand_ents = supply_chain.get("demand_entities") or []
+	demand_concentration_flag = any(
+		d.get("concentration_flag") == "captive" for d in demand_ents if isinstance(d, dict)
+	)
 
 	filing_date_str = None
 	stale_warning = None
@@ -576,7 +607,7 @@ def _pre_score_bottleneck(sec_sc_data):
 	except (KeyError, TypeError, ValueError):
 		pass
 
-	return {
+	result = {
 		"pre_score": pre_score, "pre_score_max": pre_score_max,
 		"criteria": criteria, "assessment": assessment,
 		"filing_date": filing_date_str, "stale_data_warning": stale_warning,
@@ -587,3 +618,11 @@ def _pre_score_bottleneck(sec_sc_data):
 			"investable_threshold": "4+/6 with agent's criterion 6 evaluation",
 		},
 	}
+	if tech_transition_flag:
+		result["technology_transition_flag"] = True
+	if competitive_risk_flag:
+		result["competitive_risk_flag"] = True
+	if demand_concentration_flag:
+		result["demand_concentration_flag"] = True
+
+	return result
