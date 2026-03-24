@@ -1,9 +1,10 @@
 """Supply chain intelligence preset for SEC filings.
 
-Extracts suppliers, customers, single-source dependencies, geographic
-concentration, capacity constraints, supply chain risks, revenue concentration,
-geographic revenue, purchase obligations, market risk disclosures, and
-inventory composition from 10-K/10-Q/20-F filings.
+Extracts supply entities (with functional role), demand entities (with
+concentration classification), geographic exposure (supply + revenue merged),
+operational risks (capacity, geopolitical, technology transition, competitive),
+purchase obligations, market risk disclosures, and inventory composition
+from 10-K/10-Q/20-F filings.
 """
 
 from __future__ import annotations
@@ -13,88 +14,80 @@ from typing import ClassVar, Literal
 from pydantic import BaseModel, Field
 
 
-class SupplierEntry(BaseModel):
-    entity: str = Field(description="Name of the supplier company. Use exact name from the filing.")
-    relationship: str = Field(default="", description="Nature of the supply relationship (e.g., 'sole source supplier', 'key component vendor').")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing that supports this supplier relationship.")
+class SupplyEntity(BaseModel):
+	entity: str = Field(description="Name of the supplier company. Use exact name from the filing.")
+	role: Literal[
+		"foundry", "memory", "assembly", "IP_licensor",
+		"connectivity", "substrate", "power_mgmt",
+		"cooling", "software", "other",
+	] = Field(description="Functional role: foundry (chip fabrication), memory (DRAM/HBM/NAND), assembly (testing/packaging), IP_licensor (patents/licenses), connectivity (switches/transceivers/optics), substrate (wafers/materials), power_mgmt (voltage regulators), cooling (thermal/CDU), software (middleware/orchestration), other.")
+	relationship: str = Field(default="", description="Nature of the supply relationship (e.g., 'sole foundry for advanced node wafers').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing.")
 
 
-class CustomerEntry(BaseModel):
-    entity: str = Field(description="Name of the customer company. Use exact name from the filing.")
-    relationship: str = Field(default="", description="Nature of the customer relationship (e.g., 'major customer', 'accounted for 35% of revenue').")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing that supports this customer relationship.")
+class DemandEntity(BaseModel):
+	entity: str = Field(description="Customer name. Use 'Direct Customer A/B/C' if the filing does not disclose the name.")
+	relationship: str = Field(default="", description="Nature of the customer relationship (e.g., 'cloud infrastructure customer').")
+	revenue_pct: float | None = Field(default=None, description="% of total revenue if disclosed (e.g., 22.0).")
+	revenue_amount: str = Field(default="", description="Dollar amount if disclosed (e.g., '$5.2 billion').")
+	concentration_flag: Literal["captive", "major", "diversified", "unnamed"] = Field(
+		default="unnamed",
+		description="captive: single customer >50% of revenue or sole contract dependency. major: 10-50% of revenue. diversified: <10%. unnamed: name not disclosed.",
+	)
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing.")
 
 
-class SingleSourceEntry(BaseModel):
-    component: str = Field(default="", description="Component or material with single-source dependency (e.g., 'DRAM memory chips').")
-    supplier: str = Field(description="Name of the sole-source or single-source supplier.")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing this dependency.")
+class GeographicExposure(BaseModel):
+	region: str = Field(description="Country or region name (e.g., 'Taiwan', 'United States').")
+	supply_activity: str = Field(default="", description="Supply-side activity at this location (e.g., 'manufacturing', 'assembly, testing').")
+	revenue_pct: float | None = Field(default=None, description="% of total revenue from this region if disclosed.")
+	revenue_amount: str = Field(default="", description="Dollar amount if disclosed.")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing.")
 
 
-class GeographicEntry(BaseModel):
-    location: str = Field(description="Country or region name (e.g., 'Taiwan', 'South Korea').")
-    activity: str = Field(default="", description="Type of activity at this location (e.g., 'manufacturing', 'assembly').")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing geographic concentration.")
-
-
-class CapacityConstraintEntry(BaseModel):
-    constraint: str = Field(description="Type of capacity constraint (e.g., 'extended lead times', 'production capacity limitation').")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing the constraint.")
-
-
-class SupplyChainRiskEntry(BaseModel):
-    risk: str = Field(description="Type of supply chain risk (e.g., 'tariff impact', 'raw material shortage').")
-    context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing describing this risk.")
-
-
-class RevenueConcentrationEntry(BaseModel):
-    entity: str = Field(description="Customer or segment name from filing.")
-    revenue_pct: float | None = Field(default=None, description="% of total revenue (e.g., 35.2).")
-    revenue_amount: str = Field(default="", description="Amount if disclosed (e.g., '$5.2 billion').")
-    context: str = Field(default="", description="1-3 sentences from Notes.")
-
-
-class GeographicRevenueEntry(BaseModel):
-    region: str = Field(description="Country or region (e.g., 'United States', 'China').")
-    revenue_pct: float | None = Field(default=None, description="% of total revenue.")
-    revenue_amount: str = Field(default="", description="Amount if disclosed.")
-    context: str = Field(default="", description="1-3 sentences from Notes.")
+class OperationalRisk(BaseModel):
+	type: Literal[
+		"capacity_constraint", "supply_disruption", "geopolitical",
+		"regulatory", "technology_transition", "competitive", "other",
+	] = Field(description="Risk category: capacity_constraint (lead times, production limits), supply_disruption (shortages, force majeure), geopolitical (tariffs, export controls, sanctions), regulatory (compliance, government policy), technology_transition (migration to new tech, obsolescence risk), competitive (alternative suppliers, custom silicon, designed-out risk), other.")
+	risk: str = Field(description="Specific risk description (e.g., 'extended lead times exceeding 12 months').")
+	context: str = Field(default="", description="Brief relevant excerpt (1-3 sentences) from the filing.")
 
 
 class PurchaseObligationEntry(BaseModel):
-    counterparty: str = Field(default="", description="Supplier name if disclosed.")
-    obligation_type: str = Field(description="Type (e.g., 'inventory commitment', 'capacity reservation').")
-    amount: str = Field(default="", description="Dollar amount (e.g., '$2.5 billion').")
-    timeframe: str = Field(default="", description="Duration (e.g., 'through fiscal 2027').")
-    context: str = Field(default="", description="1-3 sentences from Notes.")
+	counterparty: str = Field(default="", description="Supplier name if disclosed.")
+	obligation_type: str = Field(description="Type (e.g., 'inventory commitment', 'capacity reservation').")
+	amount: str = Field(default="", description="Dollar amount (e.g., '$2.5 billion').")
+	timeframe: str = Field(default="", description="Duration (e.g., 'through fiscal 2027').")
+	context: str = Field(default="", description="1-3 sentences from Notes.")
 
 
 class MarketRiskEntry(BaseModel):
-    risk_type: Literal["commodity", "fx", "interest_rate"] = Field(description="Type: 'commodity', 'fx', or 'interest_rate'.")
-    exposure: str = Field(default="", description="Specific exposure (e.g., 'gold price', 'EUR/USD').")
-    sensitivity: str = Field(default="", description="Quantitative impact if disclosed (e.g., '10% increase = $50M COGS impact').")
-    hedging: str = Field(default="", description="Hedging strategy if disclosed.")
-    context: str = Field(default="", description="1-3 sentences from filing.")
+	risk_type: Literal["commodity", "fx", "interest_rate"] = Field(description="Type: 'commodity', 'fx', or 'interest_rate'.")
+	exposure: str = Field(default="", description="Specific exposure (e.g., 'gold price', 'EUR/USD').")
+	sensitivity: str = Field(default="", description="Quantitative impact if disclosed (e.g., '10% increase = $50M COGS impact').")
+	hedging: str = Field(default="", description="Hedging strategy if disclosed.")
+	context: str = Field(default="", description="1-3 sentences from filing.")
 
 
 class InventoryCompositionEntry(BaseModel):
-    category: Literal["raw_materials", "work_in_progress", "finished_goods"] = Field(description="Category: 'raw_materials', 'work_in_progress', or 'finished_goods'.")
-    amount: str = Field(default="", description="Dollar amount if disclosed (e.g., '$1.2 billion').")
-    pct_of_total: float | None = Field(default=None, description="% of total inventory.")
-    context: str = Field(default="", description="1-3 sentences from Notes (valuation, aging, obsolescence).")
+	category: Literal["raw_materials", "work_in_progress", "finished_goods"] = Field(description="Category: 'raw_materials', 'work_in_progress', or 'finished_goods'.")
+	amount: str = Field(default="", description="Dollar amount if disclosed (e.g., '$1.2 billion').")
+	pct_of_total: float | None = Field(default=None, description="% of total inventory.")
+	context: str = Field(default="", description="1-3 sentences from Notes (valuation, aging, obsolescence).")
 
 
 class SupplyChain(BaseModel):
-    """Supply chain intelligence extraction from SEC filings."""
+	"""Supply chain intelligence extraction from SEC filings."""
 
-    __prompt__: ClassVar[str] = """\
+	__prompt__: ClassVar[str] = """\
 You are a financial analyst extracting supply chain intelligence from SEC filings.
 Extract entities and relationships exactly as stated in the filing text.
 
 The filing text below is the complete SEC filing in markdown format.
 Identify relevant sections by their natural headings:
-- Item 1 (Business): suppliers, customers, single-source dependencies
-- Item 1A (Risk Factors): supply chain risks, geographic concentration
+- Item 1 (Business): suppliers, customers, technology roadmap, competitive landscape
+- Item 1A (Risk Factors): supply chain risks, geographic concentration, technology transitions, competitive threats
 - Item 7 (MD&A): capacity constraints, operating discussion
 - Item 7A (Market Risk): commodity/FX/interest rate exposures
 - Item 8 Notes: revenue segments, inventory, commitments, concentration
@@ -106,24 +99,36 @@ Rules:
 3. If a category has no relevant data, return an empty list.
 4. Do NOT extract the filing company itself as its own supplier or customer.
 5. Focus on factual supply chain relationships — skip generic boilerplate.
-6. De facto single-source: If a supplier is described as the PRIMARY or ONLY provider
-   for a critical component category and NO alternative supplier is mentioned for that
-   same category, classify it as single_source_dependencies.
+6. Supplier role classification: assign each supplier exactly one role from the
+   controlled vocabulary (foundry, memory, assembly, IP_licensor, connectivity,
+   substrate, power_mgmt, cooling, software, other). Choose the MOST specific
+   role that matches.
 7. Customer extraction: Look for revenue concentration disclosures, named buyers,
-   and "accounted for X% of revenue" language.
-8. Relationship specificity: Use precise descriptions such as "sole foundry for
-   leading-edge GPUs", "memory supplier (HBM)", "anchor customer >10% revenue".
-9. Only infer relationships where the filing text provides contextual support.
-10. Revenue concentration: From Notes, extract customers/segments with specific % of
-    revenue. Include exact percentage as revenue_pct.
-11. Geographic revenue: From Notes, extract revenue by country/region with exact
-    percentages. Use standardized country names.
-12. Purchase obligations: From Notes (Commitments and Contingencies), extract purchase
+   and "accounted for X% of revenue" language. If the filing anonymizes a customer
+   (e.g., "one customer" or "Customer A"), use "Direct Customer A/B/C" as entity.
+8. Concentration flag: captive = single customer >50% of revenue or described as
+   sole/primary contract dependency. major = 10-50% of revenue. diversified = <10%.
+   unnamed = customer name not disclosed (use even if revenue_pct is known).
+9. Geographic exposure: merge supply-side (manufacturing, assembly locations) and
+   demand-side (revenue by region) into one entry per region when both exist.
+   Include supply_activity AND revenue_pct when both are available for the same region.
+10. Operational risks must be classified by type:
+    - capacity_constraint: production limits, extended lead times, backlogs, allocation
+    - supply_disruption: shortages, force majeure, single-source dependency language
+    - geopolitical: tariffs, export controls, sanctions, regional instability
+    - regulatory: government policy, compliance requirements, legal proceedings
+    - technology_transition: migration plans (e.g., copper to optical), next-gen
+      architecture adoption, platform transitions, obsolescence risk
+    - competitive: alternative suppliers, custom silicon programs by customers,
+      "designed out" risk, emerging competitors mentioned in the filing
+11. Purchase obligations: From Notes (Commitments and Contingencies), extract purchase
     commitments, capacity reservations, take-or-pay contracts.
-13. Market risk disclosures: From Item 7A, extract commodity/FX/interest rate exposures.
+12. Market risk disclosures: From Item 7A, extract commodity/FX/interest rate exposures.
     Classify risk_type as "commodity", "fx", or "interest_rate".
-14. Inventory composition: From Notes, extract raw materials, work-in-progress, and
+13. Inventory composition: From Notes, extract raw materials, work-in-progress, and
     finished goods amounts and percentages.
+14. Relationship specificity: Use precise descriptions such as "sole foundry for
+    leading-edge GPUs", "HBM memory supplier", "anchor customer >10% revenue".
 
 Filing company: {company_name}
 
@@ -132,14 +137,10 @@ Extract all supply chain entities from this SEC filing text:
 {filing_text}
 """
 
-    suppliers: list[SupplierEntry] = Field(default_factory=list, description="Companies that supply products, materials, or services to the filing company.")
-    customers: list[CustomerEntry] = Field(default_factory=list, description="Companies that purchase products or services from the filing company.")
-    single_source_dependencies: list[SingleSourceEntry] = Field(default_factory=list, description="Components with sole-source or single-source supplier dependencies.")
-    geographic_concentration: list[GeographicEntry] = Field(default_factory=list, description="Locations where manufacturing, production, or sourcing is concentrated.")
-    capacity_constraints: list[CapacityConstraintEntry] = Field(default_factory=list, description="Production capacity limitations, extended lead times, or backlogs.")
-    supply_chain_risks: list[SupplyChainRiskEntry] = Field(default_factory=list, description="Supply disruption risks including tariffs, shortages, geopolitical risks.")
-    revenue_concentration: list[RevenueConcentrationEntry] = Field(default_factory=list, description="Customer/segment revenue concentration from Notes.")
-    geographic_revenue: list[GeographicRevenueEntry] = Field(default_factory=list, description="Revenue breakdown by country/region from Notes.")
-    purchase_obligations: list[PurchaseObligationEntry] = Field(default_factory=list, description="Purchase commitments, capacity reservations from Notes.")
-    market_risk_disclosures: list[MarketRiskEntry] = Field(default_factory=list, description="Market risk exposures from Item 7A.")
-    inventory_composition: list[InventoryCompositionEntry] = Field(default_factory=list, description="Inventory breakdown from Notes.")
+	supply_entities: list[SupplyEntity] = Field(default_factory=list, description="Companies that supply products, materials, or services to the filing company, with functional role classification.")
+	demand_entities: list[DemandEntity] = Field(default_factory=list, description="Companies that purchase from the filing company, with revenue concentration and dependency classification.")
+	geographic_exposure: list[GeographicExposure] = Field(default_factory=list, description="Regions with supply-side activity and/or demand-side revenue, merged per region.")
+	operational_risks: list[OperationalRisk] = Field(default_factory=list, description="Supply chain risks classified by type: capacity, disruption, geopolitical, regulatory, technology transition, competitive.")
+	purchase_obligations: list[PurchaseObligationEntry] = Field(default_factory=list, description="Purchase commitments, capacity reservations from Notes.")
+	market_risk_disclosures: list[MarketRiskEntry] = Field(default_factory=list, description="Market risk exposures from Item 7A.")
+	inventory_composition: list[InventoryCompositionEntry] = Field(default_factory=list, description="Inventory breakdown from Notes.")

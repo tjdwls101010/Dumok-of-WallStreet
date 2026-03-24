@@ -29,10 +29,8 @@ from ._multi import _parse_mcap_string
 from ._scorer import validate_ticker
 
 _SC_CATEGORIES = (
-	"suppliers", "customers", "single_source_dependencies",
-	"geographic_concentration", "capacity_constraints",
-	"supply_chain_risks", "revenue_concentration",
-	"geographic_revenue", "purchase_obligations",
+	"supply_entities", "demand_entities", "geographic_exposure",
+	"operational_risks", "purchase_obligations",
 	"market_risk_disclosures", "inventory_composition",
 )
 
@@ -46,7 +44,7 @@ def _extract_sec_supply_chain(ticker):
 			os.path.dirname(os.path.abspath(__file__))))), ".env")
 		load_dotenv(_env)
 		from sec_analyzer import extract as _sec_extract
-		from sec_analyzer.presets import SupplyChain as _SCPreset
+		from pipelines.serenity.preset_serenity import SupplyChain as _SCPreset
 		result = _sec_extract(ticker, preset=_SCPreset)
 	except Exception as e:
 		import sys
