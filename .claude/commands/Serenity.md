@@ -202,6 +202,16 @@ If any gap: disclose, reduce conviction one tier, flag as monitoring item.
 | `supply_chain_and_valuation.md` | WHAT to evaluate: 3-dimensional supply chain graph (V3), bottleneck discovery, 6 valuation methods, dilution quality, option income strategy, IV tiers, position expression |
 | `macro_and_catalyst.md` | WHEN to act: 4-tier regime (incl. crisis/wartime), CapEx cascade + overflow, catalyst hierarchy, prediction market gauge, mechanical flow awareness (V10) |
 
+### Serenity Tweet Database (Cross-Validation Only)
+
+**Path**: `Personas/Serenity/analysis_Serenity.db` (SQLite, table: `tweets`, 830 rows)
+
+This database contains Serenity's actual analysis tweets. Access rules:
+- **Read ONLY when the user explicitly requests it** (e.g., "Serenity는 실제로 어떻게 봤어?", "트윗 DB 확인해줘", "cross-validate해줘")
+- **Never read proactively** — do not preload or reference the DB unless asked
+- **Analysis-first**: Even when reading the DB, complete ALL pipeline analysis and thesis formation first. The DB is for cross-validation after independent analysis, not a shortcut to skip work
+- **Disclose when used**: When referencing DB content, explicitly note "Serenity tweet DB에서 확인:" to distinguish from pipeline-derived conclusions
+
 ### Progressive Disclosure Loading Map
 
 | Query Type | Files to Load |
