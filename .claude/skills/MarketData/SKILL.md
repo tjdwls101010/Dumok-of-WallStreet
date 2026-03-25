@@ -41,6 +41,8 @@ This skill uses **2-level Progressive Disclosure**:
 - **Level 1: SKILL.md** (this file) - Complete function catalog with all categories
 - **Level 2: Python Docstrings** - Detailed documentation extracted via `tools/extract_docstring.py`
 
+**Pipeline exception**: Pipeline subcommands (e.g., `macro`, `analyze`, `discover`) are stable interfaces documented in command files. Level 2 discovery via `extract_docstring.py` is NOT required for pipeline execution — only for individual module calls during pipeline development or maintenance.
+
 See **Script Execution Safety Protocol** below for mandatory discovery and execution rules.
 
 ### Navigation Flow
@@ -53,7 +55,7 @@ Need VCP? → SKILL.md Technical section → find vcp.py → python tools/extrac
 
 ### Pipelines
 
-Persona-specific analysis orchestrators (Facade) — prefer these as the primary data interface. Discover available subcommands via `extract_docstring.py`.
+Persona-specific analysis orchestrators (Facade) — prefer these as the primary data interface. Pipeline subcommands are stable and documented in command files; `extract_docstring.py` is not required for pipeline execution.
 
 | Function | Description | Script |
 |----------|-------------|--------|
@@ -92,7 +94,7 @@ Stage Analysis, VCP, Base Counting, Entry Patterns, Sell Signals, Tight Closes, 
 
 #### Data Sources
 
-Financials, actions, holders, earnings, macro proxies
+Financials, actions, earnings, macro proxies
 
 | Function | Description | Script |
 |----------|-------------|--------|
@@ -101,7 +103,7 @@ Financials, actions, holders, earnings, macro proxies
 | `dxy` | Dollar Index (DXY) tracking with z-score analysis | `data_sources/dxy.py` |
 | `earnings_acceleration` | Code 33 validation, earnings/sales acceleration patterns, surprise history, and analyst revisions | `data_sources/earnings_acceleration.py` |
 | `financials` | Financial statements retrieval | `data_sources/financials.py` |
-| `holders` | Holder and insider transaction data | `data_sources/holders.py` |
+| `holders` | Holder and insider transaction data (not called by current pipelines — available for direct use) | `data_sources/holders.py` |
 | `info` | Ticker information retrieval | `data_sources/info.py` |
 
 #### Analysis
@@ -121,7 +123,6 @@ Fundamental analysis and valuation tools
 | `no_growth_valuation` | Zero-growth stress test: intrinsic value at 0% growth with margin of safety | `analysis/no_growth_valuation.py` |
 | `position_sizing` | Risk-based position sizing: calculate, pyramid, expectation | `analysis/position_sizing.py` |
 | `sbc_analyzer` | Stock-Based Compensation analysis: SBC %, real FCF, health flag | `analysis/sbc_analyzer.py` |
-| `bottleneck_scorer` | Bottleneck financial validation (part of serenity pipeline) | `pipelines/serenity/_scorer.py` |
 
 #### Macro
 

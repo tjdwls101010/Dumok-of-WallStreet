@@ -67,18 +67,18 @@ def _build_thesis_signals(l4_results, l5_results):
 	}
 
 
-def _detect_short_squeeze_risk(l4_results):
-	"""Evaluate short interest data for squeeze risk.
+def _extract_short_interest(l4_results):
+	"""Extract short interest data as a contrarian signal (V1).
 
-	Uses short % of float, price position, and institutional quality
-	to assess squeeze potential.
+	High SI + strong fundamentals = contrarian buy signal.
+	Reframed from squeeze mechanics to asymmetric opportunity detection.
 	"""
 	l4 = l4_results or {}
 	info = l4.get("info") or {}
 
 	si_pct = info.get("shortPercentOfFloat")
 	if not isinstance(si_pct, (int, float)):
-		return {"squeeze_risk": "unknown", "note": "Short interest data unavailable"}
+		return {"contrarian_signal": "unknown", "note": "Short interest data unavailable"}
 
 	si_display = round(si_pct * 100, 2)
 
@@ -99,27 +99,23 @@ def _detect_short_squeeze_risk(l4_results):
 		elif change_pct < -0.10:
 			si_trend = "decreasing"
 
-	# Squeeze risk classification
+	# Contrarian signal classification (V1: high SI + strong fundamentals = buy)
 	if si_pct > 0.20:
-		squeeze_risk = "high"
+		contrarian_signal = "strong_contrarian"
 	elif si_pct > 0.10:
-		squeeze_risk = "moderate"
+		contrarian_signal = "moderate"
 	else:
-		squeeze_risk = "low"
-
-	# Boost risk if days_to_cover is high
-	if isinstance(days_to_cover, (int, float)) and days_to_cover > 5 and squeeze_risk == "moderate":
-		squeeze_risk = "high"
+		contrarian_signal = "low"
 
 	return {
 		"short_pct_float": si_display,
 		"days_to_cover": days_to_cover,
 		"si_trend": si_trend,
-		"squeeze_risk": squeeze_risk,
+		"contrarian_signal": contrarian_signal,
 		"thresholds": {
-			"high": "SI > 20% or (SI > 10% + DTC > 5)",
-			"moderate": "SI > 10%",
-			"low": "SI <= 10%",
+			"strong_contrarian": "SI > 20% — if fundamentals strong, short thesis likely wrong (V1)",
+			"moderate": "SI 10-20% — monitor for thesis divergence",
+			"low": "SI <= 10% — no contrarian signal",
 		},
 	}
 
@@ -401,13 +397,16 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 			return {
 				"composite_score": 0, "grade": "AVOID",
 				"score_breakdown": {},
-				"composite_thresholds": "weights: bottleneck=30, health=25, thesis=15, catalyst=10, taxonomy=10, valuation=10 | STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35",
+				"composite_thresholds": {
+					"weights": {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10},
+					"grades": {"STRONG_BUY": ">=80", "BUY": ">=65", "ACCUMULATE": ">=50", "HOLD": ">=35", "AVOID": "<35"},
+				},
 				"position_guidance": {
 					"conviction_tier": None, "suggested_size_pct": "no_entry",
 					"max_loss_pct": None, "regime_adjustment": "none",
 				},
 				"zero_revenue_gate": True,
-				"zero_revenue_gate_thresholds": "totalRevenue <= 0 triggers automatic AVOID (V2: Fundamental Reality as Prerequisite)",
+				"zero_revenue_gate_thresholds": {"trigger": "totalRevenue <= 0", "result": "automatic AVOID", "rationale": "V2: Fundamental Reality as Prerequisite"},
 				"sop_triggered": False,
 				"trapped_asset_eligible": False,
 				"regime_cap_applied": False,
@@ -522,7 +521,10 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	return {
 		"composite_score": total_score, "grade": grade,
 		"score_breakdown": score_breakdown_out,
-		"composite_thresholds": "weights: bottleneck=30, health=25, thesis=15, catalyst=10, taxonomy=10, valuation=10 | STRONG_BUY: >=80 | BUY: >=65 | ACCUMULATE: >=50 | HOLD: >=35 | AVOID: <35",
+		"composite_thresholds": {
+			"weights": {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10},
+			"grades": {"STRONG_BUY": ">=80", "BUY": ">=65", "ACCUMULATE": ">=50", "HOLD": ">=35", "AVOID": "<35"},
+		},
 		"position_guidance": {
 			"conviction_tier": conviction, "suggested_size_pct": size,
 			"max_loss_pct": max_loss, "regime_adjustment": regime_adj,

@@ -124,7 +124,7 @@ Exit when: a kill signal fires, the thesis is fully priced in, or a higher-convi
 
 ---
 
-## Ten Tacit Decision Rules
+## Twelve Tacit Decision Rules
 
 ### 1. Forward P/E Gate (V2)
 
@@ -174,6 +174,7 @@ Exit when: a kill signal fires, the thesis is fully priced in, or a higher-convi
 - **Rule**: Track institutional ownership changes via 13F filings, IO% trends, and fund-type quality as thesis confirmation signals.
 - **Application**: Classify institutional holders by type — passive accumulation (Vanguard/BlackRock index inclusion) is the strongest positive signal indicating structural, long-term demand. High quant/market-maker concentration indicates unstable, short-term positioning and may be a negative signal. IO% increase during fear-driven selloffs is strong confirmation of the thesis.
 - **Exception**: Institutional flow during index rebalancing periods is mechanical, not signal. Confirm the flow is discretionary, not forced.
+- **Mechanical Ownership Gap**: When institutional ownership is significantly below the typical level for a company's market cap and growth profile, a mechanical ownership gap exists. This gap represents forced future buying pressure through index inclusion, fund mandate compliance, and institutional discovery. Identify the cause of the gap — unusual IPO structure, recent listing, small-cap neglect. When the gap is structural (must close over time), it represents a floor for mechanical upside.
 
 ### 9. Necessary vs Discretionary (V3)
 
@@ -186,6 +187,18 @@ Exit when: a kill signal fires, the thesis is fully priced in, or a higher-convi
 - **Rule**: Portfolio follows a power-law distribution — 3-5 core positions hold 60-80% of capital reflecting highest conviction, while 15-25 satellite positions at 0.2-2% each provide optionality, sector coverage, and swing trade vehicles. Position size IS the conviction signal.
 - **Application**: If adding a core position requires diluting an existing high-conviction core position, the new position must clear a higher bar. Satellite positions can be added freely without this trade-off. The top 3-5 names carry the portfolio's alpha; the tail is for optionality and learning.
 - **Exception**: During regime transitions or thesis discovery phases, the core may temporarily thin while satellites grow as new theses are evaluated.
+
+### 11. De-Risking Paradox (V1, V2)
+
+- **Rule**: Optimize for probability-adjusted expected value, not entry price. A higher entry price after a major de-risking event has better expected value than a lower price before the event.
+- **Application**: De-risking events (mega-contract signed, strategic investment secured, regulatory approval) do not merely add information — they fundamentally transform the probability distribution from a fat-tailed binary outcome to a narrower known-upside distribution. When this distribution transformation more than compensates for the price increase, the post-event entry is mathematically superior. This contradicts the retail instinct to "buy low."
+- **Exception**: The de-risking event must be genuine and binding. Non-binding MOUs, preliminary discussions, or conditional approvals do not transform the probability distribution. Assess: contract enforceability, counterparty creditworthiness, execution conditions.
+
+### 12. Independent Signal Convergence (V9, V3)
+
+- **Rule**: Multiple weak independent signals converging on the same conclusion form stronger conviction than a single strong confirmation.
+- **Application**: Each signal must originate from a genuinely independent source — SEC filings, product specifications, management commentary, industry data, competitor failures. Repetition from the same source is NOT independent confirmation. When five independent 60% probability signals converge on the same thesis, the combined probability far exceeds any individual signal.
+- **Exception**: Independence must be genuine. If all signals trace back to the same root cause (e.g., all based on the same earnings report), they are correlated, not independent.
 
 ---
 
@@ -287,6 +300,20 @@ After exiting a losing position, classify the loss to enable learning:
 ### Tax Harvest Rotation (V1, V6)
 
 During October-December, tax-loss harvesting creates mechanical selling pressure on losing positions. This selling is not fundamental — it creates buying opportunities for fundamentally strong names whose prices have been temporarily depressed by tax-driven flows. Plan re-entry in January when the mechanical pressure reverses.
+
+---
+
+## Black Swan Portfolio Architecture
+
+**Principle**: Portfolio architecture must be designed to structurally survive black swans — this goes beyond individual position sizing to the portfolio's overall composition.
+
+Three axes of structural resilience:
+
+1. **Geographic diversification** across supply chain concentration points — no single-region event should be able to neutralize the entire portfolio. If primary thesis companies are concentrated in one geography, satellite positions must provide exposure elsewhere.
+2. **Sector diversification** beyond the primary thesis area — a structural failure of one thesis should not threaten total capital. Even when conviction is highest in one sector, the portfolio must include uncorrelated positions.
+3. **Permanent hedge allocation** — downside protection must always exist, not only when fear is visible. The hedge exists to survive the scenario you haven't imagined.
+
+The temptation to concentrate entirely in one sector during high conviction is strong — resist it. Express conviction through position SIZING within the architecture, not by abandoning the architecture itself.
 
 ---
 

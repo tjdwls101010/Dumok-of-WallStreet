@@ -284,7 +284,7 @@ def _build_priced_in_assessment(l4_results, l5_results):
 			"io_quality": "+12 (>=8) / +6 (>=6) / -5 (<=3)",
 			"er_proximity_stale": "-5 (ER within 7 days — estimates may be stale)",
 			"total_range": "0-100, clamped",
-			"assessment_thresholds": "fully_priced_in: >=55 | partially_priced_in: >=30 | not_priced_in: <30",
+			"assessment_thresholds": {"fully_priced_in": ">=55", "partially_priced_in": ">=30", "not_priced_in": "<30"},
 		},
 	}
 
@@ -325,7 +325,7 @@ def _classify_iv_tier(iv_data):
 	return {
 		"iv_tier": tier,
 		"iv_regime_shift": regime_shift,
-		"thresholds": "compressed: <30 | normal_low: 30-45 | normal: 45-65 | elevated: 65-100 | extreme: >100 | regime_shift: |IV30-HV30| > 15",
+		"thresholds": {"compressed": "<30", "normal_low": "30-45", "normal": "45-65", "elevated": "65-100", "extreme": ">100", "regime_shift": "|IV30-HV30| > 15"},
 	}
 
 

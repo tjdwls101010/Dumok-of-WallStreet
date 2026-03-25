@@ -6,6 +6,18 @@ What to evaluate when analyzing a company. Bottleneck discovery, valuation, and 
 
 ## Part A — Bottleneck Discovery
 
+### Supply Limitation Taxonomy
+
+Before analyzing any supply limitation, classify it into one of three categories:
+
+- **Bottleneck**: Physical/material scarcity that cannot be resolved by capital investment alone, concentrated among few suppliers, creating downstream dependency and durable pricing power. Only bottlenecks generate the pricing power that drives alpha.
+- **Constraint**: Temporary and resolvable with sufficient capital and time. Pricing power is transient, supporting tactical trades but not multi-year theses.
+- **Risk**: A probabilistic event, not a structural state. Subject of event hedging, not position building.
+
+**The boundary test**: "Can money solve this?" If any amount of capital, given sufficient time, can eliminate the scarcity, it is a constraint, not a bottleneck — regardless of how large the required capital is. Physics trumps capital.
+
+This classification determines investment horizon: bottlenecks support multi-year conviction holds; constraints support shorter tactical trades; risks are hedging targets.
+
 ### True Bottleneck 3-Criteria
 
 Not every bottleneck provides a great investment opportunity. All three must be met simultaneously:
@@ -73,6 +85,28 @@ Three dimensions, applied in sequence:
 
 3. **Sector-Agnostic Positioning** — Does the company sell tools or materials to ALL players in the space? If yes, the company wins regardless of which end-product competitor prevails. This characteristic amplifies the bottleneck but is not required for a valid thesis.
 
+### Bottleneck Investment Mechanism
+
+The investment return from bottleneck positions follows a predictable causal chain:
+
+**Physical Scarcity → Pricing Power → Margin Expansion → Revenue Explosion → Market Re-Rating**
+
+Each link is an independent validation gate AND a bear case generator:
+- Scarcity → Pricing Power: fails when long-term fixed-price contracts prevent price increases, or when the bottleneck is transitional (supply catching up)
+- Pricing Power → Margin Expansion: fails when cost structure absorbs the pricing gains (raw material costs rise in tandem)
+- Margin Expansion → Revenue: fails when volume contracts even as margins expand (shrinking TAM)
+- Revenue → Re-Rating: fails when the market has already front-run the revenue trajectory (fully priced in)
+
+In supply chains, physical scarcity is the only durably reliable source of pricing power. Brand, IP, and network effects are moats in other domains, but in commoditized supply chains, physics is the moat.
+
+### Bottleneck Lifecycle & Information Asymmetry
+
+Bottlenecks have a maturation lifecycle independent of the investment thesis — from speculative identification through supply chain qualification, early order ramp, validated mid-cycle with established pricing power, to end-of-cycle structural demand or decline.
+
+The lifecycle stage determines where **information asymmetry is maximized**. The optimal capital allocation window is where initial validation has occurred (first orders, supply chain qualification) but the market has not yet repriced — validated but not yet consensus. This is neither the earliest stage (highest magnitude but lowest probability) nor the latest stage (highest probability but diminished magnitude), but the intersection where probability-adjusted return peaks.
+
+Capital allocation should center on this information asymmetry peak. Earlier stages warrant small exploratory positions; later stages warrant compounder holds or rotation.
+
 ### Absence Evidence (Negative Space)
 
 "Who else could do this?" If the answer is "nobody" or "it would take years," that absence IS the evidence of a moat. Specifically check:
@@ -122,6 +156,8 @@ When a bottleneck is confirmed, search for historical parallels in other supply 
 
 **When full-stack premium does not apply**: In early-stage markets, bare-metal providers may monetize capacity faster than full-stack operators because the software layer is still developing. The integration depth premium applies to mature markets where the orchestration layer has proven its value through margin differentiation.
 
+**When supply chain position may evaporate**: Designing IN a supplier is gradual (qualification, testing, integration cycles), but designing OUT can happen in a single customer decision — a switching cost asymmetry. The critical distinction is whether the bottleneck position rests on **physical inevitability** (no alternative material or process exists) or **current convenience** (currently the best option but alternatives could be developed). Physics-based positions are durable; convenience-based positions are fragile. This distinction is the deep judgment criterion behind the third bottleneck criterion (no viable substitutes). Every bottleneck thesis must include in its bear case: "What if the customer designs us out?"
+
 ---
 
 ## Part B — Valuation Framework
@@ -141,6 +177,12 @@ Choose based on company stage and characteristics:
 No single method is sufficient. Use at least two for cross-validation.
 
 **Sum-of-Parts**: For multi-segment companies with distinct business lines at different growth stages, value each segment independently using the appropriate method above, then aggregate. This prevents a high-growth segment from being dragged down by a mature segment's multiple, or vice versa.
+
+### Valuation Framework Limits
+
+Some companies resist conventional valuation frameworks (P/E, P/S, EV/FCF) — national security mandates creating non-economic demand, paradigm-shifting technology with non-linear growth trajectories, or monopoly positions in existential supply chains create value that these frameworks cannot capture.
+
+When conventional valuation produces absurd results (e.g., a monopoly substrate supplier valued at commodity multiples despite controlling an existential bottleneck), acknowledge the framework's limitation rather than forcing false precision. Seek alternative value anchors: government subsidy scale, structural TAM floor from policy mandates, strategic value of irreplaceability. Forcing a P/E on a company whose value is strategic rather than economic produces misleading numbers.
 
 ### Funding Price Floor Heuristic
 
@@ -192,6 +234,18 @@ When comparing companies at similar multiples, the one with higher-quality reven
 **Bad dilution**: Issued below market price, high stock-based compensation as a percentage of revenue, no corresponding revenue growth. This is value destruction.
 
 Track: shares outstanding change quarter-over-quarter, stock-based compensation as a percentage of revenue, real vs reported free cash flow. Also mark IPO lockup expiration dates — expect selling pressure.
+
+### Information Propagation Hierarchy
+
+Information propagates through the market in a time-layered sequence:
+
+1. **Supply chain derivative signals** — commodity spot prices, industrial procurement data, capacity utilization reports
+2. **Paid industry reports** — institutional subscribers receive data days before public release
+3. **Public news** — media coverage, press releases, conference calls
+4. **Stock repricing** — market incorporates over days to weeks
+5. **Earnings confirmation** — the lagging validation of what derivative signals already showed
+
+Edge is proportional to how early in this sequence you observe. Earnings confirmation is the END of the information propagation chain, not the beginning — by that point, the opportunity is largely exhausted. The key question: "What is the earliest observable, publicly available derivative signal that would confirm or deny this thesis?" Track that signal, not the stock price.
 
 ### Priced-In Assessment
 

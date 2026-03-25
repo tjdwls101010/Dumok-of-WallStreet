@@ -179,7 +179,7 @@ def _extract_sbc_data(symbol):
 		"reported_fcf": int(fcf),
 		"real_fcf": int(real_fcf),
 		"flag": flag,
-		"sbc_thresholds": "healthy: <10% of revenue | warning: 10-30% | toxic: >30%",
+		"sbc_thresholds": {"healthy": "<10% of revenue", "warning": "10-30%", "toxic": ">30%"},
 		"sbc_interpretation": _build_sbc_interpretation(sbc_pct, flag, real_fcf),
 		"shares_outstanding_current": shares_current,
 		"shares_outstanding_prior_quarter": shares_prior,

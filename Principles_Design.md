@@ -44,9 +44,9 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 ### 2.5 Progressive Disclosure
 
-**Principle**: Hierarchically load only the necessary information at the exact moment it is needed. The agent first checks module names and one-line descriptions in `SKILL.md` (Level 1 Catalog), then uses `extract_docstring.py` (Level 2 Details) to check subcommands, arguments, and return structures only for the modules it actually needs. This two-step discovery process saves context while ensuring access to accurate information. Do not guess subcommands.
+**Principle**: Hierarchically load only the necessary information at the exact moment it is needed. For **pipeline execution**, command files may directly specify stable pipeline subcommand names and basic usage — pipelines have few, stable subcommands that rarely change. For **individual module calls** (during pipeline development or maintenance), the agent checks module names in `SKILL.md` (Level 1 Catalog), then uses `extract_docstring.py` (Level 2 Details) to check subcommands, arguments, and return structures. Do not guess individual module subcommands.
 
-**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. The 2-step discovery process retrieves detailed information only for the necessary modules at the necessary time.
+**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. The 2-step discovery process retrieves detailed information only for the necessary modules at the necessary time. Pipeline subcommands are exempt from this process because pipeline interfaces are stable and documented in command files.
 
 ### 2.6 Graceful Degradation
 
@@ -133,8 +133,9 @@ Refer to existing implementations as structural templates. Serenity is the most 
 **Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how." Refer to existing commands (e.g., `commands/Serenity.md`) for structural patterns.
 
 **Key constraints:**
-- **Do Not Specify Interface Details**: Following §2.1, do not include subcommand names, argument formats, or return structures. Discover them at runtime via `extract_docstring.py`. Structural references (pipeline file paths, execution format) are acceptable.
+- **Pipeline Interface**: Pipeline subcommand names and basic usage may be specified in command files, since pipeline interfaces are stable and rarely change. Individual module interfaces (argument formats, return structures) must NOT be specified — discover them at runtime via `extract_docstring.py`.
 - **Output Field Name References**: Command files may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria) since these are direct pipeline-to-agent action mappings. However, do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
+- **Path Clarity**: All file path references must use `{skill_dir}/` as the explicit base path. When the agent loads a skill via `Skill()`, it receives the skill directory path. Reference persona files, pipeline scripts, and other resources as `{skill_dir}/path/to/file` so the agent can resolve paths unambiguously. Avoid vague references like "relative to skill root" or bare filenames without directory context.
 
 ### 4.2 SKILL.md
 

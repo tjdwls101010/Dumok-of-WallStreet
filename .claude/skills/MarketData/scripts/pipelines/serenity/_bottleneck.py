@@ -235,7 +235,7 @@ def _build_l3_bottleneck(sec_sc_results):
 				"type": "mag7_direct_customer",
 				"signal": "contagion_isolated",
 				"matched": mag7_matches[:5],
-				"thresholds": "Mag7 direct contract = isolated from intermediary credit contagion (V3 financial dimension)",
+				"thresholds": {"rule": "Mag7 direct contract = isolated from intermediary credit contagion", "source": "V3 financial dimension"},
 			})
 
 		# V3 Domestic production: reshoring beneficiary flag
@@ -249,7 +249,7 @@ def _build_l3_bottleneck(sec_sc_results):
 				absence_evidence_flags.append({
 					"type": "domestic_production",
 					"signal": "reshoring_beneficiary",
-					"thresholds": "US-based production = potential reshoring beneficiary (V3)",
+					"thresholds": {"rule": "US-based production = potential reshoring beneficiary", "source": "V3"},
 				})
 
 	# Clean bottleneck_pre_score
@@ -261,7 +261,7 @@ def _build_l3_bottleneck(sec_sc_results):
 			"assessment": bottleneck_pre_score.get("assessment"),
 			"filing_date": bottleneck_pre_score.get("filing_date"),
 			"sole_western_flag": bottleneck_pre_score.get("sole_western_flag"),
-			"assessment_thresholds": "strong: >=3.0 | partial: >=1.5 | weak: <1.5",
+			"assessment_thresholds": {"strong": ">=3.0", "partial": ">=1.5", "weak": "<1.5"},
 		}
 		stale = bottleneck_pre_score.get("stale_data_warning")
 		if stale:
@@ -614,7 +614,7 @@ def _pre_score_bottleneck(sec_sc_data):
 		"sole_western_flag": sole_western_flag,
 		"scoring_guide": {
 			"total": "Sum of 5 criteria (max 4.25). Agent evaluates criterion 6 (cost insignificance) separately.",
-			"assessment_thresholds": "strong: >=3.0 | partial: >=1.5 | weak: <1.5",
+			"assessment_thresholds": {"strong": ">=3.0", "partial": ">=1.5", "weak": "<1.5"},
 			"investable_threshold": "4+/6 with agent's criterion 6 evaluation",
 		},
 	}

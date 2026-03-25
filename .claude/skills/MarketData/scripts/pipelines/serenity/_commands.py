@@ -10,7 +10,7 @@ from ._health import _extract_health_gates, _build_readiness_codes
 from ._bottleneck import _build_l3_bottleneck, _label_supplier_geography, _assess_data_coverage
 from ._valuation import _build_valuation_frame
 from ._postprocess import (
-	_summarize_insider_transactions, _extract_revenue_trajectory,
+	_extract_revenue_trajectory,
 	_cap_earnings_dates, _compress_earnings_acceleration, _summarize_holders,
 	_merge_earnings, _reformat_analyst_recommendations, _clean_analyst_revisions,
 )
@@ -23,7 +23,7 @@ from ._control import (
 from ._signals import (
 	_build_thesis_signals, _check_sop_triggers, _check_trapped_asset_override,
 	_auto_classify_taxonomy, _generate_composite_signal,
-	_detect_short_squeeze_risk, _classify_dilution,
+	_extract_short_interest, _classify_dilution,
 )
 from ._multi import _parse_mcap_string
 from ._scorer import validate_ticker
@@ -152,26 +152,20 @@ def cmd_macro(args):
 		"vix_structure": results.get("vix_curve", {}).get("structure_type"),
 		"net_liq_direction": results.get("net_liquidity", {})
 			.get("net_liquidity", {}).get("direction"),
-		"net_liq_current": results.get("net_liquidity", {})
-			.get("net_liquidity", {}).get("current"),
 		"fear_greed": results.get("fear_greed", {}).get("current", {}).get("score"),
 		"fedwatch_next_meeting": results.get("fedwatch", {}).get("next_meeting"),
 		"fedwatch_probabilities": results.get("fedwatch", {}).get("probabilities"),
 	}
 
-	# BDI/DXY always included (v4.0)
+	# BDI/DXY z-score summaries only (no detailed recent_values)
 	bdi = results.get("bdi", {})
 	if not bdi.get("error"):
 		signals["bdi_z_score"] = bdi.get("statistics", {}).get("z_score")
 		signals["bdi_demand"] = bdi.get("shipping_demand")
-		if args.extended:
-			signals["bdi"] = bdi
 	dxy = results.get("dxy", {})
 	if not dxy.get("error"):
 		signals["dxy_z_score"] = dxy.get("statistics", {}).get("z_score")
 		signals["dxy_strength"] = dxy.get("dollar_strength")
-		if args.extended:
-			signals["dxy"] = dxy
 
 	# Real rate
 	if real_rate is not None:
@@ -180,8 +174,7 @@ def cmd_macro(args):
 	output = {
 		"regime": classification["regime"],
 		"risk_level": classification["risk_level"],
-		"drain_count": classification["drain_count"],
-		"decision_rules": classification["decision_rules"],
+		"regime_thresholds": classification["regime_thresholds"],
 		"signals": signals,
 	}
 
@@ -259,8 +252,6 @@ def cmd_analyze(args):
 			"vix_structure": macro_results.get("vix_curve", {}).get("structure_type"),
 			"net_liq_direction": macro_results.get("net_liquidity", {})
 				.get("net_liquidity", {}).get("direction"),
-			"net_liq_current": macro_results.get("net_liquidity", {})
-				.get("net_liquidity", {}).get("current"),
 			"fear_greed": macro_results.get("fear_greed", {}).get("current", {}).get("score"),
 			"fedwatch_next_meeting": macro_results.get("fedwatch", {}).get("next_meeting"),
 			"fedwatch_probabilities": macro_results.get("fedwatch", {}).get("probabilities"),
@@ -278,8 +269,7 @@ def cmd_analyze(args):
 		l1_result = {
 			"regime": classification["regime"],
 			"risk_level": classification["risk_level"],
-			"drain_count": classification["drain_count"],
-			"decision_rules": classification["decision_rules"],
+			"regime_thresholds": classification["regime_thresholds"],
 			"signals": signals,
 		}
 
@@ -291,11 +281,9 @@ def cmd_analyze(args):
 			"fiftyTwoWeekLow", "fiftyTwoWeekHigh",
 			"fiftyDayAverage", "twoHundredDayAverage",
 			"sharesOutstanding", "floatShares", "shortPercentOfFloat",
-			"priceToSalesTrailing12Months",
+			"totalRevenue",
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
-		"insider_transactions": ("data_sources/holders.py", [
-			"get-insider-transactions", ticker]),
 		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
 		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
@@ -375,11 +363,6 @@ def cmd_analyze(args):
 		}
 
 	# --- Post-processing ---
-	# Insider transactions summary
-	insider_raw = l4_results.get("insider_transactions")
-	if insider_raw and not (isinstance(insider_raw, dict) and insider_raw.get("error")):
-		l4_results["insider_transactions"] = _summarize_insider_transactions(insider_raw)
-
 	# Revenue trajectory from quarterly financials
 	financials_raw = l4_results.pop("quarterly_financials", None)
 	if financials_raw and not (isinstance(financials_raw, dict) and financials_raw.get("error")):
@@ -475,18 +458,30 @@ def cmd_analyze(args):
 	iq = l4_results.get("institutional_quality") or {}
 	iv = l4_results.get("iv_context") or {}
 	rev_traj = l4_results.get("revenue_trajectory") or {}
-	insider = l4_results.get("insider_transactions") or {}
+
 
 	# Profile: key info fields (deduplicated)
 	profile = {}
 	for field in ("sector", "industry", "marketCap", "enterpriseValue",
 				  "longBusinessSummary", "currentPrice", "beta",
-				  "fiftyTwoWeekLow", "fiftyTwoWeekHigh",
 				  "fiftyDayAverage", "twoHundredDayAverage",
-				  "sharesOutstanding", "floatShares", "shortPercentOfFloat",
-				  "priceToSalesTrailing12Months"):
+				  "sharesOutstanding", "floatShares", "shortPercentOfFloat"):
 		if field in info:
 			profile[field] = info[field]
+	# 52-week position as self-documenting percentages (§2.8)
+	current_price = info.get("currentPrice")
+	low52 = info.get("fiftyTwoWeekLow")
+	high52 = info.get("fiftyTwoWeekHigh")
+	if isinstance(current_price, (int, float)) and isinstance(low52, (int, float)) and low52 > 0:
+		profile["price_vs_52w_low_pct"] = {
+			"value": round((current_price / low52 - 1) * 100, 1),
+			"unit": "% above 52-week low",
+		}
+	if isinstance(current_price, (int, float)) and isinstance(high52, (int, float)) and high52 > 0:
+		profile["price_vs_52w_high_pct"] = {
+			"value": round((current_price / high52 - 1) * 100, 1),
+			"unit": "% below 52-week high",
+		}
 
 	# Valuation: forward_pe + no_growth_valuation (remove symbol, duplicates)
 	valuation_cluster = {}
@@ -530,20 +525,8 @@ def cmd_analyze(args):
 	if dilution_class.get("classification") != "unknown":
 		financial_health["dilution"] = dilution_class
 
-	# Market Structure: institutional_quality + iv_context + insider_transactions + short_squeeze + superinvestor
+	# Market Structure: institutional_quality + iv_context + short_interest
 	market_structure = {}
-	# Superinvestor (Dataroma) — direct library call
-	try:
-		from superinvestor import SI as _SI
-		_si_raw = _SI().stock(ticker)
-		if _si_raw.get("ownership_count", 0) > 0:
-			market_structure["superinvestor"] = {
-				"ownership_count": _si_raw["ownership_count"],
-				"ownership_rank": _si_raw.get("ownership_rank"),
-				"quarterly_activity": _si_raw.get("quarterly_activity", [])[:4],
-			}
-	except Exception:
-		pass
 	if not iq.get("error"):
 		iq_clean = {k: v for k, v in iq.items()
 					if k not in ("symbol", "io_interpretation", "error")}
@@ -556,11 +539,9 @@ def cmd_analyze(args):
 		iv_clean["iv_regime_shift"] = iv_tier.get("iv_regime_shift")
 		iv_clean["iv_tier_thresholds"] = iv_tier.get("thresholds")
 		market_structure["iv_context"] = iv_clean
-	if insider:
-		market_structure["insider_transactions"] = insider
-	short_squeeze = _detect_short_squeeze_risk(l4_results)
-	if short_squeeze.get("squeeze_risk") != "unknown":
-		market_structure["short_squeeze"] = short_squeeze
+	short_interest = _extract_short_interest(l4_results)
+	if short_interest.get("contrarian_signal") != "unknown":
+		market_structure["short_interest"] = short_interest
 
 	# L4 Assessment: health_gates + market_positioning
 	l4_assessment = {
@@ -638,7 +619,7 @@ def cmd_analyze(args):
 
 
 def _extract_discover_metrics(ticker, script_results, si_data):
-	"""Extract 22 discover comparator fields from script results."""
+	"""Extract 20 discover comparator fields from script results."""
 	info = script_results.get("info", {})
 	rs = script_results.get("rs", {})
 	code33 = script_results.get("code33", {})
@@ -649,7 +630,6 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 	sbc = script_results.get("sbc", {})
 	debt = script_results.get("debt", {})
 	iv = script_results.get("iv", {})
-	insider = script_results.get("insider", {})
 
 	# price_vs_52w_high
 	current = info.get("currentPrice")
@@ -670,7 +650,7 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 		op_margin = round(op_margin * 100, 2) if abs(op_margin) < 1 else round(op_margin, 2)
 
 	# forward_pe
-	fpe = fwd_pe.get("forward_1y_pe")
+	fpe = fwd_pe.get("forward_pe_1y")
 
 	# margin_of_safety_pct
 	mos = no_growth.get("margin_of_safety_pct")
@@ -708,29 +688,22 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 				except (ValueError, TypeError):
 					continue
 
-	# insider
-	insider_summary = insider if isinstance(insider, dict) else {}
-	if isinstance(insider_summary.get("summary"), dict):
-		insider_dir = insider_summary["summary"].get("net_direction", "unknown")
-	elif isinstance(insider, list):
-		# Raw list from module — summarize
-		filtered = [r for r in insider if isinstance(r, dict) and r.get("transaction") in ("Sale", "Buy")]
-		buy_amt = sum(r.get("value", 0) or 0 for r in filtered if r.get("transaction") == "Buy")
-		sell_amt = sum(r.get("value", 0) or 0 for r in filtered if r.get("transaction") == "Sale")
-		if buy_amt > sell_amt * 1.2:
-			insider_dir = "net_buying"
-		elif sell_amt > buy_amt * 1.2:
-			insider_dir = "net_selling"
+	# dilution_classification from sbc + forward_pe
+	dilution_cls = "unknown"
+	rev_gr = fwd_pe.get("revenue_growth_yoy")
+	sbc_pct_val = sbc.get("sbc_pct_revenue")
+	if isinstance(rev_gr, (int, float)) and isinstance(sbc_pct_val, (int, float)):
+		if rev_gr > 25 and sbc_pct_val < 20:
+			dilution_cls = "growth_dilution"
+		elif rev_gr < 5 and sbc_pct_val > 15:
+			dilution_cls = "value_destruction"
+		elif rev_gr > 15 and sbc_pct_val < 30:
+			dilution_cls = "acceptable"
 		else:
-			insider_dir = "mixed"
-	else:
-		insider_dir = "unknown"
+			dilution_cls = "moderate_concern"
 
-	# superinvestor — direct library call
-	si = si_data.get(ticker, {})
-	qa = si.get("quarterly_activity", [{}])[0] if si.get("quarterly_activity") else {}
-	si_adding = qa.get("buy", {}).get("count", 0) + qa.get("add", {}).get("count", 0)
-	si_reducing = qa.get("reduce", {}).get("count", 0) + qa.get("sell", {}).get("count", 0)
+	# debt_quality_grade
+	debt_grade = debt.get("debt_quality_grade")
 
 	return {
 		"ticker": ticker,
@@ -751,10 +724,8 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 		"avg_er_gap": avg_gap,
 		"days_to_earnings": days_to_er,
 		"iv_rank": iv.get("iv_rank"),
-		"insider_net_direction": insider_dir,
-		"superinvestor_count": si.get("ownership_count", 0),
-		"superinvestor_adding": si_adding,
-		"superinvestor_reducing": si_reducing,
+		"dilution_classification": dilution_cls,
+		"debt_quality_grade": debt_grade,
 	}
 
 
@@ -773,7 +744,6 @@ def _collect_ticker_scripts(ticker):
 		"sbc": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
 		"debt": ("analysis/debt_structure.py", ["analyze", ticker]),
 		"iv": ("analysis/iv_context.py", ["analyze", ticker]),
-		"insider": ("data_sources/holders.py", ["get-insider-transactions", ticker]),
 	}
 	with concurrent.futures.ThreadPoolExecutor(max_workers=len(scripts)) as ex:
 		futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in scripts.items()}
@@ -786,36 +756,19 @@ def cmd_discover(args):
 
 	Takes a list of ticker symbols and runs key analysis modules on each in
 	parallel, returning a comparison table for the agent to select analyze
-	candidates. Superinvestor data loaded from Dataroma cache.
+	candidates.
 
-	All 22 fields are computed per ticker:
+	All 20 fields are computed per ticker:
 	industry, market_cap, rs_score, price_vs_52w_high_pct, eps_growth_pct,
 	revenue_growth_pct, eps_accelerating, operating_margin, forward_pe,
 	margin_of_safety_pct, sbc_pct_revenue, net_cash, consecutive_beats,
 	avg_surprise_pct, avg_er_gap, days_to_earnings, iv_rank,
-	insider_net_direction, superinvestor_count, superinvestor_adding,
-	superinvestor_reducing.
+	dilution_classification, debt_quality_grade.
 	"""
 	import time
 	start_time = time.time()
 	tickers = args.tickers
-
-	# Load superinvestor data — direct library call
 	si_map = {}
-	try:
-		from superinvestor import SI as _SI
-		_si_client = _SI()
-		with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
-			si_futs = {t: ex.submit(_si_client.stock, t) for t in tickers}
-			for t, f in si_futs.items():
-				try:
-					result = f.result()
-					if isinstance(result, dict) and result.get("ownership_count", 0) > 0:
-						si_map[t] = result
-				except Exception:
-					pass
-	except Exception:
-		pass
 
 	# Run all metric scripts for all tickers in parallel
 	with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
@@ -838,21 +791,40 @@ def cmd_discover(args):
 	output_json({
 		"candidates": candidates,
 		"thresholds": {
-			"rs_score": "0-99, higher = stronger relative performance",
+			"rs_score": "0-99, higher = stronger relative performance vs market",
 			"price_vs_52w_high_pct": "0 = at high, -50 = 50% below high",
 			"eps_growth_pct": "latest quarterly EPS YoY %. null = no data",
 			"revenue_growth_pct": "latest quarterly revenue YoY %",
 			"operating_margin": "latest quarter %. negative = unprofitable",
 			"forward_pe": "forward 1Y P/E. null = unprofitable",
-			"margin_of_safety_pct": "no-growth fair value vs market cap (fail: <0% | caution: 0-20% | pass: >20%)",
-			"sbc_pct_revenue": "SBC as % of revenue (healthy: <10% | warning: 10-30% | toxic: >30%)",
+			"margin_of_safety_pct": {
+				"pass": ">20%",
+				"caution": "0-20%",
+				"fail": "<0%",
+			},
+			"sbc_pct_revenue": {
+				"healthy": "<10% of revenue",
+				"warning": "10-30%",
+				"toxic": ">30%",
+			},
 			"net_cash": "cash - total debt. positive = net cash, negative = net debt",
 			"avg_er_gap": "average post-earnings gap %. high surprise + low gap = priced in",
-			"iv_rank": "0-100 (compressed: <25 | elevated: >75)",
-			"insider_net_direction": "net_buying | net_selling | mixed (buy > sell x 1.2)",
-			"superinvestor_count": "Dataroma 82 tracked managers currently holding",
-			"superinvestor_adding": "managers with Buy or Add activity in latest quarter",
-			"superinvestor_reducing": "managers with Sell or Reduce activity in latest quarter",
+			"iv_rank": {
+				"compressed": "<25",
+				"elevated": ">75",
+			},
+			"dilution_classification": {
+				"growth_dilution": "rev_growth > 25% + sbc < 20%",
+				"acceptable": "rev_growth > 15% + sbc < 30%",
+				"moderate_concern": "otherwise",
+				"value_destruction": "rev_growth < 5% + sbc > 15%",
+			},
+			"debt_quality_grade": {
+				"A": "implied interest <3%",
+				"B": "3-6%",
+				"C": "6-8%",
+				"D": ">8%",
+			},
 		},
 		"missing_data": missing_data if missing_data else None,
 		"metadata": {

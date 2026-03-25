@@ -107,7 +107,7 @@ Priority when ambiguous: A > D > B > C > E
 **C vs D Intent Distinction**: C = "투자할 ticker 발견" (discover first). D = "공급망 구조 이해 / 시나리오 탐색" (analyze + WebSearch first).
 
 **Type C Sub-routing**:
-- Tickers given → `discover TICKERS` (22-field comparator), then `analyze` selected candidates
+- Tickers given → `discover TICKERS` (20-field comparator), then `analyze` selected candidates
 - No ticker, no theme → agent WebSearch to find candidates → `discover TICKERS` → `analyze` selected
 - Theme given → WebSearch → `discover TICKERS` → `analyze` selected
 
@@ -129,7 +129,7 @@ Chain types sequentially when a query spans multiple intents:
 |------------|-------------------|-----------------|
 | A (Macro) | macro | Regime judgment → position adjustment |
 | B (Stock) | analyze | Control layer interpretation, L2/L3 WebSearch, L6 taxonomy |
-| C (Discovery, tickers given) | `discover TICKERS` | 22-field comparator → select candidates for analyze |
+| C (Discovery, tickers given) | `discover TICKERS` | 20-field comparator → select candidates for analyze |
 | C (Discovery, no ticker) | WebSearch → `discover TICKERS` | Find candidates via WebSearch → compare → analyze selected |
 | C (Discovery, thematic) | WebSearch → `discover TICKERS` → `analyze` | Theme research → candidate comparison → deep analysis |
 | D (Supply Chain) | analyze | Scenario analysis, 6-Criteria, L3 supply chain comparison |
@@ -192,19 +192,20 @@ If any gap: disclose, reduce conviction one tier, flag as monitoring item.
 
 ## Reference Files
 
-**Skill**: `MarketData` (load via Skill tool)
-**Persona dir**: `Personas/Serenity/` (relative to skill root)
+**Skill**: `MarketData` (load via `Skill("MarketData")` → returns `{skill_dir}`)
+**Pipeline**: `{skill_dir}/scripts/pipelines/serenity/`
+**Persona dir**: `{skill_dir}/Personas/Serenity/`
 
-| File | Content |
-|------|---------|
-| `SKILL.md` | **Load first via `Skill("MarketData")`.** Script catalog. |
-| `methodology.md` | HOW Serenity thinks: 10 thesis patterns, thesis lifecycle, dynamic conviction management (V9), price mechanism literacy (V10), 8 kill signals, multi-scale synthesis, time horizons |
-| `supply_chain_and_valuation.md` | WHAT to evaluate: 3-dimensional supply chain graph (V3), bottleneck discovery, 6 valuation methods, dilution quality, option income strategy, IV tiers, position expression |
-| `macro_and_catalyst.md` | WHEN to act: 4-tier regime (incl. crisis/wartime), CapEx cascade + overflow, catalyst hierarchy, prediction market gauge, mechanical flow awareness (V10) |
+| File | Path | Content |
+|------|------|---------|
+| `SKILL.md` | `{skill_dir}/SKILL.md` | Script catalog (loaded automatically with Skill) |
+| `methodology.md` | `{skill_dir}/Personas/Serenity/methodology.md` | HOW to think: 10 thesis patterns, thesis lifecycle, dynamic conviction (V9), price mechanism (V10), 9 kill signals, black swan architecture |
+| `supply_chain_and_valuation.md` | `{skill_dir}/Personas/Serenity/supply_chain_and_valuation.md` | WHAT to evaluate: supply limitation taxonomy, bottleneck lifecycle, 3D supply chain graph (V3), 5 valuation methods, information propagation, position expression |
+| `macro_and_catalyst.md` | `{skill_dir}/Personas/Serenity/macro_and_catalyst.md` | WHEN to act: 4-tier regime, CapEx cascade + overflow, catalyst hierarchy, contrarian timing, mechanical flow (V10) |
 
 ### Serenity Tweet Database (Cross-Validation Only)
 
-**Path**: `Personas/Serenity/analysis_Serenity.db` (SQLite, table: `tweets`, 830 rows)
+**Path**: `{skill_dir}/Personas/Serenity/analysis_Serenity.db` (SQLite, table: `tweets`)
 
 This database contains Serenity's actual analysis tweets. Access rules:
 - **Read ONLY when the user explicitly requests it** (e.g., "Serenity는 실제로 어떻게 봤어?", "트윗 DB 확인해줘", "cross-validate해줘")
@@ -226,7 +227,13 @@ This database contains Serenity's actual analysis tweets. Access rules:
 
 For script execution, environment setup, and Safety Protocol, refer to `SKILL.md`.
 
-[HARD] Before executing any scripts, MUST perform batch discovery via `extract_docstring.py`. Never guess subcommand names.
+**Pipeline execution** (stable interface — call directly):
+- `macro`: Regime assessment (no arguments)
+- `analyze TICKER`: Full 6-level analysis for a single ticker
+- `analyze TICKER --skip-macro`: Skip L1 macro (for batch analysis)
+- `discover TICKER1 TICKER2 ...`: 20-field multi-ticker comparator
+
+[HARD] Before executing **individual module scripts** (not pipeline), MUST perform batch discovery via `extract_docstring.py`. Pipeline subcommands above may be called directly.
 
 [HARD] Never pipe script output through head or tail. Always use full output.
 
@@ -248,7 +255,7 @@ Core frameworks as inline fallback if persona files fail to load:
 - Forward P/E < 15x at 50%+ growth = "screaming buy"
 - Forward P/E > sector comparable at declining growth = avoid regardless of narrative
 
-### 8 Kill Signals (Thesis Invalidation)
+### 9 Kill Signals (Thesis Invalidation)
 1. MC/Valuation complete disconnect (no fundamental anchor)
 2. Suspicious fundamentals (restatement, auditor change)
 3. Meme trap (SI squeeze without fundamental thesis)
@@ -257,6 +264,7 @@ Core frameworks as inline fallback if persona files fail to load:
 6. Sector-specific collapse (NAND/DRAM price crash for memory)
 7. CapEx cancellation by downstream customer
 8. Serial dilution history (repeated share issuance without growth)
+9. Designed-out risk (customer developing alternatives, cheaper sources emerging, or technology shift making the component unnecessary — bottleneck position rests on convenience, not physical inevitability)
 
 ## Response Format
 
@@ -266,7 +274,7 @@ Core frameworks as inline fallback if persona files fail to load:
 
 **Type B (Stock)**: Supply chain position → forward revenue trajectory → dual valuation (floor + upside) → health gates → rating (PT + timeframe + expression vehicle)
 
-**Type C (Discovery)**: 22-field comparator table → highlight standout metrics per candidate → recommend which to analyze and why
+**Type C (Discovery)**: 20-field comparator table → highlight standout metrics per candidate → recommend which to analyze and why
 
 **Type D (Supply Chain)**: Bottleneck identification or map → company mapping (smallest MC, most leverage) → investability → timing
 

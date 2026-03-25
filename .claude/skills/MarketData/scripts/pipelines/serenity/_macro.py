@@ -1,8 +1,8 @@
 """Macro regime classification for the Serenity pipeline.
 
-Combines multiple macro signals (ERP, VIX curve, net liquidity,
-fear/greed, Fed watch, yield curve, BDI, DXY, real rates) into
-a single regime label with risk level and decision rules.
+Combines multiple macro signals (VIX curve, fear/greed, Fed watch,
+ERP, net liquidity, yield curve, BDI, DXY, real rates) into
+a single regime label with risk level and self-documenting thresholds.
 """
 
 
@@ -10,7 +10,7 @@ def _classify_macro_regime(macro_results):
 	"""Classify macro regime based on combined signals.
 
 	Returns:
-		dict with regime, risk_level, drain_count, decision_rules
+		dict with regime, risk_level, regime_thresholds
 	"""
 	erp = macro_results.get("erp", {})
 	vix = macro_results.get("vix_curve", {})
@@ -22,7 +22,6 @@ def _classify_macro_regime(macro_results):
 	# Signal extraction
 	erp_healthy = False
 	erp_danger = False
-	erp_val = None
 	if not erp.get("error"):
 		erp_val = erp.get("current", {}).get("erp")
 		if erp_val is not None:
@@ -31,10 +30,12 @@ def _classify_macro_regime(macro_results):
 
 	vix_contango = False
 	vix_backwardation = False
+	vix_spot = None
 	if not vix.get("error"):
 		structure = str(vix.get("structure_type", "")).lower()
 		vix_contango = "contango" in structure
 		vix_backwardation = "backwardation" in structure
+		vix_spot = vix.get("vix_spot")
 
 	net_liq_positive = False
 	if not net_liq.get("error"):
@@ -48,9 +49,10 @@ def _classify_macro_regime(macro_results):
 		fg_val = fear_greed.get("current", {}).get("score")
 		if fg_val is not None:
 			try:
-				fear_extreme = float(fg_val) < 25
+				fg_val = float(fg_val)
+				fear_extreme = fg_val < 25
 			except (ValueError, TypeError):
-				pass
+				fg_val = None
 
 	# Regime classification
 	risk_on_signals = [erp_healthy, vix_contango, net_liq_positive]
@@ -66,104 +68,41 @@ def _classify_macro_regime(macro_results):
 	else:
 		regime = "transitional"
 
-	# Count negative macro signals (drains)
-	drain_count = 0
-	decision_rules = []
+	# Risk level — VIX + F&G based (primary), with yield curve as additional signal
+	vix_high = isinstance(vix_spot, (int, float)) and vix_spot > 30
+	vix_moderate = isinstance(vix_spot, (int, float)) and vix_spot > 20
+	fg_panic = isinstance(fg_val, (int, float)) and fg_val < 15
+	fg_euphoria = isinstance(fg_val, (int, float)) and fg_val > 75
 
-	if erp.get("error"):
-		decision_rules.append("ERP unavailable (script error)")
-	elif erp_val is None:
-		decision_rules.append("ERP data unavailable")
-	elif not erp_healthy:
-		drain_count += 1
-		decision_rules.append(f"ERP at {erp_val:.2f}% — below healthy threshold (>3%)")
-	else:
-		decision_rules.append(f"ERP healthy at {erp_val:.2f}%")
-
-	if vix_backwardation:
-		drain_count += 1
-		decision_rules.append("VIX in backwardation — elevated near-term fear")
-	elif vix_contango:
-		decision_rules.append("VIX contango — normal risk appetite")
-
-	if not net_liq_positive and not net_liq.get("error"):
-		drain_count += 1
-		decision_rules.append("Net liquidity contracting or neutral")
-	elif net_liq_positive:
-		decision_rules.append("Net liquidity expanding — supportive for risk assets")
-
-	if fear_greed.get("error"):
-		decision_rules.append("Fear & Greed unavailable (script error)")
-	elif fg_val is None:
-		decision_rules.append("Fear & Greed data unavailable")
-	elif fear_extreme:
-		drain_count += 1
-		decision_rules.append(f"Fear & Greed at {float(fg_val):.0f} — extreme fear levels (<25)")
-	else:
-		decision_rules.append(f"Sentiment at {float(fg_val):.0f} — within normal range")
-
-	if not fedwatch.get("error"):
-		decision_rules.append("Fed rate path data available for context")
-
+	yield_inverted = False
 	if not yield_curve.get("error"):
 		inversion = yield_curve.get("inverted") or yield_curve.get("spread_10y_2y")
-		if inversion is not None:
-			if isinstance(inversion, bool) and inversion:
-				drain_count += 1
-				decision_rules.append("Yield curve inverted — recession signal")
-			elif isinstance(inversion, (int, float)) and inversion < 0:
-				drain_count += 1
-				decision_rules.append(f"Yield curve inverted (10Y-2Y spread: {inversion:.2f}%)")
-			else:
-				decision_rules.append("Yield curve normal")
+		if isinstance(inversion, bool):
+			yield_inverted = inversion
+		elif isinstance(inversion, (int, float)):
+			yield_inverted = inversion < 0
 
-	# BDI signal (always included in v4.0)
-	bdi = macro_results.get("bdi", {})
-	if not bdi.get("error"):
-		bdi_z = bdi.get("statistics", {}).get("z_score")
-		if isinstance(bdi_z, (int, float)):
-			if bdi_z < -2:
-				drain_count += 1
-				decision_rules.append(f"BDI z-score {bdi_z:.2f} — extreme shipping demand weakness")
-			elif bdi_z < -1:
-				decision_rules.append(f"BDI z-score {bdi_z:.2f} — below-average shipping demand")
-			else:
-				decision_rules.append(f"BDI z-score {bdi_z:.2f} — shipping demand normal/elevated")
-
-	# DXY signal (always included in v4.0)
-	dxy = macro_results.get("dxy", {})
-	if not dxy.get("error"):
-		dxy_z = dxy.get("statistics", {}).get("z_score")
-		if isinstance(dxy_z, (int, float)):
-			if dxy_z > 2:
-				drain_count += 1
-				decision_rules.append(f"DXY z-score {dxy_z:.2f} — extremely strong dollar pressures risk assets")
-			elif dxy_z > 1:
-				decision_rules.append(f"DXY z-score {dxy_z:.2f} — strong dollar")
-			else:
-				decision_rules.append(f"DXY z-score {dxy_z:.2f} — dollar within normal range")
-
-	# Real rates signal
-	real_rate = macro_results.get("real_rate")
-	if isinstance(real_rate, (int, float)):
-		if real_rate < 0:
-			decision_rules.append(f"Real rate {real_rate:.2f}% — negative, liquidity supportive")
-		else:
-			decision_rules.append(f"Real rate {real_rate:.2f}% — positive, tighter conditions")
-
-	# Risk level
-	if drain_count == 0:
-		risk_level = "low"
-	elif drain_count <= 1:
-		risk_level = "moderate"
-	elif drain_count <= 3:
-		risk_level = "elevated"
-	else:
+	if vix_high or fg_panic:
 		risk_level = "high"
+	elif vix_backwardation or fear_extreme or yield_inverted:
+		risk_level = "elevated"
+	elif vix_moderate and not fg_euphoria:
+		risk_level = "moderate"
+	else:
+		risk_level = "low"
+
+	regime_thresholds = {
+		"risk_on": "ERP > 3% AND VIX contango AND net liquidity expanding (2+ of 3 positive, 0 negative)",
+		"risk_off": "ERP < 1.5% OR VIX backwardation OR F&G < 25 (2+ of 3 negative, 0 positive)",
+		"transitional": "mixed signals across fundamental and sentiment pillars",
+		"risk_level_high": "VIX > 30 OR F&G < 15",
+		"risk_level_elevated": "VIX backwardation OR F&G < 25 OR yield curve inverted",
+		"risk_level_moderate": "VIX 20-30 AND F&G 25-75",
+		"risk_level_low": "VIX < 20 AND F&G > 75",
+	}
 
 	return {
 		"regime": regime,
 		"risk_level": risk_level,
-		"drain_count": drain_count,
-		"decision_rules": decision_rules,
+		"regime_thresholds": regime_thresholds,
 	}

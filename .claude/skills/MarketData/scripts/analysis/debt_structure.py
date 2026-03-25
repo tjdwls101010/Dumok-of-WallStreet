@@ -280,7 +280,7 @@ def _build_debt_analysis(ticker, symbol):
 		"debt_quality_grade": _classify_debt_quality(implied_interest_rate),
 		"interest_coverage_ratio": interest_coverage_ratio,
 		"interest_coverage_metric": interest_coverage_metric,
-		"grade_thresholds": "A: implied interest <3% | B: 3-6% | C: 6-8% | D: >8%",
+		"grade_thresholds": {"A": "implied interest <3%", "B": "3-6%", "C": "6-8%", "D": ">8%"},
 		"grade_interpretation": _build_grade_interpretation(
 			_classify_debt_quality(implied_interest_rate), implied_interest_rate,
 			interest_coverage_ratio, net_debt),
