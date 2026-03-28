@@ -57,7 +57,7 @@ def _build_materiality_signals(l3_data, l4_results, l5_results):
 		margin_materiality = "low"
 
 	# 3. Earnings Materiality (from L4/L5)
-	ea = l4.get("earnings_acceleration") or {}
+	ea = l4.get("growth_profile") or {}
 	surprise = l5_results.get("earnings_surprise") or {} if l5_results else {}
 	beats = surprise.get("consecutive_beats")
 	sales_acc = ea.get("sales_accelerating")
@@ -252,8 +252,12 @@ def _build_priced_in_assessment(l4_results, l5_results):
 	if isinstance(l5, dict):
 		ed = l5.get("earnings_dates")
 		if isinstance(ed, dict) and not ed.get("error"):
-			from ._signals import _parse_days_to_earnings
-			days_to_er = _parse_days_to_earnings(l5)
+			# Use days_to_next from module output (enriched by actions.py)
+			days_to_er = ed.get("days_to_next")
+			if days_to_er is None:
+				# Fallback: parse manually
+				from ._signals import _parse_days_to_earnings
+				days_to_er = _parse_days_to_earnings(l5)
 			if isinstance(days_to_er, (int, float)) and days_to_er <= 7:
 				er_proximity_stale = True
 				risk_score -= 5  # reduce priced-in confidence when ER imminent
@@ -286,46 +290,6 @@ def _build_priced_in_assessment(l4_results, l5_results):
 			"total_range": "0-100, clamped",
 			"assessment_thresholds": {"fully_priced_in": ">=55", "partially_priced_in": ">=30", "not_priced_in": "<30"},
 		},
-	}
-
-
-def _classify_iv_tier(iv_data):
-	"""Classify IV into 5-tier framework for instrument selection.
-
-	Returns iv_tier label and regime_shift detection.
-	"""
-	if not isinstance(iv_data, dict) or iv_data.get("error"):
-		return {"iv_tier": "unknown", "iv_regime_shift": False}
-
-	iv_percentile = iv_data.get("iv_percentile") or iv_data.get("percentile") or iv_data.get("iv_rank")
-	if not isinstance(iv_percentile, (int, float)):
-		return {"iv_tier": "unknown", "iv_regime_shift": False}
-
-	# 5-tier classification
-	if iv_percentile < 30:
-		tier = "compressed"
-	elif iv_percentile < 45:
-		tier = "normal_low"
-	elif iv_percentile < 65:
-		tier = "normal"
-	elif iv_percentile < 100:
-		tier = "elevated"
-	else:
-		tier = "extreme"
-
-	# Regime shift: IV30 vs HV30 divergence > 15pp suggests structural shift
-	iv30 = iv_data.get("iv30") or iv_data.get("current_iv30")
-	hv30 = iv_data.get("hv30") or iv_data.get("historical_volatility_30")
-	regime_shift = False
-	if isinstance(iv30, (int, float)) and isinstance(hv30, (int, float)) and hv30 > 0:
-		divergence = abs(iv30 - hv30)
-		if divergence > 15:
-			regime_shift = True
-
-	return {
-		"iv_tier": tier,
-		"iv_regime_shift": regime_shift,
-		"thresholds": {"compressed": "<30", "normal_low": "30-45", "normal": "45-65", "elevated": "65-100", "extreme": ">100", "regime_shift": "|IV30-HV30| > 15"},
 	}
 
 

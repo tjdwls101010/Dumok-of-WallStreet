@@ -232,16 +232,16 @@ python3 -m venv .venv
 
 ```bash
 # Macro regime assessment (no arguments)
-$VENV $SCRIPTS/pipelines/serenity/__main__.py macro
+$VENV $SCRIPTS/pipeline/__main__.py macro
 
 # Full 6-level analysis for a single ticker
-$VENV $SCRIPTS/pipelines/serenity/__main__.py analyze TICKER
+$VENV $SCRIPTS/pipeline/__main__.py analyze TICKER
 
 # Skip L1 macro (for batch analysis)
-$VENV $SCRIPTS/pipelines/serenity/__main__.py analyze TICKER --skip-macro
+$VENV $SCRIPTS/pipeline/__main__.py analyze TICKER --skip-macro
 
 # 20-field multi-ticker comparator (2-30 tickers)
-$VENV $SCRIPTS/pipelines/serenity/__main__.py discover TICKER1 TICKER2 ...
+$VENV $SCRIPTS/pipeline/__main__.py discover TICKER1 TICKER2 ...
 ```
 
 All scripts return JSON. Error format: `{"error": "message"}` with exit code 1.

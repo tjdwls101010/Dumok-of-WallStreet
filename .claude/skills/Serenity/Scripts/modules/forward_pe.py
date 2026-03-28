@@ -35,7 +35,7 @@ Notes:
 	- forward_pe_2y < forward_pe_1y = earnings outpacing price (bullish)
 
 See Also:
-	- earnings_acceleration.py: Forward growth estimates for PEG context
+	- growth.py: EPS/sales acceleration and margin trends for PEG context
 	- margin_tracker.py: Margin expansion tracking
 """
 

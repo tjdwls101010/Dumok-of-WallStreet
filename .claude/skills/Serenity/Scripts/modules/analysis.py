@@ -144,9 +144,60 @@ def cmd_recommendations(args):
 	output_json(yf.Ticker(args.symbol).get_recommendations())
 
 
+def _reformat_to_row_oriented(data):
+	"""Reformat analyst recommendations from column-oriented to row-oriented.
+
+	Converts {"strongBuy": {"0": 6, "1": 5, ...}} format to
+	[{"period": "current", "strongBuy": 6, "buy": 25, ...}, ...] format.
+	"""
+	if not isinstance(data, dict) or data.get("error"):
+		return data
+
+	period_labels = ["current", "-1m", "-2m", "-3m"]
+	categories = ["strongBuy", "buy", "hold", "sell", "strongSell"]
+
+	# Determine number of periods from any available category
+	max_periods = 0
+	for cat in categories:
+		col = data.get(cat)
+		if isinstance(col, dict):
+			max_periods = max(max_periods, len(col))
+
+	rows = []
+	for i in range(min(max_periods, len(period_labels))):
+		row = {"period": period_labels[i]}
+		for cat in categories:
+			col = data.get(cat, {})
+			if isinstance(col, dict):
+				row[cat] = col.get(str(i))
+			else:
+				row[cat] = None
+		rows.append(row)
+
+	return rows
+
+
 @safe_run
 def cmd_recommendations_summary(args):
-	output_json(yf.Ticker(args.symbol).get_recommendations_summary())
+	import pandas as pd
+	raw = yf.Ticker(args.symbol).get_recommendations_summary()
+	# Convert DataFrame to dict before enriching
+	if isinstance(raw, pd.DataFrame):
+		if raw.empty:
+			output_json([])
+			return
+		data = {}
+		for col in raw.columns:
+			data[str(col)] = {str(idx): val for idx, val in raw[col].items()}
+	elif isinstance(raw, dict):
+		data = raw
+	else:
+		output_json(raw)
+		return
+	# Add row-oriented view for pipeline consumption
+	if not data.get("error"):
+		data["row_oriented"] = _reformat_to_row_oriented(data)
+	output_json(data)
 
 
 @safe_run
@@ -157,6 +208,32 @@ def cmd_upgrades_downgrades(args):
 @safe_run
 def cmd_sustainability(args):
 	output_json(yf.Ticker(args.symbol).get_sustainability())
+
+
+@safe_run
+def cmd_revisions(args):
+	"""Track analyst estimate revision trends."""
+	symbol = args.symbol.upper()
+	ticker = yf.Ticker(symbol)
+
+	# EPS revisions
+	eps_revisions = ticker.get_eps_revisions()
+	eps_trend = ticker.get_eps_trend()
+	growth_estimates = ticker.get_growth_estimates()
+
+	output_json(
+		{
+			"symbol": symbol,
+			"eps_revisions": eps_revisions,
+			"eps_trend": eps_trend,
+			"growth_estimates": growth_estimates,
+			"interpretation": {
+				"upward_revisions": "Positive - analysts raising estimates indicates strengthening fundamentals",
+				"downward_revisions": "Negative - analysts cutting estimates signals potential weakness",
+				"significance_threshold": "5%+ revision is generally considered meaningful",
+			},
+		}
+	)
 
 
 def main():
@@ -175,6 +252,7 @@ def main():
 		("get-recommendations-summary", cmd_recommendations_summary),
 		("get-upgrades-downgrades", cmd_upgrades_downgrades),
 		("get-sustainability", cmd_sustainability),
+		("get-revisions", cmd_revisions),
 	]:
 		sp = sub.add_parser(name)
 		sp.add_argument("symbol")

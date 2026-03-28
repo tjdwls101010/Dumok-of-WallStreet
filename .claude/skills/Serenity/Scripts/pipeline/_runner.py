@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 
-# pipelines/_runner.py -> pipelines/ -> scripts/
+# pipeline/_runner.py -> pipeline/ -> Scripts/
 SCRIPTS_DIR = os.path.dirname(os.path.dirname(__file__))
 
 

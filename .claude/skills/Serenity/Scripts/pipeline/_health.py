@@ -282,12 +282,13 @@ def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_resul
 	if io is not None:
 		codes.append(f"IO_QUALITY_{io}")
 
-	# Code 33 status
-	ea = l4_results.get("earnings_acceleration", {})
+	# Growth profile acceleration status
+	ea = l4_results.get("growth_profile", {})
 	if not ea.get("error"):
-		c33 = ea.get("code33_status")
-		if c33 is not None:
-			codes.append(f"CODE33_{str(c33).upper()}")
+		if ea.get("eps_accelerating") is True:
+			codes.append("EPS_ACCELERATING")
+		if ea.get("sales_accelerating") is True:
+			codes.append("SALES_ACCELERATING")
 
 	# Consecutive beats
 	if l5_results:

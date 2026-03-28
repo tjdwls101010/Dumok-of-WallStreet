@@ -152,6 +152,56 @@ def cmd_get_fast_info(args):
 	output_json(result)
 
 
+def _extract_short_interest(info):
+	"""Extract short interest data as a contrarian signal.
+
+	High SI + strong fundamentals = contrarian buy signal.
+	Returns short_interest dict with contrarian classification.
+	"""
+	si_pct = info.get("shortPercentOfFloat")
+	if not isinstance(si_pct, (int, float)):
+		return {"contrarian_signal": "unknown", "note": "Short interest data unavailable"}
+
+	si_display = round(si_pct * 100, 2)
+
+	# Days to cover estimate (SI / avg volume approximation)
+	shares_short = info.get("sharesShort")
+	avg_volume = info.get("averageVolume")
+	days_to_cover = None
+	if isinstance(shares_short, (int, float)) and isinstance(avg_volume, (int, float)) and avg_volume > 0:
+		days_to_cover = round(shares_short / avg_volume, 1)
+
+	# SI trend from shortPercentOfFloat vs sharesShortPriorMonth
+	shares_short_prior = info.get("sharesShortPriorMonth")
+	si_trend = "stable"
+	if isinstance(shares_short, (int, float)) and isinstance(shares_short_prior, (int, float)) and shares_short_prior > 0:
+		change_pct = (shares_short - shares_short_prior) / shares_short_prior
+		if change_pct > 0.10:
+			si_trend = "increasing"
+		elif change_pct < -0.10:
+			si_trend = "decreasing"
+
+	# Contrarian signal classification
+	if si_pct > 0.20:
+		contrarian_signal = "strong_contrarian"
+	elif si_pct > 0.10:
+		contrarian_signal = "moderate"
+	else:
+		contrarian_signal = "low"
+
+	return {
+		"short_pct_float": si_display,
+		"days_to_cover": days_to_cover,
+		"si_trend": si_trend,
+		"contrarian_signal": contrarian_signal,
+		"thresholds": {
+			"strong_contrarian": "SI > 20% — if fundamentals strong, short thesis likely wrong (V1)",
+			"moderate": "SI 10-20% — monitor for thesis divergence",
+			"low": "SI <= 10% — no contrarian signal",
+		},
+	}
+
+
 @safe_run
 def cmd_get_info_fields(args):
 	ticker = yf.Ticker(args.symbol)
@@ -185,6 +235,12 @@ def cmd_get_info_fields(args):
 				filtered["currentPrice"] = float(hist["Close"].iloc[-1])
 		except Exception:
 			pass
+
+	# Add short_interest section when SI-related fields are requested
+	if "shortPercentOfFloat" in args.fields:
+		# Use full info dict (not filtered) for SI extraction since it needs
+		# sharesShort, averageVolume, sharesShortPriorMonth which may not be in filtered
+		filtered["short_interest"] = _extract_short_interest(info)
 
 	output_json(filtered)
 

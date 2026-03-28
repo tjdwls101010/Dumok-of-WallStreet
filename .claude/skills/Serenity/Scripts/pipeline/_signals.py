@@ -14,7 +14,7 @@ def _build_thesis_signals(l4_results, l5_results):
 	weakening = []
 
 	margin_tracker = l4.get("margin_tracker") or {}
-	earnings_acc = l4.get("earnings_acceleration") or {}
+	earnings_acc = l4.get("growth_profile") or {}
 	margin_flag = str(margin_tracker.get("flag", ""))
 
 	# Strengthening
@@ -67,59 +67,6 @@ def _build_thesis_signals(l4_results, l5_results):
 	}
 
 
-def _extract_short_interest(l4_results):
-	"""Extract short interest data as a contrarian signal (V1).
-
-	High SI + strong fundamentals = contrarian buy signal.
-	Reframed from squeeze mechanics to asymmetric opportunity detection.
-	"""
-	l4 = l4_results or {}
-	info = l4.get("info") or {}
-
-	si_pct = info.get("shortPercentOfFloat")
-	if not isinstance(si_pct, (int, float)):
-		return {"contrarian_signal": "unknown", "note": "Short interest data unavailable"}
-
-	si_display = round(si_pct * 100, 2)
-
-	# Days to cover estimate (SI / avg volume approximation)
-	shares_short = info.get("sharesShort")
-	avg_volume = info.get("averageVolume")
-	days_to_cover = None
-	if isinstance(shares_short, (int, float)) and isinstance(avg_volume, (int, float)) and avg_volume > 0:
-		days_to_cover = round(shares_short / avg_volume, 1)
-
-	# SI trend from shortPercentOfFloat vs sharesShortPriorMonth
-	shares_short_prior = info.get("sharesShortPriorMonth")
-	si_trend = "stable"
-	if isinstance(shares_short, (int, float)) and isinstance(shares_short_prior, (int, float)) and shares_short_prior > 0:
-		change_pct = (shares_short - shares_short_prior) / shares_short_prior
-		if change_pct > 0.10:
-			si_trend = "increasing"
-		elif change_pct < -0.10:
-			si_trend = "decreasing"
-
-	# Contrarian signal classification (V1: high SI + strong fundamentals = buy)
-	if si_pct > 0.20:
-		contrarian_signal = "strong_contrarian"
-	elif si_pct > 0.10:
-		contrarian_signal = "moderate"
-	else:
-		contrarian_signal = "low"
-
-	return {
-		"short_pct_float": si_display,
-		"days_to_cover": days_to_cover,
-		"si_trend": si_trend,
-		"contrarian_signal": contrarian_signal,
-		"thresholds": {
-			"strong_contrarian": "SI > 20% — if fundamentals strong, short thesis likely wrong (V1)",
-			"moderate": "SI 10-20% — monitor for thesis divergence",
-			"low": "SI <= 10% — no contrarian signal",
-		},
-	}
-
-
 def _classify_dilution(l4_results):
 	"""Classify dilution as growth, value-destruction, or accounting illusion.
 
@@ -127,7 +74,7 @@ def _classify_dilution(l4_results):
 	"""
 	l4 = l4_results or {}
 	sbc = l4.get("sbc_analyzer") or {}
-	ea = l4.get("earnings_acceleration") or {}
+	ea = l4.get("growth_profile") or {}
 	fpe = l4.get("forward_pe") or {}
 
 	if sbc.get("error"):
@@ -138,14 +85,14 @@ def _classify_dilution(l4_results):
 	real_fcf = sbc.get("real_fcf")
 	shares_change = sbc.get("shares_change_qoq_pct")
 
-	# Revenue growth from forward_pe or earnings_acceleration
+	# Revenue growth from forward_pe or growth_profile
 	revenue_growth = None
 	if isinstance(fpe, dict) and not fpe.get("error"):
 		rg = fpe.get("revenue_growth_yoy")
 		if isinstance(rg, (int, float)):
 			revenue_growth = rg * 100 if rg < 1 else rg  # normalize to percent
 
-	# Fallback: check sales growth from earnings_acceleration
+	# Fallback: check sales growth from growth_profile
 	if revenue_growth is None and isinstance(ea, dict) and not ea.get("error"):
 		sgr = ea.get("sales_growth_rates")
 		if isinstance(sgr, list) and sgr:
@@ -309,7 +256,7 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 	forward_pe = l4.get("forward_pe") or {}
 	if isinstance(forward_pe, dict) and forward_pe.get("error"):
 		forward_pe = {}
-	earnings_acc = l4.get("earnings_acceleration") or {}
+	earnings_acc = l4.get("growth_profile") or {}
 	if isinstance(earnings_acc, dict) and earnings_acc.get("error"):
 		earnings_acc = {}
 
@@ -445,7 +392,15 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	total_score += ts_points
 
 	# Component 4: Catalyst proximity (10 pts)
-	days = _parse_days_to_earnings(l5_results)
+	# Use days_to_next from module output (enriched by actions.py)
+	days = None
+	if isinstance(l5_results, dict):
+		ed = l5_results.get("earnings_dates")
+		if isinstance(ed, dict) and not ed.get("error"):
+			days = ed.get("days_to_next")
+	# Fallback: parse manually if module didn't provide days_to_next
+	if days is None:
+		days = _parse_days_to_earnings(l5_results)
 	cat_points = 10.0 if (days is not None and days <= 30) else 5.0 if (days is not None and days <= 60) else 0.0
 	score_breakdown["catalyst"] = {"days_to_earnings": days, "points": round(cat_points, 2)}
 	total_score += cat_points

@@ -60,7 +60,25 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 **Reason for Introduction**: The previous "Module Neutrality" principle required all modules to be persona-agnostic, creating overhead when a module's output needed persona-specific transformation in the pipeline. With self-contained skills, each expert's modules can be optimized for their specific methodology without concern for cross-persona compatibility.
 
-### 2.8 Self-Documenting Output (2-Layer Trust Model)
+### 2.8 Structural Clarity (Directory–Code Balance)
+
+**Principle**: Minimize directory nesting while keeping each file to a single, clear responsibility. The trade-off between directory simplicity and code clarity is governed by two tests:
+
+1. **5-Second Find Test**: Can someone locate the right file to modify within 5 seconds of scanning the directory?
+2. **5-Second Purpose Test**: Can someone understand the file's purpose within 5 seconds of opening it?
+
+When both tests pass, the structure is correct. If merging files would cause the second test to fail (file exceeds ~800 lines or mixes unrelated concerns), keep them separate. If splitting creates directory noise that fails the first test, consolidate.
+
+**Guidelines**:
+- Prefer role-based folders (`pipeline/`, `modules/`) over category folders (`technical/`, `analysis/`, `data_sources/`)
+- Each file should have one reason to change — if a file changes for two unrelated reasons, it should be two files
+- Target: ≤800 lines per file. At 500+ lines, consider whether responsibilities are mixed. Over 800 is a strong signal to split
+- Single-module logic (uses output from exactly one module) belongs in that module, not in pipeline helpers
+- Cross-cutting logic (synthesizes outputs from 2+ modules) belongs in the pipeline
+
+**Reason for Introduction**: Over-decomposition into many small files with deep directory nesting increases cognitive load for navigation. Over-consolidation into large files with mixed concerns increases cognitive load for comprehension. The sweet spot minimizes total cognitive load: few directories with well-named files of moderate size.
+
+### 2.9 Self-Documenting Output (2-Layer Trust Model)
 
 **Principle**: Every computed score, signal, and flag in the JSON output must be self-documenting through **field naming** and **thresholds**. The agent must treat code-computed scores as a **consistent baseline, not absolute truth** — scores may be wrong due to hardcoded thresholds that don't fit every context. The agent critically evaluates scores by cross-checking against the `detail`/`evidence` fields provided alongside them.
 
@@ -131,7 +149,7 @@ Refer to existing implementations as structural templates. Serenity is the most 
 
 **Key constraints:**
 - **Pipeline Interface**: Pipeline subcommand names and usage are documented directly in SKILL.md (stable, few subcommands).
-- **Output Field Name References**: SKILL.md may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria). Do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
+- **Output Field Name References**: SKILL.md may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria). Do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.9).
 - **Path Clarity**: All file path references must use `{skill_dir}/` as the explicit base path. Reference files, pipeline scripts, and modules as `{skill_dir}/path/to/file` so the agent can resolve paths unambiguously.
 - **Environment Bootstrap**: Include venv setup instructions and execution patterns (`$VENV`, `$SCRIPTS` variables).
 
@@ -150,7 +168,7 @@ Refer to existing implementations as structural templates. Serenity is the most 
 
 - **Three-Layer Documentation Hierarchy**: (1) **WHY — Values/Principles**: Why does the expert make this judgment? What value drives it? Highest priority — enables edge-case handling. (2) **HOW — Interpretation Methodology**: How should the agent synthesize multiple pipeline outputs? Covers cross-field reasoning that code output alone cannot provide. (3) **WHEN — Score Caveats**: When might a pipeline-computed score be misleading? What contextual factors should the agent consider?
 
-- **Cross-Field Synthesis Focus**: Documents exist to explain how to COMBINE multiple pipeline outputs to reach judgments neither field alone provides. Do not define individual field meanings — self-evident fields (e.g., RSI, forward P/E, market cap) are already understood by the LLM; non-obvious fields are self-documented in JSON output via `thresholds` fields (§2.8). The document's value is in SYNTHESIS methodology: which fields to cross-reference, what patterns to look for, and what conclusions to draw from combinations.
+- **Cross-Field Synthesis Focus**: Documents exist to explain how to COMBINE multiple pipeline outputs to reach judgments neither field alone provides. Do not define individual field meanings — self-evident fields (e.g., RSI, forward P/E, market cap) are already understood by the LLM; non-obvious fields are self-documented in JSON output via `thresholds` fields (§2.9). The document's value is in SYNTHESIS methodology: which fields to cross-reference, what patterns to look for, and what conclusions to draw from combinations.
 
 - **Code vs Document Boundary**: When clear, deterministic logic exists for computing a score or signal → implement in pipeline code. When logic is ambiguous, requires contextual judgment, or depends on information beyond what the pipeline collects → describe the judgment framework in documents. The boundary question: "Can a deterministic rule be written?" If yes → code. If no → document.
 
@@ -162,7 +180,7 @@ Refer to existing implementations as structural templates. Serenity is the most 
 
 **Structural Rules** (what persona files should NOT contain):
 
-- **Methodology Only, Not Calculation Methods**: Describe WHY and HOW to think, not HOW scores are computed. Do not duplicate calculation methodology or threshold values — the JSON output's `thresholds` fields provide this (§2.8). Reference concepts (e.g., "debt quality") without referencing specific JSON field names (e.g., `debt_quality_grade`).
+- **Methodology Only, Not Calculation Methods**: Describe WHY and HOW to think, not HOW scores are computed. Do not duplicate calculation methodology or threshold values — the JSON output's `thresholds` fields provide this (§2.9). Reference concepts (e.g., "debt quality") without referencing specific JSON field names (e.g., `debt_quality_grade`).
 - Must map to the SKILL.md's Query Classification.
 - Avoid specifying interface details — creates synchronization burden when code changes.
 - Avoid over-generalization — preserve the unique perspective of the specific expert.
@@ -176,7 +194,7 @@ Refer to existing implementations as structural templates. Serenity is the most 
 
 When writing or modifying pipeline code, you must verify the actual interfaces of all modules to be called — subcommand names, argument formats, return structures, and execution method. Read the module's docstring to confirm. Writing calling code based on guesswork is **strictly prohibited**. If even one interface detail is incorrect, the module call will fail and fall into `missing_components`.
 
-**Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores by aggregating multiple inputs, the output must include `thresholds` or equivalent fields that reveal component weights and grade boundaries.
+**Self-Documenting Composite Scores (§2.9)**: When the pipeline computes composite scores by aggregating multiple inputs, the output must include `thresholds` or equivalent fields that reveal component weights and grade boundaries.
 
 ### 4.4 Module Scripts
 
@@ -185,7 +203,7 @@ When writing or modifying pipeline code, you must verify the actual interfaces o
 
 **Key constraints:**
 - **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap. When writing a new module, check for overlap with existing modules within the same skill.
-- **Self-Documenting Output (§2.8)**: Computed scores must include `thresholds` fields.
+- **Self-Documenting Output (§2.9)**: Computed scores must include `thresholds` fields.
 - **Skill-Scoped (§2.7)**: Modules may be tailored to the skill's methodology. Cross-skill reuse is via duplication, not shared references.
 
 ---

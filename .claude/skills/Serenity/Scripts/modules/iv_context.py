@@ -217,6 +217,30 @@ def cmd_analyze(args):
 		hv30_midpoint = (hv30_annual_high + hv30_annual_low) / 2
 		iv_vs_hv_spread = round(iv30 - hv30_midpoint, 2)
 
+	# 5-tier classification for instrument selection
+	iv_percentile = iv_rank  # iv_rank is the IV percentile (0-100)
+	iv_tier = "unknown"
+	if isinstance(iv_percentile, (int, float)):
+		if iv_percentile < 30:
+			iv_tier = "compressed"
+		elif iv_percentile < 45:
+			iv_tier = "normal_low"
+		elif iv_percentile < 65:
+			iv_tier = "normal"
+		elif iv_percentile < 100:
+			iv_tier = "elevated"
+		else:
+			iv_tier = "extreme"
+
+	# Regime shift: IV30 vs HV30 divergence > 15pp suggests structural shift
+	iv_regime_shift = False
+	hv30_mid = None
+	if hv30_annual_high is not None and hv30_annual_low is not None:
+		hv30_mid = (hv30_annual_high + hv30_annual_low) / 2
+	if isinstance(iv30, (int, float)) and isinstance(hv30_mid, (int, float)) and hv30_mid > 0:
+		if abs(iv30 - hv30_mid) > 15:
+			iv_regime_shift = True
+
 	result = {
 		"symbol": symbol,
 		"current_price": round(current_price, 2) if current_price is not None else None,
@@ -228,6 +252,16 @@ def cmd_analyze(args):
 		"hv30_annual_low": round(hv30_annual_low, 2) if hv30_annual_low is not None else None,
 		"iv_vs_hv_spread": iv_vs_hv_spread,
 		"interpretation": _classify_iv(iv_rank),
+		"iv_tier": iv_tier,
+		"iv_regime_shift": iv_regime_shift,
+		"iv_tier_thresholds": {
+			"compressed": "<30",
+			"normal_low": "30-45",
+			"normal": "45-65",
+			"elevated": "65-100",
+			"extreme": ">100",
+			"regime_shift": "|IV30-HV30| > 15",
+		},
 	}
 
 	output_json(result)

@@ -5,24 +5,21 @@ from datetime import datetime, timedelta
 
 from utils import output_json, safe_run
 
-from pipelines._runner import _run_script
+from ._runner import _run_script
 from ._health import _extract_health_gates, _build_readiness_codes
 from ._bottleneck import _build_l3_bottleneck, _label_supplier_geography, _assess_data_coverage
 from ._postprocess import (
-	_extract_revenue_trajectory,
-	_cap_earnings_dates, _compress_earnings_acceleration, _summarize_holders,
-	_merge_earnings, _reformat_analyst_recommendations, _clean_analyst_revisions,
+	_merge_earnings, _clean_analyst_revisions,
 )
 from ._macro import _classify_macro_regime
 from ._control import (
 	_build_materiality_signals, _build_causal_bridge,
 	_build_priced_in_assessment, _build_institutional_flow, _build_expression_layer,
-	_classify_iv_tier,
 )
 from ._signals import (
 	_build_thesis_signals, _check_sop_triggers, _check_trapped_asset_override,
 	_auto_classify_taxonomy, _generate_composite_signal,
-	_extract_short_interest, _classify_dilution,
+	_classify_dilution,
 )
 
 _SC_CATEGORIES = (
@@ -41,7 +38,7 @@ def _extract_sec_supply_chain(ticker):
 			os.path.dirname(os.path.abspath(__file__))))), ".env")
 		load_dotenv(_env)
 		from sec_analyzer import extract as _sec_extract
-		from pipelines.serenity.preset_serenity import SupplyChain as _SCPreset
+		from pipeline._bottleneck import SupplyChain as _SCPreset
 		result = _sec_extract(ticker, preset=_SCPreset)
 	except Exception as e:
 		import sys
@@ -91,16 +88,16 @@ def cmd_macro(args):
 	Classifies regime as risk_on, risk_off, or transitional.
 	"""
 	scripts = {
-		"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
-		"vix_curve": ("macro/vix_curve.py", ["analyze"]),
-		"fedwatch": ("data_advanced/fred/fedwatch.py", []),
-		"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
-		"erp": ("macro/erp.py", ["erp"]),
-		"fear_greed": ("analysis/sentiment/fear_greed.py", []),
-		"dxy": ("data_sources/dxy.py", []),
-		"bdi": ("data_sources/bdi.py", []),
-		"breakeven_inflation": ("data_advanced/fred/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
-		"nominal_rates": ("data_advanced/fred/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
+		"net_liquidity": ("modules/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
+		"vix_curve": ("modules/vix_curve.py", ["analyze"]),
+		"fedwatch": ("modules/fedwatch.py", []),
+		"yield_curve": ("modules/rates.py", ["yield-curve", "--limit", "5"]),
+		"erp": ("modules/erp.py", ["erp"]),
+		"fear_greed": ("modules/fear_greed.py", []),
+		"dxy": ("modules/dxy.py", []),
+		"bdi": ("modules/bdi.py", []),
+		"breakeven_inflation": ("modules/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
+		"nominal_rates": ("modules/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
 	}
 
 	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -193,16 +190,16 @@ def cmd_analyze(args):
 	l1_result = None
 	if not args.skip_macro:
 		macro_scripts = {
-			"net_liquidity": ("macro/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
-			"vix_curve": ("macro/vix_curve.py", ["analyze"]),
-			"fedwatch": ("data_advanced/fred/fedwatch.py", []),
-			"yield_curve": ("data_advanced/fred/rates.py", ["yield-curve", "--limit", "5"]),
-			"erp": ("macro/erp.py", ["erp"]),
-			"fear_greed": ("analysis/sentiment/fear_greed.py", []),
-			"dxy": ("data_sources/dxy.py", []),
-			"bdi": ("data_sources/bdi.py", []),
-			"breakeven_inflation": ("data_advanced/fred/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
-			"nominal_rates": ("data_advanced/fred/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
+			"net_liquidity": ("modules/net_liquidity.py", ["net-liquidity", "--limit", "10"]),
+			"vix_curve": ("modules/vix_curve.py", ["analyze"]),
+			"fedwatch": ("modules/fedwatch.py", []),
+			"yield_curve": ("modules/rates.py", ["yield-curve", "--limit", "5"]),
+			"erp": ("modules/erp.py", ["erp"]),
+			"fear_greed": ("modules/fear_greed.py", []),
+			"dxy": ("modules/dxy.py", []),
+			"bdi": ("modules/bdi.py", []),
+			"breakeven_inflation": ("modules/inflation.py", ["breakeven-inflation", "--maturity", "10y", "--limit", "5"]),
+			"nominal_rates": ("modules/rates.py", ["yield-curve", "--maturities", "10y", "--limit", "5"]),
 		}
 
 		with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
@@ -272,7 +269,7 @@ def cmd_analyze(args):
 
 	# --- Level 4: Position Construction (Fundamentals) ---
 	l4_scripts = {
-		"info": ("data_sources/info.py", ["get-info-fields", ticker,
+		"info": ("modules/info.py", ["get-info-fields", ticker,
 			"sector", "industry", "marketCap", "enterpriseValue",
 			"longBusinessSummary", "currentPrice", "beta",
 			"fiftyTwoWeekLow", "fiftyTwoWeekHigh",
@@ -281,34 +278,34 @@ def cmd_analyze(args):
 			"totalRevenue",
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
-		"earnings_acceleration": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
-		"sbc_analyzer": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
-		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
-		"debt_structure": ("analysis/debt_structure.py", ["analyze", ticker]),
-		"institutional_quality": ("analysis/institutional_quality.py", ["score", ticker]),
-		"no_growth_valuation": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
-		"margin_tracker": ("analysis/margin_tracker.py", ["track", ticker]),
-		"iv_context": ("analysis/iv_context.py", ["analyze", ticker]),
-		"capex_trend": ("analysis/capex_tracker.py", ["track", ticker, "--quarters", "8"]),
-		"quarterly_financials": ("data_sources/financials.py", [
+		"growth_profile": ("modules/growth.py", ["profile", ticker]),
+		"sbc_analyzer": ("modules/sbc_analyzer.py", ["get-sbc", ticker]),
+		"forward_pe": ("modules/forward_pe.py", ["calculate", ticker]),
+		"debt_structure": ("modules/debt_structure.py", ["analyze", ticker]),
+		"institutional_quality": ("modules/institutional_quality.py", ["score", ticker]),
+		"no_growth_valuation": ("modules/no_growth_valuation.py", ["calculate", ticker]),
+		"margin_tracker": ("modules/margin_tracker.py", ["track", ticker]),
+		"iv_context": ("modules/iv_context.py", ["analyze", ticker]),
+		"capex_trend": ("modules/capex_tracker.py", ["track", ticker, "--quarters", "8"]),
+		"quarterly_financials": ("modules/financials.py", [
 			"get-income-stmt", ticker, "--freq", "quarterly"]),
 	}
 
 	# --- Level 5: Catalyst Monitoring ---
 	l5_scripts = {
-		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker, "--limit", "8"]),
-		"earnings_surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
-		"analyst_recommendations": ("analysis/analysis.py", ["get-recommendations-summary", ticker]),
-		"analyst_price_targets": ("analysis/analysis.py", ["get-analyst-price-targets", ticker]),
-		"analyst_revisions": ("data_sources/earnings_acceleration.py", ["revisions", ticker]),
-		"earnings_estimate": ("analysis/analysis.py", ["get-earnings-estimate", ticker]),
-		"revenue_estimate": ("analysis/analysis.py", ["get-revenue-estimate", ticker]),
+		"earnings_dates": ("modules/actions.py", ["get-earnings-dates", ticker, "--limit", "8"]),
+		"earnings_surprise": ("modules/surprise.py", ["history", ticker]),
+		"analyst_recommendations": ("modules/analysis.py", ["get-recommendations-summary", ticker]),
+		"analyst_price_targets": ("modules/analysis.py", ["get-analyst-price-targets", ticker]),
+		"analyst_revisions": ("modules/analysis.py", ["get-revisions", ticker]),
+		"earnings_estimate": ("modules/analysis.py", ["get-earnings-estimate", ticker]),
+		"revenue_estimate": ("modules/analysis.py", ["get-revenue-estimate", ticker]),
 	}
 
 	# --- Hyperscaler CapEx Bridge (L2) ---
 	hyperscaler_tickers = ["MSFT", "GOOG", "META", "AMZN"]
 	hs_scripts = {
-		f"hs_capex_{t}": ("analysis/capex_tracker.py", ["track", t, "--quarters", "4"])
+		f"hs_capex_{t}": ("modules/capex_tracker.py", ["track", t, "--quarters", "4"])
 		for t in hyperscaler_tickers
 	}
 
@@ -328,7 +325,7 @@ def cmd_analyze(args):
 		# SEC supply chain + events in parallel with scripts
 		futures["sec_supply_chain"] = executor.submit(_extract_sec_supply_chain, ticker)
 		futures["sec_events"] = executor.submit(
-			_run_script, "data_advanced/sec/events.py",
+			_run_script, "modules/events.py",
 			["events", ticker, "--limit", "5", "--days", "180"], 120)
 		all_results = {name: future.result() for name, future in futures.items()}
 
@@ -360,15 +357,25 @@ def cmd_analyze(args):
 		}
 
 	# --- Post-processing ---
-	# Revenue trajectory from quarterly financials
+	# Revenue trajectory from quarterly financials (enriched by module)
 	financials_raw = l4_results.pop("quarterly_financials", None)
 	if financials_raw and not (isinstance(financials_raw, dict) and financials_raw.get("error")):
-		l4_results["revenue_trajectory"] = _extract_revenue_trajectory(financials_raw)
+		l4_results["revenue_trajectory"] = financials_raw.get("revenue_trajectory", {})
 
-	# Compress earnings_acceleration (remove symbol, code33_status)
-	ea_raw = l4_results.get("earnings_acceleration")
+	# Use compressed view from module output (removes symbol)
+	ea_raw = l4_results.get("growth_profile")
 	if ea_raw and not (isinstance(ea_raw, dict) and ea_raw.get("error")):
-		l4_results["earnings_acceleration"] = _compress_earnings_acceleration(ea_raw)
+		compressed = ea_raw.get("compressed")
+		if compressed:
+			l4_results["growth_profile"] = compressed
+		else:
+			# Fallback: inline compress if module didn't provide compressed field
+			l4_results["growth_profile"] = {
+				"eps_accelerating": ea_raw.get("eps_accelerating"),
+				"margin_expanding": ea_raw.get("margin_expanding"),
+				"eps_growth_rates": ea_raw.get("eps_growth_rates", [])[:3],
+				"data_quality": ea_raw.get("data_quality"),
+			}
 
 	# Move capex_trend from L4 to L2
 	capex_data = l4_results.pop("capex_trend", None)
@@ -401,7 +408,7 @@ def cmd_analyze(args):
 			gate_flags.append(gate_name)
 	if "active_dilution" in gate_flags:
 		sec_filing_result = _run_script(
-			"data_advanced/sec/filings.py",
+			"modules/filings.py",
 			[ticker, "--form", "S-3", "--limit", "5"]
 		)
 		if sec_filing_result and not sec_filing_result.get("error"):
@@ -464,7 +471,7 @@ def cmd_analyze(args):
 	info = l4_results.get("info") or {}
 	fpe = l4_results.get("forward_pe") or {}
 	ngv = l4_results.get("no_growth_valuation") or {}
-	ea = l4_results.get("earnings_acceleration") or {}
+	ea = l4_results.get("growth_profile") or {}
 	sbc = l4_results.get("sbc_analyzer") or {}
 	debt = l4_results.get("debt_structure") or {}
 	margin = l4_results.get("margin_tracker") or {}
@@ -509,7 +516,7 @@ def cmd_analyze(args):
 				ngv_clean[k] = v
 		valuation_cluster["no_growth"] = ngv_clean
 
-	# Earnings Growth: earnings_acceleration + revenue_trajectory + sbc
+	# Earnings Growth: growth_profile + revenue_trajectory + sbc
 	earnings_growth = {}
 	if not ea.get("error"):
 		ea_clean = {k: v for k, v in ea.items() if k not in ("symbol", "code33_status", "error")}
@@ -547,12 +554,10 @@ def cmd_analyze(args):
 	if not iv.get("error"):
 		iv_clean = {k: v for k, v in iv.items()
 					if k not in ("symbol", "current_price", "interpretation", "error")}
-		iv_tier = _classify_iv_tier(iv)
-		iv_clean["iv_tier"] = iv_tier.get("iv_tier")
-		iv_clean["iv_regime_shift"] = iv_tier.get("iv_regime_shift")
-		iv_clean["iv_tier_thresholds"] = iv_tier.get("thresholds")
+		# iv_tier, iv_regime_shift, iv_tier_thresholds now included by module
 		market_structure["iv_context"] = iv_clean
-	short_interest = _extract_short_interest(l4_results)
+	# short_interest now included by info module when shortPercentOfFloat is requested
+	short_interest = info.get("short_interest", {})
 	if short_interest.get("contrarian_signal") != "unknown":
 		market_structure["short_interest"] = short_interest
 
@@ -584,10 +589,12 @@ def cmd_analyze(args):
 		l5_results.get("earnings_surprise"),
 	)
 
-	# Analyst consensus (row-oriented)
-	analyst_consensus = _reformat_analyst_recommendations(
-		l5_results.get("analyst_recommendations"),
-	)
+	# Analyst consensus (row-oriented view now included by module)
+	rec_raw = l5_results.get("analyst_recommendations")
+	if isinstance(rec_raw, dict) and not rec_raw.get("error"):
+		analyst_consensus = rec_raw.get("row_oriented", rec_raw)
+	else:
+		analyst_consensus = rec_raw
 
 	# Clean analyst_revisions (enriched with forward estimates)
 	analyst_revisions = _clean_analyst_revisions(
@@ -635,7 +642,7 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 	"""Extract 20 discover comparator fields from script results."""
 	info = script_results.get("info", {})
 	rs = script_results.get("rs", {})
-	code33 = script_results.get("code33", {})
+	growth = script_results.get("growth", {})
 	surprise = script_results.get("surprise", {})
 	earnings_dates = script_results.get("earnings_dates", {})
 	fwd_pe = script_results.get("forward_pe", {})
@@ -649,12 +656,12 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 	high52 = info.get("fiftyTwoWeekHigh")
 	price_vs_high = round((current / high52 - 1) * 100, 1) if current and high52 else None
 
-	# eps_growth_pct from code33 growth rates
-	growth_rates = code33.get("eps_growth_rates", [])
+	# eps_growth_pct from growth profile growth rates
+	growth_rates = growth.get("eps_growth_rates", [])
 	eps_growth = growth_rates[0] if growth_rates else None
 
-	# revenue_growth_pct — try code33 sales first, fallback to forward_pe
-	sales_rates = code33.get("sales_growth_rates", [])
+	# revenue_growth_pct — try growth profile sales first, fallback to forward_pe
+	sales_rates = growth.get("sales_growth_rates", [])
 	rev_growth = sales_rates[0] if sales_rates else fwd_pe.get("revenue_growth_yoy")
 
 	# operating_margin
@@ -726,7 +733,7 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 		"price_vs_52w_high_pct": price_vs_high,
 		"eps_growth_pct": eps_growth,
 		"revenue_growth_pct": rev_growth,
-		"eps_accelerating": code33.get("eps_accelerating"),
+		"eps_accelerating": growth.get("eps_accelerating"),
 		"operating_margin": op_margin,
 		"forward_pe": fpe,
 		"margin_of_safety_pct": mos,
@@ -745,18 +752,18 @@ def _extract_discover_metrics(ticker, script_results, si_data):
 def _collect_ticker_scripts(ticker):
 	"""Run all discover metric scripts for a single ticker in parallel."""
 	scripts = {
-		"info": ("data_sources/info.py", [
+		"info": ("modules/info.py", [
 			"get-info-fields", ticker,
 			"industry", "marketCap", "currentPrice", "fiftyTwoWeekHigh", "operatingMargins"]),
-		"rs": ("technical/rs_ranking.py", ["score", ticker]),
-		"code33": ("data_sources/earnings_acceleration.py", ["code33", ticker]),
-		"surprise": ("data_sources/earnings_acceleration.py", ["surprise", ticker]),
-		"earnings_dates": ("data_sources/actions.py", ["get-earnings-dates", ticker, "--limit", "1"]),
-		"forward_pe": ("analysis/forward_pe.py", ["calculate", ticker]),
-		"no_growth": ("analysis/no_growth_valuation.py", ["calculate", ticker]),
-		"sbc": ("analysis/sbc_analyzer.py", ["get-sbc", ticker]),
-		"debt": ("analysis/debt_structure.py", ["analyze", ticker]),
-		"iv": ("analysis/iv_context.py", ["analyze", ticker]),
+		"rs": ("modules/rs_ranking.py", ["score", ticker]),
+		"growth": ("modules/growth.py", ["profile", ticker]),
+		"surprise": ("modules/surprise.py", ["history", ticker]),
+		"earnings_dates": ("modules/actions.py", ["get-earnings-dates", ticker, "--limit", "1"]),
+		"forward_pe": ("modules/forward_pe.py", ["calculate", ticker]),
+		"no_growth": ("modules/no_growth_valuation.py", ["calculate", ticker]),
+		"sbc": ("modules/sbc_analyzer.py", ["get-sbc", ticker]),
+		"debt": ("modules/debt_structure.py", ["analyze", ticker]),
+		"iv": ("modules/iv_context.py", ["analyze", ticker]),
 	}
 	with concurrent.futures.ThreadPoolExecutor(max_workers=len(scripts)) as ex:
 		futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in scripts.items()}

@@ -1,1 +1,0 @@
-# Serenity pipeline internal package

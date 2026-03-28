@@ -104,10 +104,67 @@ import yfinance as yf
 from utils import output_json, safe_run
 
 
+def _extract_revenue_trajectory(financials_data):
+	"""Extract quarterly revenue trajectory from income statement data.
+
+	Parses raw income statement output (column-oriented or row-oriented)
+	and returns a list of {quarter, revenue} dicts for up to 8 quarters.
+	"""
+	revenue_by_quarter = []
+
+	if isinstance(financials_data, dict):
+		records = financials_data.get("data", financials_data)
+		if isinstance(records, dict):
+			rev_data = records.get("TotalRevenue") or records.get("Total Revenue")
+			if isinstance(rev_data, dict):
+				for quarter, revenue in list(rev_data.items())[:8]:
+					revenue_by_quarter.append({
+						"quarter": str(quarter),
+						"revenue": revenue,
+					})
+			else:
+				for date_key, row in list(records.items())[:8]:
+					if isinstance(row, dict):
+						rev = row.get("TotalRevenue") or row.get("Total Revenue")
+						if rev is not None:
+							revenue_by_quarter.append({
+								"quarter": str(date_key),
+								"revenue": rev,
+							})
+	elif isinstance(financials_data, list):
+		for record in financials_data[:8]:
+			if isinstance(record, dict):
+				quarter = record.get("quarter") or record.get("date") or record.get("period")
+				rev = record.get("TotalRevenue") or record.get("Total Revenue") or record.get("revenue")
+				if quarter and rev is not None:
+					revenue_by_quarter.append({
+						"quarter": str(quarter),
+						"revenue": rev,
+					})
+
+	return {"revenue_by_quarter": revenue_by_quarter}
+
+
 @safe_run
 def cmd_get_income_stmt(args):
+	import pandas as pd
+	from utils import normalize
 	ticker = yf.Ticker(args.symbol)
-	output_json(ticker.get_income_stmt(freq=args.freq))
+	raw = ticker.get_income_stmt(freq=args.freq)
+	# Enrich quarterly output with revenue_trajectory
+	if args.freq == "quarterly":
+		# Convert DataFrame to dict before enriching
+		if isinstance(raw, pd.DataFrame):
+			data = normalize(raw) if not raw.empty else {}
+		elif isinstance(raw, dict):
+			data = raw
+		else:
+			data = {}
+		if isinstance(data, dict):
+			data["revenue_trajectory"] = _extract_revenue_trajectory(data)
+		output_json(data)
+	else:
+		output_json(raw)
 
 
 @safe_run

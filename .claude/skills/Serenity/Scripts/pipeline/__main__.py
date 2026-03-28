@@ -93,7 +93,7 @@ Returns:
 		L4_fundamentals: info (24 essential fields),
 		holders (top 5 summary with total count),
 		insider_transactions (summary + recent 20, 12-month lookback),
-		earnings_acceleration (compressed: status flags + 3 recent growth rates),
+		growth_profile (compressed: status flags + 3 recent growth rates),
 		sbc_analyzer, forward_pe, debt_structure,
 		institutional_quality, no_growth_valuation, margin_tracker,
 		iv_context, revenue_trajectory (8-quarter actual revenue).
@@ -156,7 +156,7 @@ Notes:
 	- L4 revenue_trajectory: extracted from quarterly income statement (8 quarters, TotalRevenue only)
 	- L5 earnings_calendar removed (was market-wide, not ticker-specific; earnings_dates covers ticker)
 	- L4 holders summarized to top 5 with key fields + total count
-	- L4 earnings_acceleration compressed to status flags + 3 most recent growth rates
+	- L4 growth_profile compressed to status flags + 3 most recent growth rates
 	- L5 earnings_dates capped at 8 most recent (2 years quarterly)
 	- Yield curve limited to 5 observations, net liquidity to 10 observations
 """
@@ -165,10 +165,13 @@ import argparse
 import os
 import sys
 
-# Ensure scripts/ is on sys.path for utils import
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+# Ensure Scripts/ is on sys.path for module imports
+_scripts_dir = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, _scripts_dir)
+# Also add modules/ for utils import
+sys.path.insert(0, os.path.join(_scripts_dir, "modules"))
 
-from pipelines.serenity._commands import (
+from pipeline._commands import (
 	cmd_macro, cmd_analyze, cmd_discover,
 )
 

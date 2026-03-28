@@ -108,11 +108,41 @@ See Also:
 import argparse
 import os
 import sys
+from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pandas as pd
 import yfinance as yf
 from utils import output_json, safe_run
+
+
+def _parse_days_to_next_earnings(earnings_dates_data):
+	"""Parse earnings dates dict and return days until the nearest future date.
+
+	Accepts the column-oriented dict output from get_earnings_dates
+	(e.g. {"Earnings Date": {"0": "2026-04-30", ...}, ...}).
+	Returns int days or None if no future date found.
+	"""
+	if not isinstance(earnings_dates_data, dict) or earnings_dates_data.get("error"):
+		return None
+	dates_col = earnings_dates_data.get("Earnings Date", {})
+	if not isinstance(dates_col, dict):
+		return None
+	now = datetime.now()
+	min_days = None
+	for _idx, date_str in dates_col.items():
+		if not isinstance(date_str, str):
+			continue
+		for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
+			try:
+				dt = datetime.strptime(date_str.strip(), fmt)
+				delta = (dt - now).days
+				if delta >= 0 and (min_days is None or delta < min_days):
+					min_days = delta
+				break
+			except ValueError:
+				continue
+	return min_days
 
 
 @safe_run
@@ -153,7 +183,20 @@ def cmd_earnings(args):
 
 @safe_run
 def cmd_earnings_dates(args):
-	output_json(yf.Ticker(args.symbol).get_earnings_dates(limit=args.limit))
+	from utils import normalize
+	raw = yf.Ticker(args.symbol).get_earnings_dates(limit=args.limit)
+	# Convert DataFrame to dict before enriching
+	if isinstance(raw, pd.DataFrame):
+		data = normalize(raw) if not raw.empty else {}
+	elif isinstance(raw, dict):
+		data = raw
+	else:
+		output_json(raw)
+		return
+	# Enrich with days_to_next field for pipeline consumption
+	if isinstance(data, dict) and not data.get("error"):
+		data["days_to_next"] = _parse_days_to_next_earnings(data)
+	output_json(data)
 
 
 @safe_run
