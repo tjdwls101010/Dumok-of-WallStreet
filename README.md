@@ -6,7 +6,7 @@
 
 **Claude Code를 월스트릿 전문 애널리스트로 만드는 오픈소스 플러그인**
 
-[![Version](https://img.shields.io/badge/version-7.0.0-green?style=flat-square)](CHANGELOG.db)
+[![Version](https://img.shields.io/badge/version-8.0.0-green?style=flat-square)](CHANGELOG.db)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-cc785c?style=flat-square)](https://claude.ai/code)
@@ -400,40 +400,37 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    CMD["Command (.md)\n전문가 호출 인터페이스"]
-    PERSONA["Persona Files (.md)\n방법론 지식\nHOW / WHAT / WHEN"]
+    SKILL["SKILL.md\n전문가 페르소나 + 실행 프로토콜 + 카탈로그"]
+    REF["Reference Files (.md)\n방법론 지식\nHOW / WHAT / WHEN"]
     PIPELINE["Pipeline Scripts\n오케스트레이터 (Facade)"]
-    MODULES["Module Scripts\n~110개 원자적 분석 함수"]
+    MODULES["Module Scripts\n스킬별 분석 함수"]
     DATA["External Data Sources\n8개 외부 API"]
 
-    CMD --> PERSONA
-    PERSONA --> PIPELINE
+    SKILL --> REF
+    REF --> PIPELINE
     PIPELINE --> MODULES
     MODULES --> DATA
 
-    style CMD fill:#8e6bbf,color:#fff,stroke:none
-    style PERSONA fill:#4a90d9,color:#fff,stroke:none
+    style SKILL fill:#8e6bbf,color:#fff,stroke:none
+    style REF fill:#4a90d9,color:#fff,stroke:none
     style PIPELINE fill:#50a684,color:#fff,stroke:none
     style MODULES fill:#e8a838,color:#fff,stroke:none
     style DATA fill:#d95b43,color:#fff,stroke:none
 ```
 
-**Progressive Disclosure** — 2단계 발견 프로토콜로 컨텍스트 효율성을 극대화합니다.
-
-1. **Level 1**: `SKILL.md` — 전체 모듈 카탈로그 (함수명 + 한줄 설명)
-2. **Level 2**: `extract_docstring.py` — 개별 스크립트의 정확한 서브커맨드와 인터페이스 추출
+각 전문가는 **독립 스킬**로, SKILL.md가 페르소나 정체성, 실행 프로토콜, 파이프라인 인터페이스, 모듈 카탈로그를 하나로 통합합니다. Reference 문서는 Query Classification에 따라 선택적으로 로딩됩니다.
 
 ### 설계 원칙
 
 | # | 원칙 | 설명 |
 |---|------|------|
 | 1 | **Single Source of Truth** | Docstring이 코드의 유일한 진실 |
-| 2 | **Persona Purity** | 각 커맨드는 자신의 파이프라인만 사용 |
+| 2 | **Persona Purity** | 각 스킬은 자신의 파이프라인만 사용 |
 | 3 | **Pipeline-Complete** | 방법론에 필요한 모든 모듈 호출이 파이프라인 내에 내장 |
 | 4 | **Context Efficiency** | 파생 메트릭만 반환, 원본 데이터는 제외 |
-| 5 | **Progressive Disclosure** | 2단계 발견: SKILL.md → extract_docstring.py |
+| 5 | **Progressive Disclosure** | SKILL.md에 파이프라인 인터페이스 직접 문서화, Reference 선택적 로딩 |
 | 6 | **Graceful Degradation** | 개별 컴포넌트 실패 시에도 분석 계속 |
-| 7 | **Module Neutrality** | 모듈은 페르소나에 비의존적; 조합과 가중치가 정체성 결정 |
+| 7 | **Skill-Scoped Modules** | 각 스킬이 자체 모듈을 소유; 스킬 간 독립성 보장 |
 | 8 | **Self-Documenting Output** | 모든 스코어에 value + unit + thresholds 포함 |
 
 > 아키텍처 상세는 [Principles_Design.md](Principles_Design.md)를 참조하세요.
@@ -521,30 +518,23 @@ Claude Code에서 `/Minervini` 또는 `/Serenity` 명령어를 사용합니다. 
 Dumok-of-WallStreet/
 ├── .claude/
 │   ├── .claude-plugin/
-│   │   └── plugin.json                    # 플러그인 메타데이터 (v6.7.0)
+│   │   └── plugin.json                    # 플러그인 메타데이터 (v8.0.0)
 │   ├── commands/
-│   │   ├── Minervini.md                   # Minervini 전문가 커맨드
-│   │   └── Serenity.md                    # Serenity 전문가 커맨드
-│   └── skills/MarketData/
-│       ├── SKILL.md                       # 모듈 카탈로그 (Level 1)
-│       ├── Personas/
-│       │   ├── Minervini/                 # SEPA 방법론 (3 파일)
-│       │   └── Serenity/                  # 공급망 방법론 (3 파일)
-│       ├── scripts/
-│       │   ├── pipelines/
-│       │   │   ├── minervini/             # SEPA 파이프라인 (8 모듈)
-│       │   │   └── serenity/              # 6-Level 파이프라인 (14 모듈)
-│       │   ├── technical/                 # 기술적 분석 (26 모듈)
-│       │   ├── data_sources/              # 데이터 소스 (14 모듈)
-│       │   ├── analysis/                  # 펀더멘탈 분석 (17 모듈)
-│       │   ├── statistics/                # 통계 분석 (8 모듈)
-│       │   ├── backtest/                  # 백테스트 (6 모듈)
-│       │   ├── macro/                     # 매크로 분석 (7 모듈)
-│       │   ├── screening/                 # 종목 스크리닝 (4 모듈)
-│       │   ├── valuation/                 # 밸류에이션 (3 모듈)
-│       │   └── data_advanced/             # FRED, Fed, SEC, CFTC
-│       └── tools/
-│           └── extract_docstring.py       # Level 2 인터페이스 발견
+│   │   ├── Minervini.md                   # Minervini 커맨드 (스킬 마이그레이션 예정)
+│   │   └── Evolve.md                      # 메타 엔지니어링 도구
+│   └── skills/
+│       ├── Serenity/                      # Serenity 독립 스킬
+│       │   ├── SKILL.md                   # 페르소나 + 프로토콜 + 카탈로그
+│       │   ├── References/                # 공급망 방법론 (3 파일 + DB)
+│       │   └── Scripts/                   # 파이프라인 + 25개 분석 모듈
+│       │       ├── pipelines/serenity/    # 6-Level 파이프라인 (9 모듈)
+│       │       ├── technical/             # RS Ranking
+│       │       ├── analysis/              # 펀더멘탈 (10 모듈)
+│       │       ├── data_sources/          # 데이터 소스 (6 모듈)
+│       │       ├── data_advanced/         # FRED, SEC (5 모듈)
+│       │       └── macro/                 # 매크로 (3 모듈)
+│       ├── Minervini/                     # Minervini 독립 스킬 (마이그레이션 예정)
+│       └── MarketData/                    # 공유 인프라 (Minervini 마이그레이션 후 제거 예정)
 ├── .claude-plugin/
 │   └── marketplace.json                   # 마켓플레이스 메타데이터
 ├── Docs/

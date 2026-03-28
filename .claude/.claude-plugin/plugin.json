@@ -1,7 +1,7 @@
 {
   "name": "invest",
-  "version": "7.0.0",
-  "description": "Financial market data analysis plugin with MarketData skill, analyst personas (Minervini, Serenity, SidneyKim0, TraderLion, Williams), Debate multi-expert orchestrator, and Evolve meta-engineering tool",
+  "version": "8.0.0",
+  "description": "Financial market data analysis plugin with independent expert skills (Serenity, Minervini) and Evolve meta-engineering tool",
   "author": {
     "name": "Seongjin"
   },

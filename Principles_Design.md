@@ -2,7 +2,7 @@
 
 A plugin designed to 100% replicate the methodologies and personas of renowned investment experts, analyzing the market from their unique perspectives.
 
-As of February 28, 2026, it currently supports 5 experts: **Minervini** (SEPA), **Serenity** (Supply Chain Bottleneck 6-Level), **TraderLion** (S.N.I.P.E.), **SidneyKim0** (Macro-Statistical), and **Williams** (Volatility Breakout).
+As of March 29, 2026, it currently supports 2 experts as independent skills: **Serenity** (Supply Chain Bottleneck 6-Level) and **Minervini** (SEPA). Each expert is a self-contained skill with its own pipeline, modules, and reference documents.
 
 ---
 
@@ -44,9 +44,9 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 ### 2.5 Progressive Disclosure
 
-**Principle**: Hierarchically load only the necessary information at the exact moment it is needed. For **pipeline execution**, command files may directly specify stable pipeline subcommand names and basic usage — pipelines have few, stable subcommands that rarely change. For **individual module calls** (during pipeline development or maintenance), the agent checks module names in `SKILL.md` (Level 1 Catalog), then uses `extract_docstring.py` (Level 2 Details) to check subcommands, arguments, and return structures. Do not guess individual module subcommands.
+**Principle**: Hierarchically load only the necessary information at the exact moment it is needed. Pipeline subcommands (e.g., `macro`, `analyze`, `discover`) are stable interfaces documented directly in the skill's SKILL.md — the agent calls them directly without additional discovery. Reference documents (methodology, valuation, macro) are loaded selectively based on Query Classification, not all at once.
 
-**Reason for Introduction**: Loading the entire docstrings of ~112 modules at once wastes context. The 2-step discovery process retrieves detailed information only for the necessary modules at the necessary time. Pipeline subcommands are exempt from this process because pipeline interfaces are stable and documented in command files.
+**Reason for Introduction**: Loading all reference documents for every query wastes context. Selective loading based on query type keeps the agent focused. Pipeline interfaces are stable and few (3-5 subcommands per expert), so documenting them directly in SKILL.md is sufficient.
 
 ### 2.6 Graceful Degradation
 
@@ -54,11 +54,11 @@ Describe the meaning, purpose, and reason for introducing each principle.
 
 **Reason for Introduction**: Individual module failures are inevitable due to reliance on external data sources (yfinance, FRED, etc.). If a single failure halts the entire analysis, usability severely degrades.
 
-### 2.7 Module Neutrality
+### 2.7 Skill-Scoped Modules
 
-**Principle**: Individual modules are not dependent on a specific persona. The identity of a persona is determined by the combination, weights, and gate design of the pipeline, and the interpretation context of the command and persona documents.
+**Principle**: Each skill owns its modules and pipeline. Modules within a skill may be tailored to that skill's methodology — there is no requirement for cross-skill neutrality. Shared modules (used by multiple skills) are duplicated into each skill for independence; divergence between copies is acceptable when it serves different analytical needs.
 
-**Reason for Introduction**: If the interpretation logic of a specific persona is hardcoded into a module, it cannot be reused in other pipelines, and the number of modules increases unnecessarily. Interpretation is handled by higher layers (commands/pipelines), keeping modules as neutral tools.
+**Reason for Introduction**: The previous "Module Neutrality" principle required all modules to be persona-agnostic, creating overhead when a module's output needed persona-specific transformation in the pipeline. With self-contained skills, each expert's modules can be optimized for their specific methodology without concern for cross-persona compatibility.
 
 ### 2.8 Self-Documenting Output (2-Layer Trust Model)
 
@@ -100,24 +100,21 @@ Two layers provide information to the agent, each with a distinct role and zero 
 ## 3. Architectural Hierarchy
 
 ```
-Command (.md) — Agent Persona + Execution Protocol
-  ↓ loads
-SKILL.md — Function Catalog (Level 1 Discovery)
+SKILL.md — Agent Persona + Execution Protocol + Function Catalog
   ↓ references
-Persona Files — Detailed Methodology Documents (Selectively Loaded)
+Reference Files — Detailed Methodology Documents (Selectively Loaded)
   ↓ executes
-Pipeline Scripts — Facade Orchestrators (Dedicated per Persona)
+Pipeline Scripts — Facade Orchestrators (Dedicated per Expert)
   ↓ calls
-Module Scripts — Atomic Analysis Functions (~112)
+Module Scripts — Atomic Analysis Functions (Skill-Scoped)
 ```
 
 **Load Timing and Conditions:**
 
 | Hierarchy | Load Timing | Condition |
 |-----------|-------------|-----------|
-| Command | When the user invokes the command | Always |
-| SKILL.md | Before the Command executes analysis | Always |
-| Persona Files | When in-depth methodology is needed | Selectively, based on Query Classification |
+| SKILL.md | When the user invokes the skill (e.g., `/Serenity`) | Always |
+| Reference Files | When in-depth methodology is needed | Selectively, based on Query Classification |
 | Pipeline Scripts | When executing analysis | Always (Pipeline-Complete Principle) |
 | Module Scripts | Orchestrated by the pipeline | Exclusively called within pipelines; pipelines must contain all methodology-required module calls |
 
@@ -125,27 +122,23 @@ Module Scripts — Atomic Analysis Functions (~112)
 
 ## 4. Component Guide
 
-Refer to existing implementations as structural templates. Serenity is the most complete reference (command, 3 persona files, pipeline package with 14 modules).
+Refer to existing implementations as structural templates. Serenity is the most complete reference (SKILL.md, 3 reference files, pipeline with 9 modules + 25 analysis modules).
 
-### 4.1 Command (.md)
+### 4.1 SKILL.md
 
-**Location**: `commands/`
-**Role**: Defines the agent's identity, analysis protocol, and query classification system. It defines "what to analyze and how to interpret it," but does not define "which code to call and how." Refer to existing commands (e.g., `commands/Serenity.md`) for structural patterns.
+**Location**: `skills/{ExpertName}/SKILL.md`
+**Role**: The single entry point for each expert. Defines the agent's identity, analysis protocol, query classification, pipeline interface, function catalog, and execution environment. When the user invokes `/ExpertName`, SKILL.md is loaded automatically.
 
 **Key constraints:**
-- **Pipeline Interface**: Pipeline subcommand names and basic usage may be specified in command files, since pipeline interfaces are stable and rarely change. Individual module interfaces (argument formats, return structures) must NOT be specified — discover them at runtime via `extract_docstring.py`.
-- **Output Field Name References**: Command files may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria) since these are direct pipeline-to-agent action mappings. However, do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
-- **Path Clarity**: All file path references must use `{skill_dir}/` as the explicit base path. When the agent loads a skill via `Skill()`, it receives the skill directory path. Reference persona files, pipeline scripts, and other resources as `{skill_dir}/path/to/file` so the agent can resolve paths unambiguously. Avoid vague references like "relative to skill root" or bare filenames without directory context.
+- **Pipeline Interface**: Pipeline subcommand names and usage are documented directly in SKILL.md (stable, few subcommands).
+- **Output Field Name References**: SKILL.md may reference specific JSON output field names in orchestration rules (e.g., Investigation Triggers, Evidence Sufficiency Criteria). Do not include score calculation methodology — the JSON output's self-documenting fields handle this (§2.8).
+- **Path Clarity**: All file path references must use `{skill_dir}/` as the explicit base path. Reference files, pipeline scripts, and modules as `{skill_dir}/path/to/file` so the agent can resolve paths unambiguously.
+- **Environment Bootstrap**: Include venv setup instructions and execution patterns (`$VENV`, `$SCRIPTS` variables).
 
-### 4.2 SKILL.md
+### 4.2 Reference Files
 
-**Location**: `skills/MarketData/SKILL.md`
-**Role**: The Level 1 catalog for all scripts. The entry point for Progressive Disclosure. Always register new modules/pipelines in the catalog. Do not list subcommand names — discover them via Level 2 (`extract_docstring.py`).
-
-### 4.3 Persona Files
-
-**Location**: `skills/MarketData/Personas/{Name}/`
-**Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Defines "how to interpret," but is not dependent on specific code implementations. Refer to existing personas (e.g., `Personas/Serenity/`) for structural patterns.
+**Location**: `skills/{ExpertName}/References/`
+**Role**: Provides the expert's specific methodology, interpretation framework, and decision-making criteria. Defines "how to interpret," but is not dependent on specific code implementations. Refer to existing references (e.g., `skills/Serenity/References/`) for structural patterns.
 
 **Core Principle**: Extract the expert's **transferable methodology** (knowledge, know-how, decision-making framework) and apply it to current and future analysis. It is not for archiving past analysis records.
 
@@ -170,39 +163,30 @@ Refer to existing implementations as structural templates. Serenity is the most 
 **Structural Rules** (what persona files should NOT contain):
 
 - **Methodology Only, Not Calculation Methods**: Describe WHY and HOW to think, not HOW scores are computed. Do not duplicate calculation methodology or threshold values — the JSON output's `thresholds` fields provide this (§2.8). Reference concepts (e.g., "debt quality") without referencing specific JSON field names (e.g., `debt_quality_grade`).
-- Must map to the Command's Query Classification.
+- Must map to the SKILL.md's Query Classification.
 - Avoid specifying interface details — creates synchronization burden when code changes.
 - Avoid over-generalization — preserve the unique perspective of the specific expert.
 
-### 4.4 Pipeline Scripts
+### 4.3 Pipeline Scripts
 
-**Location**: `scripts/pipelines/`
+**Location**: `skills/{ExpertName}/Scripts/pipelines/{name}/`
 **Role**: Facade pattern — executes multiple modules in parallel for persona-specific analysis. Refer to existing pipelines for structural patterns.
 
 **[HARD] Pre-verification of Module Interfaces:**
 
-When writing or modifying pipeline code, you must exhaustively verify the actual interfaces of all modules to be called using `extract_docstring.py` before writing the code — subcommand names, argument formats, return structures, and execution method. Writing calling code based on guesswork is **strictly prohibited**. If even one interface detail is incorrect, the module call will fail and fall into `missing_components`.
+When writing or modifying pipeline code, you must verify the actual interfaces of all modules to be called — subcommand names, argument formats, return structures, and execution method. Read the module's docstring to confirm. Writing calling code based on guesswork is **strictly prohibited**. If even one interface detail is incorrect, the module call will fail and fall into `missing_components`.
 
 **Self-Documenting Composite Scores (§2.8)**: When the pipeline computes composite scores by aggregating multiple inputs, the output must include `thresholds` or equivalent fields that reveal component weights and grade boundaries.
 
-### 4.5 Module Scripts
+### 4.4 Module Scripts
 
-**Location**: `scripts/` (excluding pipelines)
-**Role**: Atomic functions focusing on a single analysis concern (~112 modules). Refer to existing modules for structural patterns (`@safe_run` decorator, `utils.output_json()`, top-level docstring).
+**Location**: `skills/{ExpertName}/Scripts/` (organized by category: `technical/`, `analysis/`, `data_sources/`, etc.)
+**Role**: Atomic functions focusing on a single analysis concern. Refer to existing modules for structural patterns (`@safe_run` decorator, `utils.output_json()`, top-level docstring).
 
 **Key constraints:**
-- **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap. When writing a new module, check for overlap with existing modules.
-- **Docstring Concentration**: `extract_docstring.py` extracts only the module-level docstring via `ast.get_docstring()`. All interface information must be in that single block.
-- **Self-Documenting Output (§2.8)**: Computed scores must include `thresholds` fields. Keep `interpretation` persona-neutral to comply with Module Neutrality (§2.7).
-
-### 4.6 Docstring & extract_docstring.py
-
-**Location**: `tools/extract_docstring.py`
-**Role**: Level 2 Discovery — the core mechanism of Single Source of Truth. The agent extracts the latest interface information directly from code docstrings instead of maintaining it in separate files.
-
-- Do not read Python files directly; always use `extract_docstring.py`.
-- Maximum of 5 scripts per call.
-- Adhere to `docstring_guidelines.md` specifications.
+- **Single Responsibility Principle (SRP)**: Maintain clear boundaries without functional overlap. When writing a new module, check for overlap with existing modules within the same skill.
+- **Self-Documenting Output (§2.8)**: Computed scores must include `thresholds` fields.
+- **Skill-Scoped (§2.7)**: Modules may be tailored to the skill's methodology. Cross-skill reuse is via duplication, not shared references.
 
 ---
 
@@ -210,15 +194,15 @@ When writing or modifying pipeline code, you must exhaustively verify the actual
 
 The following anti-patterns are **not derivable from §2 principles or existing examples** — they represent non-obvious failure modes learned from experience.
 
-- **Duplicating calculation methodology in persona documents** — If code computes a score with specific thresholds and the persona document also describes those thresholds, two risks emerge: (1) stale documents when code changes; (2) LLM confusion about whether to recalculate or use pre-computed values. Persona documents focus on when to QUESTION scores, not how they were calculated.
+- **Duplicating calculation methodology in reference documents** — If code computes a score with specific thresholds and the reference document also describes those thresholds, two risks emerge: (1) stale documents when code changes; (2) LLM confusion about whether to recalculate or use pre-computed values. Reference documents focus on when to QUESTION scores, not how they were calculated.
 
-- **Referencing specific JSON field names in persona documents** (e.g., "check `sbc_flag`", "if `debt_quality_grade` is D") — Creates synchronization burden when field names change. Use methodology concepts instead (e.g., "evaluate stock-based compensation health"). Exception: Command files may reference field names in orchestration rules.
+- **Referencing specific JSON field names in reference documents** (e.g., "check `sbc_flag`", "if `debt_quality_grade` is D") — Creates synchronization burden when field names change. Use methodology concepts instead (e.g., "evaluate stock-based compensation health"). Exception: SKILL.md may reference field names in orchestration rules.
 
 - **Fabricating precise thresholds when the expert uses qualitative judgment** — Creates false precision. Writing "demand/supply ratio >= 2:1" when the expert evaluates "demand visibly outstripping supply" invents a number the expert never used. Express qualitative judgments qualitatively.
 
 - **Including specific ticker/price/date examples as anchors** — Creates anchoring bias. The agent pattern-matches to examples rather than reasoning from principles. Past cases are acceptable only as few-shot demonstrations of the REASONING PROCESS.
 
-- **Changing module output structure without checking consuming pipelines** — This is the most dangerous change. All pipelines parsing that module's output will break. Identify all consumers first. Prioritize adding new keys over deleting existing ones.
+- **Changing module output structure without checking the consuming pipeline** — The pipeline parsing that module's output will break. Check all call sites within the pipeline first. Prioritize adding new keys over deleting existing ones.
 
 - **Using pipeline outputs by cutting with head/tail** — Leads to incorrect judgments from partial data. Pipeline outputs are already designed with context efficiency in mind.
 
@@ -226,19 +210,34 @@ The following anti-patterns are **not derivable from §2 principles or existing 
 
 ## 6. Guide to Adding a New Expert
 
-Follow the existing implementation pattern. Reference: Serenity (most complete — command, 3 persona files, pipeline package with 14 modules).
+Follow the existing implementation pattern. Reference: Serenity (most complete — SKILL.md, 3 reference files, pipeline with 9 helper modules + 25 analysis modules).
 
-**Steps**: (1) Extract transferable methodology from source material → (2) Write persona files → (3) Check module coverage, create if needed → (4) Write pipeline → (5) Write command → (6) Register in SKILL.md → (7) Plugin checklist (CHANGELOG.db, plugin.json, marketplace.json, README.md).
+**Steps**: (1) Extract transferable methodology from source material → (2) Write reference files → (3) Copy needed modules from existing skills or create new ones → (4) Write pipeline → (5) Write SKILL.md (persona + protocol + catalog) → (6) Plugin checklist (CHANGELOG.db, plugin.json, marketplace.json, README.md).
 
-**Key constraints not visible from examples:**
-- **[HARD]** Verify ALL module interfaces via `extract_docstring.py` before writing pipeline code
-- New modules must be persona-neutral (§2.7) with `@safe_run` decorator and top-level docstring
-- Register new modules in `SKILL.md` catalog
+**Skill directory structure:**
+```
+skills/{ExpertName}/
+├── SKILL.md              (identity + protocol + catalog + environment)
+├── References/           (methodology documents)
+└── Scripts/
+    ├── requirements.txt
+    ├── utils.py
+    ├── pipelines/
+    │   └── {name}/       (pipeline code)
+    ├── technical/        (analysis modules)
+    ├── analysis/
+    └── ...
+```
+
+**Key constraints:**
+- **[HARD]** Verify ALL module interfaces before writing pipeline code
+- New modules use `@safe_run` decorator and top-level docstring
+- Each skill is self-contained — no cross-skill imports or shared module references
 
 ---
 
 ## 7. Modification Guide
 
-- **Modifying pipelines**: Update the top-level docstring whenever subcommands change — `extract_docstring.py` is the only interface documentation. Verify module interfaces before calling new modules.
-- **Changing module output structure (most dangerous change)**: Identify ALL consuming pipelines and update their parsing logic. Prioritize adding new keys over deleting existing ones.
-- **Modifying commands/persona files**: Verify mapping with Query Classification and persona files when changing workflows.
+- **Modifying pipelines**: Update the SKILL.md's pipeline documentation whenever subcommands change. Verify module interfaces before calling new modules.
+- **Changing module output structure (most dangerous change)**: Identify ALL call sites within the pipeline and update their parsing logic. Prioritize adding new keys over deleting existing ones.
+- **Modifying SKILL.md/reference files**: Verify mapping with Query Classification and reference files when changing workflows.
