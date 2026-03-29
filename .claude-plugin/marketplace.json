@@ -7,23 +7,21 @@
   },
   "metadata": {
     "description": "월스트릿의 독목 - 금융 시장 분석 플러그인",
-    "version": "8.0.0"
+    "version": "9.0.0"
   },
   "plugins": [
     {
       "name": "invest",
       "source": "./.claude",
-      "version": "8.0.0",
+      "version": "9.0.0",
       "description": "Financial market data analysis with independent expert skills (Serenity, Minervini) and Evolve meta-engineering tool",
       "category": "finance",
       "skills": [
         "./.claude/skills/Serenity/SKILL.md",
-        "./.claude/skills/Minervini/SKILL.md",
-        "./.claude/skills/MarketData/SKILL.md"
+        "./.claude/skills/Minervini/SKILL.md"
       ],
       "commands": [
-        "./.claude/commands/Evolve.md",
-        "./.claude/commands/Minervini.md"
+        "./.claude/commands/Evolve.md"
       ]
     }
   ]

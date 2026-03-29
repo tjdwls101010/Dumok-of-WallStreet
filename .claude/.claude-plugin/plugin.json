@@ -1,6 +1,6 @@
 {
   "name": "invest",
-  "version": "8.0.0",
+  "version": "9.0.0",
   "description": "Financial market data analysis plugin with independent expert skills (Serenity, Minervini) and Evolve meta-engineering tool",
   "author": {
     "name": "Seongjin"

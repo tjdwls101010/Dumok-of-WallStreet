@@ -6,7 +6,7 @@
 
 **Claude Code를 월스트릿 전문 애널리스트로 만드는 오픈소스 플러그인**
 
-[![Version](https://img.shields.io/badge/version-8.0.0-green?style=flat-square)](CHANGELOG.db)
+[![Version](https://img.shields.io/badge/version-9.0.0-green?style=flat-square)](CHANGELOG.db)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-Plugin-cc785c?style=flat-square)](https://claude.ai/code)
@@ -520,21 +520,20 @@ Dumok-of-WallStreet/
 │   ├── .claude-plugin/
 │   │   └── plugin.json                    # 플러그인 메타데이터 (v8.0.0)
 │   ├── commands/
-│   │   ├── Minervini.md                   # Minervini 커맨드 (스킬 마이그레이션 예정)
 │   │   └── Evolve.md                      # 메타 엔지니어링 도구
 │   └── skills/
 │       ├── Serenity/                      # Serenity 독립 스킬
 │       │   ├── SKILL.md                   # 페르소나 + 프로토콜 + 카탈로그
 │       │   ├── References/                # 공급망 방법론 (3 파일 + DB)
-│       │   └── Scripts/                   # 파이프라인 + 25개 분석 모듈
-│       │       ├── pipelines/serenity/    # 6-Level 파이프라인 (9 모듈)
-│       │       ├── technical/             # RS Ranking
-│       │       ├── analysis/              # 펀더멘탈 (10 모듈)
-│       │       ├── data_sources/          # 데이터 소스 (6 모듈)
-│       │       ├── data_advanced/         # FRED, SEC (5 모듈)
-│       │       └── macro/                 # 매크로 (3 모듈)
-│       ├── Minervini/                     # Minervini 독립 스킬 (마이그레이션 예정)
-│       └── MarketData/                    # 공유 인프라 (Minervini 마이그레이션 후 제거 예정)
+│       │   └── Scripts/
+│       │       ├── pipeline/              # 6-Level 파이프라인 (8 모듈)
+│       │       └── modules/               # 분석 모듈 (26개, flat)
+│       └── Minervini/                     # Minervini 독립 스킬
+│           ├── SKILL.md                   # 페르소나 + 프로토콜 + 카탈로그
+│           ├── References/                # SEPA 방법론 (3 파일)
+│           └── Scripts/
+│               ├── pipeline/              # SEPA 파이프라인 (7 모듈)
+│               └── modules/               # 분석 모듈 (19개, flat)
 ├── .claude-plugin/
 │   └── marketplace.json                   # 마켓플레이스 메타데이터
 ├── Docs/
