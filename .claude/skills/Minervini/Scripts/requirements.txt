@@ -18,5 +18,8 @@ finviz>=2.0.0
 sec-edgar-downloader>=5.0.0
 sec-analyzer>=0.1.0
 
+# RS Rating (IBD-style relative strength)
+ibd-rs-rating
+
 # HTTP requests for CBOE/CFTC direct API
 requests>=2.31.0

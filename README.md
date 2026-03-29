@@ -540,8 +540,7 @@ Dumok-of-WallStreet/
 │   └── Media/                             # 이미지 리소스
 ├── Principles_Design.md                   # 설계 철학 & 아키텍처 가이드
 ├── CLAUDE.md                              # 개발 가이드
-├── CHANGELOG.db                           # 버전 이력 (SQLite)
-└── requirements.txt                       # Python 의존성
+└── CHANGELOG.db                           # 버전 이력 (SQLite)
 ```
 
 ---
