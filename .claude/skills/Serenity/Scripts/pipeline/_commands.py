@@ -279,6 +279,7 @@ def cmd_analyze(args):
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
 		"growth_profile": ("modules/growth.py", ["profile", ticker]),
+		"rs_ranking": ("modules/rs_ranking.py", ["score", ticker]),
 		"sbc_analyzer": ("modules/sbc_analyzer.py", ["get-sbc", ticker]),
 		"forward_pe": ("modules/forward_pe.py", ["calculate", ticker]),
 		"debt_structure": ("modules/debt_structure.py", ["analyze", ticker]),
@@ -545,8 +546,16 @@ def cmd_analyze(args):
 	if dilution_class.get("classification") != "unknown":
 		financial_health["dilution"] = dilution_class
 
-	# Market Structure: institutional_quality + iv_context + short_interest
+	# Market Structure: rs_ranking + institutional_quality + iv_context + short_interest
 	market_structure = {}
+	rs = l4_results.get("rs_ranking") or {}
+	if not rs.get("error"):
+		market_structure["rs_detail"] = {
+			"rs_rating": rs.get("rs_rating"),
+			"unit": "IBD-style percentile rank 0-99 vs all US stocks over 12 months. 99 = strongest",
+			"spy_rs": rs.get("spy_rs"),
+			"history": rs.get("history"),
+		}
 	if not iq.get("error"):
 		iq_clean = {k: v for k, v in iq.items()
 					if k not in ("symbol", "io_interpretation", "error")}
@@ -636,219 +645,3 @@ def cmd_analyze(args):
 	}
 
 	output_json(output)
-
-
-def _extract_discover_metrics(ticker, script_results, si_data):
-	"""Extract 20 discover comparator fields from script results."""
-	info = script_results.get("info", {})
-	rs = script_results.get("rs", {})
-	growth = script_results.get("growth", {})
-	surprise = script_results.get("surprise", {})
-	earnings_dates = script_results.get("earnings_dates", {})
-	fwd_pe = script_results.get("forward_pe", {})
-	no_growth = script_results.get("no_growth", {})
-	sbc = script_results.get("sbc", {})
-	debt = script_results.get("debt", {})
-	iv = script_results.get("iv", {})
-
-	# price_vs_52w_high
-	current = info.get("currentPrice")
-	high52 = info.get("fiftyTwoWeekHigh")
-	price_vs_high = round((current / high52 - 1) * 100, 1) if current and high52 else None
-
-	# eps_growth_pct from growth profile growth rates
-	growth_rates = growth.get("eps_growth_rates", [])
-	eps_growth = growth_rates[0] if growth_rates else None
-
-	# revenue_growth_pct — try growth profile sales first, fallback to forward_pe
-	sales_rates = growth.get("sales_growth_rates", [])
-	rev_growth = sales_rates[0] if sales_rates else fwd_pe.get("revenue_growth_yoy")
-
-	# operating_margin
-	op_margin = info.get("operatingMargins")
-	if isinstance(op_margin, (int, float)):
-		op_margin = round(op_margin * 100, 2) if abs(op_margin) < 1 else round(op_margin, 2)
-
-	# forward_pe
-	fpe = fwd_pe.get("forward_pe_1y")
-
-	# margin_of_safety_pct
-	mos = no_growth.get("margin_of_safety_pct")
-
-	# sbc
-	sbc_pct = sbc.get("sbc_pct_revenue")
-
-	# net_cash
-	cash = debt.get("cash_and_equivalents")
-	total_debt = debt.get("total_debt")
-	net_cash_val = None
-	if isinstance(cash, (int, float)) and isinstance(total_debt, (int, float)):
-		net_cash_val = cash - total_debt
-
-	# consecutive_beats & avg_surprise_pct & avg_er_gap
-	history = surprise.get("history") or surprise.get("surprise_history") or []
-	beats = surprise.get("consecutive_beats")
-	avg_surp = surprise.get("avg_surprise_pct")
-	er_gaps = [h.get("post_er_gap") for h in history if isinstance(h.get("post_er_gap"), (int, float))]
-	avg_gap = round(sum(er_gaps) / len(er_gaps), 2) if er_gaps else None
-
-	# days_to_earnings — find first future date from EPS Estimate keys
-	days_to_er = None
-	if isinstance(earnings_dates, dict) and not earnings_dates.get("error"):
-		eps_est = earnings_dates.get("EPS Estimate", {})
-		if isinstance(eps_est, dict):
-			_now = datetime.now()
-			for date_str in eps_est:
-				try:
-					er_date = datetime.fromisoformat(str(date_str))
-					delta = (er_date.replace(tzinfo=None) - _now).days
-					if delta >= 0:
-						days_to_er = delta
-						break
-				except (ValueError, TypeError):
-					continue
-
-	# dilution_classification from sbc + forward_pe
-	dilution_cls = "unknown"
-	rev_gr = fwd_pe.get("revenue_growth_yoy")
-	sbc_pct_val = sbc.get("sbc_pct_revenue")
-	if isinstance(rev_gr, (int, float)) and isinstance(sbc_pct_val, (int, float)):
-		if rev_gr > 25 and sbc_pct_val < 20:
-			dilution_cls = "growth_dilution"
-		elif rev_gr < 5 and sbc_pct_val > 15:
-			dilution_cls = "value_destruction"
-		elif rev_gr > 15 and sbc_pct_val < 30:
-			dilution_cls = "acceptable"
-		else:
-			dilution_cls = "moderate_concern"
-
-	# debt_quality_grade
-	debt_grade = debt.get("debt_quality_grade")
-
-	return {
-		"ticker": ticker,
-		"industry": info.get("industry"),
-		"market_cap": info.get("marketCap"),
-		"rs_score": rs.get("rs_rating"),
-		"price_vs_52w_high_pct": price_vs_high,
-		"eps_growth_pct": eps_growth,
-		"revenue_growth_pct": rev_growth,
-		"eps_accelerating": growth.get("eps_accelerating"),
-		"operating_margin": op_margin,
-		"forward_pe": fpe,
-		"margin_of_safety_pct": mos,
-		"sbc_pct_revenue": sbc_pct,
-		"net_cash": net_cash_val,
-		"consecutive_beats": beats,
-		"avg_surprise_pct": avg_surp,
-		"avg_er_gap": avg_gap,
-		"days_to_earnings": days_to_er,
-		"iv_rank": iv.get("iv_rank"),
-		"dilution_classification": dilution_cls,
-		"debt_quality_grade": debt_grade,
-	}
-
-
-def _collect_ticker_scripts(ticker):
-	"""Run all discover metric scripts for a single ticker in parallel."""
-	scripts = {
-		"info": ("modules/info.py", [
-			"get-info-fields", ticker,
-			"industry", "marketCap", "currentPrice", "fiftyTwoWeekHigh", "operatingMargins"]),
-		"rs": ("modules/rs_ranking.py", ["score", ticker]),
-		"growth": ("modules/growth.py", ["profile", ticker]),
-		"surprise": ("modules/surprise.py", ["history", ticker]),
-		"earnings_dates": ("modules/actions.py", ["get-earnings-dates", ticker, "--limit", "1"]),
-		"forward_pe": ("modules/forward_pe.py", ["calculate", ticker]),
-		"no_growth": ("modules/no_growth_valuation.py", ["calculate", ticker]),
-		"sbc": ("modules/sbc_analyzer.py", ["get-sbc", ticker]),
-		"debt": ("modules/debt_structure.py", ["analyze", ticker]),
-		"iv": ("modules/iv_context.py", ["analyze", ticker]),
-	}
-	with concurrent.futures.ThreadPoolExecutor(max_workers=len(scripts)) as ex:
-		futs = {k: ex.submit(_run_script, p, a) for k, (p, a) in scripts.items()}
-		return {k: f.result() for k, f in futs.items()}
-
-
-@safe_run
-def cmd_discover(args):
-	"""Candidate Comparator — compare multiple tickers across 22 quantitative metrics.
-
-	Takes a list of ticker symbols and runs key analysis modules on each in
-	parallel, returning a comparison table for the agent to select analyze
-	candidates.
-
-	All 20 fields are computed per ticker:
-	industry, market_cap, rs_score, price_vs_52w_high_pct, eps_growth_pct,
-	revenue_growth_pct, eps_accelerating, operating_margin, forward_pe,
-	margin_of_safety_pct, sbc_pct_revenue, net_cash, consecutive_beats,
-	avg_surprise_pct, avg_er_gap, days_to_earnings, iv_rank,
-	dilution_classification, debt_quality_grade.
-	"""
-	import time
-	start_time = time.time()
-	tickers = args.tickers
-	si_map = {}
-
-	# Run all metric scripts for all tickers in parallel
-	with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(tickers), 10)) as ex:
-		ticker_futs = {t: ex.submit(_collect_ticker_scripts, t) for t in tickers}
-		ticker_results = {t: f.result() for t, f in ticker_futs.items()}
-
-	# Extract 22 fields per ticker
-	candidates = []
-	missing_data = {}
-	for t in tickers:
-		metrics = _extract_discover_metrics(t, ticker_results.get(t, {}), si_map)
-		candidates.append(metrics)
-		# Track missing fields
-		missing = [k for k, v in metrics.items() if v is None and k not in ("industry",)]
-		if missing:
-			missing_data[t] = missing
-
-	elapsed = round(time.time() - start_time, 1)
-
-	output_json({
-		"candidates": candidates,
-		"thresholds": {
-			"rs_score": "0-99, higher = stronger relative performance vs market",
-			"price_vs_52w_high_pct": "0 = at high, -50 = 50% below high",
-			"eps_growth_pct": "latest quarterly EPS YoY %. null = no data",
-			"revenue_growth_pct": "latest quarterly revenue YoY %",
-			"operating_margin": "latest quarter %. negative = unprofitable",
-			"forward_pe": "forward 1Y P/E. null = unprofitable",
-			"margin_of_safety_pct": {
-				"pass": ">20%",
-				"caution": "0-20%",
-				"fail": "<0%",
-			},
-			"sbc_pct_revenue": {
-				"healthy": "<10% of revenue",
-				"warning": "10-30%",
-				"toxic": ">30%",
-			},
-			"net_cash": "cash - total debt. positive = net cash, negative = net debt",
-			"avg_er_gap": "average post-earnings gap %. high surprise + low gap = priced in",
-			"iv_rank": {
-				"compressed": "<25",
-				"elevated": ">75",
-			},
-			"dilution_classification": {
-				"growth_dilution": "rev_growth > 25% + sbc < 20%",
-				"acceptable": "rev_growth > 15% + sbc < 30%",
-				"moderate_concern": "otherwise",
-				"value_destruction": "rev_growth < 5% + sbc > 15%",
-			},
-			"debt_quality_grade": {
-				"A": "implied interest <3%",
-				"B": "3-6%",
-				"C": "6-8%",
-				"D": ">8%",
-			},
-		},
-		"missing_data": missing_data if missing_data else None,
-		"metadata": {
-			"total_candidates": len(candidates),
-			"execution_time_seconds": elapsed,
-		},
-	})

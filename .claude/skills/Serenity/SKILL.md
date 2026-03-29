@@ -94,12 +94,12 @@ Each prohibition traces to a core value:
 
 Priority when ambiguous: A > D > B > C > E
 
-**C vs D Intent Distinction**: C = "투자할 ticker 발견" (discover first). D = "공급망 구조 이해 / 시나리오 탐색" (analyze + WebSearch first).
+**C vs D Intent Distinction**: C = "투자할 ticker 발견" (analyze candidates). D = "공급망 구조 이해 / 시나리오 탐색" (analyze + WebSearch first).
 
 **Type C Sub-routing**:
-- Tickers given → `discover TICKERS` (20-field comparator), then `analyze` selected candidates
-- No ticker, no theme → agent WebSearch to find candidates → `discover TICKERS` → `analyze` selected
-- Theme given → WebSearch → `discover TICKERS` → `analyze` selected
+- Tickers given → `analyze` each (with `--skip-macro` for batch after initial macro call)
+- No ticker, no theme → agent WebSearch to find candidates → `analyze` candidates
+- Theme given → WebSearch → `analyze` candidates
 
 **Type B with position/risk keywords**: Additionally load `methodology.md` for position construction and expression layer.
 
@@ -119,9 +119,9 @@ Chain types sequentially when a query spans multiple intents:
 |------------|-------------------|-----------------|
 | A (Macro) | macro | Regime judgment → position adjustment |
 | B (Stock) | analyze | Control layer interpretation, L2/L3 WebSearch, L6 taxonomy |
-| C (Discovery, tickers given) | `discover TICKERS` | 20-field comparator → select candidates for analyze |
-| C (Discovery, no ticker) | WebSearch → `discover TICKERS` | Find candidates via WebSearch → compare → analyze selected |
-| C (Discovery, thematic) | WebSearch → `discover TICKERS` → `analyze` | Theme research → candidate comparison → deep analysis |
+| C (Discovery, tickers given) | `analyze` x N `--skip-macro` | Deep supply chain analysis per candidate |
+| C (Discovery, no ticker) | WebSearch → `analyze` candidates | Find candidates via WebSearch → deep analysis |
+| C (Discovery, thematic) | WebSearch → `analyze` candidates | Theme research → deep analysis |
 | D (Supply Chain) | analyze | Scenario analysis, 6-Criteria, L3 supply chain comparison |
 | E (Portfolio) | analyze × N `--skip-macro` | Classification, allocation |
 
@@ -239,9 +239,6 @@ $VENV $SCRIPTS/pipeline/__main__.py analyze TICKER
 
 # Skip L1 macro (for batch analysis)
 $VENV $SCRIPTS/pipeline/__main__.py analyze TICKER --skip-macro
-
-# 20-field multi-ticker comparator (2-30 tickers)
-$VENV $SCRIPTS/pipeline/__main__.py discover TICKER1 TICKER2 ...
 ```
 
 All scripts return JSON. Error format: `{"error": "message"}` with exit code 1.
@@ -265,7 +262,6 @@ Never skip a failed script silently, infer values, or substitute WebSearch witho
 | `macro` | L1 macro regime assessment: net liquidity, VIX curve, FedWatch, yield curve, ERP, Fear & Greed, DXY, BDI, inflation expectations → regime classification (risk_on/risk_off/transitional) |
 | `analyze TICKER` | Full 6-level analysis: L1 macro → L2 CapEx flow → L3 SEC supply chain bottleneck → L4 fundamentals (5 health gates) → L5 catalysts → L6 taxonomy + composite signal + control layer |
 | `analyze TICKER --skip-macro` | Same as above but skips L1 macro (for batch analysis after initial macro call) |
-| `discover T1 T2 ...` | 20-field quantitative comparator for 2-30 tickers: RS, growth, margins, valuation, debt, IV, insider, earnings timing |
 
 ### Modules (Called Internally by Pipeline)
 
@@ -278,7 +274,7 @@ These modules are called by the pipeline via subprocess. Listed for reference on
 | **Data (SEC)** | filings, events |
 | **Data Sources** | info, financials, earnings_acceleration, actions, bdi, dxy |
 | **Analysis** | forward_pe, margin_tracker, debt_structure, sbc_analyzer, institutional_quality, iv_context, no_growth_valuation, capex_tracker, analysis, fear_greed |
-| **Technical** | rs_ranking |
+| **Technical** | rs_ranking (IBD-style RS percentile 0-99 with history) |
 
 ## Methodology Quick Reference
 
