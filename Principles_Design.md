@@ -230,7 +230,7 @@ The following anti-patterns are **not derivable from §2 principles or existing 
 
 Follow the existing implementation pattern. Reference: Serenity (most complete — SKILL.md, 3 reference files, pipeline with 9 helper modules + 25 analysis modules).
 
-**Steps**: (1) Extract transferable methodology from source material → (2) Write reference files → (3) Copy needed modules from existing skills or create new ones → (4) Write pipeline → (5) Write SKILL.md (persona + protocol + catalog) → (6) Plugin checklist (CHANGELOG.db, plugin.json, marketplace.json, README.md).
+**Steps**: (1) Extract transferable methodology from source material → (2) Write reference files → (3) Copy needed modules from existing skills or create new ones → (4) Write pipeline → (5) Write SKILL.md (persona + protocol + catalog) → (6) Plugin checklist (plugin.json, marketplace.json, README.md).
 
 **Skill directory structure:**
 ```
