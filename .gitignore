@@ -18,3 +18,7 @@ node_modules/
 
 # Legacy directory (not tracked in git)
 Legacy/
+
+# MemPalace
+entities.json
+mempalace.yaml
