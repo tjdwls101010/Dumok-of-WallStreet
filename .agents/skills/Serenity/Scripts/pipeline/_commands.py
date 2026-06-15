@@ -7,7 +7,7 @@ from utils import output_json, safe_run
 
 from ._runner import _run_script
 from ._health import _extract_health_gates, _build_readiness_codes
-from ._bottleneck import _build_l3_bottleneck, _label_supplier_geography, _assess_data_coverage
+from ._bottleneck import _build_l3_bottleneck
 from ._postprocess import (
 	_merge_earnings, _clean_analyst_revisions,
 )
@@ -22,15 +22,10 @@ from ._signals import (
 	_classify_dilution,
 )
 
-_SC_CATEGORIES = (
-	"supply_entities", "demand_entities", "geographic_exposure",
-	"operational_risks", "purchase_obligations",
-	"market_risk_disclosures", "inventory_composition",
-)
-
-
 def _extract_sec_supply_chain(ticker):
-	"""Extract supply chain via sec-analyzer library + post-processing."""
+	"""Extract the enum-first supply-chain classification via sec-analyzer,
+	supplemented with deterministic XBRL quantities (purchase obligations,
+	geographic revenue, inventory, customer concentration)."""
 	try:
 		import os
 		from dotenv import load_dotenv
@@ -38,43 +33,49 @@ def _extract_sec_supply_chain(ticker):
 			os.path.dirname(os.path.abspath(__file__))))), ".env")
 		load_dotenv(_env)
 		from sec_analyzer import extract as _sec_extract
-		from pipeline._bottleneck import SupplyChain as _SCPreset
+		from pipeline._bottleneck import SerenitySupplyChain as _SCPreset
 		result = _sec_extract(ticker, preset=_SCPreset)
 	except Exception as e:
 		import sys
 		print(f"[sec-analyzer] extraction failed: {e}", file=sys.stderr)
 		return {"error": f"sec-analyzer extraction failed: {e}"}
 
-	raw_data = result.get("data", {})
-	filing = result.get("filing", {})
+	classification = result.get("data", {}) or {}
+	filing = result.get("filing", {}) or {}
 
-	_META = {"source_section": "llm_extraction", "confidence": "high"}
-	supply_chain = {}
-	entities = set()
-	for cat in _SC_CATEGORIES:
-		entries = []
-		for e in raw_data.get(cat, []):
-			entries.append({**e, **_META})
-			for f in ("entity", "supplier", "counterparty"):
-				if e.get(f):
-					entities.add(e[f])
-		supply_chain[cat] = entries
+	# Deterministic XBRL supplement (optional — never required; failure is silent).
+	xbrl = {}
+	try:
+		from sec_analyzer import extract_xbrl as _sec_xbrl
+		xres = _sec_xbrl(ticker, form=filing.get("form", "10-K"))
+		if xres and xres.get("xbrl_available"):
+			xbrl = xres.get("data", {}) or {}
+	except Exception as e:
+		import sys
+		print(f"[sec-analyzer] XBRL supplement failed: {e}", file=sys.stderr)
 
-	total = sum(len(v) for v in supply_chain.values())
-
-	_label_supplier_geography(supply_chain)
-	data_coverage = _assess_data_coverage(supply_chain)
+	# Graded signal count (drives _health.py SEC_SC_available/partial). Counts
+	# only enums that carry positive signal — 'unknown'/'not_applicable'/
+	# 'undisclosed' are non-signals.
+	signal = 0
+	for k in ("input_dependency", "customer_concentration", "geographic_risk", "designed_out_exposure"):
+		v = classification.get(k)
+		if v and v not in ("unknown", "not_applicable", "undisclosed"):
+			signal += 1
+	if classification.get("capacity_constrained"):
+		signal += 1
+	if classification.get("critical_input"):
+		signal += 1
 
 	return {
 		"data": {
 			"filing": filing,
-			"supply_chain": supply_chain,
+			"classification": classification,
+			"xbrl": xbrl,
 			"extraction_stats": {
-				"total_matches": total,
-				"unique_entities": len(entities),
-				"mode": "llm",
+				"total_matches": signal,
+				"mode": "llm_enum",
 			},
-			"data_coverage": data_coverage,
 		},
 		"metadata": {"symbol": ticker, "form": filing.get("form", "10-K")},
 	}

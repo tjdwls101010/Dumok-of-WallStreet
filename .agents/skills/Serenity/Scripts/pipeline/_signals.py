@@ -284,6 +284,11 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 
 	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else {}
 	bn_ps = bn.get("pre_score") if isinstance(bn.get("pre_score"), (int, float)) else 0.0
+	# Route the sector-gated rule on the STABLE assessment bucket, not the
+	# knife-edge raw score: enum extraction can drift a physical name's raw
+	# pre_score across the 2.0 line run-to-run (a judgment enum flips) while
+	# the bucket stays "partial" — bucketing keeps the taxonomy reproducible.
+	bn_assessment = bn.get("assessment")
 
 	BOTTLENECK_KW = ("semiconductor", "materials", "chemical", "metals", "mining",
 		"rare earth", "substrate", "wafer", "optical", "photonic",
@@ -305,9 +310,9 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 		confidence = "high" if bn_ps >= 3.5 else "medium"
 	else:
 		bk = hit(BOTTLENECK_KW, text_cls)
-		if bk and bn_ps >= 2.0:
+		if bk and bn_assessment in ("strong", "partial"):
 			classification = "bottleneck"
-			evidence.append(f"physical-goods sector ('{bk}') + bottleneck_pre_score {bn_ps} >= 2.0")
+			evidence.append(f"physical-goods sector ('{bk}') + bottleneck assessment '{bn_assessment}' (>= partial)")
 			confidence = "medium"
 
 	# Rule 2 - Disruption (profit-pool/financial attacker), size-independent.

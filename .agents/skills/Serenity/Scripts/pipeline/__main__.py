@@ -10,13 +10,15 @@ parallel. Pipeline-Complete — all methodology-required module calls are contai
 within the pipeline; do not call individual modules to supplement.
 
 L1 macro includes BDI/DXY/real rates always-on; L2 includes hyperscaler CapEx
-bridge signal; L3 includes SEC supply chain pre-extraction with 6-Criteria
-pre-scoring, absence evidence flags, and sole_western_flag; L4 includes
+bridge signal; L3 includes an enum-first SEC supply-chain classification
+(XBRL-supplemented) with 5-criteria bottleneck pre-scoring, business-model
+gating, absence evidence flags, and sole_western_flag; L4 includes
 health gate severity spectrum (PASS/CAUTION/FLAG) with 5 gates (bear_bull,
 dilution, no_growth, margin, io_quality), thesis validation signals, SoP
 trigger detection, and trapped asset override; L6 includes rule-based
 auto-classification. Composite signal generation produces integrated
-investment grades with position sizing guidance. Valuation summary includes
+investment grades (discovery/evaluation triage — no position sizing).
+Valuation summary includes
 dual_valuation (no-growth floor + growth upside).
 
 Control layer outputs (analyze): materiality_signals (supply chain exposure,
@@ -107,13 +109,14 @@ Returns:
 		90d_ago,low,high,yoy_pct,up_7d,down_7d,up_30d,down_30d} and
 		revenue{avg,low,high,yoy_pct} sub-objects per horizon 0q/+1q/0y/+1y,
 		trend_direction, net_revisions_7d/30d).
-		L3_bottleneck: sec_supply_chain (suppliers, customers,
-		single_source_dependencies, geographic_concentration,
-		capacity_constraints, supply_chain_risks — trimmed for context),
+		L3_bottleneck: sec_supply_chain.classification (enum-first verdict:
+		business_model, input_dependency, customer_concentration, pricing_posture,
+		geographic_risk, designed_out_exposure, regulatory_posture,
+		capacity_constrained + named inputs/suppliers/customers), xbrl
+		(deterministic geographic_revenue/purchase_obligations/inventory),
 		sec_events (recent 8-K supply chain events),
-		sec_status (SEC_SC_available/partial/unavailable),
-		absence_evidence_flags (list of absence type signals),
-		bottleneck_pre_score.sole_western_flag (bool).
+		bottleneck_pre_score (5-criteria, business-model gated, sole_western_flag),
+		absence_evidence_flags (list of absence/presence type signals).
 		L2: cascade_requires_context (agent-driven). L6: requires_llm.
 
 	For discover:

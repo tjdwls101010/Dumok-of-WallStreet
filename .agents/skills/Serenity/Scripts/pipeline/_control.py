@@ -13,27 +13,26 @@ def _build_materiality_signals(l3_data, l4_results, l5_results):
 	l4 = l4_results or {}
 	info = l4.get("info") or {}
 
-	# 1. Supply Chain Materiality (from L3 — fixed to traverse correct path)
+	# 1. Supply Chain Materiality (from the L3 enum classification). Reads the
+	# stable enums directly — a non-physical model is materiality "noise" by
+	# construction; a sole/critical input, controlled-region geography, or captive
+	# customer is "material".
 	l3 = l3_data or {}
 	l3_inner = l3.get("data") or {}
 	sec_sc = l3_inner.get("sec_supply_chain") or {}
-	supply_chain = sec_sc.get("supply_chain") or {}
-	supply_ents = supply_chain.get("supply_entities") or []
-	demand_ents = supply_chain.get("demand_entities") or []
-	geo_exp = supply_chain.get("geographic_exposure") or []
-	op_risks = supply_chain.get("operational_risks") or []
+	cls = sec_sc.get("classification") or {}
 
-	has_sec_data = sec_sc is not None and bool(supply_chain)
+	bm = cls.get("business_model")
+	is_physical = bm in ("physical_goods", "resource_extraction")
+	inp = cls.get("input_dependency")
+	geo = cls.get("geographic_risk")
+	cust = cls.get("customer_concentration")
 
-	# supply_disruption entries with sole/primary language act as SSD proxy
-	import re
-	_sole_pat = re.compile(r"sole|primary|only|exclusive|single.?source", re.IGNORECASE)
-	ssd_proxy = [r for r in op_risks if r.get("type") == "supply_disruption"
-		and _sole_pat.search((r.get("risk", "") or "") + " " + (r.get("context", "") or ""))]
-
-	if len(ssd_proxy) >= 2 or len(geo_exp) >= 4:
+	if not cls or not is_physical:
+		supply_chain_verdict = "noise"
+	elif inp == "sole_source_critical" or geo in ("mfg_in_controlled_region", "sources_from_controlled_region") or cust == "captive":
 		supply_chain_verdict = "material"
-	elif len(ssd_proxy) >= 1 or len(supply_ents) >= 3:
+	elif inp == "concentrated" or cust == "concentrated":
 		supply_chain_verdict = "partial"
 	else:
 		supply_chain_verdict = "noise"
