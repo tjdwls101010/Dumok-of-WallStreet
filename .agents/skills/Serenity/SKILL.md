@@ -167,7 +167,14 @@ All output is JSON. **Never** pipe through `head`/`tail`/truncation — capture 
 
 If any gap remains: disclose it, drop conviction one tier, flag as a monitoring item.
 
-Then pattern-match the thesis against `References/gotchas.md` — if it rhymes with a known trap (a deduced link sized as confirmed, a float-driven IPO move, a screen built on bad data), name the trap and address it before you commit.
+### Gotchas — pattern-match before you finalize
+Traps paid for in real losses; if a thesis rhymes with one, name the trap and address it before you commit. (These are *patterns*, not verdicts on the names they came from — evaluate every name fresh. Add a line whenever a call goes wrong; this list earns its keep by growing.)
+- **DEDUCED ≠ CONFIRMED** — a supplier link deduced from materials physics *feels* like fact but can be the wrong vendor (the real one shows up, confirmed, at a trade show); an "unnamed leading customer" you pin to a specific buyer is often simply not that buyer. Confirm via filing / press / conference before you size conviction on a deduced link.
+- **Limited-float round-trip** — within ~6–12mo of IPO/SPAC, price tracks *tradable* float, not fundamentals: a name can run 7× on ~1% of float actually trading, then collapse to the IPO price on unlock. A post-unlock drop is mechanical, not a fear-dip.
+- **Tax-harvest timing** — a Nov dip in a down-YTD quality name is partly harvest selling that persists through November; wait for December, don't read it as a clean fear-dip.
+- **Data-error mispricing** — "prove the math" assumes the reported numbers are real; a ticker-collision / stale / mis-tagged figure (a balance sheet showing −$82M cash when the truth is +$93M net) is itself the mispricing — verify the actual filing.
+- **Prototype ≠ production** — a demo-stage qualification reads like a production win but routinely dies at the mass-production cost-down; judge a supplier by where it sits *inside the customer's program* (prototype vs production-at-scale), and watch OEM/CES disclosures for a second source.
+- **Mis-classified character** — you inherit a name's volatility/stage from its category label; a "safe compounder" can move 17% in a day. Read cycle stage from the name's own evidence, not the archetype you filed it under.
 
 ---
 
@@ -179,7 +186,6 @@ Load progressively (paths relative to `{skill_dir}`).
 |------|-------|----------|
 | `References/analysis.md` | The full funnel depth: three archetypes → **Discover** (toolkit, tracing) → **Winner-gates** (chokepoint≠winner) → valuation → **Cycle stage** (how early/de-risked) → **Fear-vs-fundamental** entry → expression → 9 kill signals → conviction dynamics | B, C, D, E |
 | `References/macro_and_catalyst.md` | Regime + CapEx cascade + catalyst hierarchy + macro→micro pathways + geopolitics | A, D (+ B overlay via BRA) |
-| `References/gotchas.md` | Traps paid for in real losses — DEDUCED≠CONFIRMED · limited-float round-trip · tax-harvest timing · data-error mispricing · prototype≠production · mis-classified character. Pattern-match *before* finalizing | B, C, D (before finalizing a thesis) |
 
 ### Tweet Database (cross-validation only)
 `References/analysis_Serenity.db` (SQLite, table `tweets`) holds real analysis tweets. Read **only when the user explicitly asks** ("실제로 어떻게 봤어", "트윗 DB 확인", "cross-validate"). Never preload. Even then, complete the full pipeline analysis and form your thesis **first** — the DB validates after, it is not a shortcut. When you cite it, prefix *"Serenity tweet DB에서 확인:"*.
