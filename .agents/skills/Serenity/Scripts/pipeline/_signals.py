@@ -244,7 +244,19 @@ def _check_trapped_asset_override(l4_results, bottleneck_pre_score_result, sec_s
 
 
 def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
-	"""Rule-based L6 taxonomy pre-classification."""
+	"""Rule-based L6 taxonomy pre-classification (sector-aware).
+
+	Triage only - the agent reads the business and overrides this (SKILL.md
+	archetype routing). The business model is the strongest tell: size + growth
+	alone cannot separate a stablecoin issuer (Disruption) from a substrate maker
+	(Bottleneck). Priority: a score-backed physical chokepoint (Bottleneck) > a
+	profit-pool/financial attacker (Disruption) > a new-category step-change or
+	large-growth residual (Evolution). Keywords are deliberately narrow and the
+	Bottleneck set matches the SECTOR+INDUSTRY classification only (not
+	the free-text summary, which names served markets and creates false 'mining'-type
+	hits); Disruption and Evolution also read the description, where signal words like
+	'telehealth'/'drone' live. An ambiguous name falls to the LOW-confidence residual rather than a wrong tag.
+	"""
 	classification = "unclassified"
 	confidence = "low"
 	evidence = []
@@ -262,45 +274,73 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 
 	market_cap = info.get("marketCap")
 	gross_margins = info.get("grossMargins")
-	revenue_growth = forward_pe.get("revenue_growth_yoy")
+	revenue_growth = forward_pe.get("revenue_growth_yoy")  # percent, e.g. 40.2 = 40.2%
 	sales_accelerating = earnings_acc.get("sales_accelerating")
+	# Sector+industry is a clean classification; the business summary names served
+	# markets/partners and produces false keyword hits, so only Evolution (whose
+	# signal words like "drone"/"autonomous" live in the description) reads it.
+	text_cls = " ".join(str(info.get(k) or "") for k in ("sector", "industry")).lower()
+	text_all = (text_cls + " " + str(info.get("longBusinessSummary") or "")).lower()
 
-	# Rule 1: Bottleneck
-	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else None
-	if bn:
-		ps = bn.get("pre_score", 0)
-		if isinstance(ps, (int, float)) and ps >= 3.0:
+	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else {}
+	bn_ps = bn.get("pre_score") if isinstance(bn.get("pre_score"), (int, float)) else 0.0
+
+	BOTTLENECK_KW = ("semiconductor", "materials", "chemical", "metals", "mining",
+		"rare earth", "substrate", "wafer", "optical", "photonic",
+		"electronic components", "industrial machinery", "specialty industrial")
+	DISRUPTION_KW = ("financial", "credit services", "capital markets", "bank",
+		"insurance", "asset management", "payment", "fintech", "crypto", "blockchain",
+		"stablecoin", "brokerage", "exchange", "lending", "direct-to-consumer",
+		"telehealth", "health information")
+	EVOLUTION_KW = ("aerospace", "defense", "space", "satellite", "launch", "spacecraft",
+		"robot", "drone", "autonomous", "unmanned", "electric vehicle", "renewable",
+		"solar", "nuclear", "hydrogen", "quantum", "biotechnology", "genomic")
+	def hit(kws, t):
+		return next((k for k in kws if k in t), None)
+
+	# Rule 1 - Bottleneck (physical chokepoint), strongest claim, must be score-backed.
+	if bn_ps >= 3.0:
+		classification = "bottleneck"
+		evidence.append(f"bottleneck_pre_score {bn_ps}/{bn.get('pre_score_max', 4.25)} >= 3.0")
+		confidence = "high" if bn_ps >= 3.5 else "medium"
+	else:
+		bk = hit(BOTTLENECK_KW, text_cls)
+		if bk and bn_ps >= 2.0:
 			classification = "bottleneck"
-			evidence.append(f"bottleneck_pre_score {ps}/{bn.get('pre_score_max', 4.25)} >= 3.0")
-			confidence = "high" if ps >= 3.5 else "medium"
+			evidence.append(f"physical-goods sector ('{bk}') + bottleneck_pre_score {bn_ps} >= 2.0")
+			confidence = "medium"
 
-	# Rule 2: Evolution
-	if classification == "unclassified" and isinstance(market_cap, (int, float)) and market_cap > 10e9:
-		growth_met = False
-		if isinstance(revenue_growth, (int, float)) and revenue_growth > 0.20:
-			growth_met = True
-			evidence.append(f"revenue_growth_yoy {revenue_growth:.2f} > 0.20")
-		if sales_accelerating is True:
-			growth_met = True
-			evidence.append("sales_accelerating")
-		if growth_met:
-			classification = "evolution"
-			evidence.append(f"marketCap {market_cap/1e9:.1f}B > 10B")
-			confidence = "high" if (isinstance(revenue_growth, (int, float)) and revenue_growth > 0.20 and sales_accelerating is True) else "medium"
-
-	# Rule 3: Disruption
-	if classification == "unclassified" and isinstance(market_cap, (int, float)) and market_cap < 10e9:
-		if isinstance(gross_margins, (int, float)) and gross_margins > 0.40 and isinstance(revenue_growth, (int, float)) and revenue_growth > 0.50:
-			classification = "disruption"
-			evidence.append(f"marketCap {market_cap/1e9:.1f}B < 10B, grossMargins {gross_margins:.2f}, revenue_growth {revenue_growth:.2f}")
-			confidence = "high" if gross_margins > 0.60 and revenue_growth > 0.80 else "medium"
-
+	# Rule 2 - Disruption (profit-pool/financial attacker), size-independent.
 	if classification == "unclassified":
-		evidence.append("No rule matched")
+		dk = hit(DISRUPTION_KW, text_all)
+		if dk:
+			classification = "disruption"
+			evidence.append(f"profit-pool/financial sector ('{dk}')")
+			confidence = "high" if (isinstance(gross_margins, (int, float)) and gross_margins > 0.40 and isinstance(revenue_growth, (int, float)) and revenue_growth > 20) else "medium"
+
+	# Rule 3 - Evolution (new-category step-change); reads the description too.
+	if classification == "unclassified":
+		ek = hit(EVOLUTION_KW, text_all)
+		if ek:
+			classification = "evolution"
+			evidence.append(f"step-change category ('{ek}')")
+			confidence = "medium"
+
+	# Residual fallbacks (no clear sector signal) - LOW confidence, agent should override.
+	if classification == "unclassified":
+		if bn_ps >= 2.0:
+			classification = "bottleneck"
+			evidence.append(f"bottleneck_pre_score {bn_ps} >= 2.0 (no sector signal)")
+		elif isinstance(gross_margins, (int, float)) and gross_margins > 0.40 and isinstance(revenue_growth, (int, float)) and revenue_growth > 20:
+			classification = "disruption"
+			evidence.append(f"high margin {gross_margins:.2f} + growth {revenue_growth:.2f} (no sector signal)")
+		elif isinstance(market_cap, (int, float)) and market_cap > 10e9 and ((isinstance(revenue_growth, (int, float)) and revenue_growth > 20) or sales_accelerating is True):
+			classification = "evolution"
+			evidence.append(f"large-cap growth {market_cap/1e9:.1f}B (residual)")
+		else:
+			evidence.append("No rule matched")
 
 	return {"classification": classification, "confidence": confidence, "evidence": evidence}
-
-
 def _parse_days_to_earnings(l5_results):
 	"""Days until the nearest FUTURE earnings date (fallback parser).
 
