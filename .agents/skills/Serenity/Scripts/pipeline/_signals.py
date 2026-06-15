@@ -5,6 +5,9 @@ derivation for the Serenity pipeline."""
 import re
 from datetime import datetime
 
+from ._bottleneck import _build_l3_bottleneck
+from ._health import _extract_health_gates
+
 
 def _build_thesis_signals(l4_results, l5_results):
 	"""Map L4/L5 results to thesis strengthening/weakening signals."""
@@ -90,7 +93,7 @@ def _classify_dilution(l4_results):
 	if isinstance(fpe, dict) and not fpe.get("error"):
 		rg = fpe.get("revenue_growth_yoy")
 		if isinstance(rg, (int, float)):
-			revenue_growth = rg * 100 if rg < 1 else rg  # normalize to percent
+			revenue_growth = rg  # forward_pe.revenue_growth_yoy is already in percent
 
 	# Fallback: check sales growth from growth_profile
 	if revenue_growth is None and isinstance(ea, dict) and not ea.get("error"):
@@ -333,9 +336,9 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 
 	# Residual fallbacks (no clear sector signal) - LOW confidence, agent should override.
 	if classification == "unclassified":
-		if bn_ps >= 2.0:
+		if bn_assessment in ("strong", "partial"):
 			classification = "bottleneck"
-			evidence.append(f"bottleneck_pre_score {bn_ps} >= 2.0 (no sector signal)")
+			evidence.append(f"bottleneck assessment '{bn_assessment}' (>= partial, no sector signal)")
 		elif isinstance(gross_margins, (int, float)) and gross_margins > 0.40 and isinstance(revenue_growth, (int, float)) and revenue_growth > 20:
 			classification = "disruption"
 			evidence.append(f"high margin {gross_margins:.2f} + growth {revenue_growth:.2f} (no sector signal)")
@@ -389,19 +392,27 @@ def _parse_days_to_earnings(l5_results):
 	return min_days
 
 
+# Narrow set: the design-win / qualification / offtake / multi-year supply events
+# that actually move forward revenue. The old set ('customer', 'contract',
+# 'agreement', 'capacity', 'approval'…) fired on almost any routine 8-K, handing a
+# free +7 to names with no real catalyst.
 _SEC_CATALYST_KEYWORDS = re.compile(
-	r"customer|contract|agreement|award|qualif|design[\s-]?win|capacity|"
-	r"expansion|supply|partnership|order|approval|clearance",
+	r"design[\s-]?win|qualif|offtake|multi.?year\s+supply|supply\s+agreement|"
+	r"long.?term\s+(?:supply|purchase)\s+agreement|strategic\s+partnership|capacity\s+expansion",
 	re.IGNORECASE,
 )
+# 8-K item codes for a material definitive agreement (1.01) or its termination (1.02).
+_SEC_CATALYST_ITEMS = ("1.01", "1.02")
 
 
 def _recent_material_sec_catalyst(sec_sc_results):
 	"""Return a material SEC/8-K catalyst type from recent events, else None.
 
-	Broadens 'catalyst' beyond scheduled earnings: a recent design win / supply
-	agreement / qualification / named contract (the catalysts that dominate
-	Serenity's track record) read from the L3 SEC events feed.
+	A real design win / supply agreement / qualification (the catalysts that
+	dominate the track record) — NOT routine 8-K prose. The bar: the event must
+	carry an 8-K material-agreement item code (1.01/1.02) OR match the narrow
+	phrase set above, AND (for a phrase-only match) be flagged medium/high
+	confidence. A bare keyword hit on a boilerplate filing no longer qualifies.
 	"""
 	if not isinstance(sec_sc_results, dict):
 		return None
@@ -414,9 +425,14 @@ def _recent_material_sec_catalyst(sec_sc_results):
 	for ev in events:
 		if not isinstance(ev, dict):
 			continue
-		text = f"{ev.get('event_type', '')} {ev.get('context', '')}"
-		if _SEC_CATALYST_KEYWORDS.search(text):
-			return ev.get("event_type") or "material_sec_event"
+		et = str(ev.get("event_type", ""))
+		conf = str(ev.get("confidence", "")).lower()
+		item_hit = any(et.strip().startswith(code) for code in _SEC_CATALYST_ITEMS)
+		phrase_hit = bool(_SEC_CATALYST_KEYWORDS.search(f"{et} {ev.get('context', '')}"))
+		# An item code is structural enough on its own; a phrase match needs
+		# confidence backing it (item-code events fire even when confidence is absent).
+		if item_hit or (phrase_hit and conf in ("medium", "high")):
+			return et or "material_sec_event"
 	return None
 
 
@@ -468,6 +484,7 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	ac = auto_classification if isinstance(auto_classification, dict) else {}
 	ac_class = ac.get("classification", "unclassified")
 	archetype_adjusted = False
+	moat_proxies = []
 	if ac_class in ("disruption", "evolution") and bn_points < 15.0:
 		rev_growth = fpe.get("revenue_growth_yoy")
 		gross_margins = info_data.get("grossMargins")
@@ -478,6 +495,24 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		if isinstance(gross_margins, (int, float)):
 			arch_pts += 9.0 if gross_margins > 0.60 else 6.0 if gross_margins > 0.40 else 0.0
 		arch_pts += 9.0 if ts_dir_pre == "strengthening" else 4.0 if ts_dir_pre == "neutral" else 0.0
+		# Deterministic moat gate. Growth + margin + a strengthening thesis say a name
+		# is BIG and HOT — not that it owns a durable edge. A Disruption/Evolution name
+		# earns the full 30-pt substitution only if it shows >=1 hard moat proxy from
+		# the SEC enums: a regulatory mandate (the §3 'don't value it like its category'
+		# re-rating lever), a named strategic backstop (the Evolution gate-3), captive
+		# demand, or realized pricing power. Without one, the substitution is capped at
+		# 18 so a moat-less hot story can't reach STRONG_BUY on archetype points alone —
+		# the failure mode being a no-moat 'financial' name printing 100.0/STRONG_BUY.
+		if bn.get("regulatory_posture") == "enabled_by_regulation":
+			moat_proxies.append("regulatory_tailwind")
+		if bn.get("strategic_backstop"):
+			moat_proxies.append("strategic_backstop")
+		if bn.get("customer_concentration") == "captive":
+			moat_proxies.append("captive_demand")
+		if bn.get("pricing_posture") == "raises_prices":
+			moat_proxies.append("realized_pricing")
+		if not moat_proxies:
+			arch_pts = min(arch_pts, 18.0)
 		arch_pts = min(arch_pts, 30.0)
 		if arch_pts > bn_points:
 			bn_points = arch_pts
@@ -485,6 +520,7 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	score_breakdown["bottleneck"] = {
 		"raw": bn_raw if bn else None, "max": bn_max, "points": round(bn_points, 2),
 		"archetype_substituted": archetype_adjusted, "archetype": ac_class,
+		"moat_proxies": moat_proxies,
 	}
 	total_score += bn_points
 
@@ -631,4 +667,44 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		"sop_triggered": False,
 		"trapped_asset_eligible": trapped_override_applied,
 		"regime_cap_applied": regime_cap_applied,
+	}
+
+
+def derive_core_signals(l1_result, l4_results, l5_results, sec_sc_results):
+	"""Run the deterministic scoring layer on already-gathered pipeline inputs.
+
+	This is the SINGLE source of truth for how raw L1/L4/L5/SEC results become
+	the L3 bottleneck score, health gates, thesis signals, taxonomy, trapped-asset
+	override, and the composite grade. cmd_analyze calls it on live results; the
+	golden regression harness calls it on FROZEN results so a scoring-logic change
+	is tested deterministically — free of live-data drift and LLM-extraction noise,
+	the two things that would otherwise masquerade as a regression.
+
+	Keep it network-free: same inputs must always yield the same output. (That is
+	why cmd_analyze's S-3 dilution lookup lives OUTSIDE this function — it hits the
+	network and only enriches output, never the score.)
+	"""
+	l3_data = _build_l3_bottleneck(sec_sc_results)
+	bottleneck_pre_score = l3_data.get("bottleneck_pre_score")
+	health_gates = _extract_health_gates(l4_results)
+	thesis_signals = _build_thesis_signals(l4_results, l5_results)
+	sop_triggers = _check_sop_triggers(l4_results)
+	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score, sec_sc_results)
+	auto_classification = _auto_classify_taxonomy(l4_results, bottleneck_pre_score)
+	composite_signal = _generate_composite_signal(
+		l1_result, l4_results, l5_results,
+		health_gates.get("severity_score"),
+		bottleneck_pre_score, thesis_signals,
+		auto_classification, trapped_asset_override,
+		sec_sc_results,
+	)
+	return {
+		"l3_data": l3_data,
+		"bottleneck_pre_score": bottleneck_pre_score,
+		"health_gates": health_gates,
+		"thesis_signals": thesis_signals,
+		"sop_triggers": sop_triggers,
+		"trapped_asset_override": trapped_asset_override,
+		"auto_classification": auto_classification,
+		"composite_signal": composite_signal,
 	}

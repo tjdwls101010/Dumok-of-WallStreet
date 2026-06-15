@@ -1,0 +1,26 @@
+{
+  "ticker": "SSYS",
+  "role": "loser",
+  "note": "legacy 3D printing, prototype-not-production \u2014 must stay <= HOLD",
+  "captured_at": "2026-06-15",
+  "hard": {
+    "l6_classification": "bottleneck",
+    "business_model": "physical_goods",
+    "l3_assessment": "partial",
+    "revenue_status": "has_revenue",
+    "score_breakdown_keys": [
+      "bottleneck",
+      "catalyst",
+      "health",
+      "taxonomy",
+      "thesis",
+      "valuation"
+    ]
+  },
+  "baseline": {
+    "grade": "ACCUMULATE",
+    "composite_score": 56.24,
+    "l3_pre_score": 2.3
+  },
+  "ceiling": "HOLD"
+}

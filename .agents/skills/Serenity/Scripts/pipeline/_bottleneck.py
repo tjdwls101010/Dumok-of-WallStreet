@@ -164,6 +164,8 @@ def _pre_score_bottleneck(classification, xbrl=None, filing=None):
 	geo = classification.get("geographic_risk")
 	designed_out = classification.get("designed_out_exposure")
 	capacity = bool(classification.get("capacity_constrained"))
+	regulatory = classification.get("regulatory_posture")
+	backstop = (classification.get("strategic_backstop") or "").strip()
 
 	xbrl = xbrl if isinstance(xbrl, dict) else {}
 	criteria = {}
@@ -221,6 +223,14 @@ def _pre_score_bottleneck(classification, xbrl=None, filing=None):
 		}
 		geo_score = geo_map.get(geo, 0.0)
 		geo_ev = f"geographic_risk={geo}"
+		# Made-in-America moat: a DOMESTIC producer with a sole/concentrated input
+		# chain is the scarce onshore source in an industry whose rivals sit in
+		# high-risk regions — a reshoring MOAT, not "zero geopolitical leverage." The
+		# criterion measures bottleneck-relevant geographic leverage, so score that
+		# positively (this is the otherwise-dead sole_western_flag, given teeth).
+		if geo == "domestic" and inp in ("sole_source_critical", "concentrated"):
+			geo_score = max(geo_score, 0.75)
+			geo_ev += " + domestic sole/concentrated = Made-in-America reshoring moat"
 		hr_pct = 0.0
 		for e in (xbrl.get("geographic_revenue") or []):
 			if not isinstance(e, dict):
@@ -291,6 +301,14 @@ def _pre_score_bottleneck(classification, xbrl=None, filing=None):
 		"pre_score": pre_score, "pre_score_max": pre_score_max,
 		"criteria": criteria, "assessment": assessment,
 		"business_model": bm,
+		# Winner-gate enums (Disruption/Evolution moat proxies). Surfaced for the
+		# composite scorer: a non-physical name scores 0 on the physical criteria
+		# above, but these say whether it has a DURABLE edge — a regulatory mandate,
+		# a named deep-pocketed backstop, captive demand, or realized pricing power.
+		"regulatory_posture": regulatory,
+		"pricing_posture": pricing,
+		"customer_concentration": cust,
+		"strategic_backstop": backstop,
 		"filing_date": filing_date_str, "stale_data_warning": stale_warning,
 		"sole_western_flag": sole_western_flag,
 		"scoring_guide": {
@@ -408,6 +426,10 @@ def _build_l3_bottleneck(sec_sc_results):
 			"criteria": bottleneck_pre_score.get("criteria"),
 			"assessment": bottleneck_pre_score.get("assessment"),
 			"business_model": bottleneck_pre_score.get("business_model"),
+			"regulatory_posture": bottleneck_pre_score.get("regulatory_posture"),
+			"pricing_posture": bottleneck_pre_score.get("pricing_posture"),
+			"customer_concentration": bottleneck_pre_score.get("customer_concentration"),
+			"strategic_backstop": bottleneck_pre_score.get("strategic_backstop"),
 			"filing_date": bottleneck_pre_score.get("filing_date"),
 			"sole_western_flag": bottleneck_pre_score.get("sole_western_flag"),
 			"assessment_thresholds": {"strong": ">=3.0", "partial": ">=1.5", "weak": "<1.5"},

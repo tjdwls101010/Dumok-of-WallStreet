@@ -1,0 +1,25 @@
+{
+  "ticker": "MU",
+  "role": "winner",
+  "note": "memory \u2014 capacity-constrained physical bottleneck",
+  "captured_at": "2026-06-15",
+  "hard": {
+    "l6_classification": "bottleneck",
+    "business_model": "physical_goods",
+    "l3_assessment": "partial",
+    "revenue_status": "has_revenue",
+    "score_breakdown_keys": [
+      "bottleneck",
+      "catalyst",
+      "health",
+      "taxonomy",
+      "thesis",
+      "valuation"
+    ]
+  },
+  "baseline": {
+    "grade": "STRONG_BUY",
+    "composite_score": 80.91,
+    "l3_pre_score": 1.9
+  }
+}

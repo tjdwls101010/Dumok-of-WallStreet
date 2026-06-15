@@ -1,12 +1,13 @@
 """Serenity pipeline command implementations."""
 
 import concurrent.futures
+import os
 from datetime import datetime, timedelta
 
 from utils import output_json, safe_run
 
 from ._runner import _run_script
-from ._health import _extract_health_gates, _build_readiness_codes
+from ._health import _extract_health_gates
 from ._bottleneck import _build_l3_bottleneck
 from ._postprocess import (
 	_merge_earnings, _clean_analyst_revisions,
@@ -17,9 +18,7 @@ from ._control import (
 	_build_priced_in_assessment, _build_institutional_flow, _build_expression_layer,
 )
 from ._signals import (
-	_build_thesis_signals, _check_sop_triggers, _check_trapped_asset_override,
-	_auto_classify_taxonomy, _generate_composite_signal,
-	_classify_dilution,
+	derive_core_signals, _classify_dilution,
 )
 
 def _extract_sec_supply_chain(ticker):
@@ -396,40 +395,37 @@ def cmd_analyze(args):
 	l2_capex_flow["hyperscaler_signal"] = hyperscaler_signal
 	capex_direction = l2_capex_flow.get("direction")
 
-	# --- L3: Bottleneck ---
-	l3_data = _build_l3_bottleneck(sec_sc_results)
-	bottleneck_pre_score = l3_data.get("bottleneck_pre_score")
+	# --- L3 + Health + Derived signals + Composite (deterministic core) ---
+	# derive_core_signals is the SINGLE source of truth for the scoring layer;
+	# the golden regression harness replays this exact function on frozen inputs.
+	core = derive_core_signals(l1_result, l4_results, l5_results, sec_sc_results)
+	l3_data = core["l3_data"]
+	bottleneck_pre_score = core["bottleneck_pre_score"]
+	health_gates = core["health_gates"]
+	thesis_signals = core["thesis_signals"]
+	sop_triggers = core["sop_triggers"]
+	trapped_asset_override = core["trapped_asset_override"]
+	auto_classification = core["auto_classification"]
+	composite_signal = core["composite_signal"]
 
-	# --- Health gates (from L4) ---
-	health_gates = _extract_health_gates(l4_results)
+	# Optional capture hook for the golden regression harness — env-gated, a no-op
+	# in normal runs. Freezes the scoring INPUTS (before any network-only output
+	# enrichment) so they can be replayed offline through derive_core_signals.
+	_cap_dir = os.environ.get("SERENITY_CAPTURE_DIR")
+	if _cap_dir:
+		from ._regression import capture_inputs
+		capture_inputs(_cap_dir, ticker, l1_result, l4_results, l5_results, sec_sc_results)
 
-	# Conditional SEC filing check for active dilution
+	# Conditional SEC filing check for active dilution (network + output-only; it
+	# never feeds the score, so it runs AFTER the deterministic core).
 	sec_filing_result = None
-	gate_flags = []
-	for gate_name in ("bear_bull_paradox", "active_dilution", "no_growth_fail", "margin_collapse", "io_quality_concern"):
-		if health_gates.get(gate_name) == "FLAG":
-			gate_flags.append(gate_name)
-	if "active_dilution" in gate_flags:
+	if health_gates.get("active_dilution") == "FLAG":
 		sec_filing_result = _run_script(
 			"modules/filings.py",
 			[ticker, "--form", "S-3", "--limit", "5"]
 		)
 		if sec_filing_result and not sec_filing_result.get("error"):
 			l4_results["sec_dilution_check"] = sec_filing_result
-
-	# --- Derived signals ---
-	thesis_signals = _build_thesis_signals(l4_results, l5_results)
-	sop_triggers = _check_sop_triggers(l4_results)
-	trapped_asset_override = _check_trapped_asset_override(l4_results, bottleneck_pre_score, sec_sc_results)
-	auto_classification = _auto_classify_taxonomy(l4_results, bottleneck_pre_score)
-
-	composite_signal = _generate_composite_signal(
-		l1_result, l4_results, l5_results,
-		health_gates.get("severity_score"),
-		bottleneck_pre_score, thesis_signals,
-		auto_classification, trapped_asset_override,
-		sec_sc_results,
-	)
 
 	# Materiality signals
 	materiality = _build_materiality_signals(l3_data, l4_results, l5_results)

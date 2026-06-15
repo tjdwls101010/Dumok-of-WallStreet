@@ -41,7 +41,7 @@ Commands:
 		CapEx bridge + L3 SEC supply chain pre-scoring + L4 fundamentals with
 		health gate severity spectrum + thesis signals + SoP triggers +
 		trapped asset override + L5 catalysts + L6 auto-classification +
-		composite signal with position sizing + control layer:
+		composite signal (discovery/evaluation triage — no position sizing) + control layer:
 		materiality_signals, causal_bridge_data, priced_in_assessment,
 		institutional_flow, expression_layer)
 	discover: Candidate comparator (takes ticker list, runs 22 quantitative
@@ -87,8 +87,7 @@ Returns:
 		(with grade, score_breakdown),
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
 		margin_collapse, io_quality_concern — each PASS/CAUTION/FLAG),
-		valuation_summary (includes dual_valuation: no_growth_floor + growth_upside),
-		fundamental_readiness_codes (list of standardized audit codes).
+		valuation_summary (includes dual_valuation: no_growth_floor + growth_upside).
 		L1_macro: regime classification + signals dict (no raw data).
 		L2_capex_flow: company_capex (8-quarter trend auto-included),
 		cascade_requires_context (agent-driven supply chain layers).
@@ -150,7 +149,6 @@ Notes:
 	- L3 (Bottleneck) returns requires_context for agent-driven analysis
 	- Health gates are extracted from L4 script outputs (debt, dilution, valuation, margin)
 	- Conditional SEC filing check when active_dilution detected (S-3 form lookup)
-	- fundamental_readiness_codes provide audit trail of automated assessment
 	- Scripts execute in parallel via ThreadPoolExecutor for speed
 	- Pipeline continues even if individual scripts fail (graceful degradation)
 	- L1 output contains extracted signals (9 scalars + DXY/BDI when --extended)
@@ -175,6 +173,7 @@ sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, os.path.join(_scripts_dir, "modules"))
 
 from pipeline._commands import cmd_macro, cmd_analyze, cmd_discover
+from pipeline._regression import cmd_regress
 
 
 def main():
@@ -208,6 +207,19 @@ def main():
 	sp_discover = sub.add_parser("discover", help="Candidate comparator across a ticker list")
 	sp_discover.add_argument("tickers", nargs="+", help="Ticker symbols to compare (2-30)")
 	sp_discover.set_defaults(func=cmd_discover)
+
+	# regress — golden-grade regression harness (protects winners/losers from
+	# silent re-grading when scoring thresholds change). Replays frozen inputs.
+	sp_regress = sub.add_parser("regress", help="Golden-grade regression harness")
+	sp_regress.add_argument("tickers", nargs="*", help="Subset of golden tickers (default: all)")
+	sp_regress.add_argument("--capture", action="store_true", default=False,
+		help="Re-run analyze live to refresh frozen scoring inputs")
+	sp_regress.add_argument("--bless", action="store_true", default=False,
+		help="Re-derive expected.json from the current replay of frozen inputs")
+	sp_regress.add_argument("--update", action="store_true", default=False,
+		help="--capture then --bless (full refresh)")
+	sp_regress.add_argument("--stamp", default=None, help="captured_at date to record (default: today)")
+	sp_regress.set_defaults(func=cmd_regress)
 
 	args = parser.parse_args()
 	args.func(args)

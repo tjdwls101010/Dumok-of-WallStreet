@@ -1,4 +1,4 @@
-# Analysis — Discover · Evaluate · Size · Enter
+# Analysis — Discover · Evaluate · Stage · Enter
 
 The depth behind funnel steps 1, 3, 4, 5. The pipeline (`analyze TICKER`) gives you the quantitative substrate at every step — **don't recompute it; interpret and override it.** Examples here are *archetypes* (shapes to recognize), not picks. All expressions are US-listed; when the real winner is foreign-only, name it honestly and pivot to the US substitute.
 
@@ -23,7 +23,7 @@ Before discovery or valuation, name the *kind* of opportunity, because every que
 - *Winner-gates:* (1) **what made it investable now** — a datable step-change, not "it's the future"; (2) **who owns the emerging standard / reference design** the category converges on; (3) **a strategic backstop** — a deep-pocketed customer or partner de-risking the build.
 - *Valuation anchor:* you're buying an option on category formation — anchor on the TAM the step-change unlocks and the name's claim on the standard, not trailing fundamentals.
 
-Most names are clean. When a story spans two — a bottleneck *inside* a disrupted category — run both gate sets and size to the weaker. The point isn't taxonomy for its own sake: it's that the discovery question, the gates, and the valuation anchor **all rotate with the archetype**, and the rest of this document details each in turn.
+Most names are clean. When a story spans two — a bottleneck *inside* a disrupted category — run both gate sets and let the weaker one set the conviction. The point isn't taxonomy for its own sake: it's that the discovery question, the gates, and the valuation anchor **all rotate with the archetype**, and the rest of this document details each in turn.
 
 ---
 

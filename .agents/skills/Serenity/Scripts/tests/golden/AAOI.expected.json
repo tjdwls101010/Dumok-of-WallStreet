@@ -1,0 +1,25 @@
+{
+  "ticker": "AAOI",
+  "role": "winner",
+  "note": "optical transceiver maker \u2014 physical bottleneck",
+  "captured_at": "2026-06-15",
+  "hard": {
+    "l6_classification": "bottleneck",
+    "business_model": "physical_goods",
+    "l3_assessment": "strong",
+    "revenue_status": "has_revenue",
+    "score_breakdown_keys": [
+      "bottleneck",
+      "catalyst",
+      "health",
+      "taxonomy",
+      "thesis",
+      "valuation"
+    ]
+  },
+  "baseline": {
+    "grade": "BUY",
+    "composite_score": 77.59,
+    "l3_pre_score": 3.2
+  }
+}

@@ -324,10 +324,12 @@ def _build_institutional_flow(l4_results):
 
 	# Composite flow assessment
 	flow_signals = []
+	# Insider BUYING is signal (cluster buys precede re-rates). Insider SELLING is
+	# extreme noise — sales happen for taxes, diversification, pre-set 10b5-1 plans —
+	# so it never drives a bearish read here (the "insider sells = bad" fallacy). The
+	# raw direction still rides along in insider_signal for the agent to judge.
 	if insider_direction == "net_buying":
 		flow_signals.append("insider_accumulation")
-	if insider_direction == "net_selling":
-		flow_signals.append("insider_distribution")
 	if io_assessment == "strong_accumulation":
 		flow_signals.append("institutional_conviction")
 	if io_assessment == "weak":
@@ -335,7 +337,7 @@ def _build_institutional_flow(l4_results):
 
 	flow_assessment = (
 		"positive" if "insider_accumulation" in flow_signals or "institutional_conviction" in flow_signals
-		else "negative" if "insider_distribution" in flow_signals and "institutional_exit_risk" in flow_signals
+		else "negative" if "institutional_exit_risk" in flow_signals
 		else "neutral"
 	)
 

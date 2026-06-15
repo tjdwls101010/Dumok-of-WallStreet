@@ -1,0 +1,25 @@
+{
+  "ticker": "SIVE",
+  "role": "winner",
+  "note": "tracked winner \u2014 archetype blessed from capture",
+  "captured_at": "2026-06-15",
+  "hard": {
+    "l6_classification": "unclassified",
+    "business_model": null,
+    "l3_assessment": null,
+    "revenue_status": "data_insufficient",
+    "score_breakdown_keys": [
+      "bottleneck",
+      "catalyst",
+      "health",
+      "taxonomy",
+      "thesis",
+      "valuation"
+    ]
+  },
+  "baseline": {
+    "grade": "HOLD",
+    "composite_score": 37.5,
+    "l3_pre_score": null
+  }
+}

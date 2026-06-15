@@ -129,7 +129,7 @@ When no rule covers a situation, reason from the value. Priority when they confl
 | Type | Trigger | Funnel entry |
 |------|---------|--------------|
 | **A — Macro** | "장 어때", 시장/금리/유동성/매크로 | `macro` → regime read → aggression dial |
-| **B — Stock** | "XX 어때", 분석/실적/포지션/리스크/타이밍 | step 2→3→4→5 on the given ticker |
+| **B — Stock** | "XX 어때", 분석/실적/포지션/리스크/타이밍 | step 2 → name archetype (L6) → 3→4→5 on the ticker |
 | **C — Discovery** | "XX vs YY", 비교, 유망 섹터, "AI 관련주" | step 1 (discover) → 2→3 per candidate |
 | **D — Supply Chain** | 공급망, 병목, bottleneck, 시나리오, "what if" | WebSearch map → step 1→3 |
 | **E — Theme/Rank** | 테마 정리, 후보·종목 우선순위, Evolution/Disruption | classify by archetype → rank by winner-gate strength |
@@ -159,7 +159,7 @@ All output is JSON. **Never** pipe through `head`/`tail`/truncation — capture 
 
 1. **Run the pipeline first** (Type A → `macro`; B/C/D/E → `analyze`). The JSON is your substrate.
 2. **Interpret at the agent level** — this is the work the reference files describe. Walk the funnel. WebSearch only for what the pipeline can't reach: supply-chain mapping beyond the SEC filing, second-order effects, US-listed substitutes.
-3. **Bottleneck Relevance (Type B)**: from `industry`/`businessSummary`, load `analysis.md` if the company (a) makes/supplies a physical component used in other products, (b) holds a sole/concentrated position, or (c) has geopolitical supply-chain exposure. Err toward loading.
+3. **Archetype first, then load depth (Type B)**: read `L6_taxonomy.classification` *before* walking the funnel. A **Disruption** (profit-pool attack) or **Evolution** (step-change category) name rotates its discovery question, winner-gates, and valuation anchor *off* the bottleneck spine — so don't force a fintech or a launch-economics story through §1–§2. Load `analysis.md` whenever the name is **disruption/evolution** (you need its archetype playbook), OR it (a) makes/supplies a physical component used in other products, (b) holds a sole/concentrated position, or (c) has geopolitical supply-chain exposure. Err toward loading.
 4. **Discovery Escalation**: if mapping reveals a high-growth chain whose key input is concentrated (top-3 > 70%) in a supplier with MC < 1/10 of the target, escalate to the discovery toolkit.
 
 ### Evidence Sufficiency (before answering) — all five:
@@ -185,7 +185,7 @@ Load progressively (paths relative to `{skill_dir}`).
 | File | Holds | Load for |
 |------|-------|----------|
 | `References/analysis.md` | The full funnel depth: three archetypes → **Discover** (toolkit, tracing) → **Winner-gates** (chokepoint≠winner) → valuation → **Cycle stage** (how early/de-risked) → **Fear-vs-fundamental** entry → expression → 9 kill signals → conviction dynamics | B, C, D, E |
-| `References/macro_and_catalyst.md` | Regime + CapEx cascade + catalyst hierarchy + macro→micro pathways + geopolitics | A, D (+ B overlay via BRA) |
+| `References/macro_and_catalyst.md` | Regime + CapEx cascade + catalyst hierarchy + macro→micro pathways + geopolitics | A, D (+ B when macro/policy/geopolitics is a thesis driver) |
 
 ### Tweet Database (cross-validation only)
 `References/analysis_Serenity.db` (SQLite, table `tweets`) holds real analysis tweets. Read **only when the user explicitly asks** ("실제로 어떻게 봤어", "트윗 DB 확인", "cross-validate"). Never preload. Even then, complete the full pipeline analysis and form your thesis **first** — the DB validates after, it is not a shortcut. When you cite it, prefix *"Serenity tweet DB에서 확인:"*.
@@ -208,7 +208,7 @@ Load progressively (paths relative to `{skill_dir}`).
 
 ## Quick Reference (inline fallback if a reference file fails to load)
 
-- **Chokepoint ≠ Winner**: a confirmed bottleneck is only investable if it can *monetize* (revenue/FCF), *will* exercise pricing power (not just hold it), can *survive* to the ramp (balance sheet), can *expand TAM*, and *controls allocation*. "Not every bottleneck is a great investment."
+- **Chokepoint ≠ Winner**: a confirmed bottleneck is only investable if it can *monetize* (revenue/FCF), *will* exercise pricing power (not just hold it), can *survive* to the ramp (balance sheet), can *expand TAM*, *controls allocation*, and *serves broad inelastic demand* (every player, not one customer on a dev contract). "Not every bottleneck is a great investment."
 - **Dual valuation (always both)**: no-growth floor (rev × margin × ~15) FIRST, then growth upside. The gap is the asymmetry.
 - **Forward P/E gate**: <15× at 50%+ growth = screaming buy; > sector comp at decelerating growth = avoid regardless of narrative.
 - **Cycle stage**: magnitude peaks early (qualified, no orders); the thesis only *de-risks* at the confirmed ramp — the gap is binary designed-out risk. Read where in maturation a name sits to judge how early/asymmetric the entry is.

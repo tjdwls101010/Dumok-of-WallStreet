@@ -74,7 +74,7 @@ def _extract_health_gates(results):
 		if isinstance(fpe, dict) and not fpe.get("error"):
 			rg = fpe.get("revenue_growth_yoy")
 			if isinstance(rg, (int, float)):
-				rev_growth = rg * 100 if rg < 1 else rg
+				rev_growth = rg  # forward_pe.revenue_growth_yoy is already a percent
 		high_growth = isinstance(rev_growth, (int, float)) and rev_growth > 25
 
 		ad_detail = {
@@ -145,23 +145,35 @@ def _extract_health_gates(results):
 	ngf_detail = {}
 	if not ngv.get("error"):
 		mos = ngv.get("margin_of_safety_pct")
+		# A growth name's no-growth floor sits BELOW price by construction (the floor
+		# prices in ZERO growth), so MoS<0 is EXPECTED for any real grower — not a fail.
+		# FLAG it and you penalize precisely the winners (every basket name shows MoS<0).
+		# Mirror the composite's is_growth (revenue_growth_yoy is already a percent — no
+		# *100) and soften a grower's floor breach to CAUTION; a true no-growth name FLAGs.
+		rg_pct = fpe.get("revenue_growth_yoy") if isinstance(fpe, dict) and not fpe.get("error") else None
+		is_growth = isinstance(rg_pct, (int, float)) and rg_pct >= 15
 		ngf_detail = {
 			"margin_of_safety_pct": mos,
 			"no_growth_fair_value": ngv.get("no_growth_fair_value"),
 			"current_market_cap": ngv.get("current_market_cap"),
 			"implied_earnings": ngv.get("implied_earnings"),
 			"net_margin_pct": ngv.get("net_margin_pct"),
+			"is_growth": is_growth,
 			"thresholds": {
-				"FLAG": "MoS < 0%",
-				"CAUTION": "MoS 0-20%",
+				"FLAG": "MoS < 0% on a non-growth name",
+				"CAUTION": "MoS 0-20%, or MoS<0% on a grower (floor-below-price is expected)",
 				"PASS": "MoS > 20%",
 			},
 		}
 		if mos is not None:
 			if mos < 0:
-				gates["no_growth_fail"] = "FLAG"
-				severity["no_growth_fail"] = 0.0
-				flags.append("no_growth_fail")
+				if is_growth:
+					gates["no_growth_fail"] = "CAUTION"
+					severity["no_growth_fail"] = 0.5
+				else:
+					gates["no_growth_fail"] = "FLAG"
+					severity["no_growth_fail"] = 0.0
+					flags.append("no_growth_fail")
 			elif mos <= 20:
 				gates["no_growth_fail"] = "CAUTION"
 				severity["no_growth_fail"] = 0.5
@@ -231,105 +243,3 @@ def _extract_health_gates(results):
 			"io_quality_concern": iq_detail,
 		},
 	}
-
-
-def _build_readiness_codes(health_gates, valuation_summary, l4_results, l5_results=None, sec_result=None, sec_sc_results=None, bottleneck_pre_score=None, composite_signal=None):
-	"""Build standardized fundamental readiness codes for auditability.
-
-	Returns:
-		list of str codes summarizing automated assessment
-	"""
-	codes = []
-
-	# Health gates
-	codes.append(f"HEALTH_GATES_{health_gates['total_pass']}_{health_gates['total_gates']}")
-
-	# Health severity score
-	sev_score = health_gates.get("severity_score")
-	if sev_score is not None:
-		codes.append(f"HEALTH_SEVERITY_{sev_score}")
-
-	# Dilution status
-	sbc = l4_results.get("sbc_analyzer", {})
-	if sec_result and not sec_result.get("error"):
-		codes.append("DILUTION_sec_confirmed_atm")
-	elif not sbc.get("error"):
-		dilution = sbc.get("dilution_flag", "clean")
-		codes.append(f"DILUTION_{dilution}")
-
-	# Valuation floor
-	upside = valuation_summary.get("no_growth_upside_pct")
-	if upside is not None:
-		codes.append(f"VALUATION_FLOOR_{upside:.0f}PCT")
-
-	# Forward PE
-	fpe = valuation_summary.get("forward_pe")
-	if fpe is not None:
-		codes.append(f"FWD_PE_{fpe:.1f}")
-
-	# Margin trajectory
-	margin = valuation_summary.get("margin_status")
-	if margin:
-		codes.append(f"MARGIN_{margin}")
-
-	# Debt quality
-	debt = valuation_summary.get("debt_quality_grade")
-	if debt:
-		codes.append(f"DEBT_GRADE_{debt}")
-
-	# IO quality
-	io = valuation_summary.get("io_quality_score")
-	if io is not None:
-		codes.append(f"IO_QUALITY_{io}")
-
-	# Growth profile acceleration status
-	ea = l4_results.get("growth_profile", {})
-	if not ea.get("error"):
-		if ea.get("eps_accelerating") is True:
-			codes.append("EPS_ACCELERATING")
-		if ea.get("sales_accelerating") is True:
-			codes.append("SALES_ACCELERATING")
-
-	# Consecutive beats
-	if l5_results:
-		es = l5_results.get("earnings_surprise", {})
-		if not es.get("error"):
-			beats = es.get("consecutive_beats")
-			if beats is not None:
-				codes.append(f"BEATS_{beats}")
-
-	# SBC health
-	if not sbc.get("error"):
-		sbc_flag = sbc.get("flag")
-		if sbc_flag:
-			codes.append(f"SBC_{sbc_flag}")
-
-	# CapEx direction (from L2 company_capex if available)
-	# capex_data is passed separately as it's popped from l4_results
-
-	# SEC supply chain data availability
-	if sec_sc_results:
-		sc_data = sec_sc_results.get("sec_supply_chain", {})
-		if sc_data and not sc_data.get("error") and sc_data.get("data"):
-			matches = sc_data["data"].get("extraction_stats", {}).get("total_matches", 0)
-			if matches > 0:
-				codes.append("SEC_SC_available")
-			else:
-				codes.append("SEC_SC_partial")
-		else:
-			codes.append("SEC_SC_unavailable")
-
-	# Bottleneck pre-score
-	if bottleneck_pre_score and not bottleneck_pre_score.get("error"):
-		bn_score = bottleneck_pre_score.get("pre_score", 0)
-		bn_max = bottleneck_pre_score.get("pre_score_max", 4.25)
-		codes.append(f"BOTTLENECK_PRE_{bn_score}_{bn_max}")
-
-	# Composite signal grade
-	if composite_signal and not composite_signal.get("error"):
-		grade = composite_signal.get("grade")
-		score = composite_signal.get("composite_score")
-		if grade:
-			codes.append(f"COMPOSITE_{grade}_{score}")
-
-	return codes
