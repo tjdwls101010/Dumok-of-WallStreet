@@ -4,13 +4,13 @@ The pipeline's `macro` command classifies the **regime** and computes the signal
 
 ---
 
-## Regime → aggression (pipeline classifies; you dial sizing)
+## Regime → aggression (pipeline classifies; you read the posture)
 
-The pipeline returns `regime` + `risk_level`. Translate to posture:
+The pipeline returns `regime` + `risk_level`. Translate to posture — how aggressive the *hunt* and how loud the *go* should be:
 
-- **Risk-On** — CapEx accelerating, liquidity stable, no credit stress → full sizing, aggressive on high conviction. Bottom-up picking dominates.
+- **Risk-On** — CapEx accelerating, liquidity stable, no credit stress → lean aggressive on high conviction; bottom-up picking dominates.
 - **Fear-Dislocation** — fear elevated but fundamentals intact → the **best buying environment** (V1). The supply-chain thesis is unchanged; the price is gifted. This is where the analysis.md §5 fear-dip discrimination earns its keep.
-- **Transition** — mixed signals → reduce sizing (~0.75×), don't force conviction.
+- **Transition** — mixed signals → stay selective, don't force conviction; raise the bar to "go."
 
 **Four pillars decide it** (pipeline computes 2–4): ① **hyperscaler CapEx direction — THE leading indicator for the AI trade** (increasing = tailwind; flat/declining = reassess everything downstream), ② net liquidity, ③ credit conditions, ④ VIX structure (contango vs backwardation). Elevated VIX alone is insufficient — combine.
 
@@ -29,6 +29,7 @@ Demand moves down the physical chain in order:
 - **Overflow pattern**: when hyperscaler capacity is full, demand overflows to alternative providers (neoclouds, specialized compute). The overflow point is where alpha concentrates — sudden revenue acceleration the market hasn't priced.
 - **Proxy read-through**: one company's results are another's demand signal. A foundry blowout confirms downstream GPU/substrate/memory demand; a hyperscaler CapEx raise validates the neocloud and component tiers. After any major report, ask: "which supply-chain names does this validate or invalidate?" — and position before the read-through is priced across the chain. (The reporting company's numbers are public; the implications are not yet.)
 - **Strategic-incentive floor**: when a hyperscaler's core demand is threatened by customer in-housing, it may backstop alternative consumers to defend its own revenue — an invisible price floor. Map these flows.
+- **Sympathy selloff — split damage from association**: when one name reports badly, its *associated* names drop too. Separate **real counterparty damage** (a genuine customer/supplier whose forward revenue actually takes the hit — fundamental) from **pure association** (sold off only for sharing a theme/sector — no revenue link). The association drop is mechanical and usually round-trips in 1–2 sessions; the counterparty drop may be real. (The §5 discrimination, applied across peers.)
 
 ---
 
@@ -39,6 +40,10 @@ The test for everything: **"does this change forward revenue?"** Yes → real. N
 - **Real** (moves forward earnings): S&P 500 inclusion (forced index buying), mega-contract/partnership, government policy or executive order, export control creating a monopoly, earnings beat *with a guidance raise*. (Dividend front-running is a *timing* catalyst — use it to optimize entry on already-validated large-caps.)
 - **Fake** (noise — ignore or use as entry): CFO resignation, conference presentations, analyst initiations/upgrades (lagging — follows price), government shutdown, random tariff tweets.
 - **Prediction-market gauge**: when a market (e.g., Polymarket) prices an event >90%, it's already priced in — the actual occurrence is noise, and any retail panic on the news is a buying opportunity. A *surprise* outcome (low prior, it happened) is NOT priced — real repositioning required.
+- **Regulation cuts both ways** — a new legal framework is often the *biggest* catalyst: it can re-rate a whole **category** by changing what a business is *allowed to be* (a stablecoin/payments law turning an issuer into quasi-infrastructure), or cap a model as a structural **headwind** (a DTC/clinical-access rule). Ask: one name or the whole category? tailwind or headwind?
+- **Short-squeeze setup** — extreme short interest (>30–40% of float) on a *profitable, growing* name is an **upside** catalyst (a violent feedback loop on any good news), not merely a risk. On a broken name it's a trap — a squeeze needs a real thesis underneath.
+- **Competitor launch (or fumble)** — a rival shipping, delaying, or failing shifts the forward revenue of everyone in the category; read it as a demand-share catalyst, not just news.
+- **Earliest signal = the raw-material spot**, not the equity: for a materials/chokepoint thesis the input's spot/contract price and utilization move *before* the paid reports, the news, and the earnings (analysis.md §1, "track the signal not the price"). Watch named sources — LME / Fastmarkets / Argus for metals, TrendForce / DRAMeXchange for memory, spot indices for specialty gases and PGMs. A spot move with no equity move *yet* is the gap.
 
 ---
 
@@ -66,6 +71,8 @@ Most geopolitical headlines are noise; a few are structural.
 - **Export controls create monopolies**: identify the direct US-listed beneficiary and check whether the monopoly premium is already priced.
 - **Cross-fire casualty hunting** (V1): broad geopolitical selloffs drag down quality names with *zero* exposure to the trigger — 10% gifted, fundamentals unchanged. Always verify genuinely-zero exposure before buying the casualty.
 - **TACO** (Tariff Anxiety Creates Opportunity): markets overreact to known/empty threats; the dip on a zero-exposure name is the entry.
+- **Read the policy persona → rotation map**: whoever holds power (administration, central bank) has a consistent set of favored and disfavored verticals (energy vs climate, defense vs aid, crypto-permissive vs -hostile). Map that persona to a structural tailwind/headwind and rotate the *hunt* accordingly — policy is a multi-quarter driver, not a headline.
+- **Crowded-but-right ≠ wrong**: a consensus trade that's *directionally* correct can stay crowded a long time; what kills you isn't being early, it's **capitulating at the shakeout**. If the thesis is intact, a crowding scare is a conviction test — re-run the kill signals, not the crowd.
 
 ---
 
@@ -78,15 +85,12 @@ Most geopolitical headlines are noise; a few are structural.
 
 ---
 
-## Black-Swan Architecture (US-only adapted)
+## Hidden single-point-of-failure (the risk a thesis set hides)
 
-Survive the scenario you didn't imagine — through portfolio *composition*, not just position sizing.
+The scenario that neutralizes a US-only book is rarely the listing — it's a *shared dependency* hiding across otherwise-different theses.
 
-- **Supply-chain geographic concentration** is the real risk even for a US-only book: a portfolio of US-listed names that *all* depend on one region's supply chain (e.g., a single-island foundry cluster) can be neutralized by one event. Diversify the *supply-chain geography* your names depend on, not just their listing.
-- **Sector diversification** beyond the primary thesis — a structural failure of one thesis must not threaten total capital, even at peak conviction.
-- **Permanent hedge allocation** — downside protection exists always, not only when fear is visible.
-
-Express conviction through *sizing within* this architecture — never by abandoning it.
+- **Find the dependency every name shares.** A set of US-listed names that all, one hop down, lean on one region's supply chain (a single-island foundry cluster, one country's refining) can be taken out by a single event — however diversified the tickers look. When you evaluate a theme, surface that common chokepoint: it is both the alpha (it *is* the bottleneck) and the tail risk (§1 convergence-find, read for danger). Name it in the bear case.
+- **A thesis set that's secretly one bet** — every name levered to the same single driver (hyperscaler CapEx, one commodity, one policy line) — is fragile no matter how good each name is. Surface the shared driver so the real, undiversified risk behind a diversified-*looking* list is visible.
 
 ---
 

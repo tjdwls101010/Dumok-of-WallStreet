@@ -82,7 +82,7 @@ Returns:
 		shares/leaps/csp/covered_calls, reasoning),
 		health_gates (with severity spectrum), thesis_signals,
 		sop_triggers, trapped_asset_override, composite_signal
-		(with grade, score_breakdown, position_guidance),
+		(with grade, score_breakdown),
 		health_gates (bear_bull_paradox, active_dilution, no_growth_fail,
 		margin_collapse, io_quality_concern — each PASS/CAUTION/FLAG),
 		valuation_summary (includes dual_valuation: no_growth_floor + growth_upside),

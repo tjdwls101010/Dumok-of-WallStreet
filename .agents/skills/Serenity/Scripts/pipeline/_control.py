@@ -356,10 +356,9 @@ def _build_expression_layer(l4_results, composite_signal):
 	iv_percentile = iv.get("iv_percentile") or iv.get("percentile") or iv.get("iv_rank")
 	iv_rank = iv.get("iv_rank")
 
-	# Conviction from composite signal
+	# Grade from composite signal
 	cs = composite_signal if isinstance(composite_signal, dict) else {}
 	grade = cs.get("grade", "HOLD")
-	conviction = cs.get("position_guidance", {}).get("conviction_tier")
 
 	# Expression logic
 	if not isinstance(iv_percentile, (int, float)):

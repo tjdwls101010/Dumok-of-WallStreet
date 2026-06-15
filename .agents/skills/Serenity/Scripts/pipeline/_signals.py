@@ -544,7 +544,7 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	pre_revenue_note = None
 	if revenue_status == "confirmed_pre_revenue":
 		if material_catalyst:
-			pre_revenue_note = "confirmed pre-revenue WITH a material catalyst (near earnings / recent SEC event / strong bottleneck) — investable as a size-capped MOONSHOT-tier bet"
+			pre_revenue_note = "confirmed pre-revenue WITH a material catalyst (near earnings / recent SEC event / strong bottleneck) — investable but speculative (MOONSHOT-tier)"
 		else:
 			if total_score > 34:
 				total_score = 34.0
@@ -566,21 +566,6 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	else:
 		grade = "AVOID"
 
-	# Position sizing — grade-derived BASELINE only. suggested_size_pct is a floor to
-	# scale UP by cycle stage and conviction under the power-law doctrine (3-5 core names
-	# at 60-80% combined), NOT a ceiling. The agent owns the final size.
-	pos_table = {
-		"STRONG_BUY": ("High", "5-7%", "1.5%"), "BUY": ("Medium", "2-4%", "1.0%"),
-		"ACCUMULATE": ("Low", "1-2%", "0.5%"), "HOLD": (None, "hold_existing", None),
-		"AVOID": (None, "no_entry", None), "MOONSHOT": ("Special", "max_5%", "2.5%"),
-	}
-	conviction, size, max_loss = pos_table.get(grade, (None, "no_entry", None))
-	regime_adj = "risk_off_0.5x" if regime == "risk_off" else "transitional_0.75x" if regime == "transitional" else "none"
-	conviction_delta = ts.get("conviction_delta", 0)
-	# Pre-revenue investable bets are size-capped regardless of the grade band.
-	if revenue_status == "confirmed_pre_revenue" and size not in ("no_entry", "hold_existing"):
-		size = "max_3%"
-
 	score_breakdown_out = {}
 	for key, val in score_breakdown.items():
 		score_breakdown_out[key] = val.get("points", val.get("raw", 0))
@@ -592,12 +577,6 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		"composite_thresholds": {
 			"weights": {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10},
 			"grades": {"STRONG_BUY": ">=80", "BUY": ">=65", "ACCUMULATE": ">=50", "HOLD": ">=35", "AVOID": "<35"},
-		},
-		"position_guidance": {
-			"conviction_tier": conviction, "suggested_size_pct": size,
-			"max_loss_pct": max_loss, "regime_adjustment": regime_adj,
-			"conviction_delta": conviction_delta,
-			"sizing_basis": "grade-derived baseline — NOT a ceiling. Scale by cycle stage (analysis.md §4: small at stage 2, bulk at confirmed ramp 4) and conviction; Serenity concentrates 3-5 core names at 60-80% combined.",
 		},
 		"revenue_status": revenue_status,
 		"data_insufficient": revenue_status == "data_insufficient",

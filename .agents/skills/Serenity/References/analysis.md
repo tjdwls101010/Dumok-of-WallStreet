@@ -4,17 +4,68 @@ The depth behind funnel steps 1, 3, 4, 5. The pipeline (`analyze TICKER`) gives 
 
 ---
 
+## Three thesis archetypes — which game am I playing?
+
+Before discovery or valuation, name the *kind* of opportunity, because every question downstream rotates with it. The pipeline tags each name (`L6_taxonomy.classification`) as one of three — but the label only earns its keep if you then play the matching game. **Bottleneck is one of three, not the spine.** The chain-tracing of §1 and the winner-gates of §2 are specifically the *Bottleneck* playbook; force a payments disruptor or a launch-economics story through them and you mis-frame it from the first move. (Semis are the worked Bottleneck example throughout — a convenience of recent history, not a doctrine.)
+
+**Bottleneck — a physical chokepoint demand can't route around.**
+- *Discovery question:* where does supply physically concentrate as demand scales? → §1 chain-trace, recursive hop, confidential-link reconstruction.
+- *Winner-gates:* the §2 gates — monetization, pricing realization, survival, allocation control, designed-out risk.
+- *Valuation anchor:* §3 dual valuation; when the input is tiny-TAM but gating, the enabler-material reframe.
+
+**Disruption — a new entrant compresses an incumbent's profit pool.**
+- *Discovery question:* whose economics are being structurally attacked, and who captures the value draining out? (take-rate/interchange → cents; T+2 → instant settlement; a closed rail → an open one.) You're not tracing a chain — you're finding the toll-taker on a road being re-paved.
+- *Winner-gates:* (1) **size of the incumbent profit pool** under attack — the larger and lazier, the better; (2) **the fee/take-rate delta** offered — a 10× cost advantage, not 10%; (3) **the moat captured as it wins** — network effect, a standard, a regulatory license — without which the disruption is competed away.
+- *Valuation anchor:* the market mis-anchors on the *incumbent's* category multiple; re-anchor on the disruptor's true driver (§3, "don't value it like its category"). The no-growth floor is often N/A.
+
+**Evolution — a step-change makes a whole category investable *now*.**
+- *Discovery question:* what concretely just changed — a cost curve, a regulation, a technical threshold — that turned a long-promised category into a fundable one? Then: who controls the new standard? (re-usable launch economics; soft-robotics actuation crossing a price point; LLM-grade autonomy.)
+- *Winner-gates:* (1) **what made it investable now** — a datable step-change, not "it's the future"; (2) **who owns the emerging standard / reference design** the category converges on; (3) **a strategic backstop** — a deep-pocketed customer or partner de-risking the build.
+- *Valuation anchor:* you're buying an option on category formation — anchor on the TAM the step-change unlocks and the name's claim on the standard, not trailing fundamentals.
+
+Most names are clean. When a story spans two — a bottleneck *inside* a disrupted category — run both gate sets and size to the weaker. The point isn't taxonomy for its own sake: it's that the discovery question, the gates, and the valuation anchor **all rotate with the archetype**, and the rest of this document details each in turn.
+
+---
+
 ## §1 — Discovery: generating candidates
 
 When the user hands you a ticker, skip to §2. When they give a theme, a sector, or "what should I look at," this is the engine. The pipeline analyzes a ticker; it can't *find* one — discovery is pure agent work (WebSearch + SEC reading + tracing). Goal: surface the smallest-MC, least-covered node the chain structurally depends on, then feed it to `analyze`.
 
-### Trace the chain (the spine)
+Two axes find that node. You trace **down** a chain to the deepest input nobody prices (the vertical move), and you transfer **across** from a name that already won to its not-yet-re-rated sibling (the horizontal move). Most misses come from running only the first — re-analyzing the incumbent everyone already sees, instead of the node one hop down or one generation out.
+
+### Trace the chain down (the vertical spine)
 Follow the money flow **down** from the end-product: end-product → integrator/OEM → major components → sub-components → raw materials → equipment → feedstock/chemicals. At each layer ask: how many suppliers, lead time for new capacity, geographic concentration, % of end-product cost, substitutes? The deepest layers carry the thinnest coverage and the most mispricing — analysts covering the end-product rarely look past the major components.
 
-**Recursive hop (the core move):** when you find a bottleneck, ask "what does *this* company depend on?" and trace one hop further. A vertically-integrated-*looking* supplier may still buy one critical input from a single outside source — that source is the deeper bottleneck. *(Archetype: a $700M substrate maker the whole AI buildout leans on turns out to buy a high-purity precursor from one chemical firm a tenth its size.)*
+**Recursive hop (the core move):** when you find a bottleneck, ask "what does *this* company depend on?" and trace one hop further. A vertically-integrated-*looking* supplier may still buy one critical input from a single outside source — that source is the deeper bottleneck. But a hop isn't free association; each one has to *earn* the next by passing three tests, or you stop:
+- **Does concentration rise?** Recompute supplier count / geographic share one layer down. If the deeper layer is *more* concentrated, you're moving toward the chokepoint; if it's *more* fragmented, you've already passed it.
+- **Does the end-use demand a higher grade?** The deeper input often splits into a commodity tier and a thin high-spec tier only the end-use can accept — and that high-spec sub-market is a distinct, far tighter monopoly. *(Archetype: a ~$700M substrate the whole AI buildout leans on is itself cut from a feedstock — but only a laser-grade, 6N-purity variant qualifies, and that variant is ~80% one country's output. Most research stops at "substrate"; the +500% lived one hop deeper, in the purity tier.)*
+- **Is the dependency captive?** A supplier that *looks* vertically integrated but still single-sources one input is captive to that source — unmask it and the "integrated" name is really a pass-through to the deeper bottleneck.
+
+Stop hopping when concentration stops rising or a real substitute appears — that layer is the bottleneck. The purity/spec gate is the most transferable of the three: quartz, photoresist, medical-grade polymers, aerospace alloys all hide a tighter monopoly in their high-spec cut.
+
+### Reconstruct the link nobody disclosed
+Here's the catch that defeats most screens: the highest-alpha link is usually the one no filing names. A 10-K's competitor list and supplier disclosures surface only the large-caps a US filer *chose* to name — never the small-cap two hops down whose design win is the actual thesis. Every undiscovered winner sat on a confidential link you have to *rebuild*, not look up:
+- **The small-cap's own transcripts** — it will name its design wins and end-customers even when the customer won't name it.
+- **End-customer keynote → spec-match** — a hyperscaler/OEM discloses a part's specs at a product launch; match those specs to the only supplier that can hit them.
+- **Warrant / strategic-investment filings** — an agreement's implied volumes, or an equity stake taken at diligence, reveal a supply contract the income statement hasn't printed yet.
+- **Paid market-share / channel reports** — third-party share data names suppliers no SEC document does.
+
+The trap these defeat is the un-connected multi-hop: *A → B is public and B → C is public, but nobody draws A → C.* This is OSINT, not lookup, and it transfers wholesale — a payments rail, an energy interconnect, a defense BOM each hide their real dependency the same way.
+
+### Transfer from a proven winner (the horizontal axis)
+The single most frequent discovery move isn't tracing a fresh chain — it's *"the next $X."* Done right it is **not** "find a cheaper lookalike." It's a decomposition:
+1. Strip the proven winner to its **structural role**, not its product — "the EML-laser bottleneck for *current-gen* optics," not "a laser company."
+2. Name the **architecture shift** that spawns a *next-gen* version of that role — a new interconnect standard, a settlement-rail change, a packaging shift — and the role it creates.
+3. Name the supplier filling that role **per orthogonal slice**: current-gen vs next-gen, customer A vs B, scale-up vs scale-out. Each slice is a candidate.
+4. **Rank the cohort by how re-rated each already is**, and isolate the laggard — the one the ecosystem's move hasn't reached.
+5. **Test whether the lag is exploitable**: a coverage gap, a sub-$1B MC, a foreign OTC line, or ticker/segment-naming confusion = exploitable; broken fundamentals = the lag is *deserved*, skip it.
+
+The incumbent is already priced, so re-analyzing it is wasted motion; the return lives in the sibling one architecture-step out that *shares its role*. It's sector-blind — a payments rail re-rating under a regulatory shift, or the clear #2 in a launch market, decomposes identically. (This is the generative twin of §7's thesis inheritance: inheritance *validates* a transferred pattern on a name you already have; this *generates* the name.)
+
+When the transfer hands you a cohort rather than one name, rank it for *capital*, not curiosity: order by how **de-risked** each is relative to the proven leader — not by which is cheapest — and time entry to the leader's move (an analog stays buyable while the leader has *already* re-rated but the laggard's gap to it persists for coverage reasons). As execution data arrives and one name pulls ahead, **consolidate** — sell the laggards *into* the winner rather than nursing the whole basket. (That's §7's "a new core must clear a higher bar," applied across a cohort.)
 
 ### Five tacit techniques (non-obvious — where the alpha hides)
-- **SEC competitor-list mining**: a known winner's 10-K lists its competitors. That list is a vetted candidate pool of smaller, earlier names in the same chain. *(A leading optics maker's filed competitor list, read years early, held several names that later 20×'d.)*
+- **SEC competitor-list mining**: a known winner's 10-K lists its competitors. That list is a vetted candidate pool of smaller, earlier names in the same chain. *(A leading optics maker's filed competitor list, read years early, held several names that later 20×'d.)* It surfaces only *named* peers, though — the confidential link above is the higher prize.
 - **Analyst-report gap**: read institutional reports for the *omission* — the supplier clearly in the chain but NOT on the list. "Institutions haven't found it yet" is exactly where the highest returns are; the names *on* the list are already priced.
 - **Re-rating anomaly**: a whole ecosystem up hundreds of percent but one *critical* node still flat/small = the undiscovered gem. Ask why it hasn't moved — usually coverage gap, not a flaw.
 - **Second-order beneficiary**: from a catalyst, trace who supplies the supplier that just maxed out. *(A transceiver maker's demand blowout → the epi-reactor makers it must now buy from go from afterthought to bottleneck.)*
@@ -26,7 +77,17 @@ Follow the money flow **down** from the end-product: end-product → integrator/
 Information propagates in order: supply-chain derivative signals (commodity spot, procurement, utilization) → paid industry reports → public news → repricing → earnings confirmation. **Edge is proportional to how early you observe.** Earnings confirmation is the *end* of the chain — by then the move is mostly done. Ask: "what is the earliest publicly observable signal that would confirm or deny this thesis?" and watch *that*.
 
 ### Discovery discipline
-You'll go through *tens* and reject most — sounding "good" (a real chokepoint) is not the bar; passing the §2 winner-gates is. Don't fall in love with a name because you found it. And **US-listed filter**: discovery often surfaces foreign small-caps — name the real winner, then run the US-accessible expression (ADR, meaningfully-weighted ETF, or nearest US-listed analog) through `analyze`.
+You'll go through *tens* and reject most — sounding "good" (a real chokepoint) is not the bar; passing the §2 winner-gates is. Don't fall in love with a name because you found it.
+
+**Label every link CONFIRMED or DEDUCED.** The reconstruction and transfer moves above are powerful *because* they infer links no filing states — which is exactly why they can be wrong. A link from a physics/spec deduction ("only this material can meet that spec, so they must buy it") is a *lead*, not a thesis: tag it DEDUCED and size nothing on it until a filing, press release, or conference confirms it. The discipline is written in a real miss — a supplier deduced from materials physics turned out to be the wrong vendor once the customer named its actual supplier at a trade show, and an "unnamed leading customer" assumed to be a particular hyperscaler simply never was. Aggressive deduction *generates* candidates; confirmation *earns* conviction. Keep the two columns separate, and never let a DEDUCED node carry a CONFIRMED node's conviction.
+
+**US-listed resolution ladder.** Discovery keeps surfacing foreign small-caps — and the answer is never just "inaccessible, move on." That reflex drops capturable returns (a foreign micro-cap's own US OTC line tracks the local listing — the +1900% you'd have skipped). Walk the ladder in order, and never silently bury the truth that the best pure-play is foreign:
+1. The name's **own US line first** — a US OTC ticker or unsponsored ADR of the *exact* company. Highest fidelity; not a diluted basket.
+2. Else the **most-concentrated US ETF**, chosen by liquidity *and* expense — and name an options vehicle (deep, liquid chain) separately from a low-cost shares vehicle when they differ.
+3. Else the **nearest US-listed analog** in the same hop.
+4. Else **leave it as a map node** — name the foreign winner honestly, then route the capital to the accessible chokepoint *downstream* of it.
+
+Run whatever the ladder yields through `analyze`. (The up-listing that *moves* a foreign small-cap onto a US exchange is itself a catalyst — see SKILL.md / the catalyst hierarchy.)
 
 ---
 
@@ -59,8 +120,10 @@ A confirmed chokepoint is investable only if it clears these gates. Each doubles
 
 **Comparative principle**: within a sector, not "is this a bottleneck?" but "which is the *best* one?" Rank on integration depth (full-stack > capacity-only), margin quality, contract visibility, balance-sheet strength. **Inverse-proxy validation**: a well-funded competitor's *failure* to replicate is the strongest evidence of moat depth — "who tried this and failed, and what does that reveal?"
 
-### The designed-out test (this IS kill signal #9 — keep it in the bear case)
-Designing a supplier *in* is gradual; designing it *out* is one customer decision. Does the position rest on **physical inevitability** (no alternative material/process exists) or **current convenience** (best option now, but alternatives could be built)? Physics-based positions are durable; convenience-based ones are fragile. Every bottleneck thesis must answer: "what if the customer designs us out?"
+### The designed-out test — a live monitor, not a one-time question (this IS kill signal #9)
+Designing a supplier *in* is gradual; designing it *out* is one customer decision. Does the position rest on **physical inevitability** (no alternative material/process exists) or **current convenience** (best option now, but alternatives could be built)? Physics-based positions are durable; convenience-based ones are fragile.
+
+But "what if the customer designs us out?" isn't answered once — it's *monitored*. Watch the leaks and OEM/CES disclosures that reveal a second source qualifying (the disclosure of a qualified supplier is real evidence, even though conference *hype* is noise); while the odds stay ambiguous, **hedge and cut concentration** rather than binary-exiting on the first rumor *or* doubling down on hope; re-rate the floor only when the switch is confirmed. The peak danger has a specific shape: **a prototype/dev-stage qualification is not a production-at-scale win.** Designs that look locked at the demo stage routinely die at the mass-production cost-down, when the customer optimizes the BOM — so a supplier qualified only into prototypes is a *lower-conviction, higher-designed-out-risk* read than one already shipping at production scale (the §4 maturity lens, applied to the supplier *inside its customer's program*, not just to the name's own revenue). The mirror-image trap: a supplier *deduced* into a program by spec-matching may never have been confirmed at all — run §1's DEDUCED-vs-CONFIRMED check before committing conviction.
 
 ---
 
@@ -70,34 +133,36 @@ The pipeline computes forward P/E (1y/2y), PEG, and the **dual valuation** (no-g
 
 - **Dual valuation, floor first**: present the no-growth floor (where it trades if growth stopped tomorrow) BEFORE the upside. The *gap* is the asymmetry; a name near its floor with visible catalysts is the ideal setup. (Pre-revenue: floor is inapplicable — say so, make the growth case primary, apply a larger uncertainty discount.)
 - **Forward P/E gate — it's PEG, not a P/E number**: the gate measures P/E *relative to growth*. <15× at 50% growth "screams" because PEG ≈ 0.3 — you're paying a third of the growth rate, i.e., the market hasn't priced the trajectory. That generative point explains the rest: a high *absolute* P/E is not a reject (30–40× at 60%+ growth is still cheap on PEG — the biggest winners lived there), and a *low* P/E can be a trap (12× at 5% growth is expensive). Avoid = above sector comp at *decelerating* growth, regardless of narrative. (Pipeline gives forward P/E + PEG; you judge the peer set — build a custom one for hyper-growth with no clean comp.)
-- **When the framework breaks**: strategic monopolies in existential chains, policy-mandated demand, and paradigm-shift growth resist P/E and P/S. When conventional valuation returns an absurd result (a monopoly substrate maker priced at commodity multiples), *say the framework is failing* rather than forcing false precision. Anchor instead on subsidy scale, policy-mandated TAM floor, the strategic value of irreplaceability.
+- **Value accretes toward the scarcest node** — benchmark a name's multiple against the *other layers of its own chain*, not only its own growth. The irreplaceable input should out-multiple the assembler it enables; when a *scarcer* node trades at a *lower* multiple than the node depending on it, that inversion is the mispricing — the scarce node is the buy. The reverse — a convenience node priced *above* its own irreplaceable input — is a kill/avoid flag. Set the correct ordering from a mature analog chain, then find a younger chain where the market inverted it. *(Sector-blind: a payment rail vs the app riding it; a battery cell vs the pack assembler.)*
+- **When the framework breaks — re-anchor, don't fake precision**: strategic monopolies, policy-mandated demand, paradigm-shift growth, and disruptors all resist P/E and P/S. When conventional valuation returns an absurd result, *say the framework is failing* and re-anchor on the real driver:
+    - *Strategic monopoly* (a substrate maker priced at commodity multiples): anchor on subsidy scale, policy-mandated TAM floor, the strategic value of irreplaceability.
+    - *Disruptor* whose thesis IS "don't value it like its category": name the legacy multiple the market is wrongly applying, then re-anchor on the disruption's economic driver — for a money-movement name, assets-on-platform × yield + take-rate capture, not a fintech P/E; for a margin-inversion re-rate, the OPEX line that just flipped to a revenue line. For a stablecoin/float-yield or pre-scale disruptor the no-growth floor (rev × margin × ~15) is **not applicable** — say so and substitute the driver-based anchor rather than printing an "overvalued" verdict the floor model fabricates.
+    - *Enabler material* (a tiny-TAM input that physically gates a huge deployment): its current TAM is a **floor, not a ceiling**. Price the position as an option on the gated end-market — willingness-to-pay is set by the *cost of not having it* (a $100 part that strands a $20B buildout commands orders of magnitude more than its commodity price), not the input's spot. Consensus systematically *under*-values these by anchoring on input TAM; that gap is the asymmetry.
+    - *Sanity-band the upside*: a genuine chokepoint's plausible magnitude isn't a wild guess — calibrate against historical supply-shock base rates (rare-earth, specialty-gas, PGM, memory supercycle), where concentrated supply + inelastic demand produced multi-hundred-to-thousand-percent moves. A band, not a forecast — but it tells you whether a 5–10× target is credible or fantasy.
 - **Revenue quality** (a higher-quality dollar deserves a higher multiple): contracted (especially *customer-funded* CapEx) > recurring > speculative. At equal multiples, the higher-quality revenue is cheaper.
 - **Earnings quality** (pipeline flags most — `cockroach_effect`, `real_fcf`): consecutive beats = execution validated; revenue acceleration > EPS acceleration = healthy organic growth; reported FCF positive but real FCF (after SBC) negative = optical illusion.
 - **Funding price floor**: a recent (<6mo), significant (>5% of MC), strategic investment is a soft floor — institutions did diligence there and defend it. Probabilistic; fails in broad distress.
 
 ---
 
-## §4 — Cycle stage → sizing
+## §4 — Cycle stage: how early, how de-risked
 
-The pipeline gives `capex_flow.direction`, earnings momentum, `margins.flag`, and a `position_guidance` size. But **where in maturation** a name sits — and how much to concentrate — is your call.
+This skill discovers and evaluates names; it does **not** size your book. So read the cycle stage as an *evaluation* lens, not a sizing one: where a name sits in its maturation (`capex_flow.direction`, earnings momentum, `margins.flag`) tells you how early and asymmetric the entry is, and whether the thesis is de-risking — never how much to hold. The **Confirming pipeline fields** column binds that read to observable output so it's reproducible rather than a vibe; since the same name migrates stages over time, re-read it each quarter.
 
 ### The 5-stage cycle
-| Stage | What you see | Return profile | Concentration |
+| Stage | What you see | Confirming pipeline fields | Return profile |
 |---|---|---|---|
-| ① Guess the next bottleneck | not yet qualified; public info only | highest magnitude, lowest probability | **<2%** (lottery tickets) |
-| ② Qualified, no order ramp | in the chain, no volume yet | **highest returns** — but live designed-out risk | small ("less") |
-| ③ Inflection, early | earnings + extreme projections; the easy point | large | "quite a bit" if high conviction |
-| ④ Inflection, mid-cycle | ramping, confirmed, "can't fight the earnings" | smaller but obvious (another ~100%) | **MOST** |
-| ⑤ End / structural | revenue cliff, or structural compounder | low / negative | compounder hold, or exit |
+| ① Guess the next bottleneck | not yet qualified; public info only | taxonomy only; no rev / `rev_growth` n/a | highest magnitude, lowest probability |
+| ② Qualified, no order ramp | in the chain, no volume yet | design-win confirmed, `rev_growth`≈0; `capex_flow.direction` ↑ on the customer | **highest returns** — but live designed-out risk |
+| ③ Inflection, early | earnings + extreme projections; the easy point | `rev_growth` accelerating; `earnings_momentum` beats begin; margins inflecting | large |
+| ④ Inflection, mid-cycle | ramping, confirmed, "can't fight the earnings" | `rev_growth` high but YoY decelerating; consistent beats; `margins.flag` expanding; RS strong | smaller but obvious (another ~100%) |
+| ⑤ End / structural | revenue cliff, or structural compounder | `rev_growth` → low/neg & margins rolling — or a steady compounder | low / negative |
 
-### The sizing correction (subtle and important)
-Naively you'd concentrate where *probability-adjusted return* peaks (≈ stage ②, qualified-but-not-repriced). **That's wrong.** Magnitude peaks at ②, but **concentration peaks at ④** — the confirmed, ongoing ramp. The gap is the *binary designed-out risk* you refuse to over-size into. Take *small* high-asymmetry bets early (②); put the *bulk* of capital where earnings are de-risking the thesis quarter after quarter (④). This is risk-adjusted sizing, not EV-maximizing — you trade some magnitude for a thesis the earnings actively validate.
+### Magnitude peaks early; the thesis de-risks late
+The asymmetry and the certainty don't peak at the same stage, and that gap is the read that matters. *Magnitude* peaks at stage ② (qualified, not yet repriced) — but that's exactly where **binary designed-out risk** is live and the thesis is still unproven. By stage ④ (the confirmed, ongoing ramp) the earnings are de-risking the thesis quarter after quarter, yet most of the magnitude is already in the price. So an early-stage name is a *high-asymmetry, low-certainty* call and a confirmed-ramp name is a *lower-magnitude, earnings-validated* one — say which you're looking at, because it sets how strongly the verdict should hedge and how loud the designed-out caveat must be.
 
 ### Stage migration is the hold thesis
-A name migrates ②→③→④, and that migration IS why you hold through an ugly stretch. *(A buildout-phase name burning capital is a ②/③; once the spend converts to FCF, it's a ④ — holding through the capex phase is the whole thesis.)* Enter ~8–12 months *before* an inflection — a bottleneck two years out is dead money now; re-enter closer to the ramp.
-
-### Power-law allocation
-Why power-law and not equal-weight? Because *returns* are themselves power-law distributed — a few names drive almost all the alpha — so allocation should mirror the return distribution: concentrate where conviction × evidence is highest (that's where the asymmetry lives), and run 15–25 satellites at 0.2–2% as cheap optionality, where even a 2% stake that 10×'s still moves the book. Equal-weighting throws away your conviction signal. So: 3–5 core hold 60–80%; position size IS the conviction signal; a new core that dilutes an existing core must clear a *higher* bar (you're trading proven conviction for a hypothesis); satellites add freely. (Pipeline's `position_guidance` + `regime_adjustment` is the starting number — scale by cycle stage and conviction. In risk-off, halve all sizes; capital preservation overrides conviction.)
+A name migrates ②→③→④, and that migration IS why a thesis survives an ugly stretch. *(A buildout-phase name burning capital is a ②/③; once the spend converts to FCF, it's a ④ — holding through the capex phase is the whole thesis.)* The timing that follows: a bottleneck two years out is dead money now — flag the entry window as ~8–12 months *before* an inflection, re-enter closer to the ramp — and a stage-⑤ revenue cliff is an exit call regardless of how good the story was.
 
 ---
 
@@ -134,8 +199,8 @@ A kill signal isn't "the price dropped" — it's anything that **breaks a load-b
 5. **Inverse Cathie Wood** — ARKK accumulation as a hype-peak warning → tighten discipline, re-examine the bear case (not an auto-exit).
 6. **Sector-collapse signal** — the chain's leading indicator crashes (NAND/DRAM spot for memory, fab utilization for semis) → reassess the *whole* chain.
 7. **CapEx cancellation** — a downstream customer cancels/delays CapEx that was a key revenue assumption → if >20% of your forward model, the thesis may be broken.
-8. **Serial dilution history** — management with a track record of value-destroying ATM raises → exit on first dilution; the behavioral pattern is the signal.
-9. **Designed-out** — the customer develops an alternative, a cheaper source emerges, or a tech shift removes the need. The position rested on *convenience*, not physical inevitability → exit; this is the §2 bear case firing.
+8. **Dilution — read the *structure* before calling it a kill.** The true kill is *serial, value-destroying ATM*: management that habitually prints stock into the open market to fund the burn → exit on the *pattern*, not the first raise. But a single raise is a capital-markets event whose structure decides everything — **instrument** (a premium-priced convertible ≫ an at-market ATM), **coupon** (0% ≫ 9%), **use-of-proceeds** (a named, contract-backed build ≫ general runway), and whether it's **already priced in**. Contract-funded / 0%-coupon / pre-announced dilution is often a *buyable dip*, not a kill. The pipeline flags only the quant (`dilution` off rev_growth/SBC/FCF); you overlay the 8-K/424B structure it can't read.
+9. **Designed-out** — the customer develops an alternative, a cheaper source emerges, or a tech shift removes the need. The position rested on *convenience*, not physical inevitability → on *confirmation*, exit; while still ambiguous (a single rumor/leak), hedge and cut concentration rather than binary-exiting. This is the §2 designed-out monitor firing — watch hardest at the mass-production cost-down.
 
 ---
 
@@ -143,8 +208,8 @@ A kill signal isn't "the price dropped" — it's anything that **breaks a load-b
 
 Conviction is a continuous variable (V9), not binary — manage it.
 - **Strengthening**: a high-conviction name drops with NO kill signal → asymmetry rose. Re-check every kill signal; if all clear and the cause is mechanical (§5), scale up one tier. *Not* blind averaging-down — one ambiguous kill signal and you don't escalate.
-- **Erosion**: no kill signal fires, but no catalyst materializes either. At ~2× the expected catalyst timeline, force a re-examination; if the thesis holds but urgency faded, cut to satellite size; if you can't re-articulate it with fresh conviction, exit. Zombie positions held by inertia dilute alpha (V7).
+- **Erosion**: no kill signal fires, but no catalyst materializes either. At ~2× the expected catalyst timeline, force a re-examination; if the thesis holds but urgency faded, downgrade it to a watch-only, low-conviction read; if you can't re-articulate it with fresh conviction, call the exit. Zombie theses kept alive by inertia dilute your focus (V7).
 - **Thesis inheritance**: when a thesis wins, its transferable pattern (formation, sector dynamics, customer profile, margin structure) is a *hypothesis* for similar names — but each must independently pass the §2 gates. Inheritance accelerates discovery; it never bypasses validation.
-- **Post-mortem** (every loss): classify — (A) right thesis, wrong timing → adjust horizon; (B) partially wrong → find the blind spot; (C) fully wrong → what evidence did you misread; (D) process error (sizing, vehicle, ignored kill signal) → fix the process.
+- **Post-mortem** (every loss): classify — (A) right thesis, wrong timing → adjust horizon; (B) partially wrong → find the blind spot; (C) fully wrong → what evidence did you misread; (D) process error (wrong vehicle, ignored kill signal, wrong timeframe) → fix the process.
 
 Underneath all of it, one filter (V2): **"does this change forward revenue?"** If no, it's noise — ignore it regardless of headline volume. And every conviction long carries an explicit bear case; if you can't articulate it, you don't understand the position well enough to hold it.
