@@ -61,9 +61,11 @@ def _classify_macro_regime(macro_results):
 	risk_on_count = sum(1 for s in risk_on_signals if s)
 	risk_off_count = sum(1 for s in risk_off_signals if s)
 
-	if risk_on_count >= 2 and risk_off_count == 0:
+	# Hair-trigger fix: a single opposing signal no longer vetoes the regime. Require
+	# 2+ confirming signals AND a strict majority (tolerates one opposing signal).
+	if risk_on_count >= 2 and risk_on_count > risk_off_count:
 		regime = "risk_on"
-	elif risk_off_count >= 2 and risk_on_count == 0:
+	elif risk_off_count >= 2 and risk_off_count > risk_on_count:
 		regime = "risk_off"
 	else:
 		regime = "transitional"
@@ -92,8 +94,8 @@ def _classify_macro_regime(macro_results):
 		risk_level = "low"
 
 	regime_thresholds = {
-		"risk_on": "ERP > 3% AND VIX contango AND net liquidity expanding (2+ of 3 positive, 0 negative)",
-		"risk_off": "ERP < 1.5% OR VIX backwardation OR F&G < 25 (2+ of 3 negative, 0 positive)",
+		"risk_on": "2+ of {ERP>3%, VIX contango, net-liq expanding} AND strictly more positive than negative signals (tolerates 1 opposing)",
+		"risk_off": "2+ of {ERP<1.5%, VIX backwardation, F&G<25} AND strictly more negative than positive signals (tolerates 1 opposing)",
 		"transitional": "mixed signals across fundamental and sentiment pillars",
 		"risk_level_high": "VIX > 30 OR F&G < 15",
 		"risk_level_elevated": "VIX backwardation OR F&G < 25 OR yield curve inverted",

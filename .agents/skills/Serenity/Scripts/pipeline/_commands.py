@@ -275,9 +275,10 @@ def cmd_analyze(args):
 			"fiftyTwoWeekLow", "fiftyTwoWeekHigh",
 			"fiftyDayAverage", "twoHundredDayAverage",
 			"sharesOutstanding", "floatShares", "shortPercentOfFloat",
-			"totalRevenue",
+			"totalRevenue", "bookValue", "totalCash",
 			"grossMargins", "operatingMargins",
 			"heldPercentInsiders", "heldPercentInstitutions"]),
+		"insider_transactions": ("modules/actions.py", ["get-insider", ticker]),
 		"growth_profile": ("modules/growth.py", ["profile", ticker]),
 		"rs_ranking": ("modules/rs_ranking.py", ["score", ticker]),
 		"sbc_analyzer": ("modules/sbc_analyzer.py", ["get-sbc", ticker]),
@@ -426,6 +427,7 @@ def cmd_analyze(args):
 		health_gates.get("severity_score"),
 		bottleneck_pre_score, thesis_signals,
 		auto_classification, trapped_asset_override,
+		sec_sc_results,
 	)
 
 	# Materiality signals
@@ -438,17 +440,30 @@ def cmd_analyze(args):
 	forward_pe_data = l4_results.get("forward_pe", {})
 	ngv_data = l4_results.get("no_growth_valuation", {})
 	if not ngv_data.get("error"):
+		mos_v = ngv_data.get("margin_of_safety_pct")
 		valuation_frame["no_growth_floor"] = {
 			"fair_value": ngv_data.get("no_growth_fair_value"),
-			"margin_of_safety_pct": ngv_data.get("margin_of_safety_pct"),
-			"stress_test": "pass" if isinstance(ngv_data.get("margin_of_safety_pct"), (int, float)) and ngv_data["margin_of_safety_pct"] > 0 else "fail",
+			"margin_of_safety_pct": mos_v,
+			"floor_vs_price": "floor_above_price" if isinstance(mos_v, (int, float)) and mos_v > 0 else "floor_below_price",
+			"note": "The no-growth floor prices in ZERO growth. For a growth name the floor sitting below price is EXPECTED/healthy — a downside anchor, NOT a kill signal.",
 		}
 	if not forward_pe_data.get("error"):
+		fp1 = forward_pe_data.get("forward_pe_1y")
+		fp2 = forward_pe_data.get("forward_pe_2y")
+		fp_peg = forward_pe_data.get("peg_ratio")
+		pe_assess = (
+			"undervalued_vs_growth" if isinstance(fp_peg, (int, float)) and fp_peg < 1.0
+			else "fairly_valued_vs_growth" if isinstance(fp_peg, (int, float)) and fp_peg < 2.0
+			else "expensive_vs_growth" if isinstance(fp_peg, (int, float))
+			else None
+		)
 		valuation_frame["growth_upside"] = {
-			"forward_1y_pe": forward_pe_data.get("forward_1y_pe"),
-			"forward_2y_pe": forward_pe_data.get("forward_2y_pe"),
+			"forward_pe_1y": fp1,
+			"forward_pe_2y": fp2,
+			"peg_ratio": fp_peg,
 			"revenue_growth_yoy": forward_pe_data.get("revenue_growth_yoy"),
-			"assessment": forward_pe_data.get("assessment"),
+			"pe_contraction": (isinstance(fp1, (int, float)) and isinstance(fp2, (int, float)) and fp2 < fp1),
+			"assessment": pe_assess,
 		}
 
 	# Causal bridge (flat dashboard)
@@ -645,3 +660,111 @@ def cmd_analyze(args):
 	}
 
 	output_json(output)
+
+
+@safe_run
+def cmd_discover(args):
+	"""Candidate comparator: run key quantitative metrics across a ticker list.
+
+	Lightweight discovery triage — fans out a handful of existing modules per
+	ticker in parallel and returns a comparison table so the agent can pick which
+	names to run full `analyze` on. Sector-agnostic.
+	"""
+	tickers = [t.upper() for t in args.tickers]
+
+	per_ticker_scripts = {
+		"info": ("modules/info.py", lambda t: ["get-info-fields", t,
+			"sector", "industry", "marketCap", "currentPrice", "beta",
+			"grossMargins", "operatingMargins", "fiftyTwoWeekLow", "fiftyTwoWeekHigh",
+			"shortPercentOfFloat"]),
+		"forward_pe": ("modules/forward_pe.py", lambda t: ["calculate", t]),
+		"growth_profile": ("modules/growth.py", lambda t: ["profile", t]),
+		"rs_ranking": ("modules/rs_ranking.py", lambda t: ["score", t]),
+		"no_growth_valuation": ("modules/no_growth_valuation.py", lambda t: ["calculate", t]),
+	}
+
+	# Fan out all (ticker, script) jobs in parallel
+	jobs = {}
+	with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+		futures = {}
+		for t in tickers:
+			for name, (path, argfn) in per_ticker_scripts.items():
+				futures[(t, name)] = executor.submit(_run_script, path, argfn(t), 60)
+		for key, fut in futures.items():
+			jobs[key] = fut.result()
+
+	def g(d, k):
+		return d.get(k) if isinstance(d, dict) and not d.get("error") else None
+
+	candidates = []
+	missing_data = {}
+	for t in tickers:
+		info = jobs.get((t, "info"), {}) or {}
+		fpe = jobs.get((t, "forward_pe"), {}) or {}
+		gp = jobs.get((t, "growth_profile"), {}) or {}
+		rs = jobs.get((t, "rs_ranking"), {}) or {}
+		ngv = jobs.get((t, "no_growth_valuation"), {}) or {}
+
+		mc = g(info, "marketCap")
+		price = g(info, "currentPrice")
+		low52 = g(info, "fiftyTwoWeekLow")
+		high52 = g(info, "fiftyTwoWeekHigh")
+		gm = g(info, "grossMargins")
+		peg = g(fpe, "peg_ratio")
+		rev_growth = g(fpe, "revenue_growth_yoy")
+		rs_rating = g(rs, "rs_rating")
+		mos = g(ngv, "margin_of_safety_pct")
+
+		row = {
+			"ticker": t,
+			"sector": g(info, "sector"),
+			"marketCap": mc,
+			"currentPrice": price,
+			"forward_pe_1y": g(fpe, "forward_pe_1y"),
+			"forward_pe_2y": g(fpe, "forward_pe_2y"),
+			"peg_ratio": peg,
+			"revenue_growth_yoy": rev_growth,
+			"gross_margin_pct": round(gm * 100, 1) if isinstance(gm, (int, float)) else None,
+			"eps_accelerating": gp.get("eps_accelerating") if isinstance(gp, dict) and not gp.get("error") else None,
+			"sales_accelerating": gp.get("sales_accelerating") if isinstance(gp, dict) and not gp.get("error") else None,
+			"rs_rating": rs_rating,
+			"no_growth_mos_pct": round(mos, 1) if isinstance(mos, (int, float)) else None,
+			"beta": g(info, "beta"),
+			"pct_above_52w_low": round((price / low52 - 1) * 100, 1) if isinstance(price, (int, float)) and isinstance(low52, (int, float)) and low52 > 0 else None,
+			"pct_below_52w_high": round((price / high52 - 1) * 100, 1) if isinstance(price, (int, float)) and isinstance(high52, (int, float)) and high52 > 0 else None,
+			"short_pct_float": g(info, "shortPercentOfFloat"),
+		}
+
+		# Triage (sector-agnostic, lightweight first pass)
+		growthy = isinstance(rev_growth, (int, float)) and rev_growth > 20
+		cheap_peg = peg is None or (isinstance(peg, (int, float)) and peg < 1.5)
+		strong_rs = isinstance(rs_rating, (int, float)) and rs_rating >= 70
+		if growthy and cheap_peg and strong_rs:
+			triage, reason = "investigate", "growth>20% + PEG<1.5 (or n/a) + RS>=70 — run full analyze"
+		elif (isinstance(rev_growth, (int, float)) and rev_growth > 15) or (isinstance(rs_rating, (int, float)) and rs_rating >= 50):
+			triage, reason = "watch", "moderate growth or relative strength — secondary candidate"
+		else:
+			triage, reason = "pass", "no growth/momentum edge in quick screen"
+		row["triage"] = triage
+		row["triage_reason"] = reason
+
+		missing = [k for k, v in row.items() if v is None and k not in ("triage", "triage_reason")]
+		if missing:
+			missing_data[t] = missing
+		candidates.append(row)
+
+	order = {"investigate": 0, "watch": 1, "pass": 2}
+	candidates.sort(key=lambda r: (order.get(r["triage"], 3), -(r["rs_rating"] if isinstance(r["rs_rating"], (int, float)) else 0)))
+
+	output_json({
+		"candidates": candidates,
+		"thresholds": {
+			"triage_investigate": "revenue_growth_yoy > 20% AND (peg_ratio < 1.5 or n/a) AND rs_rating >= 70",
+			"triage_watch": "revenue_growth_yoy > 15% OR rs_rating >= 50",
+			"peg_ratio": "<1 undervalued vs growth, 1-2 fair, >2 expensive (high P/E alone is NOT a reject)",
+			"rs_rating": "IBD-style 0-99 relative strength vs all US stocks; >=70 = leadership",
+			"no_growth_mos_pct": "margin of safety vs the no-growth floor — negative is NORMAL/expected for a growth name",
+		},
+		"missing_data": missing_data,
+		"metadata": {"total_candidates": len(candidates), "note": "first-pass triage only — run `analyze` on investigate/watch names for the full 6-level verdict"},
+	})

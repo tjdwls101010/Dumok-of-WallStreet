@@ -179,6 +179,34 @@ def _safe_float(value):
 		return None
 
 
+def _compute_realized_vol(symbol):
+	"""Current 30-day realized volatility + typical daily move via yfinance prices.
+
+	hv30_current: annualized stdev of the last ~30 daily log returns (percent).
+	typical_daily_move_pct: 1-sigma daily move (percent) — feeds the strike
+	move-budget arithmetic (daily move x DTE + buffer) and the overshoot test.
+	"""
+	try:
+		import math
+		import statistics
+		import yfinance as yf
+		hist = yf.Ticker(symbol).history(period="3mo")
+		closes = [float(c) for c in hist["Close"].dropna().tolist()]
+		if len(closes) < 21:
+			return {}
+		rets = [math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes)) if closes[i - 1] > 0]
+		window = rets[-30:] if len(rets) >= 30 else rets
+		if len(window) < 5:
+			return {}
+		daily_std = statistics.pstdev(window)
+		return {
+			"hv30_current": round(daily_std * math.sqrt(252) * 100, 2),
+			"typical_daily_move_pct": round(daily_std * 100, 2),
+		}
+	except Exception:
+		return {}
+
+
 @safe_run
 def cmd_analyze(args):
 	"""Analyze IV context for a given symbol using CBOE delayed quote data."""
@@ -241,6 +269,11 @@ def cmd_analyze(args):
 		if abs(iv30 - hv30_mid) > 15:
 			iv_regime_shift = True
 
+	# Realized vol (current HV30) + typical daily move + IV/RV ratio for strike math
+	rv = _compute_realized_vol(symbol)
+	hv30_current = rv.get("hv30_current")
+	typical_daily_move_pct = rv.get("typical_daily_move_pct")
+	iv_rv_ratio = round(iv30 / hv30_current, 2) if isinstance(iv30, (int, float)) and isinstance(hv30_current, (int, float)) and hv30_current > 0 else None
 	result = {
 		"symbol": symbol,
 		"current_price": round(current_price, 2) if current_price is not None else None,
@@ -254,6 +287,9 @@ def cmd_analyze(args):
 		"interpretation": _classify_iv(iv_rank),
 		"iv_tier": iv_tier,
 		"iv_regime_shift": iv_regime_shift,
+		"hv30_current": hv30_current,
+		"typical_daily_move_pct": typical_daily_move_pct,
+		"iv_rv_ratio": iv_rv_ratio,
 		"iv_tier_thresholds": {
 			"compressed": "<30",
 			"normal_low": "30-45",
@@ -261,6 +297,7 @@ def cmd_analyze(args):
 			"elevated": "65-100",
 			"extreme": ">100",
 			"regime_shift": "|IV30-HV30| > 15",
+			"iv_rv_ratio": ">1 = IV rich vs realized (favor selling premium); <1 = cheap (favor buying options)",
 		},
 	}
 

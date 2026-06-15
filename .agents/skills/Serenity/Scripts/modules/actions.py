@@ -108,7 +108,7 @@ See Also:
 import argparse
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import pandas as pd
@@ -116,33 +116,135 @@ import yfinance as yf
 from utils import output_json, safe_run
 
 
-def _parse_days_to_next_earnings(earnings_dates_data):
-	"""Parse earnings dates dict and return days until the nearest future date.
+def _coerce_date(s):
+	"""Parse an ISO/tz-aware or common date string to a date, else None."""
+	if not isinstance(s, str) or not s.strip():
+		return None
+	try:
+		return datetime.fromisoformat(s).date()
+	except (ValueError, TypeError):
+		pass
+	for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
+		try:
+			return datetime.strptime(s.strip(), fmt).date()
+		except (ValueError, TypeError):
+			continue
+	return None
 
-	Accepts the column-oriented dict output from get_earnings_dates
-	(e.g. {"Earnings Date": {"0": "2026-04-30", ...}, ...}).
-	Returns int days or None if no future date found.
+
+def _num(v):
+	"""Coerce a value (incl. numpy scalars) to float, or None if not finite."""
+	try:
+		f = float(v)
+		return f if f == f else None
+	except (TypeError, ValueError):
+		return None
+
+
+def _parse_days_to_next_earnings(earnings_dates_data):
+	"""Days until the nearest FUTURE earnings date.
+
+	yfinance get_earnings_dates puts the dates in the DataFrame INDEX, so after
+	normalize() the dates become the KEYS of each column dict (e.g. "EPS Estimate":
+	{"2026-08-26 16:00:00-04:00": 2.08, ...}) — there is no top-level "Earnings Date"
+	column. Collect candidate date strings from an explicit "Earnings Date" column
+	if one exists, otherwise from the index keys of the value columns.
 	"""
 	if not isinstance(earnings_dates_data, dict) or earnings_dates_data.get("error"):
 		return None
-	dates_col = earnings_dates_data.get("Earnings Date", {})
-	if not isinstance(dates_col, dict):
-		return None
-	now = datetime.now()
-	min_days = None
-	for _idx, date_str in dates_col.items():
-		if not isinstance(date_str, str):
+	date_strs = set()
+	explicit = earnings_dates_data.get("Earnings Date")
+	if isinstance(explicit, dict):
+		date_strs.update(v for v in explicit.values() if isinstance(v, str))
+	for key, col in earnings_dates_data.items():
+		if key in ("days_to_next", "error", "Earnings Date"):
 			continue
-		for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
-			try:
-				dt = datetime.strptime(date_str.strip(), fmt)
-				delta = (dt - now).days
-				if delta >= 0 and (min_days is None or delta < min_days):
-					min_days = delta
-				break
-			except ValueError:
-				continue
+		if isinstance(col, dict):
+			date_strs.update(k for k in col.keys() if isinstance(k, str))
+	today = datetime.now().date()
+	min_days = None
+	for s in date_strs:
+		d = _coerce_date(s)
+		if d is None:
+			continue
+		delta = (d - today).days
+		if delta >= 0 and (min_days is None or delta < min_days):
+			min_days = delta
 	return min_days
+
+
+def _aggregate_insider(symbol):
+	"""12-month insider buy/sell aggregation + net direction.
+
+	Combines insider_transactions (per-filing rows → 12m net VALUE) with
+	insider_purchases (6m net-shares summary) into a compact summary the
+	institutional-flow signal consumes. A CEO buying on the open market is a
+	conviction vote; empty data returns 'no_data' (not 'unknown').
+	"""
+	ticker = yf.Ticker(symbol)
+	buy_value = sell_value = 0.0
+	buy_count = sell_count = 0
+	cutoff = datetime.now().date() - timedelta(days=365)
+
+	try:
+		tx = ticker.insider_transactions
+	except Exception:
+		tx = None
+	if isinstance(tx, pd.DataFrame) and not tx.empty:
+		for _, row in tx.iterrows():
+			start = _coerce_date(str(row.get("Start Date", "")))
+			if start is not None and start < cutoff:
+				continue
+			# yfinance leaves "Transaction" blank; the buy/sell type lives in "Text"
+			# (e.g. "Sale at price ...", "Purchase at price ..."). Read both to be safe.
+			txt = (str(row.get("Text", "")) + " " + str(row.get("Transaction", ""))).lower()
+			val = _num(row.get("Value")) or 0.0
+			if "purchase" in txt or "buy" in txt:
+				buy_value += val
+				buy_count += 1
+			elif "sale" in txt or "sell" in txt:
+				sell_value += val
+				sell_count += 1
+
+	net_shares_6m = None
+	try:
+		ip = ticker.insider_purchases
+		if isinstance(ip, pd.DataFrame) and not ip.empty:
+			label_col = ip.columns[0]
+			for _, row in ip.iterrows():
+				if str(row.get(label_col, "")).startswith("Net Shares Purchased"):
+					net_shares_6m = _num(row.get("Shares"))
+					break
+	except Exception:
+		pass
+
+	tx_count = buy_count + sell_count
+	net_value = round(buy_value - sell_value, 2) if tx_count else None
+	has_data = tx_count > 0 or net_shares_6m is not None
+
+	if not has_data:
+		net_direction = "no_data"
+	else:
+		basis = net_value if net_value is not None else net_shares_6m
+		if basis is None or basis == 0:
+			net_direction = "neutral"
+		elif basis > 0:
+			net_direction = "net_buying"
+		else:
+			net_direction = "net_selling"
+
+	return {
+		"summary": {
+			"net_direction": net_direction,
+			"net_value": net_value,
+			"net_shares_6m": net_shares_6m,
+			"buy_value_12m": round(buy_value, 2) if buy_count else None,
+			"sell_value_12m": round(sell_value, 2) if sell_count else None,
+			"buy_count_12m": buy_count,
+			"sell_count_12m": sell_count,
+		},
+		"window": "12m transactions (net $ value) + 6m net shares; open-market buys are a conviction vote",
+	}
 
 
 @safe_run
@@ -209,6 +311,11 @@ def cmd_news(args):
 	output_json(yf.Ticker(args.symbol).get_news(count=args.count, tab=args.tab))
 
 
+@safe_run
+def cmd_insider(args):
+	output_json(_aggregate_insider(args.symbol))
+
+
 def main():
 	parser = argparse.ArgumentParser(description="Corporate actions, earnings, and news")
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -258,6 +365,11 @@ def main():
 	sp.add_argument("--count", type=int, default=10)
 	sp.add_argument("--tab", choices=["news", "all", "press_releases"], default="news")
 	sp.set_defaults(func=cmd_news)
+
+	# get-insider
+	sp = sub.add_parser("get-insider")
+	sp.add_argument("symbol")
+	sp.set_defaults(func=cmd_insider)
 
 	args = parser.parse_args()
 	args.func(args)

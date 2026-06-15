@@ -302,80 +302,148 @@ def _auto_classify_taxonomy(l4_results, bottleneck_pre_score):
 
 
 def _parse_days_to_earnings(l5_results):
-	"""Parse L5 earnings_dates and return days until the nearest future date."""
+	"""Days until the nearest FUTURE earnings date (fallback parser).
+
+	Mirrors actions._parse_days_to_next_earnings: yfinance puts the dates in the
+	DataFrame INDEX, so after normalize() they become the KEYS of each value
+	column (e.g. "EPS Estimate": {"2026-08-26 16:00:00-04:00": 2.08, ...}) — there
+	is no top-level "Earnings Date" column.
+	"""
 	if not isinstance(l5_results, dict):
 		return None
 	ed = l5_results.get("earnings_dates")
 	if not isinstance(ed, dict) or ed.get("error"):
 		return None
-	dates_col = ed.get("Earnings Date", {})
-	if not isinstance(dates_col, dict):
-		return None
-	now = datetime.now()
-	min_days = None
-	for _idx, date_str in dates_col.items():
-		if not isinstance(date_str, str):
+	date_strs = set()
+	explicit = ed.get("Earnings Date")
+	if isinstance(explicit, dict):
+		date_strs.update(v for v in explicit.values() if isinstance(v, str))
+	for key, col in ed.items():
+		if key in ("days_to_next", "error", "Earnings Date"):
 			continue
-		for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
-			try:
-				dt = datetime.strptime(date_str.strip(), fmt)
-				delta = (dt - now).days
-				if delta >= 0 and (min_days is None or delta < min_days):
-					min_days = delta
-				break
-			except ValueError:
-				continue
+		if isinstance(col, dict):
+			date_strs.update(k for k in col.keys() if isinstance(k, str))
+	today = datetime.now().date()
+	min_days = None
+	for s in date_strs:
+		d = None
+		try:
+			d = datetime.fromisoformat(s).date()
+		except (ValueError, TypeError):
+			for fmt in ("%Y-%m-%d", "%Y-%m-%d %H:%M:%S", "%b %d, %Y"):
+				try:
+					d = datetime.strptime(s.strip(), fmt).date()
+					break
+				except (ValueError, TypeError):
+					continue
+		if d is None:
+			continue
+		delta = (d - today).days
+		if delta >= 0 and (min_days is None or delta < min_days):
+			min_days = delta
 	return min_days
 
 
+_SEC_CATALYST_KEYWORDS = re.compile(
+	r"customer|contract|agreement|award|qualif|design[\s-]?win|capacity|"
+	r"expansion|supply|partnership|order|approval|clearance",
+	re.IGNORECASE,
+)
+
+
+def _recent_material_sec_catalyst(sec_sc_results):
+	"""Return a material SEC/8-K catalyst type from recent events, else None.
+
+	Broadens 'catalyst' beyond scheduled earnings: a recent design win / supply
+	agreement / qualification / named contract (the catalysts that dominate
+	Serenity's track record) read from the L3 SEC events feed.
+	"""
+	if not isinstance(sec_sc_results, dict):
+		return None
+	events_raw = sec_sc_results.get("sec_events", {}) or {}
+	if not isinstance(events_raw, dict) or events_raw.get("error"):
+		return None
+	events = events_raw.get("data", []) or []
+	if not isinstance(events, list):
+		return None
+	for ev in events:
+		if not isinstance(ev, dict):
+			continue
+		text = f"{ev.get('event_type', '')} {ev.get('context', '')}"
+		if _SEC_CATALYST_KEYWORDS.search(text):
+			return ev.get("event_type") or "material_sec_event"
+	return None
+
+
 def _generate_composite_signal(l1_result, l4_results, l5_results, health_severity_score,
-	bottleneck_pre_score, thesis_signals, auto_classification, trapped_asset_override):
+	bottleneck_pre_score, thesis_signals, auto_classification, trapped_asset_override,
+	sec_sc_results=None):
 	"""Generate integrated investment grade from all pipeline data."""
 
-	# V2 Hard Gate: Zero-revenue pre-filter
-	# yfinance returns None for totalRevenue when company has no revenue (pre-revenue)
 	l4 = l4_results if isinstance(l4_results, dict) else {}
 	info_data = l4.get("info") or {}
-	if isinstance(info_data, dict) and not info_data.get("error"):
+	if isinstance(info_data, dict) and info_data.get("error"):
+		info_data = {}
+	fpe = l4.get("forward_pe") or {}
+	if isinstance(fpe, dict) and fpe.get("error"):
+		fpe = {}
+
+	# V2 fundamental-reality status (tri-state). Distinguish MISSING data from a
+	# confirmed pre-revenue company. We never auto-AVOID: missing data is a judgment
+	# call for the agent (yfinance returns None for many micro-caps/foreign/ADR rows
+	# that DO have revenue), and a confirmed pre-revenue bottleneck is sized down, not
+	# zeroed (SIVE/POET/AEHR-early are exactly this winner pattern).
+	revenue_status = "has_revenue"
+	if isinstance(info_data, dict) and info_data:
 		total_revenue = info_data.get("totalRevenue")
-		is_zero_revenue = (total_revenue is None or
-						   (isinstance(total_revenue, (int, float)) and total_revenue <= 0))
-		if is_zero_revenue:
-			return {
-				"composite_score": 0, "grade": "AVOID",
-				"score_breakdown": {},
-				"composite_thresholds": {
-					"weights": {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10},
-					"grades": {"STRONG_BUY": ">=80", "BUY": ">=65", "ACCUMULATE": ">=50", "HOLD": ">=35", "AVOID": "<35"},
-				},
-				"position_guidance": {
-					"conviction_tier": None, "suggested_size_pct": "no_entry",
-					"max_loss_pct": None, "regime_adjustment": "none",
-				},
-				"zero_revenue_gate": True,
-				"zero_revenue_gate_thresholds": {"trigger": "totalRevenue <= 0", "result": "automatic AVOID", "rationale": "V2: Fundamental Reality as Prerequisite"},
-				"sop_triggered": False,
-				"trapped_asset_eligible": False,
-				"regime_cap_applied": False,
-			}
+		if total_revenue is None:
+			revenue_status = "data_insufficient"
+		elif isinstance(total_revenue, (int, float)) and total_revenue <= 0:
+			revenue_status = "confirmed_pre_revenue"
+	else:
+		revenue_status = "data_insufficient"
 
 	score_breakdown = {}
 	total_score = 0.0
 
 	l1 = l1_result if isinstance(l1_result, dict) else {}
-	regime = l1.get("regime", "transitional")
+	regime = (l1.get("regime", "transitional") if l1 else "unknown")
 
-	# Component 1: Bottleneck (30 pts)
+	# Component 1: Bottleneck (30 pts) — archetype-conditional.
+	# The bottleneck pre-score is SEC physical-supply-chain mining; it structurally
+	# under-scores Disruption/Evolution names (fintech, neocloud, software/services),
+	# forfeiting up to 30 pts off the top. For those archetypes substitute an
+	# archetype-appropriate score so a non-physical winner is not capped below STRONG_BUY.
 	bn = bottleneck_pre_score if isinstance(bottleneck_pre_score, dict) and not (bottleneck_pre_score or {}).get("error") else {}
 	bn_raw = bn.get("pre_score", 0) if bn else 0
 	if not isinstance(bn_raw, (int, float)):
 		bn_raw = 0
 	bn_max = bn.get("pre_score_max", 4.25) if bn else 4.25
-	bn_points = (bn_raw / bn_max) * 30.0
-	score_breakdown["bottleneck"] = {"raw": bn_raw if bn else None, "max": bn_max, "points": round(bn_points, 2)}
+	bn_points = (bn_raw / bn_max) * 30.0 if bn_max else 0.0
+	ac = auto_classification if isinstance(auto_classification, dict) else {}
+	ac_class = ac.get("classification", "unclassified")
+	archetype_adjusted = False
+	if ac_class in ("disruption", "evolution") and bn_points < 15.0:
+		rev_growth = fpe.get("revenue_growth_yoy")
+		gross_margins = info_data.get("grossMargins")
+		ts_dir_pre = (thesis_signals or {}).get("net_direction", "neutral") if isinstance(thesis_signals, dict) else "neutral"
+		arch_pts = 0.0
+		if isinstance(rev_growth, (int, float)):
+			arch_pts += 12.0 if rev_growth > 50 else 8.0 if rev_growth > 25 else 5.0 if rev_growth > 15 else 0.0
+		if isinstance(gross_margins, (int, float)):
+			arch_pts += 9.0 if gross_margins > 0.60 else 6.0 if gross_margins > 0.40 else 0.0
+		arch_pts += 9.0 if ts_dir_pre == "strengthening" else 4.0 if ts_dir_pre == "neutral" else 0.0
+		arch_pts = min(arch_pts, 30.0)
+		if arch_pts > bn_points:
+			bn_points = arch_pts
+			archetype_adjusted = True
+	score_breakdown["bottleneck"] = {
+		"raw": bn_raw if bn else None, "max": bn_max, "points": round(bn_points, 2),
+		"archetype_substituted": archetype_adjusted, "archetype": ac_class,
+	}
 	total_score += bn_points
 
-	# Component 2: Health severity (25 pts) — 5 gates (4 original + io_quality_concern)
+	# Component 2: Health severity (25 pts) — 5 gates
 	if isinstance(health_severity_score, (int, float)):
 		hs_points = (health_severity_score / 5.0) * 25.0
 		score_breakdown["health"] = {"raw": health_severity_score, "max": 5.0, "points": round(hs_points, 2)}
@@ -391,39 +459,68 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	score_breakdown["thesis"] = {"direction": ts_dir, "points": round(ts_points, 2)}
 	total_score += ts_points
 
-	# Component 4: Catalyst proximity (10 pts)
-	# Use days_to_next from module output (enriched by actions.py)
+	# Component 4: Catalyst (10 pts) — scheduled earnings OR a recent material SEC event.
 	days = None
 	if isinstance(l5_results, dict):
 		ed = l5_results.get("earnings_dates")
 		if isinstance(ed, dict) and not ed.get("error"):
 			days = ed.get("days_to_next")
-	# Fallback: parse manually if module didn't provide days_to_next
 	if days is None:
 		days = _parse_days_to_earnings(l5_results)
-	cat_points = 10.0 if (days is not None and days <= 30) else 5.0 if (days is not None and days <= 60) else 0.0
-	score_breakdown["catalyst"] = {"days_to_earnings": days, "points": round(cat_points, 2)}
+	earnings_pts = 10.0 if (days is not None and days <= 30) else 5.0 if (days is not None and days <= 60) else 0.0
+	sec_catalyst = _recent_material_sec_catalyst(sec_sc_results)
+	sec_pts = 7.0 if sec_catalyst else 0.0
+	cat_points = max(earnings_pts, sec_pts)
+	if earnings_pts >= sec_pts and earnings_pts > 0:
+		catalyst_type = "earnings_near"
+	elif sec_pts > 0:
+		catalyst_type = sec_catalyst
+	else:
+		catalyst_type = "none"
+	score_breakdown["catalyst"] = {
+		"days_to_earnings": days, "sec_event": sec_catalyst,
+		"catalyst_type": catalyst_type, "points": round(cat_points, 2),
+	}
 	total_score += cat_points
 
 	# Component 5: Taxonomy (10 pts)
-	ac = auto_classification if isinstance(auto_classification, dict) else {}
-	ac_class = ac.get("classification", "unclassified")
 	tax_points = 10.0 if ac_class in ("bottleneck", "disruption") else 7.0 if ac_class == "evolution" else 5.0
 	score_breakdown["taxonomy"] = {"classification": ac_class, "points": round(tax_points, 2)}
 	total_score += tax_points
 
-	# Component 6: Valuation MoS (10 pts)
-	l4 = l4_results if isinstance(l4_results, dict) else {}
+	# Component 6: Valuation (10 pts) — PEG-first for growth names, no-growth floor MoS
+	# for low/no-growth names. The no-growth floor sits far below price for any grower,
+	# so scoring on MoS alone zeroes every growth name and inverts the PEG-first doctrine.
 	ngv = l4.get("no_growth_valuation") or {}
 	if isinstance(ngv, dict) and ngv.get("error"):
 		ngv = {}
 	mos_pct = ngv.get("margin_of_safety_pct")
-	if isinstance(mos_pct, (int, float)):
-		val_points = 10.0 if mos_pct > 20 else 5.0 if mos_pct >= 0 else 0.0
-		score_breakdown["valuation"] = {"mos_pct": round(mos_pct, 2), "points": round(val_points, 2)}
+	rev_growth_v = fpe.get("revenue_growth_yoy")
+	peg = fpe.get("peg_ratio")
+	fpe1_v = fpe.get("forward_pe_1y")
+	fpe2_v = fpe.get("forward_pe_2y")
+	is_growth = isinstance(rev_growth_v, (int, float)) and rev_growth_v >= 15
+	pe_contraction = isinstance(fpe1_v, (int, float)) and isinstance(fpe2_v, (int, float)) and fpe2_v < fpe1_v
+	if is_growth and isinstance(peg, (int, float)) and peg > 0:
+		val_points = 10.0 if peg < 1.0 else 6.0 if peg < 2.0 else 2.0
+		if pe_contraction:
+			val_points = min(10.0, val_points + 2.0)
+		score_breakdown["valuation"] = {
+			"track": "peg", "peg_ratio": peg, "pe_contraction": pe_contraction,
+			"mos_pct_floor": round(mos_pct, 2) if isinstance(mos_pct, (int, float)) else None,
+			"points": round(val_points, 2),
+		}
+	elif isinstance(mos_pct, (int, float)):
+		# Growth name missing PEG, or a genuine low/no-growth name. A grower's no-growth
+		# floor below price is EXPECTED (not a kill) — floor growth names at 3, not 0.
+		val_points = 10.0 if mos_pct > 20 else 5.0 if mos_pct >= 0 else (3.0 if is_growth else 0.0)
+		score_breakdown["valuation"] = {
+			"track": "no_growth_floor", "mos_pct": round(mos_pct, 2),
+			"is_growth": is_growth, "points": round(val_points, 2),
+		}
 	else:
 		val_points = 0.0
-		score_breakdown["valuation"] = {"mos_pct": None, "points": 0.0, "note": "unavailable"}
+		score_breakdown["valuation"] = {"track": None, "mos_pct": None, "points": 0.0, "note": "unavailable"}
 	total_score += val_points
 
 	# Regime cap & trapped asset override
@@ -431,7 +528,6 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	trapped_override_applied = False
 	ta = trapped_asset_override if isinstance(trapped_asset_override, dict) else {}
 	ta_eligible = ta.get("eligible") is True
-
 	if regime == "risk_off":
 		if ta_eligible:
 			trapped_override_applied = True
@@ -439,6 +535,20 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 			if total_score > 49:
 				total_score = 49.0
 			regime_cap_applied = True
+
+	# Pre-revenue handling (tri-state). A confirmed pre-revenue name needs a MATERIAL
+	# CATALYST (near earnings, recent material SEC event, or a strong bottleneck) to be
+	# investable, and is size-capped — never AVOID-zeroed. Missing data changes nothing
+	# here (the agent judges it via the data_insufficient flag).
+	material_catalyst = (cat_points > 0) or (isinstance(bn_raw, (int, float)) and bn_raw >= 3.0)
+	pre_revenue_note = None
+	if revenue_status == "confirmed_pre_revenue":
+		if material_catalyst:
+			pre_revenue_note = "confirmed pre-revenue WITH a material catalyst (near earnings / recent SEC event / strong bottleneck) — investable as a size-capped MOONSHOT-tier bet"
+		else:
+			if total_score > 34:
+				total_score = 34.0
+			pre_revenue_note = "confirmed pre-revenue with NO material catalyst — speculative; not investable without a design win / qualification / named contract"
 
 	total_score = round(total_score, 2)
 
@@ -456,7 +566,9 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	else:
 		grade = "AVOID"
 
-	# Position sizing
+	# Position sizing — grade-derived BASELINE only. suggested_size_pct is a floor to
+	# scale UP by cycle stage and conviction under the power-law doctrine (3-5 core names
+	# at 60-80% combined), NOT a ceiling. The agent owns the final size.
 	pos_table = {
 		"STRONG_BUY": ("High", "5-7%", "1.5%"), "BUY": ("Medium", "2-4%", "1.0%"),
 		"ACCUMULATE": ("Low", "1-2%", "0.5%"), "HOLD": (None, "hold_existing", None),
@@ -464,18 +576,19 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	}
 	conviction, size, max_loss = pos_table.get(grade, (None, "no_entry", None))
 	regime_adj = "risk_off_0.5x" if regime == "risk_off" else "transitional_0.75x" if regime == "transitional" else "none"
+	conviction_delta = ts.get("conviction_delta", 0)
+	# Pre-revenue investable bets are size-capped regardless of the grade band.
+	if revenue_status == "confirmed_pre_revenue" and size not in ("no_entry", "hold_existing"):
+		size = "max_3%"
 
-	# Flatten score_breakdown to key: points (weights are constant, moved to thresholds)
 	score_breakdown_out = {}
 	for key, val in score_breakdown.items():
 		score_breakdown_out[key] = val.get("points", val.get("raw", 0))
 
-	sop_triggered = False
-	trapped_asset_eligible = False
-
 	return {
 		"composite_score": total_score, "grade": grade,
 		"score_breakdown": score_breakdown_out,
+		"score_breakdown_detail": score_breakdown,
 		"composite_thresholds": {
 			"weights": {"bottleneck": 30, "health": 25, "thesis": 15, "catalyst": 10, "taxonomy": 10, "valuation": 10},
 			"grades": {"STRONG_BUY": ">=80", "BUY": ">=65", "ACCUMULATE": ">=50", "HOLD": ">=35", "AVOID": "<35"},
@@ -483,8 +596,15 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		"position_guidance": {
 			"conviction_tier": conviction, "suggested_size_pct": size,
 			"max_loss_pct": max_loss, "regime_adjustment": regime_adj,
+			"conviction_delta": conviction_delta,
+			"sizing_basis": "grade-derived baseline — NOT a ceiling. Scale by cycle stage (analysis.md §4: small at stage 2, bulk at confirmed ramp 4) and conviction; Serenity concentrates 3-5 core names at 60-80% combined.",
 		},
-		"sop_triggered": sop_triggered,
+		"revenue_status": revenue_status,
+		"data_insufficient": revenue_status == "data_insufficient",
+		"pre_revenue_note": pre_revenue_note,
+		"archetype_adjusted": archetype_adjusted,
+		"catalyst_type": catalyst_type,
+		"sop_triggered": False,
 		"trapped_asset_eligible": trapped_override_applied,
 		"regime_cap_applied": regime_cap_applied,
 	}

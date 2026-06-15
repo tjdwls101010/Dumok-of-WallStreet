@@ -702,6 +702,21 @@ def _pre_score_bottleneck(sec_sc_data):
 		criteria["no_substitutes"]["score"] = ns_score
 		criteria["no_substitutes"]["evidence"] += " + commodity price exposure (Item 7A)"
 
+	# V3 strategic demand captivity: a captive customer (>50% / sole-contract dependent)
+	# means the filer is a chokepoint its customer cannot replace. Reinforce supply
+	# concentration rather than adding a separate weight (keeps pre_score_max stable).
+	captive_customer = any(
+		d.get("concentration_flag") == "captive"
+		for d in (supply_chain.get("demand_entities") or []) if isinstance(d, dict)
+	)
+	if captive_customer:
+		sc = criteria.get("supply_concentration")
+		if sc and sc.get("score", 0) > 0:
+			sc["score"] = min(1.0, sc["score"] + 0.15)
+			sc["evidence"] = sc.get("evidence", "") + " + captive customer dependency (demand-side V3)"
+		else:
+			criteria["supply_concentration"] = {"score": 0.5, "evidence": "Captive customer dependency (demand-side V3) — filer is an unreplaceable chokepoint"}
+
 	pre_score = sum(c["score"] for c in criteria.values())
 	pre_score_max = 4.25
 

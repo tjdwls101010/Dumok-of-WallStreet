@@ -171,7 +171,7 @@ sys.path.insert(0, _scripts_dir)
 # Also add modules/ for utils import
 sys.path.insert(0, os.path.join(_scripts_dir, "modules"))
 
-from pipeline._commands import cmd_macro, cmd_analyze
+from pipeline._commands import cmd_macro, cmd_analyze, cmd_discover
 
 
 def main():
@@ -200,6 +200,11 @@ def main():
 		help="Skip Level 1 macro assessment",
 	)
 	sp_analyze.set_defaults(func=cmd_analyze)
+
+	# discover
+	sp_discover = sub.add_parser("discover", help="Candidate comparator across a ticker list")
+	sp_discover.add_argument("tickers", nargs="+", help="Ticker symbols to compare (2-30)")
+	sp_discover.set_defaults(func=cmd_discover)
 
 	args = parser.parse_args()
 	args.func(args)
