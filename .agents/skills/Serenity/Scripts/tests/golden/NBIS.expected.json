@@ -2,7 +2,7 @@
   "ticker": "NBIS",
   "role": "winner",
   "note": "neocloud buildout \u2014 evolution",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "evolution",
     "business_model": "other",
@@ -15,7 +15,9 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": false,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "ACCUMULATE",

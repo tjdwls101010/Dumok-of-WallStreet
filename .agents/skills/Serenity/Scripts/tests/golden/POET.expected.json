@@ -1,10 +1,10 @@
 {
-  "ticker": "RGTI",
-  "role": "loser",
-  "note": "quantum hardware, negligible revenue \u2014 must stay <= HOLD",
+  "ticker": "POET",
+  "role": "winner",
+  "note": "photonic interposer, pre-commercial \u2014 early-winner PATTERN, but the pipeline reads no moat ($1M rev, 1684x sales, -3550% op margin) and flags it speculative. Locks the agent-handoff: pipeline caps to HOLD, the agent judges the optical thesis upward.",
   "captured_at": "2026-06-16",
   "hard": {
-    "l6_classification": "evolution",
+    "l6_classification": "disruption",
     "business_model": "physical_goods",
     "l3_assessment": "weak",
     "revenue_status": "has_revenue",
@@ -22,7 +22,6 @@
   "baseline": {
     "grade": "HOLD",
     "composite_score": 49.0,
-    "l3_pre_score": 1.45
-  },
-  "ceiling": "HOLD"
+    "l3_pre_score": 1.2
+  }
 }

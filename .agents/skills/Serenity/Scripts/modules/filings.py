@@ -103,6 +103,7 @@ See Also:
 	- analysis/sentiment.py: NLP sentiment analysis on MD&A text
 """
 
+import argparse
 import os
 import re
 import sys
@@ -112,8 +113,9 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from utils import error_json, output_json, safe_run
 
-# Import shared utilities
-from . import SEC_HEADERS, get_cik_from_symbol, get_company_info
+# Vendored SEC helpers — same-dir import, resolves whether run as a script or
+# imported (modules/ lands on sys.path[0]); see modules/_sec_common.py.
+from _sec_common import SEC_HEADERS, get_cik_from_symbol, get_company_info
 
 
 @safe_run
@@ -300,3 +302,28 @@ def cmd_mda(args):
 			},
 		}
 	)
+
+
+def main():
+	# The pipeline calls this script as `filings.py <ticker> --form S-3 ...` —
+	# a flat call with no subcommand — so the parser is flat too. --mda flips
+	# the mode from "list filings" to "extract MD&A from the latest filing".
+	parser = argparse.ArgumentParser(description="SEC EDGAR filings retrieval")
+	parser.add_argument("symbol", help="Ticker symbol")
+	parser.add_argument("--form", default=None,
+		help="Filter by form type (e.g. 10-K, 10-Q, 8-K, S-3)")
+	parser.add_argument("--limit", type=int, default=20,
+		help="Maximum number of filings to return")
+	parser.add_argument("--mda", action="store_true", default=False,
+		help="Extract MD&A from the latest --form filing (default 10-K) instead of listing")
+	args = parser.parse_args()
+	if args.mda:
+		if not args.form:
+			args.form = "10-K"
+		cmd_mda(args)
+	else:
+		cmd_filings(args)
+
+
+if __name__ == "__main__":
+	main()

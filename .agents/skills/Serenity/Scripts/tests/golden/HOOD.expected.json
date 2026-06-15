@@ -2,7 +2,7 @@
   "ticker": "HOOD",
   "role": "winner",
   "note": "brokerage platform \u2014 disruption",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "disruption",
     "business_model": "financial_float",
@@ -15,11 +15,13 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": false,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "BUY",
-    "composite_score": 71.0,
+    "composite_score": 73.0,
     "l3_pre_score": 0.0
   }
 }

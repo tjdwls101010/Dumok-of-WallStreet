@@ -2,7 +2,7 @@
   "ticker": "HIMS",
   "role": "winner",
   "note": "telehealth platform \u2014 disruption",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "disruption",
     "business_model": "services_subscription",
@@ -15,11 +15,13 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": false,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "BUY",
-    "composite_score": 68.5,
+    "composite_score": 70.5,
     "l3_pre_score": 0.0
   }
 }

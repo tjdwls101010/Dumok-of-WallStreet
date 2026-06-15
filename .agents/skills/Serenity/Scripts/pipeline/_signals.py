@@ -631,6 +631,53 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 				total_score = 34.0
 			pre_revenue_note = "confirmed pre-revenue with NO material catalyst — speculative; not investable without a design win / qualification / named contract"
 
+	# Pre-commercial speculation cap. Operating losses that EXCEED revenue (op margin
+	# < -100%) mean there is no commercial business to value yet — a story priced on a
+	# promise. Burning cash pre-ramp isn't itself disqualifying (a genuine early winner
+	# does the same); a MOAT is what separates them, and we test it ROBUSTLY by requiring a
+	# STRONG bottleneck (assessment == strong, pre-score >= 3.0) — nothing weaker exempts.
+	# The reason is extraction stability, measured not guessed: RGTI's frozen filing sits at
+	# pre-score 1.45, and perturbing a SINGLE judgment enum to its most-bottleneck-favorable
+	# value (designed_out -> physical_inevitability) lifts it to 2.1 — so a "partial" bucket,
+	# or any buffer up to ~2.5, can be reached by one LLM wobble and would un-cap the loser.
+	# 3.0 cannot: even stacking the two largest single-enum swings on RGTI stays ~2.5, clear
+	# of the bar. We also do NOT key the exemption on individual moat enums (named backstop,
+	# captive customer) — those fire on the speculative names themselves (RGTI lists Quanta
+	# as a backstop, QBTS shows a captive customer) and would un-cap the very losers this
+	# targets. The cost of "strong only" is that a genuinely partial-bottleneck pre-commercial
+	# name is capped too — accepted, because the cap is a FLOOR the agent overrides upward on
+	# the bottleneck thesis, not a verdict. Caveat handed to the agent: this is yfinance TTM
+	# operating margin, so a real business pushed < -100% by a one-time charge is also capped
+	# — speculative_cap_reason is the cue to check for non-recurring items and override up. A
+	# data-sparse name (margin missing) never trips it; a trapped-asset override is exempt.
+	op_margin = info_data.get("operatingMargins") if isinstance(info_data, dict) else None
+	bn_assessment = bn.get("assessment") if isinstance(bn, dict) else None
+	has_bottleneck_moat = bn_assessment == "strong"
+	speculative_cap_applied = False
+	speculative_cap_reason = None
+	if (isinstance(op_margin, (int, float)) and op_margin < -1.0
+			and not has_bottleneck_moat and not trapped_override_applied):
+		if total_score > 49:
+			total_score = 49.0
+		speculative_cap_applied = True
+		speculative_cap_reason = "operating_losses_exceed_revenue_no_moat"
+
+	# Unsubstantiated-bottleneck flag — a SIGNAL, not a cap. A bottleneck classification
+	# predicts pricing power and demand pull, which should show as growth or operating
+	# profit. A bottleneck label on a name that NEITHER grows (revenue growth < 15%) NOR
+	# earns (operating losses) isn't bearing out the thesis. We do NOT cap, on purpose:
+	# this same point-in-time pattern also fits a strong bottleneck at a cycle TROUGH, and
+	# a fixed cap would misfire there. The flag only raises the tension; the agent resolves
+	# it — melting legacy asset vs cyclical trough — via the prototype-vs-production lens
+	# and the revenue/margin TRAJECTORY (this is a level check, blind to direction).
+	ac_class = auto_classification.get("classification") if isinstance(auto_classification, dict) else None
+	rev_growth_pct = fpe.get("revenue_growth_yoy") if isinstance(fpe, dict) else None
+	unsubstantiated_bottleneck = (
+		ac_class == "bottleneck"
+		and isinstance(rev_growth_pct, (int, float)) and rev_growth_pct < 15
+		and isinstance(op_margin, (int, float)) and op_margin < 0
+	)
+
 	total_score = round(total_score, 2)
 
 	# Grade mapping
@@ -667,6 +714,9 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 		"sop_triggered": False,
 		"trapped_asset_eligible": trapped_override_applied,
 		"regime_cap_applied": regime_cap_applied,
+		"speculative_cap_applied": speculative_cap_applied,
+		"speculative_cap_reason": speculative_cap_reason,
+		"unsubstantiated_bottleneck": unsubstantiated_bottleneck,
 	}
 
 

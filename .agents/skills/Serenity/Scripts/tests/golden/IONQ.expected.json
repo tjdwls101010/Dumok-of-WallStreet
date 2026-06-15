@@ -1,11 +1,11 @@
 {
-  "ticker": "RKLB",
-  "role": "winner",
-  "note": "launch / space systems \u2014 evolution",
+  "ticker": "IONQ",
+  "role": "loser",
+  "note": "quantum computing, negligible-commercial (P/S 122x, op margin -402%) \u2014 must stay <= HOLD",
   "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "evolution",
-    "business_model": "physical_goods",
+    "business_model": "services_subscription",
     "l3_assessment": "weak",
     "revenue_status": "has_revenue",
     "score_breakdown_keys": [
@@ -16,12 +16,13 @@
       "thesis",
       "valuation"
     ],
-    "speculative_cap_applied": false,
+    "speculative_cap_applied": true,
     "unsubstantiated_bottleneck": false
   },
   "baseline": {
-    "grade": "ACCUMULATE",
-    "composite_score": 62.0,
-    "l3_pre_score": 1.2
-  }
+    "grade": "HOLD",
+    "composite_score": 49.0,
+    "l3_pre_score": 0.0
+  },
+  "ceiling": "HOLD"
 }

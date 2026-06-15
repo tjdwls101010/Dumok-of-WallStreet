@@ -2,7 +2,7 @@
   "ticker": "SIVE",
   "role": "winner",
   "note": "tracked winner \u2014 archetype blessed from capture",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "unclassified",
     "business_model": null,
@@ -15,7 +15,9 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": false,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "HOLD",

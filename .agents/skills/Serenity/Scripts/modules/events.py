@@ -45,11 +45,10 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from utils import output_json, safe_run
 
-if __name__ == "__main__":
-	sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-	from data_advanced.sec import SEC_HEADERS, get_cik_from_symbol, get_company_info
-else:
-	from . import SEC_HEADERS, get_cik_from_symbol, get_company_info
+# Vendored SEC helpers live alongside this script in modules/; the interpreter
+# puts that dir on sys.path[0] whether we run as a script or get imported, so a
+# plain import resolves either way (see modules/_sec_common.py for why).
+from _sec_common import SEC_HEADERS, get_cik_from_symbol, get_company_info
 
 
 def _strip_html_tags(text):

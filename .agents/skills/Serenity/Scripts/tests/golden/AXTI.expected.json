@@ -2,7 +2,7 @@
   "ticker": "AXTI",
   "role": "winner",
   "note": "InP/GaAs substrate \u2014 physical bottleneck, controlled-region mfg",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "bottleneck",
     "business_model": "physical_goods",
@@ -15,11 +15,13 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": false,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "ACCUMULATE",
-    "composite_score": 56.0,
+    "composite_score": 58.0,
     "l3_pre_score": 1.7
   }
 }

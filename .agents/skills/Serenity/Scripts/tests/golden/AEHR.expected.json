@@ -1,12 +1,12 @@
 {
-  "ticker": "CRCL",
+  "ticker": "AEHR",
   "role": "winner",
-  "note": "stablecoin issuer \u2014 financial-float disruption",
+  "note": "burn-in/test, design-win driven \u2014 recognized PARTIAL bottleneck; proves the moat exemption keeps a real early winner uncapped",
   "captured_at": "2026-06-16",
   "hard": {
-    "l6_classification": "disruption",
-    "business_model": "financial_float",
-    "l3_assessment": "weak",
+    "l6_classification": "bottleneck",
+    "business_model": "physical_goods",
+    "l3_assessment": "partial",
     "revenue_status": "has_revenue",
     "score_breakdown_keys": [
       "bottleneck",
@@ -20,8 +20,8 @@
     "unsubstantiated_bottleneck": false
   },
   "baseline": {
-    "grade": "ACCUMULATE",
-    "composite_score": 64.5,
-    "l3_pre_score": 0.0
+    "grade": "BUY",
+    "composite_score": 70.71,
+    "l3_pre_score": 1.8
   }
 }

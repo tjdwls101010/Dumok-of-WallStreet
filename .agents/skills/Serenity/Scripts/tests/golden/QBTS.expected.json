@@ -2,7 +2,7 @@
   "ticker": "QBTS",
   "role": "loser",
   "note": "quantum annealing, negligible revenue \u2014 must stay <= HOLD",
-  "captured_at": "2026-06-15",
+  "captured_at": "2026-06-16",
   "hard": {
     "l6_classification": "evolution",
     "business_model": "physical_goods",
@@ -15,7 +15,9 @@
       "taxonomy",
       "thesis",
       "valuation"
-    ]
+    ],
+    "speculative_cap_applied": true,
+    "unsubstantiated_bottleneck": false
   },
   "baseline": {
     "grade": "HOLD",

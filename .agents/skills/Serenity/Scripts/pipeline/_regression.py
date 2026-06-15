@@ -17,9 +17,12 @@ variable to blame.
 WHAT it asserts, and why the split is not arbitrary:
   HARD — facts that do not move with the market: a winner's archetype, what the
 	business fundamentally IS (business_model), its bottleneck assessment bucket,
-	whether it has revenue, and the SHAPE of the score breakdown. The L3 redesign
-	verified these stable across extraction runs, so a change here is a real
-	regression — not noise. A HARD miss FAILS the run.
+	whether it has revenue, the SHAPE of the score breakdown, and whether the two
+	loser-recognition booleans fired (speculative_cap_applied, unsubstantiated_
+	bottleneck). The L3 redesign verified these stable across extraction runs, so a
+	change here is a real regression — not noise. A HARD miss FAILS the run. Pinning
+	the booleans is the safety net for loser-recognition: a winner that ever flips
+	speculative_cap_applied True fails LOUDLY rather than silently grading down.
   SOFT — the composite grade and score. These ride on catalyst timing, analyst
 	revisions, IV, price; they are SUPPOSED to move, and a winner grading HIGHER
 	is the goal, not a failure. So we DIFF and report, never fail. (Because inputs
@@ -27,6 +30,11 @@ WHAT it asserts, and why the split is not arbitrary:
   CEILING — a known loser must never reach an investable grade. grade <= HOLD is
 	a hard upper bound; breaching it FAILS. We bound the top, not the exact grade:
 	how bad a loser looks is allowed to drift; a loser becoming a BUY is not.
+  DIVERGENCE — a name the pipeline legitimately scores investable on its mechanical
+	inputs, but which a competent agent overrides qualitatively (SSYS: prototype-not-
+	production). We do NOT ceiling it — asserting the pipeline must reach HOLD would
+	force it to do the agent's job, against the skill's contract. Instead the HARD
+	booleans pin that the deterministic SIGNAL handing the call to the agent fired.
 
 The golden HARD values are BLESSED from a live capture, never hand-typed — the
 pipeline is verified-correct on these names, so blessing records ground truth
@@ -60,16 +68,34 @@ WINNERS = {
 	"HIMS": "telehealth platform — disruption",
 	"RKLB": "launch / space systems — evolution",
 	"HOOD": "brokerage platform — disruption",
+	"AEHR": "burn-in/test, design-win driven — recognized PARTIAL bottleneck; proves the moat exemption keeps a real early winner uncapped",
+	"POET": "photonic interposer, pre-commercial — early-winner PATTERN, but the pipeline reads no moat ($1M rev, 1684x sales, -3550% op margin) and flags it speculative. Locks the agent-handoff: pipeline caps to HOLD, the agent judges the optical thesis upward. NOTE: its HARD speculative_cap_applied=True is an intentional handoff lock, not a grade floor — if a future L3 improvement legitimately recognizes the optical bottleneck and the cap stops firing, that HARD miss is a RE-BLESS-worthy improvement, not a regression to revert.",
 }
 LOSERS = {
 	"RGTI": "quantum hardware, negligible revenue — must stay <= HOLD",
 	"QBTS": "quantum annealing, negligible revenue — must stay <= HOLD",
-	"SSYS": "legacy 3D printing, prototype-not-production — must stay <= HOLD",
+	"IONQ": "quantum computing, negligible-commercial (P/S 122x, op margin -402%) — must stay <= HOLD",
+}
+# Pipeline-vs-agent DIVERGENCE: names the pipeline legitimately scores investable on
+# its mechanical inputs, but which a competent agent overrides on a qualitative read.
+# The harness does NOT ceiling these (that would assert the pipeline must do the agent's
+# job); it asserts the deterministic SIGNAL that hands the call to the agent is present.
+DIVERGENCE = {
+	# NOTE: unsubstantiated_bottleneck=True is currently pinned from ONE example (SSYS).
+	# The flag also fires on a real bottleneck winner at a cyclical TROUGH (no growth +
+	# operating losses) — by design it does not cap, so that is a surfaced tension, not a
+	# misgrade; the agent separates trap from trough. To make this invariant a SEPARATING
+	# rule rather than a single positive, add a frozen bottleneck-winner-at-trough fixture.
+	"SSYS": "legacy 3D printing — pipeline scores ACCUMULATE (partial bottleneck, cheap), but no growth + operating losses fire unsubstantiated_bottleneck; agent applies the prototype-vs-production / value-trap override",
 }
 LOSER_CEILING = "HOLD"
 
-# HARD invariant keys (frozen-input-deterministic, market-independent).
-_HARD_KEYS = ("l6_classification", "business_model", "l3_assessment", "revenue_status", "score_breakdown_keys")
+# HARD invariant keys (frozen-input-deterministic, market-independent). The two cap/flag
+# booleans are here on purpose: a winner that ever flips speculative_cap_applied True, or
+# a name that wrongly trips unsubstantiated_bottleneck, is a real regression — so every
+# name's blessed value pins it, and the loser-recognition logic can't silently drift.
+_HARD_KEYS = ("l6_classification", "business_model", "l3_assessment", "revenue_status",
+	"score_breakdown_keys", "speculative_cap_applied", "unsubstantiated_bottleneck")
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +138,8 @@ def _replay(inputs):
 		"l3_assessment": bn.get("assessment") if isinstance(bn, dict) else None,
 		"revenue_status": cs.get("revenue_status"),
 		"score_breakdown_keys": sorted(sb.keys()),
+		"speculative_cap_applied": cs.get("speculative_cap_applied"),
+		"unsubstantiated_bottleneck": cs.get("unsubstantiated_bottleneck"),
 		"grade": cs.get("grade"),
 		"composite_score": cs.get("composite_score"),
 		"l3_pre_score": bn.get("pre_score") if isinstance(bn, dict) else None,
@@ -248,7 +276,7 @@ def _check_one(ticker):
 
 
 def _resolve_tickers(arg_tickers):
-	allnames = list(WINNERS) + list(LOSERS)
+	allnames = list(WINNERS) + list(LOSERS) + list(DIVERGENCE)
 	if not arg_tickers:
 		return allnames
 	want = [t.upper() for t in arg_tickers]
@@ -261,6 +289,8 @@ def _resolve_tickers(arg_tickers):
 def _role_and_note(ticker):
 	if ticker in WINNERS:
 		return "winner", WINNERS[ticker]
+	if ticker in DIVERGENCE:
+		return "divergence", DIVERGENCE[ticker]
 	return "loser", LOSERS[ticker]
 
 
