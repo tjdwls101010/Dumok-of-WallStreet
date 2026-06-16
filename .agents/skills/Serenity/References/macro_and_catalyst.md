@@ -25,11 +25,10 @@ Demand moves down the physical chain in order:
 
 **Hyperscaler CapEx → neocloud deals → semiconductors → memory → substrates/optics → raw materials.**
 
-- **Hyperscaler CapEx is THE signal**: "the biggest signal of whether the AI trade continues is hyperscaler spending." Everything downstream follows.
-- **Overflow pattern**: when hyperscaler capacity is full, demand overflows to alternative providers (neoclouds, specialized compute). The overflow point is where alpha concentrates — sudden revenue acceleration the market hasn't priced.
+- **Overflow pattern**: when hyperscaler capacity is full, demand overflows to alternative providers (neoclouds, specialized compute) — sudden revenue acceleration the market hasn't priced. The confirmation it has nowhere left to go: **the tier-1 leader itself buying the scarce sub-component on the open market** = *structurally* sold out, not cyclically tight. Displaced second-tier buyers scramble to the next merchant, re-rating the small name. (The default reads "leader sold out" as bullish for the leader; the buy is the un-allocated #2/#3 underneath.)
 - **Proxy read-through**: one company's results are another's demand signal. A foundry blowout confirms downstream GPU/substrate/memory demand; a hyperscaler CapEx raise validates the neocloud and component tiers. After any major report, ask: "which supply-chain names does this validate or invalidate?" — and position before the read-through is priced across the chain. (The reporting company's numbers are public; the implications are not yet.)
 - **Strategic-incentive floor**: when a hyperscaler's core demand is threatened by customer in-housing, it may backstop alternative consumers to defend its own revenue — an invisible price floor. Map these flows.
-- **Sympathy selloff — split damage from association**: when one name reports badly, its *associated* names drop too. Separate **real counterparty damage** (a genuine customer/supplier whose forward revenue actually takes the hit — fundamental) from **pure association** (sold off only for sharing a theme/sector — no revenue link). The association drop is mechanical and usually round-trips in 1–2 sessions; the counterparty drop may be real. (The §5 discrimination, applied across peers.)
+- **Sympathy selloff — split damage from association**: when one name reports badly, peers drop too. Run the §5 mechanism check across the peers — separate **real counterparty damage** (a customer/supplier whose forward revenue actually takes the hit) from **pure association** (sold off only for sharing a theme/sector — no revenue link). The association drop is mechanical and usually round-trips in 1–2 sessions; the counterparty drop may be real.
 
 ---
 
@@ -40,10 +39,11 @@ The test for everything: **"does this change forward revenue?"** Yes → real. N
 - **Real** (moves forward earnings): S&P 500 inclusion (forced index buying), mega-contract/partnership, government policy or executive order, export control creating a monopoly, earnings beat *with a guidance raise*. (Dividend front-running is a *timing* catalyst — use it to optimize entry on already-validated large-caps.)
 - **Fake** (noise — ignore or use as entry): CFO resignation, conference presentations, analyst initiations/upgrades (lagging — follows price), government shutdown, random tariff tweets.
 - **Prediction-market gauge**: when a market (e.g., Polymarket) prices an event >90%, it's already priced in — the actual occurrence is noise, and any retail panic on the news is a buying opportunity. A *surprise* outcome (low prior, it happened) is NOT priced — real repositioning required.
-- **Regulation cuts both ways** — a new legal framework is often the *biggest* catalyst: it can re-rate a whole **category** by changing what a business is *allowed to be* (a stablecoin/payments law turning an issuer into quasi-infrastructure), or cap a model as a structural **headwind** (a DTC/clinical-access rule). Ask: one name or the whole category? tailwind or headwind?
+- **TAM-changing vs flow-only** — the "does it change forward revenue?" test has a third cell the real/fake split misses: a catalyst can be *entirely real* (real event, real sector inflows) yet *not raise addressable revenue*. That's neither noise nor a re-rate — it's a **bounded, short-term** trade. A TAM-changing catalyst (durable new forward revenue) can be held like a structural bottleneck; an attention/flow-only one drives a catalyst *pop*, not a re-rate, and must not be held like one. Match the *horizon* to which kind it is — a sudden conflict is a real tailwind but not a TAM increase, so small caps may pop but it isn't a multi-x or a long hold unless the war structurally shifts the category.
+- **Regulation cuts both ways** — a new legal framework is often the *biggest* catalyst: it can re-rate a whole **category** by changing what a business is *allowed to be* (a stablecoin/payments law turning an issuer into quasi-infrastructure), or cap a model as a structural **headwind** (a DTC/clinical-access rule). Ask: one name or the whole category? tailwind or headwind? When you suspect the headwind side, *read the actual clauses* for who is **mechanically compelled** to buy or sell, and trade that against the consensus narrative when they conflict — a reserve/collateral mandate the largest holder can't meet with its illiquid assets makes it a *forced seller* of its liquid ones; a clause banning a yield stream *removes a structural inflow*. The "safety / consumer-protection" framing often masks an incumbent-chokepoint motive.
 - **Short-squeeze setup** — extreme short interest (>30–40% of float) on a *profitable, growing* name is an **upside** catalyst (a violent feedback loop on any good news), not merely a risk. On a broken name it's a trap — a squeeze needs a real thesis underneath.
 - **Competitor launch (or fumble)** — a rival shipping, delaying, or failing shifts the forward revenue of everyone in the category; read it as a demand-share catalyst, not just news.
-- **Earliest signal = the raw-material spot**, not the equity: for a materials/chokepoint thesis the input's spot/contract price and utilization move *before* the paid reports, the news, and the earnings (analysis.md §1, "track the signal not the price"). Watch named sources — LME / Fastmarkets / Argus for metals, TrendForce / DRAMeXchange for memory, spot indices for specialty gases and PGMs. A spot move with no equity move *yet* is the gap.
+- **Earliest signal = the raw-material spot, not the equity** (analysis.md §1, "track the signal not the price"): the input's spot/contract price and utilization move first, so a spot move with no equity move *yet* is the gap. Named sources — LME / Fastmarkets / Argus (metals), TrendForce / DRAMeXchange (memory), spot indices (specialty gases, PGMs).
 
 ---
 
@@ -52,13 +52,11 @@ The test for everything: **"does this change forward revenue?"** Yes → real. N
 Every macro event reaches a stock through one pathway. Identifying it tells you whether the event is material.
 
 1. **Rate cuts → CapEx cascade** — downstream demand acceleration; quantifiable via DCF (far-out revenue is most rate-sensitive). *Changes fundamentals.*
-2. **Export controls → monopoly premium** — the Western/domestic alternative inherits pricing power; the removed competitor can't re-enter. *Structural.*
+2. **Export controls → monopoly premium** — the Western/domestic alternative inherits pricing power; the removed competitor can't re-enter. *Structural — changes fundamentals.*
 3. **Tariff noise → TACO trade** — no real transmission to fundamentals on names with zero actual exposure. *Entry only.*
 4. **Algo earnings misparse → non-fundamental selling** — algorithms misread headline numbers (one-time charges distorting EPS); reverses once humans process it. *Entry only* (see analysis.md §5 mechanism classification).
 5. **Tax harvesting → quality oversold** — artificial Nov–Dec selling, mean-reversion in January. *Entry only.*
 6. **Credit stress → weak fail, strong survive** — market share shifts to strong balance sheets. *Changes fundamentals* (a feature for survivors).
-
-Pathways 1, 2, 6 change fundamentals; 3, 4, 5 create entries without changing the thesis.
 
 ---
 
@@ -69,8 +67,8 @@ Most geopolitical headlines are noise; a few are structural.
 - **Never bet against US policy.** National-security verticals (AI, space, energy, critical minerals, quantum) are government-backed — policy provides a durable floor pure market forces can't replicate.
 - **Reshoring = "Made in America" moat**: when export controls / security mandates force reshoring, the **domestic** producer in an industry whose competitors sit in high-risk geographies gains an instant structural moat. For a US-only book this is a first-class thesis source — the policy tailwind and the US listing align.
 - **Export controls create monopolies**: identify the direct US-listed beneficiary and check whether the monopoly premium is already priced. But this is the *outside-the-geography* case — a US name that *manufactures inside* the controlled region is a hostage to it, not a beneficiary (the moat-vs-hostage split in analysis.md §2).
-- **Cross-fire casualty hunting** (V1): broad geopolitical selloffs drag down quality names with *zero* exposure to the trigger — 10% gifted, fundamentals unchanged. Always verify genuinely-zero exposure before buying the casualty.
-- **TACO** (Tariff Anxiety Creates Opportunity): markets overreact to known/empty threats; the dip on a zero-exposure name is the entry.
+- **A subsidy/grant is a three-way signal, not just cash.** Beyond the funding floor, grant *inclusion* is outsourced supply-chain diligence — a state only funds genuine chokepoints, so inclusion validates that the node is critical (two governments independently funding the same node compounds it). And a name surfacing in a published policy blueprint / supply-chain impact-analysis is a *datable* forward catalyst that reprices on a multi-month lag. Most read a grant as a one-time funding event; it is validation **plus** a lagged catalyst.
+- **Cross-fire casualty / TACO** (V1): a broad geopolitical selloff or an overreaction to a known/empty tariff threat drags down quality names with *zero* exposure to the trigger — gifted dip, fundamentals unchanged. Always verify genuinely-zero exposure before buying.
 - **Read the policy persona → rotation map**: whoever holds power (administration, central bank) has a consistent set of favored and disfavored verticals (energy vs climate, defense vs aid, crypto-permissive vs -hostile). Map that persona to a structural tailwind/headwind and rotate the *hunt* accordingly — policy is a multi-quarter driver, not a headline.
 - **Crowded-but-right ≠ wrong**: a consensus trade that's *directionally* correct can stay crowded a long time; what kills you isn't being early, it's **capitulating at the shakeout**. If the thesis is intact, a crowding scare is a conviction test — re-run the kill signals, not the crowd.
 
@@ -79,7 +77,7 @@ Most geopolitical headlines are noise; a few are structural.
 ## Liquidity & Seasonality
 
 - **Net liquidity** (pipeline; directional, not precise): Fed balance sheet − TGA − RRP.
-- **Four drains** — crypto precursor shock · Fed/policy hawkish surprise · AI credit stress · carry-trade unwind. Each is an *independent* channel pulling risk capital out — which is why the ladder counts convergence: multiple independent drains firing at once means *systemic* withdrawal, not idiosyncratic noise. One = noise; two = tighten stops on marginal positions; three+ = cut leverage, hold only highest conviction.
+- **Four drains** — crypto precursor shock · Fed/policy hawkish surprise · AI credit stress · carry-trade unwind. Each is an *independent* channel pulling risk capital out, so the ladder counts convergence — multiple firing at once is *systemic* withdrawal, not idiosyncratic noise. One = noise; two = tighten stops on marginal positions; three+ = cut leverage, hold only highest conviction.
 - **Post-liquidation entry**: after forced selling exhausts (margin calls, redemptions), quality snaps back first. Wait for exhaustion, then enter — the mechanism behind Fear-Dislocation.
 - **Nov–Dec → January** is the most actionable seasonal pattern: tax-loss harvesting forces selling in quality names irrespective of fundamentals (the exact fear-dislocation this methodology exploits) → build in Nov–Dec, harvest in January. (Seasonals are tendencies; institutions front-run and can invert them — confirm it isn't already priced.)
 
@@ -89,8 +87,7 @@ Most geopolitical headlines are noise; a few are structural.
 
 The scenario that neutralizes a US-only book is rarely the listing — it's a *shared dependency* hiding across otherwise-different theses.
 
-- **Find the dependency every name shares.** A set of US-listed names that all, one hop down, lean on one region's supply chain (a single-island foundry cluster, one country's refining) can be taken out by a single event — however diversified the tickers look. When you evaluate a theme, surface that common chokepoint: it is both the alpha (it *is* the bottleneck) and the tail risk (§1 convergence-find, read for danger). Name it in the bear case.
-- **A thesis set that's secretly one bet** — every name levered to the same single driver (hyperscaler CapEx, one commodity, one policy line) — is fragile no matter how good each name is. Surface the shared driver so the real, undiversified risk behind a diversified-*looking* list is visible.
+- **Find the dependency every name shares.** A set of US-listed names that — one hop down — all lean on the same node (one region's supply chain: a single-island foundry cluster, one country's refining; or one driver: hyperscaler CapEx, one commodity, one policy line) is secretly *one bet*, fragile no matter how good each name is, and can be taken out by a single event however diversified the tickers look. Surface that shared chokepoint when you evaluate a theme: it is both the alpha (it *is* the bottleneck) and the tail risk (§1 convergence-find, read for danger) — name it in the bear case so the real, undiversified risk behind a diversified-*looking* list is visible.
 
 ---
 
