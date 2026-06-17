@@ -1,0 +1,15 @@
+{
+  "eval_id": 3,
+  "eval_name": "eval-convergence-compare",
+  "prompt": "마이크론(MU)이랑 애플(AAPL) 둘 중에 지금 사기에 뭐가 더 나아?",
+  "live_state_at_setup": "Both clear hard gates (stage 2, TT 8/8). MU: EPS accel=T, sales_qualifies=T, margin_expanding=T, RS99. AAPL: all three fundamental legs=False, RS70.",
+  "assertions": [
+    {"id": "both_clear_gates", "desc": "recognizes both clear the structural hard gates", "method": "human"},
+    {"id": "fundamental_split", "desc": "differentiates fundamentals: MU accelerating vs AAPL not", "method": "human"},
+    {"id": "and_convergence", "desc": "AND-convergence reasoning, not weighted-average split", "method": "human"},
+    {"id": "good_co_vs_good_stock", "desc": "applies good-company!=good-stock / acceleration over level", "method": "human"},
+    {"id": "no_0_100_anchor", "desc": "does NOT anchor on a single 0-100 composite score", "method": "grep+human"},
+    {"id": "no_sizing", "desc": "no position sizing", "method": "grep+human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}

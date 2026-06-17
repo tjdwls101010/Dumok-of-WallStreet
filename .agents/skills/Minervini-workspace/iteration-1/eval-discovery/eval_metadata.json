@@ -1,0 +1,14 @@
+{
+  "eval_id": 2,
+  "eval_name": "eval-discovery",
+  "prompt": "지금 뭐 살 만한 거 없어?",
+  "live_state_at_setup": "gate-passers in spot basket: MU (RS99), HWM (RS80), AAPL (RS70); most mega-caps stage 4 (META/MSFT/NFLX/PLTR RS<25)",
+  "assertions": [
+    {"id": "regime_first", "desc": "assesses regime/context before naming buys", "method": "human"},
+    {"id": "regime_leadership_breadth", "desc": "regime read is leadership/breadth-based, not distribution-day counting", "method": "human"},
+    {"id": "surfaced_leaders", "desc": "surfaces screened leaders, not just famous mega-cap defaults", "method": "human"},
+    {"id": "candidates_gated", "desc": "candidates passed through hard-gate check", "method": "human+grep"},
+    {"id": "no_sizing", "desc": "no sizing / allocation percentages", "method": "grep+human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}

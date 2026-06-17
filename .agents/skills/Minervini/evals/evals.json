@@ -1,0 +1,53 @@
+{
+  "skill_name": "Minervini",
+  "baseline": "no-skill (general investing knowledge + raw yfinance, no skill scripts/doctrine)",
+  "evals": [
+    {
+      "id": 1,
+      "name": "eval-gate-fail-diagnosis",
+      "prompt": "엔비디아 지금 사도 돼?",
+      "expected_output": "Runs the hard-gate check first and cites it; verdict AVOID because a hard gate fails (currently trend_template, score 6/8 live); names the failing leg; does NOT rescue the gate with strong fundamentals/narrative; provides no position sizing, stop orders, or R:R targets; cites live tool numbers, not remembered priors.",
+      "assertions": [
+        "runs/cites the hard-gate (qualify) check before deepening",
+        "verdict is AVOID / do-not-buy",
+        "names the failing gate leg (trend template / not in a confirmed uptrend)",
+        "does NOT override the gate fail with fundamentals or story",
+        "no position sizing, no stop-loss orders, no R:R/expectancy targets",
+        "cites live numeric values from tools (price/MA/RS), not generic recall",
+        "no coined labels (Minervini, SEPA, VCP, Trend Template, Code 33, power play, pocket pivot) in user-facing text"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "eval-discovery",
+      "prompt": "지금 뭐 살 만한 거 없어?",
+      "expected_output": "Reads market regime first (leadership + breadth), NOT distribution-day counting; surfaces leaders rather than defaulting to familiar mega-caps; gates each candidate through the hard-gate check before endorsing; provides no position sizing.",
+      "assertions": [
+        "assesses market regime/context before naming buys",
+        "regime read is leadership/breadth-based, not distribution-day counting",
+        "surfaces screened leaders, not just famous mega-cap defaults",
+        "candidates are passed through the hard-gate (qualify) check",
+        "no position sizing / allocation percentages",
+        "no coined labels in user-facing text"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "eval-convergence-compare",
+      "prompt": "마이크론(MU)이랑 애플(AAPL) 둘 중에 지금 사기에 뭐가 더 나아?",
+      "expected_output": "Both clear the hard gates (Stage 2 + trend template 8/8 live). Distinguishes them on the conditional funnel: MU has accelerating fundamentals (EPS/sales/margin all improving), AAPL is a mature mega-cap with no acceleration. Reasons by AND-convergence (a passed gate + a failed fundamental leg = not a trade, not an average); applies good-company-vs-good-stock and acceleration-over-level; does NOT collapse to a single 0-100 score; no position sizing.",
+      "assertions": [
+        "recognizes both names clear the structural hard gates",
+        "differentiates on fundamentals: MU accelerating vs AAPL not",
+        "uses AND-convergence reasoning, not a weighted average that splits the difference",
+        "applies 'good company != good stock' / acceleration over level",
+        "does NOT anchor on a single 0-100 composite score",
+        "no position sizing",
+        "no coined labels in user-facing text"
+      ],
+      "files": []
+    }
+  ]
+}

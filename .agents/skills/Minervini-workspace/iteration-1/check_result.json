@@ -1,0 +1,266 @@
+{
+  "eval-convergence-compare": {
+    "with_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 3813,
+      "coined_labels": {},
+      "sizing": {
+        "position_size": {
+          "count": 1,
+          "samples": [
+            "포지션 크기"
+          ],
+          "context": [
+            "…는 지점에 대한 진단이며, 얼마를 살지·손절을 어디 둘지 같은 포지션 크기는 본인이 정할 몫입니다.* …"
+          ]
+        },
+        "stop_order": {
+          "count": 1,
+          "samples": [
+            "손절을"
+          ],
+          "context": [
+            "…셋업의 질과 구조가 깨지는 지점에 대한 진단이며, 얼마를 살지·손절을 어디 둘지 같은 포지션 크기는 본인이 정할 몫입니다.* …"
+          ]
+        }
+      },
+      "score_anchor": {
+        "composite_0_100": {
+          "count": 2,
+          "samples": [
+            "/100"
+          ],
+          "context": [
+            "…점 기준 매수 기준선 ~1,089달러), 셋업 성숙도 점수 13/100(약함). 변동성이 벌어지는 \"egg\" 성격 — 즉 아직 출렁이…",
+            "…림(현재 ~299달러, 기준선 ~317달러), 셋업 성숙도 18/100(약함). 마찬가지로 변동성 확대형.  둘 다 \"지금 사라\"고 …"
+          ]
+        }
+      },
+      "first_command": "discover",
+      "commands_present": [
+        "qualify",
+        "discover",
+        "code33",
+        "stage",
+        "vcp",
+        "volume",
+        "earnings",
+        "rs_ranking",
+        "base_count",
+        "tight"
+      ]
+    },
+    "without_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 3021,
+      "coined_labels": {},
+      "sizing": {
+        "position_size": {
+          "count": 4,
+          "samples": [
+            "분할 매수",
+            "작은 비중",
+            "전체 자산"
+          ],
+          "context": [
+            "… 것임을 명심하세요. 사이클이 꺾이면 빠르게, 깊게 빠집니다. 전체 자산 대비 **작은 비중**으로, 손절선을 명확히 정하고 들어가세요…",
+            "… 사이클이 꺾이면 빠르게, 깊게 빠집니다. 전체 자산 대비 **작은 비중**으로, 손절선을 명확히 정하고 들어가세요. 한 번에 다 사지…",
+            "… - 다만 밸류에이션이 이미 비싸므로, 급할 것 없이 조정 시 분할 매수하는 게 좋습니다.  ### 솔직한 제 한 줄 지금 *이 순간*…",
+            "…밍 리스크가 매우 큽니다. 둘 다 신고가권이라 어느 쪽이든 **분할 매수 + 명확한 손절**을 권합니다.  ---  *참고: 위 수치는…"
+          ]
+        },
+        "stop_order": {
+          "count": 6,
+          "samples": [
+            "-14%",
+            "-30%",
+            "손절선"
+          ],
+          "context": [
+            "…변동성 | **71%** | 23% | | 1년 최대 낙폭 | -30% | -14% | | 애널리스트 의견 | strong_buy (…",
+            "…*71%** | 23% | | 1년 최대 낙폭 | -30% | -14% | | 애널리스트 의견 | strong_buy (40명) | …",
+            "…벌합니다. 연환산 71%, 베타 2.17. 이미 지난 1년에도 -30% 낙폭을 한 번 겪었습니다. - 애널리스트 평균 목표가($879…",
+            "…이하(베타 1.09, 연변동성 23%)이고, 1년 최대 낙폭도 -14%로 훨씬 얕습니다.  **약점** - PER 31~36배는 성장…"
+          ]
+        }
+      },
+      "score_anchor": {},
+      "first_command": "earnings",
+      "commands_present": [
+        "earnings",
+        "entry"
+      ]
+    }
+  },
+  "eval-discovery": {
+    "with_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 3082,
+      "coined_labels": {},
+      "sizing": {
+        "stop_order": {
+          "count": 1,
+          "samples": [
+            "손절을"
+          ],
+          "context": [
+            "…않는 것 — 그게 지금의 정답입니다.  *(참고: 얼마를 살지·손절을 어디에 둘지 같은 포지션 규모는 제 분석 범위 밖이며, 그건 …"
+          ]
+        }
+      },
+      "score_anchor": {},
+      "first_command": "discover",
+      "commands_present": [
+        "qualify",
+        "discover",
+        "code33",
+        "trend_template",
+        "stage",
+        "vcp",
+        "volume",
+        "earnings",
+        "rs_ranking",
+        "entry",
+        "tight"
+      ]
+    },
+    "without_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 2270,
+      "coined_labels": {},
+      "sizing": {
+        "position_size": {
+          "count": 3,
+          "samples": [
+            "분할 매수",
+            "분할 진입",
+            "분할매수"
+          ],
+          "context": [
+            "…D·애플 다 여기서 찍어냄 - 다음 실적 7/16 → 그 전에 분할매수할 만함  ### ANET (아리스타 네트웍스) — AI 데이터…",
+            "…. 정리 — 내가 지금 산다면  1. **TSM** 을 코어로 분할 진입 (덜 과열 + 펀더멘털 최강 + 타이트) 2. **ANET**…",
+            "…눌림 대기  ### 꼭 지킬 것 - 한 번에 다 사지 말고 **분할 매수** (특히 반도체는 변동성 큼). - **손절선 미리 설정**…"
+          ]
+        },
+        "stop_order": {
+          "count": 5,
+          "samples": [
+            "-2%",
+            "-7%",
+            "-7~",
+            "손절선",
+            "손절폭"
+          ],
+          "context": [
+            "… 살아있는 종목 (1순위)  추세는 강한데 **50일선 근처라 손절폭이 짧고**, 최근 변동성이 잠잠해진(=눌림/숨고르기 중인) 것…",
+            "… 50일선 대비 **+8%만 위** (덜 과열) / 고점 대비 -2% - 최근 15일 변동폭 9.3%로 **매우 타이트** (좋은 …",
+            "…터센터 네트워킹 - 주가 $166 / 50일선 +5% / 고점 -7% → **눌림 자리** - 매출 +35%, 순이익률 38%, 선…",
+            "… 말고 **분할 매수** (특히 반도체는 변동성 큼). - **손절선 미리 설정** (대략 매수가 -7~8% 또는 50일선 이탈).…"
+          ]
+        }
+      },
+      "score_anchor": {},
+      "first_command": "entry",
+      "commands_present": [
+        "earnings",
+        "entry",
+        "tight"
+      ]
+    }
+  },
+  "eval-gate-fail-diagnosis": {
+    "with_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 2312,
+      "coined_labels": {},
+      "sizing": {
+        "stop_order": {
+          "count": 1,
+          "samples": [
+            "손절을"
+          ],
+          "context": [
+            "…지막으로 한 가지: 이 글은 **진단**입니다. 얼마를 살지, 손절을 어디에 둘지 같은 비중·매매 관리는 제 영역이 아니라 본인이 …"
+          ]
+        }
+      },
+      "score_anchor": {},
+      "first_command": "discover",
+      "commands_present": [
+        "qualify",
+        "discover",
+        "code33",
+        "trend_template",
+        "stage",
+        "vcp",
+        "volume",
+        "entry",
+        "tight"
+      ]
+    },
+    "without_skill": {
+      "response_exists": true,
+      "notes_exists": true,
+      "response_chars": 2636,
+      "coined_labels": {},
+      "sizing": {
+        "position_size": {
+          "count": 7,
+          "samples": [
+            "몰빵",
+            "분할 매수",
+            "비중 관리",
+            "비중을",
+            "전체 자산"
+          ],
+          "context": [
+            "…) 지금 사도 될까요?  결론부터 말씀드리면, **\"무릎 꿇고 몰빵할 자리\"는 아니지만 \"추세는 살아있는 우량주\"** 입니다. 한…",
+            "… 잠깐 숨 고르는\" 자리입니다. 이런 자리는 공격적 투자자에겐 분할 매수 기회일 수 있고, 보수적 투자자라면 50일선($208 부근)을…",
+            "…베팅하지 말고, 자금을 **3~4번에 나눠** 현재가 부근부터 분할 매수하세요. 50일선($208) 회복을 확인하고 비중을 늘리면 더 …",
+            "…부근부터 분할 매수하세요. 50일선($208) 회복을 확인하고 비중을 늘리면 더 안전합니다. - **적합한 사람:** 변동성을 견딜…"
+          ]
+        },
+        "stop_order": {
+          "count": 3,
+          "samples": [
+            "-10~",
+            "-12%",
+            "손절 라인"
+          ],
+          "context": [
+            "… | 52주 최고가 | $236.54 (현재 고점 대비 **약 -12%**) | | 52주 최저가 | $142.03 (저점 대비 **…",
+            "…종목이 차지하는 비중을 과하게 두지 마세요(변동성이 크므로). 손절 라인(예: 매수가 대비 -10~15% 또는 200일선 이탈)을 미리…",
+            "… 두지 마세요(변동성이 크므로). 손절 라인(예: 매수가 대비 -10~15% 또는 200일선 이탈)을 미리 정해두는 걸 권합니다.  …"
+          ]
+        },
+        "rr_target": {
+          "count": 1,
+          "samples": [
+            "목표주가"
+          ],
+          "context": [
+            "…컨센서스: **Strong Buy** (의견 59건) - 평균 목표주가: **$298.9** (현재가 대비 약 +44% 여력) - 목…"
+          ]
+        }
+      },
+      "score_anchor": {},
+      "first_command": "earnings",
+      "commands_present": [
+        "earnings"
+      ]
+    }
+  }
+}
+
+=== COMPACT ===
+[eval-convergence-compare/with_skill] 3813c first_cmd=discover cmds=['qualify', 'discover', 'code33', 'stage', 'vcp', 'volume', 'earnings', 'rs_ranking', 'base_count', 'tight'] | sizing?:position_size,stop_order | score?:composite_0_100
+[eval-convergence-compare/without_skill] 3021c first_cmd=earnings cmds=['earnings', 'entry'] | sizing?:position_size,stop_order
+[eval-discovery/with_skill] 3082c first_cmd=discover cmds=['qualify', 'discover', 'code33', 'trend_template', 'stage', 'vcp', 'volume', 'earnings', 'rs_ranking', 'entry', 'tight'] | sizing?:stop_order
+[eval-discovery/without_skill] 2270c first_cmd=entry cmds=['earnings', 'entry', 'tight'] | sizing?:position_size,stop_order
+[eval-gate-fail-diagnosis/with_skill] 2312c first_cmd=discover cmds=['qualify', 'discover', 'code33', 'trend_template', 'stage', 'vcp', 'volume', 'entry', 'tight'] | sizing?:stop_order
+[eval-gate-fail-diagnosis/without_skill] 2636c first_cmd=earnings cmds=['earnings'] | sizing?:position_size,stop_order,rr_target

@@ -1,0 +1,15 @@
+{
+  "eval_id": "2b",
+  "eval_name": "eval-2b-discipline-be",
+  "theme": "discipline under a firing entry signal / not-too-eager",
+  "prompt": "블룸에너지(BE) 차트에 매수 신호(지지선 회복) 떴다던데, 지금 들어가도 될까?",
+  "live_state_at_setup": "BE 2026-06-18: gate PROCEED (stage 2, TT 8/8, RS 99). code33 PASS (eps+sales+margin all accelerate). Entry trigger ACTIVE: SUPPORT_RECLAIM @ $254.89, quality moderate, BUT volume_surge_on_reclaim=FALSE. base immature: setup_readiness ~15 (weak), vol grade B. i.e. regime+gate+fundamentals+leadership+a live signal all say go -- only the base/volume-confirmation is missing.",
+  "assertions": [
+    {"id": "gate_and_signal_seen", "desc": "recognizes BE clears the gate AND that an entry trigger is active", "method": "human+grep"},
+    {"id": "no_premature_pull", "desc": "does NOT endorse buying now -- withholds the trigger pull", "method": "human"},
+    {"id": "names_reason", "desc": "names the reason: base loose/not built AND/OR the reclaim lacks volume confirmation (false-breakout risk)", "method": "human"},
+    {"id": "and_discipline", "desc": "weighs the firing signal against the incomplete funnel; not seduced by RS99 + accelerating EPS + active signal", "method": "human"},
+    {"id": "no_sizing", "desc": "no position sizing / stops-as-orders / R:R", "method": "grep+human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}

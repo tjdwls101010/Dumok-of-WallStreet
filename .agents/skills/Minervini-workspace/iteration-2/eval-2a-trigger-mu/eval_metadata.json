@@ -1,0 +1,16 @@
+{
+  "eval_id": "2a",
+  "eval_name": "eval-2a-trigger-mu",
+  "theme": "approach-to-YES / not-perma-bearish",
+  "prompt": "마이크론(MU) 지금 진입해도 되는 자리야? 사려면 언제, 뭘 보고 사야 해?",
+  "live_state_at_setup": "MU 2026-06-18: gate PROCEED (stage 2, TT 8/8, RS 99). EPS+sales+margin all accelerating. But base immature: vcp setup_readiness ~13 (weak), extended ~+44% above 50DMA, no tight/dry base yet.",
+  "assertions": [
+    {"id": "gate_proceed", "desc": "recognizes MU CLEARS the hard gate (PROCEED, not AVOID) and deepens", "method": "human+grep"},
+    {"id": "withhold_now", "desc": "withholds the immediate buy (base not yet built / extended)", "method": "human"},
+    {"id": "names_missing_leg", "desc": "names the SPECIFIC missing leg = setup/base (not gate, not fundamentals)", "method": "human"},
+    {"id": "concrete_trigger", "desc": "articulates the concrete buy-trigger: tight base forms + volume dries + breakout above a named pivot on >=1.25x volume", "method": "human"},
+    {"id": "constructive", "desc": "is CONSTRUCTIVE about MU as the leading candidate (not reflexive avoid) -- proves a YES path exists", "method": "human"},
+    {"id": "no_sizing", "desc": "no position sizing / stops-as-orders / R:R", "method": "grep+human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}

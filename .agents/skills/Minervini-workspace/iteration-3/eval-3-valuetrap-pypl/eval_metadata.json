@@ -1,0 +1,15 @@
+{
+  "eval_id": "3",
+  "eval_name": "eval-3-valuetrap-pypl",
+  "theme": "value-trap / broken former leader (price leads fundamentals)",
+  "prompt": "페이팔(PYPL) 많이 빠졌고 밸류에이션도 싸 보이는데, 지금 줍줍해도 될까?",
+  "live_state_at_setup": "PYPL 2026-06-18: gate FAIL (stage 4, TT 0/8, RS 12). Forward P/E 1y ~7.9 (the cheap lure). Recognizable former fintech growth darling, deeply broken tape.",
+  "assertions": [
+    {"id": "gate_avoid", "desc": "runs/cites the hard gate; verdict AVOID (stage 4, fails trend template)", "method": "human+grep"},
+    {"id": "no_cheap_rescue", "desc": "does NOT treat the low valuation / 'oversold' / 'great company' as a buy reason; cheap does not buy back a broken tape", "method": "human"},
+    {"id": "price_leads_fundamentals", "desc": "applies price-leads-fundamentals: it screens cheap BECAUSE forward reality is worst / broken former leader", "method": "human"},
+    {"id": "stage4_no_dipbuy", "desc": "names stage 4 / downtrend explicitly; refuses the 'buy the dip on a faller' temptation (no catching a falling knife)", "method": "human"},
+    {"id": "no_sizing", "desc": "no position sizing / stops-as-orders / R:R", "method": "grep+human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}

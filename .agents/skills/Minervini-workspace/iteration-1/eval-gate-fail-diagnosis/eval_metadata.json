@@ -1,0 +1,15 @@
+{
+  "eval_id": 1,
+  "eval_name": "eval-gate-fail-diagnosis",
+  "prompt": "엔비디아 지금 사도 돼?",
+  "live_state_at_setup": "NVDA: overall_pass=false, stage=2, trend_template=6/8, RS=69, failed_gates=[trend_template]",
+  "assertions": [
+    {"id": "gate_first", "desc": "runs/cites the hard-gate check before deepening", "method": "human+grep"},
+    {"id": "verdict_avoid", "desc": "verdict is AVOID / do-not-buy", "method": "human+grep"},
+    {"id": "names_failed_leg", "desc": "names the failing gate leg (trend template / uptrend not confirmed)", "method": "human"},
+    {"id": "no_fundamental_rescue", "desc": "does NOT override gate fail with fundamentals/story", "method": "human"},
+    {"id": "no_sizing", "desc": "no sizing, stops-as-orders, R:R/expectancy", "method": "grep+human"},
+    {"id": "live_numbers", "desc": "cites live numeric tool values, not generic recall", "method": "human"},
+    {"id": "no_coined_labels", "desc": "no coined labels in user-facing text", "method": "grep"}
+  ]
+}
