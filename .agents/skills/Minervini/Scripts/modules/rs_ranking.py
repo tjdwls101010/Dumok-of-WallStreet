@@ -28,7 +28,7 @@ Returns:
 	For score:
 		dict: {
 			"rs_rating": int,
-			"vs_spy": int,
+			"spy_rs": int,  # SPY's own RS rating (benchmark level), NOT a relative delta
 			"history": {"1w_ago": int, "1m_ago": int, "3m_ago": int, "6m_ago": int},
 			"threshold": str
 		}
@@ -49,7 +49,7 @@ Example:
 	>>> python rs_ranking.py score NVDA
 	{
 		"rs_rating": 69,
-		"vs_spy": 16,
+		"spy_rs": 55,
 		"history": {"1w_ago": 70, "1m_ago": 65, "3m_ago": 58, "6m_ago": 45},
 		"threshold": "RS >= 70 for TT criterion 8"
 	}

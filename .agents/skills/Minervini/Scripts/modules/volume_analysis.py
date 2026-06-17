@@ -112,7 +112,7 @@ PULLBACK_DECLINE_FACTOR = 0.9
 
 # --- analyze: accumulation/distribution grade bands (A-E) ---
 # DOCTRINE — read before touching these numbers.
-# Graded off vw_ratio_50: a 50-day AGGREGATE of sum(up-day vol)/sum(down-day vol).
+# Graded off up_down_volume_ratio_50d: a 50-day AGGREGATE of sum(up-day vol)/sum(down-day vol).
 # It reads the LEVEL of net accumulation, smoothed over the base — a bounded
 # average. A real Stage-2 leader still prints ~40-45% down-days, so the down-vol
 # denominator never collapses and this ratio physically tops out around ~1.6-1.9
@@ -141,7 +141,7 @@ PULLBACK_DECLINE_FACTOR = 0.9
 # L17-18, spec.md L13; the source counts no distribution days). The forward
 # "bigger-down-day-follows" disqualifier in demand-days is a magnitude rule, not
 # a count, and stays.
-ACCDIST_GRADE_A_PLUS_RATIO = 1.8   # strong accumulation (also needs acc_days > 2x dist_days)
+ACCDIST_GRADE_A_PLUS_RATIO = 1.8   # strong accumulation (top up/down-volume tier)
 ACCDIST_GRADE_A_RATIO = 1.5        # clear accumulation
 ACCDIST_GRADE_B_PLUS_RATIO = 1.3   # moderate
 ACCDIST_GRADE_B_RATIO = 1.15       # slight
@@ -203,71 +203,55 @@ def _count_accumulation_days(volumes, closes, vol_50avg, lookback=50):
 	return count, dates
 
 
-def _calc_volume_weighted_ratio(volumes, closes, vol_50avg, lookback):
-	"""Volume sum-ratio (up-day vol vs down-day vol) and the day-count ratio.
+def _calc_count_ratio(closes, lookback):
+	"""Up-DAY count / down-DAY count over the lookback.
 
-	NOTE — the "weighting" here is a no-op and the name is a misnomer kept for
-	back-compat: each day contributes magnitude = v / vol_50avg, and since
-	vol_50avg is constant across the window it cancels in the quotient, so
-	vw_ratio == sum(up vol) / sum(down vol) — algebraically identical to
-	_calc_up_down_ratio (verified equal to 3dp across the basket). The genuine
-	second signal is count_ratio (up-DAY count / down-DAY count), which is
-	distinct. (The redundant vw field is flagged for a future dedup.)
-
-	Returns:
-		tuple: (volume_sum_ratio, count_based_ratio)
+	This is the genuine second volume signal, distinct from the up/down *volume*
+	ratio (which weights by magnitude). A former `_calc_volume_weighted_ratio`
+	also returned a "volume-weighted" ratio, but the weighting (each day scaled
+	by v / vol_50avg, a window-constant) cancels in the quotient, making it
+	algebraically identical to `_calc_up_down_ratio` — so it was removed as a
+	redundant field and the grade now reads `_calc_up_down_ratio` directly.
 	"""
-	recent_vol = volumes.tail(lookback)
 	recent_close = closes.tail(lookback)
 	price_change = recent_close.diff()
 
-	weighted_up = 0.0
-	weighted_down = 0.0
 	count_up = 0
 	count_down = 0
-
-	for i in range(1, len(recent_vol)):
-		v = float(recent_vol.iloc[i])
-		magnitude = v / vol_50avg if vol_50avg > 0 else 1.0
+	for i in range(1, len(recent_close)):
 		if price_change.iloc[i] > 0:
-			weighted_up += magnitude
 			count_up += 1
 		elif price_change.iloc[i] < 0:
-			weighted_down += magnitude
 			count_down += 1
 
-	vw_ratio = round(weighted_up / weighted_down, 3) if weighted_down > 0 else 2.0
-	count_ratio = round(count_up / count_down, 3) if count_down > 0 else 2.0
-	return vw_ratio, count_ratio
+	return round(count_up / count_down, 3) if count_down > 0 else 2.0
 
 
-def _grade_accumulation(up_down_ratio, acc_days, dist_days, vol_trend_ratio, volume_weighted_ratio=None):
-	"""Grade accumulation/distribution on A-E scale.
+def _grade_accumulation(up_down_ratio):
+	"""Grade accumulation/distribution A-E on the up/down *volume* ratio alone.
 
-	Uses volume_weighted_ratio as primary grading input when available.
-	Falls back to count-based up_down_ratio otherwise.
+	The up/down volume ratio already carries the institutional footprint — down
+	volume is its denominator — so the grade reads it directly. It deliberately
+	does NOT layer an accumulation-day vs distribution-day *count* test on top:
+	tallying distribution days is the index-timing mechanic this methodology does
+	not use, and gating the top grade on it double-counts what the ratio already
+	reflects. The raw acc/dist day counts stay in the output for the analyst to
+	weigh; they just don't gate the grade.
 
-	A+: Strong accumulation (ratio > 1.8, acc >> dist)
-	A:  Clear accumulation (ratio > 1.5)
-	B+: Moderate accumulation (ratio > 1.3)
-	B:  Slight accumulation (ratio > 1.15)
-	C:  Neutral (ratio 0.85 - 1.15)
-	D:  Slight distribution (ratio 0.7 - 0.85)
-	E:  Heavy distribution (ratio < 0.7)
+	A+: ratio > 1.8   A: > 1.5   B+: > 1.3   B: > 1.15
+	C:  0.85-1.15     D: 0.7-0.85   E: < 0.7
 	"""
-	primary_ratio = volume_weighted_ratio if volume_weighted_ratio is not None else up_down_ratio
-
-	if primary_ratio > ACCDIST_GRADE_A_PLUS_RATIO and acc_days > dist_days * 2:
+	if up_down_ratio > ACCDIST_GRADE_A_PLUS_RATIO:
 		return "A+"
-	elif primary_ratio > ACCDIST_GRADE_A_RATIO:
+	elif up_down_ratio > ACCDIST_GRADE_A_RATIO:
 		return "A"
-	elif primary_ratio > ACCDIST_GRADE_B_PLUS_RATIO:
+	elif up_down_ratio > ACCDIST_GRADE_B_PLUS_RATIO:
 		return "B+"
-	elif primary_ratio > ACCDIST_GRADE_B_RATIO:
+	elif up_down_ratio > ACCDIST_GRADE_B_RATIO:
 		return "B"
-	elif primary_ratio > ACCDIST_GRADE_C_RATIO:
+	elif up_down_ratio > ACCDIST_GRADE_C_RATIO:
 		return "C"
-	elif primary_ratio > ACCDIST_GRADE_D_RATIO:
+	elif up_down_ratio > ACCDIST_GRADE_D_RATIO:
 		return "D"
 	else:
 		return "E"
@@ -467,12 +451,12 @@ def cmd_analyze(args):
 	acc_days, acc_dates = _count_accumulation_days(volumes, closes, vol_50avg, args.lookback)
 	dist_days, dist_dates = _count_distribution_days(volumes, closes, vol_50avg, args.lookback)
 
-	# Volume-weighted ratio (Fix 7: weight each day by volume magnitude)
-	vw_ratio_50, count_ratio_50 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, args.lookback)
-	vw_ratio_20, count_ratio_20 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, args.short_lookback)
+	# Up/down DAY-count ratio (the genuine second signal; the volume ratio is ratio_50)
+	count_ratio_50 = _calc_count_ratio(closes, args.lookback)
+	count_ratio_20 = _calc_count_ratio(closes, args.short_lookback)
 
-	# Grade (uses volume_weighted_ratio as primary)
-	grade = _grade_accumulation(ratio_50, acc_days, dist_days, vol_vs_50avg_pct, volume_weighted_ratio=vw_ratio_50)
+	# Grade on the up/down volume ratio
+	grade = _grade_accumulation(ratio_50)
 
 	# Breakout volume confirmation
 	# Recent N days: any day with price up AND volume 25%+ above 50-day avg?
@@ -519,9 +503,6 @@ def cmd_analyze(args):
 		"avg_volume_50d": int(vol_50avg),
 		"breakout_volume_confirmation": breakout_confirmed,
 		"volume_trend": vol_trend,
-		"volume_weighted_ratio_50d": vw_ratio_50,
-		"volume_weighted_ratio_50d_unit": "volume sum-ratio; equals up_down_volume_ratio_50d (the magnitude weighting cancels) — do not count as a separate signal",
-		"volume_weighted_ratio_20d": vw_ratio_20,
 		"count_based_ratio_50d": count_ratio_50,
 		"count_based_ratio_20d": count_ratio_20,
 		"accumulation_days_50d": acc_days,
@@ -534,14 +515,14 @@ def cmd_analyze(args):
 		"climactic_volume": climactic,
 		"volume_direction_summary_20d": vol_summary,
 		"thresholds": {
-			"A+": "vw_ratio > 1.8 AND acc_days > 2x dist_days",
-			"A": "vw_ratio > 1.5",
-			"B+": "vw_ratio > 1.3",
-			"B": "vw_ratio > 1.15",
-			"C": "vw_ratio 0.85-1.15 (neutral)",
-			"D": "vw_ratio 0.7-0.85 (slight distribution)",
-			"E": "vw_ratio < 0.7 (heavy distribution)",
-			"grade_input": "volume_weighted_ratio (primary), count_based_ratio (fallback)",
+			"A+": "up_down_volume_ratio_50d > 1.8",
+			"A": "up_down_volume_ratio_50d > 1.5",
+			"B+": "up_down_volume_ratio_50d > 1.3",
+			"B": "up_down_volume_ratio_50d > 1.15",
+			"C": "up_down_volume_ratio_50d 0.85-1.15 (neutral)",
+			"D": "up_down_volume_ratio_50d 0.7-0.85 (slight distribution)",
+			"E": "up_down_volume_ratio_50d < 0.7 (heavy distribution)",
+			"grade_input": "up_down_volume_ratio_50d (acc/dist day counts are informational, not graded)",
 			"cluster_warning": "max_cluster_size >= 5 distribution days in a cluster",
 			"breakout_confirmation": "volume 25%+ above 50d avg on up day in last 5 days",
 		},
