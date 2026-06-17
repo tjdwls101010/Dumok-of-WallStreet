@@ -168,7 +168,7 @@ See Also:
 		- base_count.py: Track base number within Stage 2 advance
 		- volume_analysis.py: Volume confirmation for breakout validation
 		- trend_template.py: Verify stock passes Trend Template before VCP entry
-		- pocket_pivot.py: Alternative entry via pocket pivot volume signals
+		- volume_analysis.py: demand-days scan — institutional demand footprint inside the base
 		- low_cheat.py: Lower-risk entry below pivot price
 		- tight_closes.py: Tight close cluster detection for supply dryup
 """
@@ -180,7 +180,22 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 import yfinance as yf
-from utils import output_json, safe_run
+from utils import output_json, safe_run, max_constructive_depth_pct
+
+# --- Tier-1 defaults (overridable via `detect` CLI args; see main()) ---
+DEFAULT_MAX_DEPTH = 60.0  # absolute first-correction redline; duration-keyed ceiling caps quality below it
+DEFAULT_DRYUP_PCT = 70.0  # pivot-area volume must fall below this % of base avg to count as dryup
+DEFAULT_BREAKOUT_VOL_MULT = 1.25  # breakout-confirmation volume floor vs 50d avg (ideal ~2x)
+DEFAULT_POWERPLAY_ADVANCE_BARS = 40  # prior-advance window (~8 weeks per spec) for power-play scan
+DEFAULT_CHEAT_PAUSE_BARS = 30  # cup-completion pause lookback window
+DEFAULT_SHAKEOUT_SEARCH_BARS = 20  # undercut/recovery search horizon past a swing low
+DEFAULT_REL_CORRECTION_RATIO = 2.5  # excessive_relative boundary: avoid >2-3x the market's decline
+
+# --- Tier-2 definitional floors (canonical to the method; not tuned per-run) ---
+SHAKEOUT_RECOVERY_SURGE_MULT = 1.5  # 1.5x avg recovery volume = institutional re-accumulation footprint
+DEMAND_SPIKE_MULT = 1.5  # 1.5x avg volume = institutional-footprint floor for a demand spike
+STRONGLY_DECLINING_CONTRACTION_RATIO = 0.75  # contraction vol below 0.75x prior = steep supply dryup
+PIVOT_PROXIMITY_PCT = 0.98  # within 2% of pivot = "at the pivot" band
 
 
 def _find_swing_points(highs, lows, closes, window=5):
@@ -308,7 +323,7 @@ def _analyze_contraction_volume(volumes, contractions):
 			vol_ratios.append(round(avg_volumes[i] / avg_volumes[i - 1], 3))
 
 	declining = len(vol_ratios) > 0 and all(r < 1.0 for r in vol_ratios)
-	strongly_declining = len(vol_ratios) > 0 and all(r < 0.75 for r in vol_ratios)
+	strongly_declining = len(vol_ratios) > 0 and all(r < STRONGLY_DECLINING_CONTRACTION_RATIO for r in vol_ratios)
 
 	return {
 		"avg_volumes": avg_volumes,
@@ -318,7 +333,7 @@ def _analyze_contraction_volume(volumes, contractions):
 	}
 
 
-def _check_volume_dryup(volumes, base_start_idx, pivot_idx, lookback=10):
+def _check_volume_dryup(volumes, base_start_idx, pivot_idx, lookback=10, dryup_pct=DEFAULT_DRYUP_PCT):
 	"""Check if volume dries up near the pivot relative to the full base.
 
 	Compares average volume in the pivot area (last ``lookback`` days before
@@ -343,14 +358,14 @@ def _check_volume_dryup(volumes, base_start_idx, pivot_idx, lookback=10):
 	ratio_pct = round(pivot_avg / base_avg * 100, 1) if base_avg > 0 else 100.0
 
 	return {
-		"dryup_detected": ratio_pct < 70.0,
+		"dryup_detected": ratio_pct < dryup_pct,
 		"pivot_area_avg_vol": round(pivot_avg),
 		"base_avg_vol": round(base_avg),
 		"ratio_pct": ratio_pct,
 	}
 
 
-def _assess_breakout_volume(volumes, closes, pivot_price=None):
+def _assess_breakout_volume(volumes, closes, pivot_price=None, breakout_vol_mult=DEFAULT_BREAKOUT_VOL_MULT):
 	"""Calculate current volume metrics relative to 50-day average.
 
 	Provides breakout volume targets: minimum 125% of 50-day average,
@@ -369,8 +384,8 @@ def _assess_breakout_volume(volumes, closes, pivot_price=None):
 	if len(vol_arr) >= 6 and len(close_arr) >= 6:
 		for i in range(-5, 0):
 			price_up = close_arr[i] > close_arr[i - 1]
-			vol_above = vol_arr[i] >= vol_50d_avg * 1.25
-			near_pivot = close_arr[i] >= pivot_price * 0.98 if pivot_price else True
+			vol_above = vol_arr[i] >= vol_50d_avg * breakout_vol_mult
+			near_pivot = close_arr[i] >= pivot_price * PIVOT_PROXIMITY_PCT if pivot_price else True
 			if price_up and vol_above and near_pivot:
 				breakout_confirmed = True
 				break
@@ -379,13 +394,13 @@ def _assess_breakout_volume(volumes, closes, pivot_price=None):
 		"vol_50d_avg": round(vol_50d_avg),
 		"current_vol": round(current_vol),
 		"current_vs_avg_pct": current_vs_avg_pct,
-		"breakout_target_min": round(vol_50d_avg * 1.25),
+		"breakout_target_min": round(vol_50d_avg * breakout_vol_mult),
 		"breakout_target_ideal": round(vol_50d_avg * 2.0),
 		"breakout_volume_confirmed": breakout_confirmed,
 	}
 
 
-def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_avg):
+def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_avg, search_bars=DEFAULT_SHAKEOUT_SEARCH_BARS):
 	"""Detect shakeout events within the base formation with grading.
 
 	A shakeout occurs when price undercuts a prior swing low then recovers
@@ -425,7 +440,7 @@ def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_a
 		if sl_idx < base_start or sl_idx > base_end:
 			continue
 		# Check if a subsequent low undercuts this swing low
-		for j in range(sl_idx + 1, min(sl_idx + 20, len(lows_arr))):
+		for j in range(sl_idx + 1, min(sl_idx + search_bars, len(lows_arr))):
 			if j > base_end + 10:
 				break
 			if lows_arr[j] < sl_price:
@@ -436,14 +451,14 @@ def _detect_shakeouts(lows, closes, volumes, swing_lows, contractions, vol_50d_a
 				recovery_vol_ratio = 0.0
 				reclaimed = False
 
-				for k in range(j, min(j + 20, len(lows_arr))):
+				for k in range(j, min(j + search_bars, len(lows_arr))):
 					if close_arr[k] < sl_price:
 						duration_below += 1
 					else:
 						reclaimed = True
 						if k > j:
 							recovery_vol_ratio = round(vol_arr[k] / vol_50d_avg, 2) if vol_50d_avg > 0 else 0.0
-							surge = recovery_vol_ratio >= 1.5
+							surge = recovery_vol_ratio >= SHAKEOUT_RECOVERY_SURGE_MULT
 						recovered = True
 						break
 
@@ -571,7 +586,7 @@ def _detect_demand_evidence(closes, volumes, contractions, shakeout_result, vol_
 
 	close_arr = closes.values.astype(float)
 	vol_arr = volumes.values.astype(float)
-	spike_threshold = vol_50d_avg * 1.5
+	spike_threshold = vol_50d_avg * DEMAND_SPIKE_MULT
 
 	base_low_idx = min(c["low_idx"] for c in contractions)
 	base_start = contractions[0]["high_idx"]
@@ -808,7 +823,7 @@ def _detect_cup_and_handle(highs, lows, closes, volumes, vol_50d_avg):
 	}
 
 
-def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg):
+def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg, advance_bars=DEFAULT_POWERPLAY_ADVANCE_BARS):
 	"""Detect Power Play (high tight flag) pattern.
 
 	Minervini Ch.10: An explosive price move of 100%+ in less than 8 weeks,
@@ -830,14 +845,14 @@ def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg):
 	best_play = None
 	scan_end = n - 15  # Need at least 15 days after advance for consolidation
 
-	for end_i in range(40, scan_end):
-		start_i = end_i - 40
+	for end_i in range(advance_bars, scan_end):
+		start_i = end_i - advance_bars
 		advance_pct = (close_arr[end_i] - close_arr[start_i]) / close_arr[start_i] * 100
 
 		if advance_pct < 50.0:
 			continue
 
-		# Found 50%+ advance in 40 days. Now check consolidation after.
+		# Found 50%+ advance in advance_bars days. Now check consolidation after.
 		advance_high = float(np.max(high_arr[start_i:end_i + 1]))
 		consol_start = end_i + 1
 		consol_end = min(consol_start + 30, n)  # Max 30 days (6 weeks) consolidation
@@ -877,7 +892,7 @@ def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg):
 		if best_play is None or advance_pct > best_play["advance_pct"]:
 			best_play = {
 				"advance_pct": round(advance_pct, 1),
-				"advance_days": 40,
+				"advance_days": advance_bars,
 				"advance_start_date": str(dates[start_i].date()),
 				"advance_end_date": str(dates[end_i].date()),
 				"consolidation_days": consol_bars,
@@ -907,7 +922,7 @@ def _detect_power_play(opens, highs, closes, volumes, vol_50d_avg):
 	return best_play
 
 
-def _detect_3c_entry(closes, highs, lows, volumes, vol_50d_avg):
+def _detect_3c_entry(closes, highs, lows, volumes, vol_50d_avg, pause_bars=DEFAULT_CHEAT_PAUSE_BARS):
 	"""Detect 3C (Cup Completion Cheat) entry point in cup formation recovery.
 
 	The 3C entry is the earliest actionable entry within a forming cup pattern,
@@ -969,8 +984,8 @@ def _detect_3c_entry(closes, highs, lows, volumes, vol_50d_avg):
 	if recovery_pct < 25 or recovery_pct > 60:
 		return {"detected": False, "reason": f"recovery_{round(recovery_pct, 1)}pct_outside_acceptable_range"}
 
-	# Step 3: Pause/Plateau detection in last 30 bars
-	pause_lookback = min(30, n - 1)
+	# Step 3: Pause/Plateau detection in last pause_bars bars
+	pause_lookback = min(pause_bars, n - 1)
 	pause_segment = close_arr[-pause_lookback:]
 	pause_high = float(np.max(pause_segment))
 	pause_low = float(np.min(pause_segment))
@@ -1219,6 +1234,8 @@ def cmd_detect(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval=args.interval)
+	# Drop the partial current-session bar yfinance appends mid-day (NaN OHLC).
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if args.interval == "1wk":
 		swing_window = 3  # 3 weekly bars (~3 weeks)
@@ -1275,7 +1292,7 @@ def cmd_detect(args):
 	vcp_detected = (
 		len(relevant_contractions) >= args.min_contractions
 		and is_tightening
-		and correction_depths[0] <= 60  # First correction not too deep
+		and correction_depths[0] <= args.max_depth  # absolute redline; duration-keyed ceiling caps quality below
 	)
 
 	# Volume analysis (contraction volume; breakout volume computed after pivot)
@@ -1307,13 +1324,13 @@ def cmd_detect(args):
 		pivot_idx = len(closes) - 1
 
 	# Breakout volume (pivot-aware: checks proximity to pivot price)
-	breakout_vol = _assess_breakout_volume(volumes, closes, pivot_price=pivot_price)
+	breakout_vol = _assess_breakout_volume(volumes, closes, pivot_price=pivot_price, breakout_vol_mult=args.breakout_vol_mult)
 
 	# Volume dryup near pivot (adaptive lookback scales with base duration)
 	base_start = relevant_contractions[0]["high_idx"] if relevant_contractions else 0
 	dryup_base_span = pivot_idx - base_start if relevant_contractions else 0
 	dryup_lookback = max(10, dryup_base_span // 10)
-	dryup = _check_volume_dryup(volumes, base_start, pivot_idx, lookback=dryup_lookback)
+	dryup = _check_volume_dryup(volumes, base_start, pivot_idx, lookback=dryup_lookback, dryup_pct=args.dryup_pct)
 
 	# Volume confirmation grade
 	vol_grade = _volume_confirmation_grade(contraction_vol, dryup)
@@ -1323,7 +1340,7 @@ def cmd_detect(args):
 		failure_pattern = "volume_divergence"
 
 	# Shakeout detection
-	shakeout = _detect_shakeouts(lows, closes, volumes, swing_lows, relevant_contractions, breakout_vol["vol_50d_avg"])
+	shakeout = _detect_shakeouts(lows, closes, volumes, swing_lows, relevant_contractions, breakout_vol["vol_50d_avg"], search_bars=args.shakeout_search_bars)
 
 	# Time symmetry / compression
 	time_symmetry = _detect_time_symmetry(relevant_contractions)
@@ -1340,11 +1357,11 @@ def cmd_detect(args):
 	cup_handle = _detect_cup_and_handle(highs, lows, closes, volumes, breakout_vol["vol_50d_avg"])
 
 	# Cup Completion Cheat (3C) entry detection
-	cup_completion_cheat = _detect_3c_entry(closes, highs, lows, volumes, breakout_vol["vol_50d_avg"])
+	cup_completion_cheat = _detect_3c_entry(closes, highs, lows, volumes, breakout_vol["vol_50d_avg"], pause_bars=args.cheat_pause_bars)
 
 	# Power Play detection
 	opens = data["Open"]
-	power_play = _detect_power_play(opens, highs, closes, volumes, breakout_vol["vol_50d_avg"])
+	power_play = _detect_power_play(opens, highs, closes, volumes, breakout_vol["vol_50d_avg"], advance_bars=args.powerplay_advance_bars)
 
 	# Contraction ratio grades
 	ratio_grades = _grade_contraction_ratios(contraction_ratios)
@@ -1384,7 +1401,7 @@ def cmd_detect(args):
 						"stock_correction_pct": round(stock_corr, 2),
 						"spy_correction_pct": spy_corr,
 						"ratio": ratio,
-						"excessive_relative": ratio > 2.5,
+						"excessive_relative": ratio > args.rel_correction_ratio,
 					}
 		except Exception:
 			pass
@@ -1409,6 +1426,23 @@ def cmd_detect(args):
 			quality = "high"
 		if has_destructive and quality == "high":
 			quality = "moderate"
+		# Depth too deep for the base's LENGTH caps quality: a deep-and-fast first
+		# correction is non-constructive even when the later contractions tighten.
+		# (The flat <=60 redline above only rejects the extreme; the constructive
+		# ceiling is duration-keyed.)
+		if overall_depth > max_constructive_depth_pct(base_weeks):
+			if quality == "high":
+				quality = "moderate"
+			elif quality == "moderate":
+				quality = "low"
+		# A first correction far deeper than the market's in the same window is
+		# relative weakness, not leadership — so the excessive_relative signal, which
+		# was being computed and then ignored, now actually gates the quality.
+		if relative_correction.get("excessive_relative"):
+			if quality == "high":
+				quality = "moderate"
+			elif quality == "moderate":
+				quality = "low"
 	else:
 		quality = "none"
 
@@ -1450,7 +1484,7 @@ def cmd_detect(args):
 		"volume_confirmation": vol_grade,
 		"thresholds": {
 			"declining": "each contraction avg vol < prior",
-			"dryup": "pivot area avg vol < 70% of base avg",
+			"dryup": f"pivot area avg vol < {args.dryup_pct:g}% of base avg",
 			"confirmation": "strongly_confirmed: declining+dryup | confirmed: one of two | supportive: stable | neutral: mixed | suspect: rising | divergent: expanding at pivot",
 		},
 	}
@@ -1472,6 +1506,11 @@ def cmd_detect(args):
 		"failure_pattern": failure_pattern,
 		"first_correction_pct": round(overall_depth, 1),
 		"first_correction_zone": first_correction_zone,
+		"depth_vs_duration_ceiling": {
+			"base_weeks": base_weeks,
+			"constructive_ceiling_pct": max_constructive_depth_pct(base_weeks),
+			"exceeded": overall_depth > max_constructive_depth_pct(base_weeks),
+		},
 		"relative_correction": relative_correction,
 		"setup_readiness": setup_readiness,
 		"contractions_detail": relevant_contractions,
@@ -1563,6 +1602,34 @@ def main():
 		"--interval", default="1d", choices=["1d", "1wk"], help="Data interval: 1d (daily, default) or 1wk (weekly)"
 	)
 	sp.add_argument("--min-contractions", type=int, default=2, help="Minimum contractions (default: 2)")
+	sp.add_argument(
+		"--max-depth", type=float, default=DEFAULT_MAX_DEPTH,
+		help="Absolute first-correction redline %% (default: 60); near-broken-base cutoff — the duration-keyed ceiling caps quality below it, so rarely tune.",
+	)
+	sp.add_argument(
+		"--dryup-pct", type=float, default=DEFAULT_DRYUP_PCT,
+		help="Pivot volume must drop below this %% of base avg to count as dryup (default: 70); raise for thin/illiquid names, lower for liquid ones.",
+	)
+	sp.add_argument(
+		"--breakout-vol-mult", type=float, default=DEFAULT_BREAKOUT_VOL_MULT,
+		help="Breakout-confirmation volume floor vs 50d avg (default: 1.25); ideal is ~2x — raise to demand stronger confirmation.",
+	)
+	sp.add_argument(
+		"--powerplay-advance-bars", type=int, default=DEFAULT_POWERPLAY_ADVANCE_BARS,
+		help="Prior-advance window for power-play scan (default: 40, ~8 weeks); scale with the base's timeframe.",
+	)
+	sp.add_argument(
+		"--cheat-pause-bars", type=int, default=DEFAULT_CHEAT_PAUSE_BARS,
+		help="Cup-completion pause lookback (default: 30); widen for longer-forming cups.",
+	)
+	sp.add_argument(
+		"--shakeout-search-bars", type=int, default=DEFAULT_SHAKEOUT_SEARCH_BARS,
+		help="How far past a swing low to look for undercut/recovery (default: 20); scale with base timeframe.",
+	)
+	sp.add_argument(
+		"--rel-correction-ratio", type=float, default=DEFAULT_REL_CORRECTION_RATIO,
+		help="excessive_relative redline: stock decline vs market (default: 2.5); spec's 2-3x band is a range, not a fixed line.",
+	)
 	sp.set_defaults(func=cmd_detect)
 
 	args = parser.parse_args()

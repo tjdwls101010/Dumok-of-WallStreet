@@ -78,6 +78,37 @@ def output_json_records(data):
 		output_json(data)
 
 
+def max_constructive_depth_pct(duration_weeks):
+	"""Constructive base-depth ceiling, keyed to base length (spec §VCP / Setup).
+
+	Time absorbs supply, so a long base tolerates a deeper correction than a short
+	one: a 3-week base that drops 40% is broken, but an ~18-month base that drifts
+	down 45% has simply washed out weak holders. Deep-AND-fast is failure;
+	deep-but-slow is constructive — a single flat ceiling is wrong in both
+	directions. Shared by base_count and vcp so the two cannot drift apart.
+	  <= 3 weeks   -> 25%   (short / power-play range)
+	  <= 25 weeks  -> 35%   (typical base)
+	  >  25 weeks  -> 50%   (~year-long base)
+	The absolute redline (60%) is enforced separately and always fails.
+	"""
+	if duration_weeks <= 3:
+		return 25.0
+	if duration_weeks <= 25:
+		return 35.0
+	return 50.0
+
+
+def calculate_sma(prices, period):
+	"""Simple moving average over `period` bars.
+
+	The one indicator the SEPA tools actually share. It lives here, with the other
+	plumbing, rather than in a standalone indicators module: the rest of that module
+	was RSI/EMA/Bollinger/ATR/MACD — mean-reversion oscillators that work against a
+	momentum method and were never imported.
+	"""
+	return prices.rolling(window=period).mean()
+
+
 def safe_run(func):
 	"""Decorator: wrap function in try/except with JSON error output."""
 

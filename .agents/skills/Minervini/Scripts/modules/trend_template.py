@@ -79,9 +79,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 import yfinance as yf
-from indicators import calculate_sma
 from rs_ranking import compute_rs_score
-from utils import output_json, safe_run
+from utils import output_json, safe_run, calculate_sma
 
 
 @safe_run
@@ -90,6 +89,10 @@ def cmd_check(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1d")
+	# Drop the partial current-session bar yfinance appends mid-day: its NaN OHLC
+	# would make current_price NaN and silently fail all 8 criteria (1/8 for a
+	# leader), turning the live gate into a blanket AVOID during market hours.
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 200:
 		output_json(

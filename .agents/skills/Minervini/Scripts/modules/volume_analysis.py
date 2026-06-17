@@ -11,6 +11,9 @@ signal detection.
 
 Commands:
 	analyze: Full volume analysis with accumulation/distribution rating
+	demand-days: Scan for institutional demand days inside the base (up-day volume
+		dwarfing the max prior down-day volume — accumulation's footprint before
+		the breakout; absorbs the former pocket_pivot module)
 
 Args:
 	symbol (str): Ticker symbol (e.g., "AAPL", "NVDA", "META")
@@ -81,7 +84,69 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import numpy as np
 import yfinance as yf
-from utils import output_json, safe_run
+from utils import calculate_sma, output_json, safe_run
+
+# --- analyze: tunable lookback horizons (CLI-overridable defaults) ---
+# The institutional supply/demand window; scales with how much base history matters.
+ACCDIST_LOOKBACK = 50
+# Recent-pressure window; a shorter horizon for the secondary ratio.
+SHORT_LOOKBACK = 20
+# How many sessions define a "cluster" of distribution/accumulation days.
+CLUSTER_WINDOW = 25
+# How recent a breakout-volume confirmation day must be.
+BREAKOUT_WINDOW = 5
+# How long the pullback being assessed is.
+PULLBACK_WINDOW = 20
+
+# --- analyze: definitional conviction floors (canonical, not tuned per-run) ---
+# Price move that marks a genuine up/down day; below this is noise, not direction.
+DIST_ACC_PRICE_THRESHOLD_PCT = 0.2
+# How many distribution days within the window constitute a cluster.
+MIN_CLUSTER_SIZE = 3
+# Volume multiple of the 50d avg that marks a climactic/exhaustion spike.
+CLIMACTIC_VOL_MULT = 2.0
+# Up-day volume floor (x 50d avg) that confirms a breakout.
+BREAKOUT_VOL_MULT = 1.25
+# Inner down-day decline factor: pullback volume is "declining" below this.
+PULLBACK_DECLINE_FACTOR = 0.9
+
+# --- analyze: accumulation/distribution grade bands (A-E) ---
+# DOCTRINE — read before touching these numbers.
+# Graded off vw_ratio_50: a 50-day AGGREGATE of sum(up-day vol)/sum(down-day vol).
+# It reads the LEVEL of net accumulation, smoothed over the base — a bounded
+# average. A real Stage-2 leader still prints ~40-45% down-days, so the down-vol
+# denominator never collapses and this ratio physically tops out around ~1.6-1.9
+# (observed basket max AMD ~1.87, MU ~1.51; the neutral mega-cap cluster ~1.0).
+# The bands are calibrated to THAT range: A isolates the strongest, B+/B the
+# strong-but-not-dwarfing, C the neutral ~1.0 cluster, D/E the real decliners.
+#
+# DO NOT re-point these at the method's "several hundred to ~1,000%" (3-10x)
+# surge figure. That figure (spec.md L38, principles.md L114-115; book Ch.10-11:
+# "a surge of several hundred percent or even as much as 1,000 percent compared
+# with the AVERAGE volume") is the magnitude of a SINGLE demand DAY's volume vs
+# its own average — a per-bar surge, with a "the day FOLLOWED by a bigger down
+# day disqualifies" rule that only parses against one bar. An aggregate has no
+# surge and no next-day: a lone 8x demand day on a neutral 24up/25down baseline
+# lifts this aggregate only to ~1.28. Demanding 3x here would make every real
+# leader fail and collapse all grades into D/E. (An audit recommended exactly
+# this; it was a metric-mismatch. This comment exists to stop the next one.)
+# The 3-10x surge standard lives on the `demand-days` per-bar volume_ratio
+# (up-day vol / max prior down-day vol), NOT here. The book's hard ratios
+# (Nasdaq 9:1, NYSE 21:1) are MARKET-breadth reads, not per-stock aggregates.
+#
+# NO DISTRIBUTION-DAY COUNTING. Down-side pressure is already priced into this
+# grade through down-day VOLUME (the denominator) — the faithful asymmetry. We
+# do NOT add a "N distribution days -> cap the grade" tally: that is the O'Neil
+# distribution-day / follow-through mechanism the method rejects (principles.md
+# L17-18, spec.md L13; the source counts no distribution days). The forward
+# "bigger-down-day-follows" disqualifier in demand-days is a magnitude rule, not
+# a count, and stays.
+ACCDIST_GRADE_A_PLUS_RATIO = 1.8   # strong accumulation (also needs acc_days > 2x dist_days)
+ACCDIST_GRADE_A_RATIO = 1.5        # clear accumulation
+ACCDIST_GRADE_B_PLUS_RATIO = 1.3   # moderate
+ACCDIST_GRADE_B_RATIO = 1.15       # slight
+ACCDIST_GRADE_C_RATIO = 0.85       # neutral floor (0.85-1.15 = neutral)
+ACCDIST_GRADE_D_RATIO = 0.7        # slight-distribution floor (below this = heavy, grade E)
 
 
 def _calc_up_down_ratio(volumes, closes, lookback):
@@ -111,7 +176,7 @@ def _count_distribution_days(volumes, closes, vol_50avg, lookback=50):
 	dates = []
 	for i in range(1, len(recent_vol)):
 		pct_change = (recent_close.iloc[i] / recent_close.iloc[i - 1] - 1) * 100 if recent_close.iloc[i - 1] != 0 else 0
-		if pct_change <= -0.2 and recent_vol.iloc[i] > vol_50avg:
+		if pct_change <= -DIST_ACC_PRICE_THRESHOLD_PCT and recent_vol.iloc[i] > vol_50avg:
 			count += 1
 			dates.append(str(recent_close.index[i].date()))
 
@@ -131,7 +196,7 @@ def _count_accumulation_days(volumes, closes, vol_50avg, lookback=50):
 	dates = []
 	for i in range(1, len(recent_vol)):
 		pct_change = (recent_close.iloc[i] / recent_close.iloc[i - 1] - 1) * 100 if recent_close.iloc[i - 1] != 0 else 0
-		if pct_change >= 0.2 and recent_vol.iloc[i] > vol_50avg:
+		if pct_change >= DIST_ACC_PRICE_THRESHOLD_PCT and recent_vol.iloc[i] > vol_50avg:
 			count += 1
 			dates.append(str(recent_close.index[i].date()))
 
@@ -139,14 +204,18 @@ def _count_accumulation_days(volumes, closes, vol_50avg, lookback=50):
 
 
 def _calc_volume_weighted_ratio(volumes, closes, vol_50avg, lookback):
-	"""Calculate volume-weighted up/down ratio.
+	"""Volume sum-ratio (up-day vol vs down-day vol) and the day-count ratio.
 
-	Each day's contribution is weighted by its volume magnitude relative
-	to the 50-day average. A 3x-average-volume day counts 3x more than
-	a 0.5x-average-volume day.
+	NOTE — the "weighting" here is a no-op and the name is a misnomer kept for
+	back-compat: each day contributes magnitude = v / vol_50avg, and since
+	vol_50avg is constant across the window it cancels in the quotient, so
+	vw_ratio == sum(up vol) / sum(down vol) — algebraically identical to
+	_calc_up_down_ratio (verified equal to 3dp across the basket). The genuine
+	second signal is count_ratio (up-DAY count / down-DAY count), which is
+	distinct. (The redundant vw field is flagged for a future dedup.)
 
 	Returns:
-		tuple: (volume_weighted_ratio, count_based_ratio)
+		tuple: (volume_sum_ratio, count_based_ratio)
 	"""
 	recent_vol = volumes.tail(lookback)
 	recent_close = closes.tail(lookback)
@@ -188,17 +257,17 @@ def _grade_accumulation(up_down_ratio, acc_days, dist_days, vol_trend_ratio, vol
 	"""
 	primary_ratio = volume_weighted_ratio if volume_weighted_ratio is not None else up_down_ratio
 
-	if primary_ratio > 1.8 and acc_days > dist_days * 2:
+	if primary_ratio > ACCDIST_GRADE_A_PLUS_RATIO and acc_days > dist_days * 2:
 		return "A+"
-	elif primary_ratio > 1.5:
+	elif primary_ratio > ACCDIST_GRADE_A_RATIO:
 		return "A"
-	elif primary_ratio > 1.3:
+	elif primary_ratio > ACCDIST_GRADE_B_PLUS_RATIO:
 		return "B+"
-	elif primary_ratio > 1.15:
+	elif primary_ratio > ACCDIST_GRADE_B_RATIO:
 		return "B"
-	elif primary_ratio > 0.85:
+	elif primary_ratio > ACCDIST_GRADE_C_RATIO:
 		return "C"
-	elif primary_ratio > 0.7:
+	elif primary_ratio > ACCDIST_GRADE_D_RATIO:
 		return "D"
 	else:
 		return "E"
@@ -229,11 +298,11 @@ def _check_pullback_volume(volumes, closes, lookback=20):
 	first_half_avg = np.mean(down_days_vol[:mid]) if mid > 0 else 0
 	second_half_avg = np.mean(down_days_vol[mid:]) if mid < len(down_days_vol) else 0
 
-	declining = second_half_avg < first_half_avg * 0.9 if first_half_avg > 0 else False
+	declining = second_half_avg < first_half_avg * PULLBACK_DECLINE_FACTOR if first_half_avg > 0 else False
 	return declining, "declining" if declining else "increasing"
 
 
-def _detect_distribution_clusters(dist_dates, cluster_window=25, min_cluster_size=3):
+def _detect_distribution_clusters(dist_dates, cluster_window=CLUSTER_WINDOW, min_cluster_size=MIN_CLUSTER_SIZE):
 	"""Detect clustering of Distribution Days within a sliding window.
 
 	Clustered distribution days are more bearish than evenly spread ones.
@@ -291,7 +360,7 @@ def _detect_climactic_days(volumes, closes, vol_50avg, lookback=50):
 	"""
 	recent_vol = volumes.tail(lookback)
 	recent_close = closes.tail(lookback)
-	threshold = vol_50avg * 2.0
+	threshold = vol_50avg * CLIMACTIC_VOL_MULT
 
 	climactic_days = []
 	buy_count = 0
@@ -368,6 +437,9 @@ def cmd_analyze(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1d")
+	# yfinance appends a partial in-session bar whose OHLC can be NaN; that NaN
+	# poisons closes.iloc[-1] and every comparison downstream. Drop it first.
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 50:
 		output_json(
@@ -388,33 +460,33 @@ def cmd_analyze(args):
 	vol_vs_50avg_pct = round(current_vol / vol_50avg * 100, 1) if vol_50avg > 0 else 0
 
 	# Up/Down volume ratios at different lookbacks
-	ratio_20, _, _ = _calc_up_down_ratio(volumes, closes, 20)
-	ratio_50, up_vol_50, down_vol_50 = _calc_up_down_ratio(volumes, closes, 50)
+	ratio_20, _, _ = _calc_up_down_ratio(volumes, closes, args.short_lookback)
+	ratio_50, up_vol_50, down_vol_50 = _calc_up_down_ratio(volumes, closes, args.lookback)
 
 	# Accumulation and distribution day counts
-	acc_days, acc_dates = _count_accumulation_days(volumes, closes, vol_50avg, 50)
-	dist_days, dist_dates = _count_distribution_days(volumes, closes, vol_50avg, 50)
+	acc_days, acc_dates = _count_accumulation_days(volumes, closes, vol_50avg, args.lookback)
+	dist_days, dist_dates = _count_distribution_days(volumes, closes, vol_50avg, args.lookback)
 
 	# Volume-weighted ratio (Fix 7: weight each day by volume magnitude)
-	vw_ratio_50, count_ratio_50 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, 50)
-	vw_ratio_20, count_ratio_20 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, 20)
+	vw_ratio_50, count_ratio_50 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, args.lookback)
+	vw_ratio_20, count_ratio_20 = _calc_volume_weighted_ratio(volumes, closes, vol_50avg, args.short_lookback)
 
 	# Grade (uses volume_weighted_ratio as primary)
 	grade = _grade_accumulation(ratio_50, acc_days, dist_days, vol_vs_50avg_pct, volume_weighted_ratio=vw_ratio_50)
 
 	# Breakout volume confirmation
-	# Recent 5 days: any day with price up AND volume 25%+ above 50-day avg?
+	# Recent N days: any day with price up AND volume 25%+ above 50-day avg?
 	breakout_confirmed = False
-	recent_5_vol = volumes.tail(5)
-	recent_5_close = closes.tail(5)
+	recent_5_vol = volumes.tail(args.breakout_window)
+	recent_5_close = closes.tail(args.breakout_window)
 	recent_5_change = recent_5_close.diff()
 	for i in range(1, len(recent_5_vol)):
-		if recent_5_change.iloc[i] > 0 and recent_5_vol.iloc[i] > vol_50avg * 1.25:
+		if recent_5_change.iloc[i] > 0 and recent_5_vol.iloc[i] > vol_50avg * BREAKOUT_VOL_MULT:
 			breakout_confirmed = True
 			break
 
 	# Pullback volume analysis
-	pullback_declining, pullback_status = _check_pullback_volume(volumes, closes)
+	pullback_declining, pullback_status = _check_pullback_volume(volumes, closes, args.pullback_window)
 
 	# Volume trend
 	if ratio_50 > 1.3:
@@ -425,13 +497,13 @@ def cmd_analyze(args):
 		vol_trend = "neutral"
 
 	# Distribution day clustering
-	distribution_clusters = _detect_distribution_clusters(dist_dates)
+	distribution_clusters = _detect_distribution_clusters(dist_dates, args.cluster_window)
 
 	# Climactic volume days
-	climactic = _detect_climactic_days(volumes, closes, vol_50avg)
+	climactic = _detect_climactic_days(volumes, closes, vol_50avg, args.lookback)
 
 	# Volume direction summary (20-day)
-	vol_summary = _volume_direction_summary(volumes, closes, lookback=20)
+	vol_summary = _volume_direction_summary(volumes, closes, lookback=args.short_lookback)
 
 	full_result = {
 		"symbol": symbol,
@@ -448,7 +520,7 @@ def cmd_analyze(args):
 		"breakout_volume_confirmation": breakout_confirmed,
 		"volume_trend": vol_trend,
 		"volume_weighted_ratio_50d": vw_ratio_50,
-		"volume_weighted_ratio_50d_unit": "magnitude-weighted up/down ratio (big vol days count more)",
+		"volume_weighted_ratio_50d_unit": "volume sum-ratio; equals up_down_volume_ratio_50d (the magnitude weighting cancels) — do not count as a separate signal",
 		"volume_weighted_ratio_20d": vw_ratio_20,
 		"count_based_ratio_50d": count_ratio_50,
 		"count_based_ratio_20d": count_ratio_20,
@@ -501,6 +573,236 @@ def cmd_analyze(args):
 	output_json(full_result)
 
 
+# ---------------------------------------------------------------------------
+# Demand days  (folded in from the former pocket_pivot module)
+#
+# A demand day is an up-day whose volume DWARFS the largest down-day volume in
+# the prior window. It is the same up-dwarfs-down asymmetry the A/D grade above
+# measures, but read on a single bar while price is still INSIDE the base —
+# accumulation leaving a footprint before the breakout. It lives here, not in
+# its own module, because it answers the identical funnel question ("is there
+# demand-volume asymmetry in this base?") over the same OHLCV; a separate module
+# only invites running one and skipping the other. The label "pocket pivot" is
+# O'Neil/Morales vocabulary, absent from this method's source — so the public
+# output speaks the method's own word, "demand day."
+# ---------------------------------------------------------------------------
+
+# Extension cutoffs vs the 10MA: beyond _EXTENDED a demand day is a chase, not a
+# base entry; within _RIGHT_SIDE it sits in the constructive accumulation zone.
+_EXTENDED_ABOVE_10MA_PCT = 10.0
+_RIGHT_SIDE_ABOVE_10MA_PCT = 5.0
+
+# Demand-day quality floors. THIS is where the method's per-bar surge standard
+# lives: volume_ratio = up-day vol / max prior down-day vol (a pocket-pivot
+# relative asymmetry). The book's "several hundred to ~1,000%" (3-10x) is the
+# IDEAL surge magnitude, but it is a relationship/ceiling, not a copyable floor
+# (principles.md L5): for liquid names the max-prior-down-day denominator never
+# approaches zero, so even textbook footprints top out ~2.5-3x (observed basket
+# max ~2.71). 2.0x is the deliberately conservative-but-reached "high" bar — one
+# leg of a three-way AND (>=2.0 AND close in upper 70% of range AND above 50MA).
+DEMAND_DAY_HIGH_VOL_RATIO = 2.0
+DEMAND_DAY_MODERATE_VOL_RATIO = 1.5
+DEMAND_DAY_HIGH_CLOSE_RANGE = 0.7
+DEMAND_DAY_MODERATE_CLOSE_RANGE = 0.5
+
+
+def _close_range_pct(close, high, low):
+	"""Where the close sits in the day's range: 0.0 = at the low, 1.0 = at the high.
+
+	A demand day that closes in the lower half of its range is buying that met
+	immediate supply — conviction unconfirmed. Closing high is the tell the bid
+	held into the close.
+	"""
+	rng = high - low
+	if rng <= 0:
+		return 0.5
+	return round((close - low) / rng, 2)
+
+
+def _max_down_volume(closes, volumes, idx, lookback, min_decline_pct):
+	"""Largest volume among genuine down-days in the `lookback` sessions before idx.
+
+	The bar a demand day must clear is the MAX prior down-day volume, not the
+	mean: one real institutional down-day is the supply genuine demand has to
+	overwhelm. A trivial down-tick (< min_decline_pct) is filtered as noise.
+	"""
+	start = max(1, idx - lookback)
+	decline_threshold = 1.0 - min_decline_pct / 100.0
+	max_down_vol = 0.0
+	for i in range(start, idx):
+		if closes[i] < closes[i - 1] * decline_threshold and volumes[i] > max_down_vol:
+			max_down_vol = volumes[i]
+	return max_down_vol
+
+
+def _bigger_down_follows(closes, volumes, idx, demand_vol, lookahead, min_decline_pct):
+	"""True if a down-day with volume > demand_vol occurs within `lookahead` of idx.
+
+	The disqualifier half of the rule: demand that is immediately overwhelmed by a
+	larger down-volume day was never accumulation. Reading only backward would
+	stamp 'demand' on a footprint the method explicitly voids, so we look forward
+	too. Near the right edge the lookahead is simply whatever bars exist.
+	"""
+	decline_threshold = 1.0 - min_decline_pct / 100.0
+	end = min(len(closes), idx + lookahead + 1)
+	for i in range(idx + 1, end):
+		if closes[i] < closes[i - 1] * decline_threshold and volumes[i] > demand_vol:
+			return True
+	return False
+
+
+def _demand_location(pct_above_50ma, pct_above_10ma, in_base):
+	"""right_side (constructive) / handle (late-base) / extended (chase)."""
+	if not in_base:
+		return "extended"
+	if pct_above_50ma >= 0 and pct_above_10ma <= _RIGHT_SIDE_ABOVE_10MA_PCT:
+		return "right_side"
+	return "handle"
+
+
+def _grade_demand_day(volume_ratio, close_range_pct, above_50ma):
+	"""high / moderate / low on vol-asymmetry x close-conviction x above-50MA."""
+	if volume_ratio >= DEMAND_DAY_HIGH_VOL_RATIO and close_range_pct >= DEMAND_DAY_HIGH_CLOSE_RANGE and above_50ma:
+		return "high"
+	if volume_ratio >= DEMAND_DAY_MODERATE_VOL_RATIO and close_range_pct >= DEMAND_DAY_MODERATE_CLOSE_RANGE and above_50ma:
+		return "moderate"
+	return "low"
+
+
+@safe_run
+def cmd_demand_days(args):
+	"""Scan for institutional demand days inside the base."""
+	symbol = args.symbol.upper()
+	ticker = yf.Ticker(symbol)
+	data = ticker.history(period=args.period, interval="1d")
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
+
+	if data.empty or len(data) < 60:
+		output_json({
+			"error": f"Insufficient data for {symbol}. Need >= 60 trading days.",
+			"data_points": len(data),
+		})
+		return
+
+	closes = data["Close"].values.astype(float)
+	highs = data["High"].values.astype(float)
+	lows = data["Low"].values.astype(float)
+	volumes = data["Volume"].values.astype(float)
+	dates = data.index
+	n = len(closes)
+
+	sma50 = calculate_sma(data["Close"], 50).values
+	sma10 = calculate_sma(data["Close"], 10).values
+	current_price = round(float(closes[-1]), 2)
+
+	lookback = args.down_vol_lookback
+	min_decline = args.min_down_decline_pct
+	stale_days = args.stale_days
+	scan_start = max(lookback + 1, n - args.scan_days)
+
+	demand_days = []
+	disqualified = 0
+	for i in range(scan_start, n):
+		# Must be an up-day.
+		if closes[i] <= closes[i - 1]:
+			continue
+		max_down_vol = _max_down_volume(closes, volumes, i, lookback, min_decline)
+		# Up-volume must dwarf the largest prior down-volume.
+		if max_down_vol <= 0 or volumes[i] <= max_down_vol:
+			continue
+		crp = _close_range_pct(closes[i], highs[i], lows[i])
+		if crp < 0.5:
+			continue
+		# Forward disqualifier: voided if an even-bigger down-volume day follows.
+		if _bigger_down_follows(closes, volumes, i, volumes[i], lookback, min_decline):
+			disqualified += 1
+			continue
+
+		volume_ratio = round(volumes[i] / max_down_vol, 2)
+		s50 = sma50[i]
+		s10 = sma10[i]
+		above_50ma = bool(s50 == s50 and closes[i] > s50)
+		pct_above_50ma = round((closes[i] - s50) / s50 * 100, 2) if s50 == s50 and s50 > 0 else 0.0
+		pct_above_10ma = round((closes[i] - s10) / s10 * 100, 2) if s10 == s10 and s10 > 0 else 0.0
+		in_base = pct_above_10ma <= _EXTENDED_ABOVE_10MA_PCT
+		days_ago = n - 1 - i
+
+		demand_days.append({
+			"date": str(dates[i].date()),
+			"days_ago": days_ago,
+			"actionable": days_ago <= stale_days,
+			"close": round(float(closes[i]), 2),
+			"volume": int(volumes[i]),
+			"max_down_vol_window": int(max_down_vol),
+			"volume_ratio": volume_ratio,
+			"volume_ratio_unit": "up-day vol / max down-day vol in lookback window",
+			"close_range_pct": crp,
+			"above_50ma": above_50ma,
+			"in_base": in_base,
+			"location": _demand_location(pct_above_50ma, pct_above_10ma, in_base),
+			"quality": _grade_demand_day(volume_ratio, crp, above_50ma),
+		})
+
+	most_recent = None
+	if demand_days:
+		last = demand_days[-1]
+		most_recent = {
+			"date": last["date"],
+			"days_ago": last["days_ago"],
+			"quality": last["quality"],
+			"actionable": last["actionable"],
+		}
+	actionable_count = sum(1 for d in demand_days if d["actionable"])
+
+	# Current base context (NaN-guarded so a missing SMA reports null, not a crash).
+	s50c = sma50[-1]
+	s10c = sma10[-1]
+	pct_above_10ma_now = round((current_price - s10c) / s10c * 100, 2) if s10c == s10c and s10c > 0 else None
+	base_context = {
+		"above_50ma": bool(s50c == s50c and current_price > s50c),
+		"pct_above_50ma": round((current_price - s50c) / s50c * 100, 2) if s50c == s50c and s50c > 0 else None,
+		"pct_above_10ma": pct_above_10ma_now,
+		"in_base": pct_above_10ma_now is not None and pct_above_10ma_now <= _EXTENDED_ABOVE_10MA_PCT,
+	}
+
+	full_result = {
+		"symbol": symbol,
+		"date": str(dates[-1].date()),
+		"current_price": current_price,
+		"demand_days": demand_days,
+		"demand_day_count": len(demand_days),
+		"actionable_count": actionable_count,
+		"disqualified_count": disqualified,
+		"most_recent": most_recent,
+		"base_context": base_context,
+		"params": {
+			"down_vol_lookback": lookback,
+			"scan_days": args.scan_days,
+			"min_down_decline_pct": min_decline,
+			"stale_days": stale_days,
+		},
+		"thresholds": {
+			"demand_day": "up-day whose volume exceeds the MAX down-day volume in the prior lookback window",
+			"disqualifier": "voided if a larger down-volume day follows within the lookback (supply overwhelmed the demand)",
+			"actionable": f"days_ago <= {stale_days} (older footprints are history, not a present entry)",
+			"quality_high": "vol_ratio >= 2.0 AND close in upper 70% of range AND above 50MA",
+			"quality_moderate": "vol_ratio >= 1.5 AND close in upper 50% of range AND above 50MA",
+			"location": "right_side (constructive) / handle (late-base) / extended (chase, >10% above 10MA)",
+		},
+	}
+
+	full_result["compressed"] = {
+		"demand_day_count": len(demand_days),
+		"actionable_count": actionable_count,
+		"disqualified_count": disqualified,
+		"most_recent": most_recent,
+		"base_context": base_context,
+		"thresholds": full_result["thresholds"],
+	}
+
+	output_json(full_result)
+
+
 def main():
 	parser = argparse.ArgumentParser(description="Volume Analysis: Accumulation/Distribution")
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -508,7 +810,39 @@ def main():
 	sp = sub.add_parser("analyze", help="Full volume analysis")
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--period", default="6mo", help="Data period (default: 6mo)")
+	sp.add_argument("--lookback", type=int, default=ACCDIST_LOOKBACK,
+					help="up/down ratio + acc/dist day window (default %d). The institutional "
+						 "supply/demand window scales with how much base history is relevant — "
+						 "widen for a long base, tighten to read only the most recent leg."
+						 % ACCDIST_LOOKBACK)
+	sp.add_argument("--short-lookback", type=int, default=SHORT_LOOKBACK,
+					help="secondary short-ratio window (default %d). Recent-pressure horizon; "
+						 "shorten to catch a fresh shift, lengthen to smooth noise." % SHORT_LOOKBACK)
+	sp.add_argument("--cluster-window", type=int, default=CLUSTER_WINDOW,
+					help="sessions that define a distribution 'cluster' (default %d). How tightly "
+						 "dist days must bunch to count as concentrated selling." % CLUSTER_WINDOW)
+	sp.add_argument("--breakout-window", type=int, default=BREAKOUT_WINDOW,
+					help="recent days scanned for breakout-volume confirmation (default %d). How "
+						 "recent a confirming volume day must be to still count." % BREAKOUT_WINDOW)
+	sp.add_argument("--pullback-window", type=int, default=PULLBACK_WINDOW,
+					help="pullback analysis lookback (default %d). Match to how long the pullback "
+						 "being assessed has run." % PULLBACK_WINDOW)
 	sp.set_defaults(func=cmd_analyze)
+
+	sp = sub.add_parser("demand-days", help="Scan for institutional demand days inside the base")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument("--period", default="1y", help="Data period (default: 1y)")
+	sp.add_argument("--down-vol-lookback", type=int, default=10,
+					help="sessions of prior down-days the demand day must dwarf (default 10). "
+						 "A tight 5-week handle and a 26-week base warrant different horizons.")
+	sp.add_argument("--scan-days", type=int, default=60,
+					help="how far back to surface demand days (default 60). Scales with base length.")
+	sp.add_argument("--min-down-decline-pct", type=float, default=0.3,
+					help="min %% decline for a day to count as a genuine down-day (default 0.3). "
+						 "The noise floor scales with the stock's own volatility.")
+	sp.add_argument("--stale-days", type=int, default=15,
+					help="demand days older than this are flagged not-actionable (default 15)")
+	sp.set_defaults(func=cmd_demand_days)
 
 	args = parser.parse_args()
 	args.func(args)

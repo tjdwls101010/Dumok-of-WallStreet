@@ -181,6 +181,10 @@ def cmd_get_info_fields(args):
 	if "currentPrice" in args.fields and (filtered.get("currentPrice") is None):
 		try:
 			hist = ticker.history(period="5d")
+			# Drop the partial current-session bar yfinance appends mid-day: its
+			# Close can be NaN, which would set currentPrice to NaN instead of the
+			# last real close.
+			hist = hist.dropna(subset=["Close"])
 			if not hist.empty:
 				filtered["currentPrice"] = float(hist["Close"].iloc[-1])
 		except Exception:

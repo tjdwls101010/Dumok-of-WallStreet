@@ -78,7 +78,7 @@ Use Cases:
 
 Notes:
 	- MA_PULLBACK: Price within 1% of 10 SMA, 21 EMA, or 50 SMA with below-avg volume (Ch.10: "lower volume on pullbacks")
-	- CONSOLIDATION_PIVOT: 10-25 day tight range (<10%) with trigger above resistance (Ch.10: "pivot point, line of least resistance")
+	- CONSOLIDATION_PIVOT: 10-25 day tight range (<15%) WITH volume drying up into the pivot (Ch.10: "pivot point, line of least resistance"; volume vacuum proves sellers gone)
 	- SUPPORT_RECLAIM: Undercut 50 SMA then reclaimed with volume (Ch.10: "after a shakeout, rallies back on big volume")
 	- Quality: "high" (strongest conviction), "moderate" (developing)
 	- stop_pct = abs(trigger_price - stop_price) / trigger_price * 100
@@ -87,8 +87,7 @@ Notes:
 
 See Also:
 	- vcp.py: VCP detection for primary base breakout entries
-	- sell_signals.py: Sell signal detection for position management
-	- pocket_pivot.py: Pocket pivot buy signals for base accumulation
+	- stage_analysis.py: stage classification + risk sell-tells (decline-since-S2, climax, character)
 	- tight_closes.py: Tight close cluster detection for supply drying up
 """
 
@@ -102,6 +101,32 @@ import yfinance as yf
 from utils import output_json, safe_run
 
 
+# --- Tunable context parameters (CLI-overridable, default to these constants) ---
+# Pullback volume window: how many days define "the pullback" (np.mean(vol_arr[-N:])).
+PULLBACK_VOL_DAYS = 3
+# Pivot-detection window range: a valid base/pivot length scales with the base's timeframe.
+PIVOT_MIN_DAYS = 10
+PIVOT_MAX_DAYS = 25
+# Support-reclaim undercut lookback: how far back to scan for the undercut-and-reclaim.
+UNDERCUT_LOOKBACK_DAYS = 5
+# Flat-base correction ceiling: spec.md sets a flat base at 10-15%, so the ceiling
+# is a band, not a hard 10. 15.0 keeps valid 10-15% bases from being silently rejected.
+PIVOT_RANGE_MAX = 15.0
+
+# --- Definitional conviction floors (canonical to the method; not CLI-tunable) ---
+# Constructive volume contraction: pullback vol below 80% of 50d avg = supply drying up.
+PULLBACK_VOL_RATIO = 0.8
+# "At the MA" band: price within 1% of the MA counts as a pullback to that MA.
+MA_PROXIMITY_PCT = 1.0
+# High-quality pivot: tight range under 7% over a mature (>=15 day) window.
+PIVOT_HIGH_RANGE_PCT = 7.0
+PIVOT_HIGH_MIN_WINDOW = 15
+# Undercut tolerance: low must dip >1% below the 50 SMA to count as a true shakeout.
+UNDERCUT_DEPTH_PCT = 0.99
+# Institutional reclaim footprint: reclaim-day volume above 1.5x the 50d avg.
+RECLAIM_VOL_SURGE = 1.5
+
+
 def _stop_pct(entry_price, stop_price):
 	"""Calculate stop percentage: abs(entry - stop) / entry * 100."""
 	if entry_price <= 0:
@@ -109,7 +134,7 @@ def _stop_pct(entry_price, stop_price):
 	return round(abs(entry_price - stop_price) / entry_price * 100, 2)
 
 
-def _detect_ma_pullback(close_arr, vol_arr):
+def _detect_ma_pullback(close_arr, vol_arr, pullback_vol_days=PULLBACK_VOL_DAYS):
 	"""Detect MA_PULLBACK pattern.
 
 	Ch.10: "pullbacks to key MAs with lower volume on pullbacks"
@@ -136,13 +161,13 @@ def _detect_ma_pullback(close_arr, vol_arr):
 			ema21_arr[i] = close_arr[i] * mult + ema21_arr[i - 1] * (1 - mult)
 	ema21 = float(ema21_arr[-1]) if not np.isnan(ema21_arr[-1]) else 0.0
 
-	# Pullback volume: avg of last 3 days
-	pullback_vol = float(np.mean(vol_arr[-3:]))
+	# Pullback volume: avg of last N days
+	pullback_vol = float(np.mean(vol_arr[-pullback_vol_days:]))
 	avg_vol_50 = float(np.mean(vol_arr[-50:]))
 	if avg_vol_50 <= 0:
 		return []
 	pullback_vol_ratio = round(pullback_vol / avg_vol_50, 2)
-	low_volume = pullback_vol_ratio < 0.8
+	low_volume = pullback_vol_ratio < PULLBACK_VOL_RATIO
 
 	if not low_volume:
 		return []
@@ -159,13 +184,13 @@ def _detect_ma_pullback(close_arr, vol_arr):
 			continue
 
 		distance_pct = abs(current_price - ma_val) / ma_val * 100
-		if distance_pct > 1.0:
+		if distance_pct > MA_PROXIMITY_PCT:
 			continue
 
 		trigger_price = round(ma_val * 1.005, 2)
 		stop_price = round(ma_val * 0.985, 2)
 
-		if ma_type in ("21_EMA", "50_SMA") and pullback_vol_ratio < 0.8:
+		if ma_type in ("21_EMA", "50_SMA") and pullback_vol_ratio < PULLBACK_VOL_RATIO:
 			quality = "high"
 		else:
 			quality = "moderate"
@@ -187,18 +212,34 @@ def _detect_ma_pullback(close_arr, vol_arr):
 	return patterns
 
 
-def _detect_consolidation_pivot(high_arr, low_arr):
+def _detect_consolidation_pivot(
+	high_arr,
+	low_arr,
+	vol_arr,
+	pivot_min_days=PIVOT_MIN_DAYS,
+	pivot_max_days=PIVOT_MAX_DAYS,
+	pivot_range_max=PIVOT_RANGE_MAX,
+):
 	"""Detect CONSOLIDATION_PIVOT pattern.
 
-	Ch.10: "pivot point = line of least resistance after tight consolidation"
-	Look at last 10-25 days. Find range high (resistance) = max(High).
-	Range is tight if (max High - min Low) / min Low < 10%.
+	Ch.10: a pivot is the line of least resistance after a tight consolidation —
+	but tightness is only half the signal. The method requires volume to dry up
+	INTO the pivot: a day or two near the base low printing BELOW the 50-day
+	average. That vacuum is the actual evidence — it proves sellers have stopped
+	coming. A tight range on normal-or-heavy volume is churn dressed as a pivot,
+	so price tightness only nominates the candidate; the volume vacuum is what
+	earns a "high".
+
+	Tight-range ceiling is 15% (spec: a flat base holds within 10-15% — sellers
+	never gained control).
 	"""
 	n = len(high_arr)
 	if n < 10:
 		return []
 
-	for window in range(min(25, n), 9, -1):
+	avg_vol_50 = float(np.mean(vol_arr[-50:])) if len(vol_arr) >= 50 else float(np.mean(vol_arr))
+
+	for window in range(min(pivot_max_days, n), pivot_min_days - 1, -1):
 		segment_high = high_arr[-window:]
 		segment_low = low_arr[-window:]
 
@@ -209,14 +250,21 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 			continue
 
 		range_pct = (resistance - support) / support * 100
-		if range_pct >= 10.0:
+		if range_pct >= pivot_range_max:
 			continue
+
+		# Volume vacuum into the pivot: at least one of the last few days below the
+		# 50-day average. Without it, the range is churn, not a base completing.
+		recent_vol = vol_arr[-5:]
+		dry_up_days = int(np.sum(recent_vol < avg_vol_50)) if avg_vol_50 > 0 else 0
+		volume_dry_up = dry_up_days >= 1
 
 		pivot_price = round(resistance, 2)
 		trigger_price = round(resistance * 1.003, 2)
 		stop_price = round(support, 2)
 
-		if range_pct < 7.0 and window >= 15:
+		# "high" needs a tight, mature range AND the volume vacuum — both, not either.
+		if range_pct < PIVOT_HIGH_RANGE_PCT and window >= PIVOT_HIGH_MIN_WINDOW and volume_dry_up:
 			quality = "high"
 		else:
 			quality = "moderate"
@@ -227,6 +275,8 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 			"range_pct": round(range_pct, 2),
 			"range_pct_unit": "% price range over N days",
 			"days_in_range": window,
+			"volume_dry_up": volume_dry_up,
+			"dry_up_days_last5": dry_up_days,
 			"trigger_price": trigger_price,
 			"stop_price": stop_price,
 			"stop_pct": _stop_pct(trigger_price, stop_price),
@@ -237,7 +287,9 @@ def _detect_consolidation_pivot(high_arr, low_arr):
 	return []
 
 
-def _detect_support_reclaim(close_arr, low_arr, vol_arr, dates):
+def _detect_support_reclaim(
+	close_arr, low_arr, vol_arr, dates, undercut_lookback_days=UNDERCUT_LOOKBACK_DAYS
+):
 	"""Detect SUPPORT_RECLAIM pattern.
 
 	Ch.10: "After a price shakeout, it's a good sign if the stock rallies back
@@ -256,8 +308,8 @@ def _detect_support_reclaim(close_arr, low_arr, vol_arr, dates):
 	if close_arr[-1] <= sma50_current:
 		return []
 
-	# Check last 5 days for undercut (Low < 50 SMA * 0.99)
-	for offset in range(1, 6):
+	# Check last N days for undercut (Low < 50 SMA * UNDERCUT_DEPTH_PCT)
+	for offset in range(1, undercut_lookback_days + 1):
 		idx = n - 1 - offset
 		if idx < 49:
 			break
@@ -266,13 +318,13 @@ def _detect_support_reclaim(close_arr, low_arr, vol_arr, dates):
 		if sma50_at_idx <= 0:
 			continue
 
-		if low_arr[idx] < sma50_at_idx * 0.99:
+		if low_arr[idx] < sma50_at_idx * UNDERCUT_DEPTH_PCT:
 			undercut_pct = round((sma50_at_idx - low_arr[idx]) / sma50_at_idx * 100, 2)
 
 			# Volume surge check: reclaim day volume vs 50d avg
 			avg_vol_50 = float(np.mean(vol_arr[-50:]))
 			reclaim_vol = float(vol_arr[-1])
-			vol_surge = reclaim_vol > avg_vol_50 * 1.5 if avg_vol_50 > 0 else False
+			vol_surge = reclaim_vol > avg_vol_50 * RECLAIM_VOL_SURGE if avg_vol_50 > 0 else False
 
 			# Quality: "high" if volume surge on reclaim (Minervini: "rallies back on big volume")
 			quality = "high" if vol_surge else "moderate"
@@ -318,10 +370,18 @@ def _determine_readiness(patterns):
 	}
 
 
-def _scan_symbol(symbol):
+def _scan_symbol(
+	symbol,
+	pullback_vol_days=PULLBACK_VOL_DAYS,
+	pivot_min_days=PIVOT_MIN_DAYS,
+	pivot_max_days=PIVOT_MAX_DAYS,
+	undercut_lookback_days=UNDERCUT_LOOKBACK_DAYS,
+	pivot_range_max=PIVOT_RANGE_MAX,
+):
 	"""Core scan logic for a single symbol. Returns the result dict."""
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period="1y", interval="1d")
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 50:
 		return {
@@ -337,9 +397,15 @@ def _scan_symbol(symbol):
 
 	# Run detectors (Minervini-grounded patterns only)
 	active_patterns = []
-	active_patterns.extend(_detect_ma_pullback(close_arr, vol_arr))
-	active_patterns.extend(_detect_consolidation_pivot(high_arr, low_arr))
-	active_patterns.extend(_detect_support_reclaim(close_arr, low_arr, vol_arr, dates))
+	active_patterns.extend(_detect_ma_pullback(close_arr, vol_arr, pullback_vol_days))
+	active_patterns.extend(
+		_detect_consolidation_pivot(
+			high_arr, low_arr, vol_arr, pivot_min_days, pivot_max_days, pivot_range_max
+		)
+	)
+	active_patterns.extend(
+		_detect_support_reclaim(close_arr, low_arr, vol_arr, dates, undercut_lookback_days)
+	)
 
 	return {
 		"symbol": symbol,
@@ -353,7 +419,14 @@ def _scan_symbol(symbol):
 def cmd_scan(args):
 	"""Scan for currently active entry patterns on a single stock."""
 	symbol = args.symbol.upper()
-	result = _scan_symbol(symbol)
+	result = _scan_symbol(
+		symbol,
+		pullback_vol_days=args.pullback_vol_days,
+		pivot_min_days=args.pivot_min_days,
+		pivot_max_days=args.pivot_max_days,
+		undercut_lookback_days=args.undercut_lookback_days,
+		pivot_range_max=args.pivot_range_max,
+	)
 	output_json(result)
 
 
@@ -364,7 +437,14 @@ def cmd_screen(args):
 	results = []
 
 	for symbol in symbols:
-		scan = _scan_symbol(symbol)
+		scan = _scan_symbol(
+			symbol,
+			pullback_vol_days=args.pullback_vol_days,
+			pivot_min_days=args.pivot_min_days,
+			pivot_max_days=args.pivot_max_days,
+			undercut_lookback_days=args.undercut_lookback_days,
+			pivot_range_max=args.pivot_range_max,
+		)
 
 		if "error" in scan:
 			results.append({
@@ -403,16 +483,59 @@ def cmd_screen(args):
 	})
 
 
+def _add_tuning_args(p):
+	"""Attach the shared pattern-tuning args (defaults reproduce frozen behavior)."""
+	p.add_argument(
+		"--pullback-vol-days",
+		type=int,
+		default=PULLBACK_VOL_DAYS,
+		help="Days averaged to measure pullback volume. Context-dependent: how many "
+		"days define 'the pullback' depends on how long the dip lasted — widen for a "
+		"slower, multi-day drift; tighten for a sharp one-day shakeout.",
+	)
+	p.add_argument(
+		"--pivot-min-days",
+		type=int,
+		default=PIVOT_MIN_DAYS,
+		help="Shortest pivot-detection window. Context-dependent: a valid base/pivot "
+		"length scales with the base's timeframe — raise for longer consolidations.",
+	)
+	p.add_argument(
+		"--pivot-max-days",
+		type=int,
+		default=PIVOT_MAX_DAYS,
+		help="Longest pivot-detection window. Context-dependent: a valid base/pivot "
+		"length scales with the base's timeframe — raise to admit wider, slower bases.",
+	)
+	p.add_argument(
+		"--undercut-lookback-days",
+		type=int,
+		default=UNDERCUT_LOOKBACK_DAYS,
+		help="Days scanned back for the support undercut-and-reclaim. Context-dependent: "
+		"how far back to look varies with the dip's length — widen for a drawn-out shakeout.",
+	)
+	p.add_argument(
+		"--pivot-range-max",
+		type=float,
+		default=PIVOT_RANGE_MAX,
+		help="Flat-base tightness ceiling (%% high-to-low). Context-dependent: spec.md "
+		"sets the flat-base correction at a 10-15%% band, not a hard 10 — lower it to "
+		"demand a tighter base, raise it only within the band.",
+	)
+
+
 def main():
 	parser = argparse.ArgumentParser(description="Entry Pattern Detection")
 	sub = parser.add_subparsers(dest="command", required=True)
 
 	sp = sub.add_parser("scan", help="Scan entry patterns for a single stock")
 	sp.add_argument("symbol", help="Ticker symbol")
+	_add_tuning_args(sp)
 	sp.set_defaults(func=cmd_scan)
 
 	sp = sub.add_parser("screen", help="Batch scan multiple stocks")
 	sp.add_argument("symbols", nargs="+", help="Ticker symbols")
+	_add_tuning_args(sp)
 	sp.set_defaults(func=cmd_screen)
 
 	args = parser.parse_args()

@@ -123,8 +123,25 @@ import numpy as np
 import yfinance as yf
 from utils import output_json, safe_run
 
+# Scan-window ceiling: longest bar-run searched for a tight-close cluster.
+# Scales with the bar interval/timeframe, so it is also a tunable CLI default.
+DEFAULT_MAX_WINDOW_DAILY = 20
+DEFAULT_MAX_WINDOW_WEEKLY = 20
 
-def _find_tight_clusters(closes, volumes, tolerance_pct, min_duration):
+# How far back to locate a cluster within the base; depends on base length,
+# so it is also a tunable CLI default.
+DEFAULT_LOCATION_LOOKBACK = 50
+
+# Half-width of the "flat" band around 1.0 for the 2nd-half/1st-half volume ratio:
+# a >15% shift either way counts as a meaningful declining/increasing volume trend.
+VOLUME_TREND_BAND = 0.15
+
+# Tradability floor: below this 50-day avg share volume, dryup readings may not
+# reflect genuine institutional supply exhaustion.
+MIN_LIQUIDITY_THRESHOLD = 100000
+
+
+def _find_tight_clusters(closes, volumes, tolerance_pct, min_duration, max_window_ceiling=DEFAULT_MAX_WINDOW_DAILY):
 	"""Scan for consecutive close clusters within tolerance using sliding windows.
 
 	Uses multiple window sizes (min_duration to max_window) to find all
@@ -135,7 +152,7 @@ def _find_tight_clusters(closes, volumes, tolerance_pct, min_duration):
 	vol_arr = volumes.values.astype(float)
 	dates = closes.index
 	n = len(close_arr)
-	max_window = min(20, n)
+	max_window = min(max_window_ceiling, n)
 
 	raw_clusters = []
 
@@ -207,7 +224,7 @@ def _merge_overlapping_clusters(clusters):
 	return merged
 
 
-def _classify_location(cluster, closes, highs):
+def _classify_location(cluster, closes, highs, location_lookback=DEFAULT_LOCATION_LOOKBACK):
 	"""Determine cluster location relative to recent price structure.
 
 	pivot_area: cluster avg close within 3% of recent high (potential breakout zone)
@@ -219,7 +236,7 @@ def _classify_location(cluster, closes, highs):
 
 	# Use data up to and including the cluster end
 	end_idx = min(cluster["end_idx"] + 1, len(high_arr))
-	lookback = min(50, end_idx)
+	lookback = min(location_lookback, end_idx)
 	recent_highs = high_arr[end_idx - lookback : end_idx]
 	recent_closes = close_arr[end_idx - lookback : end_idx]
 
@@ -248,7 +265,7 @@ def _classify_location(cluster, closes, highs):
 	return "pullback"
 
 
-def _compute_volume_metrics(cluster, volumes, vol_50d_avg, min_liquidity_threshold=100000):
+def _compute_volume_metrics(cluster, volumes, vol_50d_avg, min_liquidity_threshold=MIN_LIQUIDITY_THRESHOLD):
 	"""Compute volume trend, dryup ratio, and liquidity flag for a cluster.
 
 	Volume trend compares average volume of first half vs second half.
@@ -272,9 +289,9 @@ def _compute_volume_metrics(cluster, volumes, vol_50d_avg, min_liquidity_thresho
 
 	if first_half_avg > 0:
 		ratio = second_half_avg / first_half_avg
-		if ratio < 0.85:
+		if ratio < 1.0 - VOLUME_TREND_BAND:
 			volume_trend = "declining"
-		elif ratio > 1.15:
+		elif ratio > 1.0 + VOLUME_TREND_BAND:
 			volume_trend = "increasing"
 		else:
 			volume_trend = "flat"
@@ -344,7 +361,13 @@ def _determine_signal_strength(clusters):
 	return "weak"
 
 
-def _analyze_tight_closes(data, interval, tolerance_pct):
+def _analyze_tight_closes(
+	data,
+	interval,
+	tolerance_pct,
+	max_window=DEFAULT_MAX_WINDOW_DAILY,
+	location_lookback=DEFAULT_LOCATION_LOOKBACK,
+):
 	"""Shared analysis logic for both daily and weekly tight close detection.
 
 	Downloads data, scans for tight close clusters, merges overlapping,
@@ -366,7 +389,7 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 		min_duration = 2
 
 	# Find all tight close clusters
-	raw_clusters = _find_tight_clusters(closes, volumes, tolerance_pct, min_duration)
+	raw_clusters = _find_tight_clusters(closes, volumes, tolerance_pct, min_duration, max_window)
 
 	# Merge overlapping clusters
 	merged = _merge_overlapping_clusters(raw_clusters)
@@ -374,7 +397,7 @@ def _analyze_tight_closes(data, interval, tolerance_pct):
 	# Enrich each cluster with volume metrics, location, and quality grade
 	enriched_clusters = []
 	for cluster in merged:
-		location = _classify_location(cluster, closes, highs)
+		location = _classify_location(cluster, closes, highs, location_lookback)
 		volume_trend, dryup_ratio, low_liquidity = _compute_volume_metrics(cluster, volumes, vol_50d_avg)
 
 		enriched = {
@@ -464,6 +487,9 @@ def cmd_daily(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1d")
+	# yfinance appends a partial in-session bar whose OHLC can be NaN; that NaN
+	# poisons closes.iloc[-1] and every comparison downstream. Drop it first.
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 20:
 		output_json(
@@ -474,7 +500,9 @@ def cmd_daily(args):
 		)
 		return
 
-	result = _analyze_tight_closes(data, "daily", args.tolerance)
+	result = _analyze_tight_closes(
+		data, "daily", args.tolerance, args.max_window, args.location_lookback
+	)
 	result["symbol"] = symbol
 
 	output_json(result)
@@ -486,6 +514,9 @@ def cmd_weekly(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1wk")
+	# yfinance appends a partial in-session bar whose OHLC can be NaN; that NaN
+	# poisons closes.iloc[-1] and every comparison downstream. Drop it first.
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 20:
 		output_json(
@@ -496,7 +527,9 @@ def cmd_weekly(args):
 		)
 		return
 
-	result = _analyze_tight_closes(data, "weekly", args.tolerance)
+	result = _analyze_tight_closes(
+		data, "weekly", args.tolerance, args.max_window, args.location_lookback
+	)
 	result["symbol"] = symbol
 
 	output_json(result)
@@ -511,6 +544,20 @@ def main():
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--period", default="6mo", help="Data period (default: 6mo)")
 	sp.add_argument("--tolerance", type=float, default=1.0, help="Close tolerance %% (default: 1.0)")
+	sp.add_argument(
+		"--max-window",
+		type=int,
+		default=DEFAULT_MAX_WINDOW_DAILY,
+		help="Longest bar-run scanned for a tight-close cluster. Scales with bar "
+		"interval; raise for longer daily bases (default: %(default)s).",
+	)
+	sp.add_argument(
+		"--location-lookback",
+		type=int,
+		default=DEFAULT_LOCATION_LOOKBACK,
+		help="Bars back used to locate a cluster within its base; widen for longer "
+		"bases, narrow for tighter ones (default: %(default)s).",
+	)
 	sp.set_defaults(func=cmd_daily)
 
 	# weekly
@@ -518,6 +565,20 @@ def main():
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--period", default="1y", help="Data period (default: 1y)")
 	sp.add_argument("--tolerance", type=float, default=1.5, help="Close tolerance %% (default: 1.5)")
+	sp.add_argument(
+		"--max-window",
+		type=int,
+		default=DEFAULT_MAX_WINDOW_WEEKLY,
+		help="Longest bar-run scanned for a tight-close cluster. Scales with bar "
+		"interval; weekly bars span more time per bar (default: %(default)s).",
+	)
+	sp.add_argument(
+		"--location-lookback",
+		type=int,
+		default=DEFAULT_LOCATION_LOOKBACK,
+		help="Bars back used to locate a cluster within its base; widen for longer "
+		"bases, narrow for tighter ones (default: %(default)s).",
+	)
 	sp.set_defaults(func=cmd_weekly)
 
 	args = parser.parse_args()

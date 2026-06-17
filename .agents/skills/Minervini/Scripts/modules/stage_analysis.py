@@ -1,90 +1,69 @@
 #!/usr/bin/env python3
-"""Minervini Stage Analysis: classify stocks into Stage 1-4 lifecycle phases.
+"""Stage analysis — where in the four-stage lifecycle a stock sits, decided
+structurally, not scored.
 
-Determines which of the four stock lifecycle stages a stock is currently in,
-based on Mark Minervini's stage analysis framework from "Trade Like a Stock
-Market Wizard" (Chapter 5). Each stage is scored using specific factor-based
-criteria derived from Minervini's stage characteristics.
+A stock is in exactly ONE of Weinstein's four stages at a time, and which one is
+a question of structure, not degree: price's position relative to a 200-day MA,
+and whether that MA is actually turning up. So this module does NOT compute a
+0-100 "stage score" and take an argmax. It used to, and that was a bug of the
+same family the pipeline already killed: a weighted point-blend invents a
+continuum where the reality is a switch. The old version handed Ford a higher
+"Stage 2 advancing" number (60) than NVDA (35) and flipped Intel into a buyable
+Stage 2 on a one-bucket plurality — because unanchored point-weights, summed and
+argmax'd, drift toward whatever factor the stock happens to have, not toward the
+lifecycle truth. A boolean cascade can't drift: it asks the structural questions
+in the order that resolves the lifecycle, and the first matching signature wins.
 
-9 evidence measurements are computed for every stock (stage-agnostic). Each
-evidence includes a value and thresholds string showing how it maps to each
-stage's scoring rules, enabling full score traceability.
+The signatures, straight from the method (book Ch. 5; spec.md §Trend-Template
+climax lines):
+
+- Stage 4 (Declining): price BELOW a 200-day MA that is itself in a definite
+  downtrend. Checked first — a broken stock must never be mistaken for a base.
+- Stage 2 (Advancing): price ABOVE a 200-day MA that is RISING (same 1-month test
+  trend_template.py uses for its criterion 3, so stage and gate cannot disagree
+  on "rising"), with the trend confirmed by a bullish MA stack OR an intact
+  higher-high/higher-low structure. The only buyable stage.
+- Stage 3 (Topping): still above the 200-day MA, but it has stopped rising (or the
+  stack has rolled) AND the uptrend structure is gone — price whipsawing across a
+  flattening MA after an advance.
+- Stage 1 (Basing): the residual. Below a non-declining MA, or oscillating near a
+  flat one. Not actionable; the safe default when nothing else matches.
+
+The classifier decides the lifecycle phase ONLY. It is deliberately NOT a quality
+filter — a sleepy value name can be structurally in a Stage-2 uptrend. That is
+correct and not a contradiction: the qualify gate ANDs this with the full Trend
+Template (RS >=70, >=30% off the low, within 25% of the high), and THAT is where
+quality-poor uptrends are rejected. Asking the stage classifier to also judge
+quality is how you get the old score's incoherence back.
 
 Commands:
-	classify: Determine current stage (1-4) for a ticker
-	transitions: Detect Stage 1->2 transition signals
+    classify     Deterministic Stage 1-4 + the structural reads that decided it.
+    transitions  Stage 1 -> Stage 2 early-turn signals.
+    risk         Diagnostic sell-tells for a name already in an advance
+                 (largest decline since the Stage-2 began, climax extension,
+                 tennis-ball vs egg character). No distribution-day tally, no
+                 key-reversal, no sizing — those were generic-TA fabrications.
 
 Args:
-	symbol (str): Ticker symbol (e.g., "AAPL", "NVDA", "META")
-	--period (str): Historical data period (default: "2y")
+    symbol (str): Ticker (e.g. "AAPL", "NVDA").
+    --period (str): History to pull (default "2y").
+    --swing-bars (int): N-bar confirmation for swing-point detection (default 5).
+        Flexible: a 7-week power-play and an 18-month cup swing on different
+        scales, so this is yours to widen for longer bases.
+    --ma-uptrend-days (int): Lookback for the "200-day MA rising" test
+        (default 22 = ~1 month, matching trend_template). The method prefers
+        4-5 months of rise; widen to demand a longer-confirmed turn.
 
-Returns:
-	For classify:
-		dict: {
-			"symbol": str,
-			"date": str,
-			"current_price": float,
-			"stage": int,
-			"scores": {"1": int, "2": int, ...},  # only non-zero stages
-			"evidences": {
-				"200ma_slope": {"value": float, "thresholds": str},
-				"price_vs_200ma_pct": {"value": float, "thresholds": str},
-				"trend_structure": {"value": {"higher_highs": bool, "higher_lows": bool}, "thresholds": str},
-				"volume_balance": {"value": {"50d_ratio": float, "20d_ratio": float}, "thresholds": str},
-				"volatility_regime": {"value": float, "thresholds": str},
-				"ma_alignment": {"value": {"50>150": bool, "150>200": bool}, "thresholds": str},
-				"decline_severity": {"value": float, "thresholds": str},
-				"proximity_to_lows": {"value": float, "thresholds": str},
-				"50ma_momentum": {"value": float, "thresholds": str}
-			},
-			"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100}
-		}
-
-	For transitions:
-		dict: {
-			"symbol": str,
-			"date": str,
-			"current_price": float,
-			"transition_type": str,
-			"signals": list,
-			"detected_count": int,
-			"total_signals": int,
-			"transition_strength": str
-		}
-
-Example:
-	>>> python stage_analysis.py classify NVDA --period 2y
-	{
-		"symbol": "NVDA",
-		"date": "2026-03-18",
-		"current_price": 135.50,
-		"stage": 2,
-		"scores": {"2": 80, "1": 25},
-		"evidences": {
-			"200ma_slope": {"value": 0.0312, "thresholds": "S1:|slope|<0.02->25 | S2:>0.02->15 | S3:-0.02~+0.02->15 | S4:<-0.02->20"},
-			...
-		},
-		"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100}
-	}
-
-Use Cases:
-	- Identify Stage 2 stocks for SEPA methodology entry
-	- Detect Stage 2->3 transitions via evidence tracing
-	- Filter out Stage 4 declining stocks
-	- Monitor Stage 1->2 transitions for early entry
-
-Notes:
-	- Stage 2 (Advancing) is the only stage to buy in SEPA methodology
-	- 9 evidences are always computed for every stock, regardless of winning stage
-	- Each evidence has value + thresholds for full score traceability
-	- Stage 2 wins ties (Minervini actionable stage preference)
-	- Scoring factors derived from Minervini Chapter 5 stage characteristics
-	- Higher highs/lows use swing point detection (5-bar confirmation)
+Returns (classify):
+    {"symbol", "date", "current_price", "stage", "stage_name",
+     "structural_reads": {price_vs_200ma, sma200_trend, ma_stack, trend_structure,
+                          pct_above_52w_low, pct_below_52w_high}}
+    No "scores", no "max_scores" — the stage is the structure, read it directly.
 
 See Also:
-	- trend_template.py: 8-criteria Trend Template for Stage 2 confirmation
-	- rs_ranking.py: Relative strength ranking for leader identification
-	- volume_analysis.py: Volume-based accumulation/distribution analysis
+    - trend_template.py: the 8-criteria gate; Stage 2 is its lifecycle twin.
+    - rs_ranking.py: relative strength — the scarcity the stack can't show.
+    - volume_analysis.py: accumulation/distribution footprint behind the structure.
 """
 
 import argparse
@@ -94,28 +73,49 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 import yfinance as yf
-from indicators import calculate_sma
-from volume_analysis import (
-	_calc_up_down_ratio,
-	_count_accumulation_days,
-	_count_distribution_days,
-	_grade_accumulation,
-)
-from utils import output_json, safe_run
+from volume_analysis import _calc_up_down_ratio
+from utils import output_json, safe_run, calculate_sma
 
 STAGE_NAMES = {
-	1: "Neglect / Consolidation (Basing)",
+	1: "Basing / Neglect (Consolidation)",
 	2: "Advancing (Accumulation)",
 	3: "Topping (Distribution)",
 	4: "Declining (Capitulation)",
 }
 
-# Theoretical maximum scores per stage (sum of all factor points)
-_STAGE_THEORETICAL_MAX = {1: 80, 2: 95, 3: 90, 4: 100}
+# --- Diagnostic windows & conviction floors (transitions / risk) -----------
+# These drive the early-turn and sell-tell DIAGNOSTICS, never the classify gate
+# path (that path is fully governed by --ma-uptrend-days and --swing-bars; the
+# 50/150/200 MA periods and the 252-day year are definitional, not tunable).
+# They are named here, with their reason, rather than buried as bare literals so
+# the number — and why it is what it is — is visible where a reader would
+# question it. The conviction multipliers encode what a signal MEANS (what counts
+# as volume "expanding", ranges "widening"), which is canonical to the method and
+# constant across stocks; the lookbacks are short diagnostic windows that rarely
+# need per-run tuning. The one number an analyst genuinely re-defines per stock —
+# how long an advance must run before a parabolic move reads as a climax — is a
+# CLI arg (--min-advance-weeks) below.
+_SMA50_SLOPE_LOOKBACK = 20      # bars to read the 50-day MA's slope (short-trend re-engagement)
+_VOL_AVG_LOOKBACK = 50          # baseline volume window — a "normal" session's volume
+_VOL_RECENT_LOOKBACK = 5        # recent window compared against that baseline
+_VOL_EXPANSION_MULT = 1.25      # 1.25x the 50d average = volume genuinely expanding, not noise
+_UD_LOOKBACK = 30               # up/down-volume accumulation window
+_UD_RATIO_BULLISH = 1.15        # up-vol must lead down-vol by 15% to read as accumulation
+_FLATTENING_FLOOR = -0.5        # SMA200 %change > -0.5 counts as "flattening", not still-falling
+_RS_LOOKBACK_DAYS = 63          # ~3 months — the relative-strength comparison window vs SPY
+_ADR_FAST = 5                   # recent average-daily-range window
+_ADR_SLOW = 60                  # baseline ADR window the recent one is judged against
+_RANGE_EXPANSION_MULT = 1.3     # recent ADR > 1.3x baseline = ranges widening (a climax tell)
+_ATR_RECENT = 15                # recent volatility window (tennis-ball vs egg)
+_ATR_BASE = 60                  # baseline volatility window
+_ATR_EXPANSION_MULT = 1.15      # 1.15x = volatility genuinely expanding, not drifting
+_RECENT_HIGH_WINDOW = 40        # window defining "the recent high" price must snap back to
+_NEAR_HIGH_BAND = 0.95          # within 5% of that high = still making / holding highs
+_DEFAULT_MIN_ADVANCE_WEEKS = 8  # a climax only ENDS a trend after a long advance; "long" >= ~8wk
 
 
 def _ma_slope(series, lookback=20):
-	"""Calculate slope direction of a moving average over lookback days."""
+	"""Normalized slope (percent per day) of a moving average over `lookback`."""
 	if len(series) < lookback:
 		return 0.0
 	recent = series.dropna().tail(lookback)
@@ -124,21 +124,35 @@ def _ma_slope(series, lookback=20):
 	x = np.arange(len(recent))
 	y = recent.values.astype(float)
 	slope = np.polyfit(x, y, 1)[0]
-	# Normalize as percent per day
 	mean_val = np.mean(y)
 	if mean_val == 0:
 		return 0.0
 	return (slope / mean_val) * 100
 
 
+def _sma200_trend_pct(sma200, lookback_days):
+	"""Percent change of the 200-day MA over `lookback_days` (the rising test).
+
+	Returns the percent change of SMA200 now vs `lookback_days` ago. Positive ==
+	rising (== trend_template criterion 3). Falls back to the earliest available
+	SMA200 value when history is short, mirroring trend_template.
+	"""
+	s = sma200.dropna()
+	if len(s) < 2:
+		return 0.0
+	now = float(s.iloc[-1])
+	ago = float(s.iloc[-1 - lookback_days]) if len(s) > lookback_days else float(s.iloc[0])
+	if ago == 0:
+		return 0.0
+	return (now / ago - 1) * 100
+
+
 def _find_swing_points(series, confirmation_bars=5):
-	"""Find swing highs and swing lows using N-bar confirmation.
+	"""Swing highs/lows by N-bar confirmation.
 
-	A swing high is a local maximum with confirmation_bars lower highs on each side.
-	A swing low is a local minimum with confirmation_bars higher lows on each side.
-
-	Returns (swing_highs, swing_lows) as lists of (index, value) tuples,
-	sorted by index (chronological order).
+	A swing high is a local max with `confirmation_bars` lower bars on each side
+	(swing low symmetric). Returns (swing_highs, swing_lows) as lists of
+	(index, value), chronological.
 	"""
 	values = series.values.astype(float)
 	n = len(values)
@@ -146,7 +160,6 @@ def _find_swing_points(series, confirmation_bars=5):
 	swing_lows = []
 
 	for i in range(confirmation_bars, n - confirmation_bars):
-		# Check swing high: values[i] >= all neighbors within confirmation_bars
 		is_high = True
 		for j in range(1, confirmation_bars + 1):
 			if values[i] < values[i - j] or values[i] < values[i + j]:
@@ -155,7 +168,6 @@ def _find_swing_points(series, confirmation_bars=5):
 		if is_high:
 			swing_highs.append((i, float(values[i])))
 
-		# Check swing low: values[i] <= all neighbors within confirmation_bars
 		is_low = True
 		for j in range(1, confirmation_bars + 1):
 			if values[i] > values[i - j] or values[i] > values[i + j]:
@@ -167,425 +179,72 @@ def _find_swing_points(series, confirmation_bars=5):
 	return swing_highs, swing_lows
 
 
-def _higher_highs_higher_lows(highs, lows, window=20, count=3):
-	"""Check for pattern of higher highs/lows and lower highs/lows using swing points.
+def _trend_structure(highs, lows, confirmation_bars=5):
+	"""Read the swing structure into four booleans.
 
-	Uses 5-bar confirmation to find swing highs and swing lows.
-	HH = True if last 2 swing highs are ascending.
-	HL = True if last 2 swing lows are ascending.
-	LH = True if last 2 swing highs are descending (Stage 4 downtrend).
-	LL = True if last 2 swing lows are descending (Stage 4 downtrend).
+	HH/HL = last two swing highs/lows ascending (uptrend intact).
+	LH/LL = last two descending (downtrend). Needs enough bars to find two of
+	each; returns all-False when it can't (structure unknown, not absent).
 	"""
-	if len(highs) < window * count:
-		return False, False, False, False, 0, 0
+	min_bars = confirmation_bars * 2 * 3  # room for >=2 confirmed swings each side
+	if len(highs) < min_bars:
+		return False, False, False, False
 
-	swing_highs, _ = _find_swing_points(highs, confirmation_bars=5)
-	_, swing_lows = _find_swing_points(lows, confirmation_bars=5)
+	swing_highs, _ = _find_swing_points(highs, confirmation_bars)
+	_, swing_lows = _find_swing_points(lows, confirmation_bars)
 
-	# HH: last 2 swing highs are ascending
-	hh = False
-	lh = False
+	hh = lh = hl = ll = False
 	if len(swing_highs) >= 2:
-		last_two_highs = swing_highs[-2:]
-		hh = last_two_highs[1][1] > last_two_highs[0][1]
-		lh = last_two_highs[1][1] < last_two_highs[0][1]
-
-	# HL: last 2 swing lows are ascending
-	hl = False
-	ll = False
+		a, b = swing_highs[-2][1], swing_highs[-1][1]
+		hh = b > a
+		lh = b < a
 	if len(swing_lows) >= 2:
-		last_two_lows = swing_lows[-2:]
-		hl = last_two_lows[1][1] > last_two_lows[0][1]
-		ll = last_two_lows[1][1] < last_two_lows[0][1]
+		a, b = swing_lows[-2][1], swing_lows[-1][1]
+		hl = b > a
+		ll = b < a
+	return hh, hl, lh, ll
 
-	return hh, hl, lh, ll, len(swing_highs), len(swing_lows)
 
+def _largest_decline_since_stage2(closes, sma200):
+	"""Largest peak-to-trough drawdown since price first reclaimed the 200-day MA.
 
-def _volume_trend(volumes, closes, lookback=50):
-	"""Analyze up-day vs down-day volume ratio.
-
-	Delegates to volume_analysis._calc_up_down_ratio for the core calculation,
-	then applies the same classification thresholds (>1.3 accumulation, <0.7
-	distribution).
+	Approximates the Stage-2 start as the first close above SMA200, then measures
+	the deepest pullback since. This is the method's headline sell tell: the
+	largest decline since the advance began, judged against the stock's own move.
 	"""
-	if len(volumes) < lookback or len(closes) < lookback:
-		return "neutral", 1.0
-
-	ratio, _, _ = _calc_up_down_ratio(volumes, closes, lookback)
-
-	if ratio > 1.3:
-		return "accumulation", ratio
-	elif ratio < 0.7:
-		return "distribution", ratio
+	above = closes > sma200
+	crossover = above.astype(int).diff()
+	cross_up = crossover[crossover == 1]
+	if len(cross_up) == 0:
+		segment = closes
 	else:
-		return "neutral", ratio
-
-
-def _largest_decline_since_start(closes, sma200, stage2_start_idx=None):
-	"""Calculate largest peak-to-trough decline since Stage 2 start."""
-	if stage2_start_idx is not None:
-		segment = closes.iloc[stage2_start_idx:]
-	else:
-		# Approximate: find where price first crossed above SMA200
-		above = closes > sma200
-		crossover_points = above.astype(int).diff()
-		cross_up = crossover_points[crossover_points == 1]
-		if len(cross_up) == 0:
-			segment = closes
-		else:
-			segment = closes.iloc[cross_up.index.get_loc(cross_up.index[0]) :]
-
+		segment = closes.iloc[closes.index.get_loc(cross_up.index[0]):]
 	if len(segment) < 2:
 		return 0.0
-
 	running_max = segment.expanding().max()
 	drawdowns = (segment / running_max - 1) * 100
 	return float(drawdowns.min())
 
 
-def _max_daily_decline_90d(closes):
-	"""Find the largest single-day percentage decline in the last 90 trading days."""
-	recent = closes.tail(90)
-	daily_returns = recent.pct_change() * 100
-	return float(daily_returns.min()) if len(daily_returns) > 1 else 0.0
+def _decline_band(decline_pct):
+	"""Map a drawdown to the method's healthy-leader correction bands (spec §Risk).
 
-
-def _rally_volume_spike_ratio(volumes, closes, lookback=50):
-	"""Fraction of up-days with volume > 150% of 50-day average.
-
-	High ratio = institutional buying on rallies (Stage 2 characteristic).
+	25-35% healthy / >50% generally fails / >60% redline. Diagnostic only.
 	"""
-	if len(volumes) < lookback or len(closes) < lookback:
-		return 0.0
-	recent_vol = volumes.tail(lookback).values.astype(float)
-	recent_ret = closes.tail(lookback).pct_change().values
-	avg_vol = float(volumes.tail(50).mean())
-	if avg_vol <= 0:
-		return 0.0
-
-	up_mask = recent_ret > 0
-	up_volumes = recent_vol[up_mask]
-	if len(up_volumes) == 0:
-		return 0.0
-
-	spike_count = (up_volumes > avg_vol * 1.5).sum()
-	return round(float(spike_count) / len(up_volumes), 3)
+	d = abs(decline_pct)
+	if d < 25:
+		return "normal_pullback"
+	if d <= 35:
+		return "healthy_leader_band"
+	if d <= 50:
+		return "caution_exceeds_healthy_band"
+	if d <= 60:
+		return "failing_over_50pct"
+	return "redline_over_60pct"
 
 
-def _down_volume_spike_ratio(volumes, closes, lookback=50):
-	"""Fraction of down-days with volume > 150% of 50-day average.
-
-	High ratio = institutional selling on declines (Stage 4 characteristic).
-	"""
-	if len(volumes) < lookback or len(closes) < lookback:
-		return 0.0
-	recent_vol = volumes.tail(lookback).values.astype(float)
-	recent_ret = closes.tail(lookback).pct_change().values
-	avg_vol = float(volumes.tail(50).mean())
-	if avg_vol <= 0:
-		return 0.0
-
-	down_mask = recent_ret < 0
-	down_volumes = recent_vol[down_mask]
-	if len(down_volumes) == 0:
-		return 0.0
-
-	spike_count = (down_volumes > avg_vol * 1.5).sum()
-	return round(float(spike_count) / len(down_volumes), 3)
-
-
-def _weekly_volume_bias(volumes, closes, weeks=10):
-	"""Up-week volume / down-week volume ratio over recent weeks.
-
-	> 1.2 = more volume on up weeks (Stage 2 accumulation).
-	< 0.8 = more volume on down weeks (Stage 4 distribution).
-	"""
-	if len(volumes) < weeks * 5:
-		return 1.0
-
-	try:
-		weekly_close = closes.resample("W").last().dropna()
-		weekly_vol = volumes.resample("W").sum().dropna()
-
-		# Align and take recent weeks
-		min_len = min(len(weekly_close), len(weekly_vol))
-		weekly_close = weekly_close.tail(min(weeks, min_len))
-		weekly_vol = weekly_vol.tail(min(weeks, min_len))
-
-		weekly_returns = weekly_close.pct_change().dropna()
-		weekly_vol = weekly_vol.iloc[-len(weekly_returns):]
-
-		up_weeks_vol = float(weekly_vol[weekly_returns > 0].sum())
-		down_weeks_vol = float(weekly_vol[weekly_returns <= 0].sum())
-
-		if down_weeks_vol == 0:
-			return 2.0
-		return round(up_weeks_vol / down_weeks_vol, 3)
-	except Exception:
-		return 1.0
-
-
-def _compute_all_scores(metrics):
-	"""Compute all 9 evidence measurements and apply each stage's scoring rules.
-
-	Args:
-		metrics: dict with all pre-computed technical measurements
-
-	Returns:
-		(scores_dict, evidences_dict) where:
-		- scores_dict: {1: int, 2: int, 3: int, 4: int}
-		- evidences_dict: 9-field dict with value + thresholds per evidence
-	"""
-	sma200_slope = metrics["sma200_slope"]
-	sma50_slope = metrics["sma50_slope"]
-	price_distance_200ma_pct = metrics["price_distance_200ma_pct"]
-	hh = metrics["hh"]
-	hl = metrics["hl"]
-	lh = metrics["lh"]
-	ll = metrics["ll"]
-	vol_ratio = metrics["vol_ratio"]
-	vol_ratio_20d = metrics["vol_ratio_20d"]
-	volatility_ratio = metrics["volatility_ratio"]
-	c_sma50 = metrics["c_sma50"]
-	c_sma150 = metrics["c_sma150"]
-	c_sma200 = metrics["c_sma200"]
-	current_price = metrics["current_price"]
-	max_daily_decline = metrics["max_daily_decline_90d"]
-	pct_above_52w_low = metrics["pct_above_52w_low"]
-	largest_decline = metrics["largest_decline"]
-	vol_50avg = metrics["vol_50avg"]
-	vol_200avg = metrics["vol_200avg"]
-	rally_spike = metrics["rally_spike_ratio"]
-	down_spike = metrics["down_spike_ratio"]
-	weekly_bias = metrics["weekly_volume_bias"]
-
-	# Build evidences (stage-agnostic, 11 fields)
-	# Each evidence: value + unit + thresholds (§2.8 Self-Documenting Output)
-	evidences = {
-		"200ma_slope": {
-			"value": round(sma200_slope, 4),
-			"unit": "%/day",
-			"thresholds": {
-				"S1": "flat (|slope|<0.02) = 25pts",
-				"S2": "rising (>0.02) = 15pts",
-				"S3": "rolling (-0.02~+0.02) = 15pts",
-				"S4": "declining (<-0.02) = 20pts",
-			},
-		},
-		"price_vs_200ma_pct": {
-			"value": round(price_distance_200ma_pct, 1),
-			"unit": "% distance from 200MA",
-			"thresholds": {
-				"S1": "near 200MA (within ±5%) = 20pts",
-				"S2": "above 200MA = 5pts",
-				"S3": "oscillating near 200MA (within ±10%) = 15pts",
-				"S4": "below 200MA = 15pts",
-			},
-		},
-		"trend_structure": {
-			"value": {"higher_highs": hh, "higher_lows": hl, "lower_highs": lh, "lower_lows": ll},
-			"unit": "boolean flags (5-bar swing confirmation)",
-			"thresholds": {
-				"S1": "no HH and no HL = 10pts",
-				"S2": "HH and HL = 20pts",
-				"S3": "not HH (lost uptrend) = 15pts",
-				"S4": "LH and LL, or (no HH+HL and decline>20%) = 15pts",
-			},
-		},
-		"volume_balance": {
-			"value": {"updown_50d": round(vol_ratio, 3), "updown_20d": round(vol_ratio_20d, 3)},
-			"unit": "up-day vol / down-day vol",
-			"thresholds": {
-				"S1": "50d avg vol < 70% of 200d avg = 15pts",
-				"S2": "ratio > 1.15 (accumulation) = 10pts",
-				"S3": "ratio 0.85~1.15 (neutral) = 15pts",
-				"S4": "ratio < 0.85 (distribution) = 10pts",
-			},
-		},
-		"volatility_regime": {
-			"value": round(volatility_ratio, 2),
-			"unit": "ATR30 / ATR90",
-			"thresholds": {
-				"S1": "low volatility (<1.2) = 10pts",
-				"S3": "expanding volatility (>1.2) = 20pts",
-			},
-		},
-		"ma_alignment": {
-			"value": {"50>150": c_sma50 > c_sma150, "150>200": c_sma150 > c_sma200},
-			"unit": "boolean flags",
-			"thresholds": {
-				"S2": "bullish stack (50>150>200) = 20pts",
-				"S4": "bearish (50<150 or price<150 and price<200) = 20pts",
-			},
-		},
-		"decline_severity": {
-			"value": round(max_daily_decline, 1),
-			"unit": "% (max single-day decline in last 90 trading days)",
-			"thresholds": {
-				"S3": "severe daily drop (>5%) = 10pts",
-			},
-		},
-		"proximity_to_lows": {
-			"value": round(pct_above_52w_low, 1),
-			"unit": "% above 52-week low",
-			"thresholds": {
-				"S2": "rallied 25%+ from lows = 5pts",
-				"S4": "near 52w low (within 20%) = 15pts",
-			},
-		},
-		"50ma_momentum": {
-			"value": round(sma50_slope, 4),
-			"unit": "%/day",
-			"thresholds": {
-				"S2": "rising (slope>0) = 10pts",
-			},
-		},
-		"rally_volume_spike": {
-			"value": {"up_spike_ratio": rally_spike, "down_spike_ratio": down_spike},
-			"unit": "fraction of up/down days with vol > 150% of 50d avg",
-			"thresholds": {
-				"S2": "up-day spikes > 20% frequency = 5pts",
-				"S4": "down-day spikes > 20% frequency = 5pts",
-			},
-		},
-		"weekly_volume_bias": {
-			"value": round(weekly_bias, 3),
-			"unit": "up-week vol / down-week vol",
-			"thresholds": {
-				"S2": "up-week dominant (>1.2) = 5pts",
-				"S4": "down-week dominant (<0.8) = 5pts",
-			},
-		},
-	}
-
-	# Score each stage
-	scores = {1: 0, 2: 0, 3: 0, 4: 0}
-
-	# --- Stage 1 (Consolidation) — max 80 ---
-	if abs(sma200_slope) < 0.02:
-		scores[1] += 25
-	if abs(price_distance_200ma_pct) < 5:
-		scores[1] += 20
-	if vol_200avg > 0 and vol_50avg < vol_200avg * 0.7:
-		scores[1] += 15
-	if not hh and not hl:
-		scores[1] += 10
-	if volatility_ratio < 1.2:
-		scores[1] += 10
-
-	# --- Stage 2 (Advancing) — max 95 ---
-	# above_200ma -> 5 (reduced: MA stacking already implies this)
-	if price_distance_200ma_pct > 0:
-		scores[2] += 5
-	# 200ma_slope > 0.02 -> 15
-	if sma200_slope > 0.02:
-		scores[2] += 15
-	# 50>150>200 -> 20
-	if c_sma50 > c_sma150 > c_sma200:
-		scores[2] += 20
-	# hh and hl -> 20
-	if hh and hl:
-		scores[2] += 20
-	# accumulation_volume (up/down ratio) -> 10 (reduced: rally_spike shares role)
-	if vol_ratio > 1.15:
-		scores[2] += 10
-	# 50ma_slope > 0 -> 10
-	if sma50_slope > 0:
-		scores[2] += 10
-	# NEW: rally_from_lows — 25%+ above 52w low -> 5
-	if pct_above_52w_low >= 25:
-		scores[2] += 5
-	# NEW: rally_volume_spike — up-day spikes > 20% frequency -> 5
-	if rally_spike > 0.20:
-		scores[2] += 5
-	# NEW: weekly_volume_bias > 1.2 -> 5
-	if weekly_bias > 1.2:
-		scores[2] += 5
-
-	# --- Stage 3 (Topping) — max 90 ---
-	if volatility_ratio > 1.2:
-		scores[3] += 20
-	if -0.02 <= sma200_slope <= 0.02:
-		scores[3] += 15
-	# FIX: ±15% -> ±10% (stock 14% above 200MA is Stage 2, not oscillating)
-	if abs(price_distance_200ma_pct) < 10:
-		scores[3] += 15
-	if 0.85 <= vol_ratio <= 1.15:
-		scores[3] += 15
-	# not hh (lost uptrend) -> 15
-	# Caveat: cannot distinguish "lost HH" from "never had HH" — other factors
-	# (200MA slope, volatility, price position) mitigate Stage 1 vs Stage 3 confusion
-	if not hh:
-		scores[3] += 15
-	if max_daily_decline < -5:
-		scores[3] += 10
-
-	# --- Stage 4 (Declining) — max 100 ---
-	if price_distance_200ma_pct < 0:
-		scores[4] += 15
-	if sma200_slope < -0.02:
-		scores[4] += 20
-	if (c_sma50 < c_sma150) or (current_price < c_sma150 and current_price < c_sma200):
-		scores[4] += 20
-	if pct_above_52w_low < 20:
-		scores[4] += 15
-	# FIX: Check for actual downtrend structure (LH & LL) OR fallback
-	if (lh and ll) or (not hh and not hl and largest_decline < -20):
-		scores[4] += 15
-	if vol_ratio < 0.85:
-		scores[4] += 10
-	# NEW: distribution spike on down-days -> 5
-	if down_spike > 0.20:
-		scores[4] += 5
-
-	return scores, evidences
-
-
-@safe_run
-def cmd_classify(args):
-	"""Classify a stock into Stage 1-4."""
-	symbol = args.symbol.upper()
-	ticker = yf.Ticker(symbol)
-	data = ticker.history(period=args.period, interval="1d")
-
-	if data.empty or len(data) < 200:
-		output_json(
-			{
-				"error": f"Insufficient data for {symbol}. Need at least 200 trading days.",
-				"data_points": len(data),
-			}
-		)
-		return
-
-	closes = data["Close"]
-	highs = data["High"]
-	lows = data["Low"]
-	volumes = data["Volume"]
-	current_price = float(closes.iloc[-1])
-	date_str = str(data.index[-1].date())
-
-	sma50 = calculate_sma(closes, 50)
-	sma150 = calculate_sma(closes, 150)
-	sma200 = calculate_sma(closes, 200)
-
-	c_sma50 = float(sma50.iloc[-1])
-	c_sma150 = float(sma150.iloc[-1])
-	c_sma200 = float(sma200.iloc[-1])
-
-	# Key metrics
-	sma200_slope = _ma_slope(sma200, lookback=40)
-	sma50_slope = _ma_slope(sma50, lookback=20)
-	hh, hl, lh, ll, _, _ = _higher_highs_higher_lows(highs, lows)
-	_, vol_ratio = _volume_trend(volumes, closes)
-
-	# Volume averages
-	vol_50avg = float(volumes.tail(50).mean())
-	vol_200avg = float(volumes.tail(200).mean()) if len(volumes) >= 200 else vol_50avg
-
-	# 20-day Up/Down volume ratio
-	vol_ratio_20d, _, _ = _calc_up_down_ratio(volumes, closes, 20)
-
-	# Volatility ratio (30-day vs 90-day ATR)
+def _atr(highs, lows, closes, window):
+	"""Average true range over the last `window` bars."""
 	tr = np.maximum(
 		highs.values - lows.values,
 		np.maximum(
@@ -593,91 +252,146 @@ def cmd_classify(args):
 			np.abs(lows.values - np.roll(closes.values, 1)),
 		),
 	)
-	atr_30 = float(np.mean(tr[-30:])) if len(tr) >= 30 else 0
-	atr_90 = float(np.mean(tr[-90:])) if len(tr) >= 90 else atr_30
-	volatility_ratio = round(atr_30 / atr_90, 2) if atr_90 > 0 else 0.0
+	if len(tr) < window:
+		return float(np.mean(tr[1:])) if len(tr) > 1 else 0.0
+	return float(np.mean(tr[-window:]))
 
-	# Price distance from 200MA
-	price_distance_200ma_pct = (current_price / c_sma200 - 1) * 100
 
-	# Largest decline since Stage 2 start
-	largest_decline = _largest_decline_since_start(closes, sma200)
+# ---------------------------------------------------------------------------
+# The classifier — a boolean cascade, no points
+# ---------------------------------------------------------------------------
 
-	# Max single-day decline in last 90 days
-	max_daily_decline = _max_daily_decline_90d(closes)
+def _classify_stage(price, s50, s150, s200, sma200_trend_pct, hh, hl, lh, ll):
+	"""Place the lifecycle stage by structural signature, first match wins.
 
-	# Proximity to 52-week low
+	Order is the point: Stage 4 (the broken case) is ruled out first so it can
+	never be mistaken for a base; Stage 2 (the only buyable case) is then the
+	clean above-a-rising-MA structure; Stage 3 is what's left above the MA once
+	the rise has stalled; Stage 1 absorbs the rest.
+	"""
+	above_200 = price > s200
+	s200_rising = sma200_trend_pct > 0       # == trend_template criterion 3
+	s200_declining = sma200_trend_pct < 0
+	bull_stack = s50 > s150 > s200
+	bear_stack = s50 < s150
+	uptrend_structure = hh and hl
+
+	# Stage 4 — price below a definitively declining 200-day MA.
+	if (not above_200) and s200_declining:
+		return 4
+	# Stage 2 — above a rising 200-day MA, trend confirmed by the stack or by an
+	# intact higher-high/higher-low structure.
+	if above_200 and s200_rising and (bull_stack or uptrend_structure):
+		return 2
+	# Stage 3 — still above the MA, but the rise has stalled (or the stack rolled)
+	# and the uptrend structure is gone: distribution after an advance.
+	if above_200 and (not s200_rising or bear_stack) and (not uptrend_structure):
+		return 3
+	# Stage 1 — basing / neglect / unconfirmed. The safe residual.
+	return 1
+
+
+@safe_run
+def cmd_classify(args):
+	"""Classify a stock into Stage 1-4 by structure."""
+	symbol = args.symbol.upper()
+	ticker = yf.Ticker(symbol)
+	data = ticker.history(period=args.period, interval="1d")
+	# Drop incomplete bars: yfinance appends a partial current-session row mid-day
+	# whose OHLC can be NaN, which would poison every downstream comparison.
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
+
+	if data.empty or len(data) < 200:
+		output_json({
+			"error": f"Insufficient data for {symbol}. Need at least 200 trading days.",
+			"data_points": len(data),
+		})
+		return
+
+	closes = data["Close"]
+	highs = data["High"]
+	lows = data["Low"]
+	current_price = float(closes.iloc[-1])
+	date_str = str(data.index[-1].date())
+
+	sma50 = calculate_sma(closes, 50)
+	sma150 = calculate_sma(closes, 150)
+	sma200 = calculate_sma(closes, 200)
+	c_sma50 = float(sma50.iloc[-1])
+	c_sma150 = float(sma150.iloc[-1])
+	c_sma200 = float(sma200.iloc[-1])
+
+	sma200_trend_pct = _sma200_trend_pct(sma200, args.ma_uptrend_days)
+	hh, hl, lh, ll = _trend_structure(highs, lows, args.swing_bars)
+
 	week52_low = float(lows.tail(252).min()) if len(lows) >= 252 else float(lows.min())
+	week52_high = float(highs.tail(252).max()) if len(highs) >= 252 else float(highs.max())
 	pct_above_52w_low = (current_price / week52_low - 1) * 100 if week52_low > 0 else 0.0
+	pct_below_52w_high = (current_price / week52_high - 1) * 100 if week52_high > 0 else 0.0
 
-	# New metrics: volume spike ratios and weekly bias
-	rally_spike = _rally_volume_spike_ratio(volumes, closes)
-	down_spike = _down_volume_spike_ratio(volumes, closes)
-	weekly_bias = _weekly_volume_bias(volumes, closes)
-
-	# Build metrics dict for scoring
-	metrics = {
-		"sma200_slope": sma200_slope,
-		"sma50_slope": sma50_slope,
-		"price_distance_200ma_pct": price_distance_200ma_pct,
-		"hh": hh,
-		"hl": hl,
-		"lh": lh,
-		"ll": ll,
-		"vol_ratio": vol_ratio,
-		"vol_ratio_20d": vol_ratio_20d,
-		"volatility_ratio": volatility_ratio,
-		"c_sma50": c_sma50,
-		"c_sma150": c_sma150,
-		"c_sma200": c_sma200,
-		"current_price": current_price,
-		"max_daily_decline_90d": max_daily_decline,
-		"pct_above_52w_low": pct_above_52w_low,
-		"largest_decline": largest_decline,
-		"vol_50avg": vol_50avg,
-		"vol_200avg": vol_200avg,
-		"rally_spike_ratio": rally_spike,
-		"down_spike_ratio": down_spike,
-		"weekly_volume_bias": weekly_bias,
-	}
-
-	scores, evidences = _compute_all_scores(metrics)
-
-	# Determine stage with highest score (Stage 2 wins ties -- Minervini actionable stage)
-	max_score = max(scores.values())
-	tied_stages = [s for s, v in scores.items() if v == max_score]
-	winning_stage = 2 if 2 in tied_stages else min(tied_stages)
-
-	# Build output: only non-zero scores
-	non_zero_scores = {str(k): v for k, v in scores.items() if v > 0}
-
-	output_json(
-		{
-			"symbol": symbol,
-			"date": date_str,
-			"current_price": round(current_price, 2),
-			"stage": winning_stage,
-			"scores": non_zero_scores,
-			"evidences": evidences,
-			"max_scores": {"S1": 80, "S2": 95, "S3": 90, "S4": 100},
-		}
+	stage = _classify_stage(
+		current_price, c_sma50, c_sma150, c_sma200, sma200_trend_pct, hh, hl, lh, ll
 	)
+
+	if sma200_trend_pct > 0:
+		trend_label = "rising"
+	elif sma200_trend_pct < 0:
+		trend_label = "declining"
+	else:
+		trend_label = "flat"
+
+	if c_sma50 > c_sma150 > c_sma200:
+		stack_label = "bullish (50>150>200)"
+	elif c_sma50 < c_sma150:
+		stack_label = "bearish (50<150)"
+	else:
+		stack_label = "mixed"
+
+	output_json({
+		"symbol": symbol,
+		"date": date_str,
+		"current_price": round(current_price, 2),
+		"stage": stage,
+		"stage_name": STAGE_NAMES[stage],
+		"structural_reads": {
+			"price_vs_200ma": "above" if current_price > c_sma200 else "below",
+			"sma200_trend": {
+				"label": trend_label,
+				"pct_change": round(sma200_trend_pct, 2),
+				"lookback_days": args.ma_uptrend_days,
+			},
+			"ma_stack": stack_label,
+			"trend_structure": {
+				"higher_highs": hh, "higher_lows": hl,
+				"lower_highs": lh, "lower_lows": ll,
+				"swing_bars": args.swing_bars,
+			},
+			"pct_above_52w_low": round(pct_above_52w_low, 1),
+			"pct_below_52w_high": round(pct_below_52w_high, 1),
+		},
+	})
 
 
 @safe_run
 def cmd_transitions(args):
-	"""Detect Stage 1->2 transition signals."""
+	"""Detect Stage 1 -> Stage 2 early-turn signals.
+
+	The early read the gate can't give you: a name still basing but starting to
+	turn. No Golden Cross here — a 50/200 crossover is a lagging generic-TA
+	artifact the method does not time off; the structural turn (reclaiming the
+	200-day on volume, the MA flattening, higher highs/lows forming) leads it by
+	weeks.
+	"""
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1d")
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 200:
-		output_json(
-			{
-				"error": f"Insufficient data for {symbol}.",
-				"data_points": len(data),
-			}
-		)
+		output_json({
+			"error": f"Insufficient data for {symbol}.",
+			"data_points": len(data),
+		})
 		return
 
 	closes = data["Close"]
@@ -687,139 +401,225 @@ def cmd_transitions(args):
 	current_price = float(closes.iloc[-1])
 
 	sma50 = calculate_sma(closes, 50)
-	sma150 = calculate_sma(closes, 150)
 	sma200 = calculate_sma(closes, 200)
-
-	c_sma50 = float(sma50.iloc[-1])
-	c_sma150 = float(sma150.iloc[-1])
 	c_sma200 = float(sma200.iloc[-1])
-	sma200_slope = _ma_slope(sma200, lookback=40)
+	sma200_trend_pct = _sma200_trend_pct(sma200, args.ma_uptrend_days)
 
-	# Volume analysis
-	vol_50avg = float(volumes.tail(50).mean())
-	recent_vol = float(volumes.tail(5).mean())
-	vol_expansion = recent_vol > vol_50avg * 1.25
+	vol_50avg = float(volumes.tail(_VOL_AVG_LOOKBACK).mean())
+	recent_vol = float(volumes.tail(_VOL_RECENT_LOOKBACK).mean())
+	vol_expansion = recent_vol > vol_50avg * _VOL_EXPANSION_MULT
 
-	# 52-week range
-	year_data = closes.tail(252)
-	week52_high = float(year_data.max())
+	week52_high = float(highs.tail(252).max()) if len(highs) >= 252 else float(highs.max())
 
-	# 7 Stage 1->2 transition signals
 	signals = []
 
-	# 1. Price breaks above 200-day MA on above-average volume
+	# 1. Price reclaims the 200-day MA on expanding volume.
 	price_above_200 = current_price > c_sma200
-	signals.append(
-		{
-			"signal": "Price breaks above 200-day MA on volume",
-			"detected": price_above_200 and vol_expansion,
-			"detail": f"Price {'>' if price_above_200 else '<'} SMA200, Vol {'expanded' if vol_expansion else 'normal'}",
-		}
-	)
+	signals.append({
+		"signal": "Price reclaims 200-day MA on volume",
+		"detected": price_above_200 and vol_expansion,
+		"detail": f"Price {'>' if price_above_200 else '<'} SMA200, vol {'expanded' if vol_expansion else 'normal'}",
+	})
 
-	# 2. 50-day MA turns up and crosses above 200-day MA
-	sma50_above_200 = c_sma50 > c_sma200
-	sma50_rising = _ma_slope(sma50, 20) > 0
-	signals.append(
-		{
-			"signal": "50-day MA crosses above 200-day MA (Golden Cross)",
-			"detected": sma50_above_200 and sma50_rising,
-			"detail": f"SMA50={'above' if sma50_above_200 else 'below'} SMA200, SMA50 {'rising' if sma50_rising else 'falling'}",
-		}
-	)
+	# 2. 200-day MA flattening or turning up (the long trend stops falling).
+	flattening_or_rising = sma200_trend_pct > _FLATTENING_FLOOR
+	signals.append({
+		"signal": "200-day MA flattening or turning up",
+		"detected": flattening_or_rising,
+		"detail": f"SMA200 {args.ma_uptrend_days}d change: {sma200_trend_pct:+.2f}%",
+	})
 
-	# 3. Price makes higher high above prior resistance
-	hh, hl, _, _, _, _ = _higher_highs_higher_lows(highs, lows, window=20, count=3)
-	signals.append(
-		{
-			"signal": "Higher highs and higher lows forming",
-			"detected": hh and hl,
-			"detail": f"Higher highs: {hh}, Higher lows: {hl}",
-		}
-	)
+	# 3. Higher highs and higher lows forming.
+	hh, hl, _, _ = _trend_structure(highs, lows, args.swing_bars)
+	signals.append({
+		"signal": "Higher highs and higher lows forming",
+		"detected": hh and hl,
+		"detail": f"HH: {hh}, HL: {hl}",
+	})
 
-	# 4. 200-day MA starts to flatten or turn up
-	sma200_flattening_or_rising = sma200_slope > -0.01
-	signals.append(
-		{
-			"signal": "200-day MA flattening or turning up",
-			"detected": sma200_flattening_or_rising,
-			"detail": f"SMA200 slope: {sma200_slope:.4f}% per day",
-		}
-	)
+	# 4. 50-day MA turning up (short trend re-engaging).
+	sma50_rising = _ma_slope(sma50, _SMA50_SLOPE_LOOKBACK) > 0
+	signals.append({
+		"signal": "50-day MA turning up",
+		"detected": sma50_rising,
+		"detail": f"SMA50 slope {'rising' if sma50_rising else 'flat/falling'}",
+	})
 
-	# 5. Up-volume exceeds down-volume
-	vol_pattern, vol_ratio = _volume_trend(volumes, closes, lookback=30)
-	t_vol_50avg = float(volumes.tail(50).mean())
-	t_acc_days, _ = _count_accumulation_days(volumes, closes, t_vol_50avg, 50)
-	t_dist_days, _ = _count_distribution_days(volumes, closes, t_vol_50avg, 50)
-	signals.append(
-		{
-			"signal": "Up-volume exceeds down-volume",
-			"detected": vol_pattern == "accumulation",
-			"detail": f"Up/Down volume ratio: {vol_ratio:.2f}, Acc days: {t_acc_days}, Dist days: {t_dist_days}",
-		}
-	)
+	# 5. Up-volume exceeds down-volume (accumulation footprint).
+	ratio, _, _ = _calc_up_down_ratio(volumes, closes, _UD_LOOKBACK)
+	signals.append({
+		"signal": "Up-volume exceeds down-volume",
+		"detected": ratio > _UD_RATIO_BULLISH,
+		"detail": f"Up/Down volume ratio: {ratio:.2f}",
+	})
 
-	# 6. Price within 25% of 52-week high
-	within_25_pct = current_price >= week52_high * 0.75
-	signals.append(
-		{
-			"signal": "Price within 25% of 52-week high",
-			"detected": within_25_pct,
-			"detail": f"{((current_price / week52_high - 1) * 100):.1f}% from 52w high",
-		}
-	)
+	# 6. Price within 25% of the 52-week high (overhead supply thinning).
+	within_25 = current_price >= week52_high * 0.75
+	signals.append({
+		"signal": "Price within 25% of 52-week high",
+		"detected": within_25,
+		"detail": f"{((current_price / week52_high - 1) * 100):.1f}% from 52w high",
+	})
 
-	# 7. RS improving (price outperforming market recently)
+	# 7. Relative strength improving vs S&P 500.
 	try:
-		spy_data = yf.Ticker("SPY").history(period="3mo")
-		spy_return = (float(spy_data["Close"].iloc[-1]) / float(spy_data["Close"].iloc[0]) - 1) * 100
-		stock_3m = closes.tail(63)
-		stock_return = (float(stock_3m.iloc[-1]) / float(stock_3m.iloc[0]) - 1) * 100
-		rs_improving = stock_return > spy_return
-		rs_detail = f"Stock 3m: {stock_return:.1f}%, SPY 3m: {spy_return:.1f}%"
+		spy = yf.Ticker("SPY").history(period="3mo")
+		spy_ret = (float(spy["Close"].iloc[-1]) / float(spy["Close"].iloc[0]) - 1) * 100
+		stk = closes.tail(_RS_LOOKBACK_DAYS)
+		stk_ret = (float(stk.iloc[-1]) / float(stk.iloc[0]) - 1) * 100
+		rs_improving = stk_ret > spy_ret
+		rs_detail = f"Stock 3m: {stk_ret:.1f}%, SPY 3m: {spy_ret:.1f}%"
 	except Exception:
 		rs_improving = False
 		rs_detail = "Unable to calculate"
+	signals.append({
+		"signal": "Relative strength improving vs S&P 500",
+		"detected": rs_improving,
+		"detail": rs_detail,
+	})
 
-	signals.append(
-		{
-			"signal": "Relative strength improving vs S&P 500",
-			"detected": rs_improving,
-			"detail": rs_detail,
-		}
-	)
+	detected = sum(1 for s in signals if s["detected"])
+	output_json({
+		"symbol": symbol,
+		"date": str(data.index[-1].date()),
+		"current_price": round(current_price, 2),
+		"transition_type": "Stage 1 -> Stage 2",
+		"signals": signals,
+		"detected_count": detected,
+		"total_signals": len(signals),
+		"transition_strength": "strong" if detected >= 5 else "moderate" if detected >= 3 else "weak",
+	})
 
-	detected_count = sum(1 for s in signals if s["detected"])
 
-	output_json(
-		{
-			"symbol": symbol,
-			"date": str(data.index[-1].date()),
-			"current_price": round(current_price, 2),
-			"transition_type": "Stage 1 -> Stage 2",
-			"signals": signals,
-			"detected_count": detected_count,
-			"total_signals": len(signals),
-			"transition_strength": "strong" if detected_count >= 5 else "moderate" if detected_count >= 3 else "weak",
-		}
-	)
+@safe_run
+def cmd_risk(args):
+	"""Diagnostic sell-tells for a name already in an advance.
+
+	Reads the three character signals the method actually sells on — NOT a
+	distribution-day count (an O'Neil mechanism the method does not use) and NOT
+	a fabricated multi-criteria "key reversal." Diagnostic only: no stop, no
+	size, no verdict. The analyst weighs these against the stock's own move.
+
+	1. Largest decline since the Stage 2 began — the headline tell. Judged
+	   against the method's healthy-leader correction bands, because magnitude is
+	   read relative to the stock's own advance, not an absolute percent.
+	2. Climax extension — price stretched far above the 50-day MA with ranges
+	   expanding after a long advance: a parabolic move ENDS a trend.
+	3. Tennis ball vs egg — healthy pullbacks snap back to new highs with volume
+	   contracting on the dip and expanding on the recovery; widening two-way
+	   swings are an egg, not a ball.
+	"""
+	symbol = args.symbol.upper()
+	ticker = yf.Ticker(symbol)
+	data = ticker.history(period=args.period, interval="1d")
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
+
+	if data.empty or len(data) < 200:
+		output_json({
+			"error": f"Insufficient data for {symbol}. Need at least 200 trading days.",
+			"data_points": len(data),
+		})
+		return
+
+	closes = data["Close"]
+	highs = data["High"]
+	lows = data["Low"]
+	volumes = data["Volume"]
+	current_price = float(closes.iloc[-1])
+
+	sma50 = calculate_sma(closes, 50)
+	sma200 = calculate_sma(closes, 200)
+	c_sma50 = float(sma50.iloc[-1])
+
+	# 1. Largest decline since Stage 2 began.
+	largest_decline = _largest_decline_since_stage2(closes, sma200)
+	decline_band = _decline_band(largest_decline)
+
+	# 2. Climax extension above the 50-day MA + range expansion + length of run.
+	extension_pct = (current_price / c_sma50 - 1) * 100 if c_sma50 > 0 else 0.0
+	adr = ((highs - lows) / closes * 100).astype(float)
+	adr_5d = float(adr.iloc[-_ADR_FAST:].mean())
+	adr_60d = float(adr.iloc[-_ADR_SLOW:].mean()) if len(adr) >= _ADR_SLOW else adr_5d
+	range_expanding = adr_5d > _RANGE_EXPANSION_MULT * adr_60d if adr_60d > 0 else False
+	days_since_50ma = 0
+	for i in range(len(closes) - 1, -1, -1):
+		if float(closes.iloc[i]) <= float(sma50.iloc[i]):
+			break
+		days_since_50ma += 1
+	weeks_of_advance = days_since_50ma // 5
+	climactic = extension_pct > args.climax_extension_pct and range_expanding and weeks_of_advance >= args.min_advance_weeks
+
+	# 3. Tennis ball vs egg: volatility trend + whether price still makes new highs.
+	atr_recent = _atr(highs, lows, closes, _ATR_RECENT)
+	atr_base = _atr(highs, lows, closes, _ATR_BASE)
+	vol_expanding = atr_recent > atr_base * _ATR_EXPANSION_MULT if atr_base > 0 else False
+	recent_high = float(highs.tail(_RECENT_HIGH_WINDOW).max())
+	near_recent_high = current_price >= recent_high * _NEAR_HIGH_BAND
+	if near_recent_high and not vol_expanding:
+		character = "tennis_ball"
+	elif vol_expanding and not near_recent_high:
+		character = "egg"
+	else:
+		character = "mixed"
+
+	output_json({
+		"symbol": symbol,
+		"date": str(data.index[-1].date()),
+		"current_price": round(current_price, 2),
+		"largest_decline_since_stage2": {
+			"pct": round(largest_decline, 1),
+			"band": decline_band,
+			"note": "headline sell tell; judged vs the stock's own advance, not an absolute %",
+		},
+		"climax_extension": {
+			"pct_above_50ma": round(extension_pct, 1),
+			"range_expanding": bool(range_expanding),
+			"weeks_of_advance": weeks_of_advance,
+			"climactic": bool(climactic),
+			"threshold_pct": args.climax_extension_pct,
+			"min_advance_weeks": args.min_advance_weeks,
+		},
+		"character": {
+			"read": character,
+			"volatility_expanding": bool(vol_expanding),
+			"near_recent_high": bool(near_recent_high),
+			"note": "tennis_ball = snaps back to highs, volatility contained; egg = widening two-way swings",
+		},
+		"interpretation": "diagnostic only — no stop, no size, no verdict",
+	})
 
 
 def main():
-	parser = argparse.ArgumentParser(description="Minervini Stage Analysis (1-4)")
+	parser = argparse.ArgumentParser(description="Stage analysis (Weinstein/Minervini Stage 1-4)")
 	sub = parser.add_subparsers(dest="command", required=True)
 
-	sp = sub.add_parser("classify", help="Classify stock into Stage 1-4")
-	sp.add_argument("symbol", help="Ticker symbol")
-	sp.add_argument("--period", default="2y", help="Data period (default: 2y)")
+	def add_common(sp):
+		sp.add_argument("symbol", help="Ticker symbol")
+		sp.add_argument("--period", default="2y", help="Data period (default: 2y)")
+		sp.add_argument("--swing-bars", type=int, default=5, dest="swing_bars",
+						help="N-bar swing confirmation (default 5; widen for longer bases)")
+		sp.add_argument("--ma-uptrend-days", type=int, default=22, dest="ma_uptrend_days",
+						help="Lookback for the 200-day MA rising test (default 22 = ~1mo)")
+
+	sp = sub.add_parser("classify", help="Classify stock into Stage 1-4 (structural, no score)")
+	add_common(sp)
 	sp.set_defaults(func=cmd_classify)
 
-	sp = sub.add_parser("transitions", help="Detect Stage 1->2 transition signals")
+	sp = sub.add_parser("transitions", help="Detect Stage 1->2 early-turn signals")
+	add_common(sp)
+	sp.set_defaults(func=cmd_transitions)
+
+	sp = sub.add_parser("risk", help="Diagnostic sell-tells (decline-since-S2, climax, character)")
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--period", default="2y", help="Data period (default: 2y)")
-	sp.set_defaults(func=cmd_transitions)
+	sp.add_argument("--climax-extension-pct", type=float, default=25.0, dest="climax_extension_pct",
+					help="Extension above 50-day MA flagged climactic (default 25; diagnostic)")
+	sp.add_argument("--min-advance-weeks", type=int, default=_DEFAULT_MIN_ADVANCE_WEEKS,
+					dest="min_advance_weeks",
+					help="Weeks of advance required before a stretched move reads as a climax "
+						 "(default 8). 'Long' is yours to redefine: a fast leader can top in fewer, "
+						 "a slow grinder needs more.")
+	sp.set_defaults(func=cmd_risk)
 
 	args = parser.parse_args()
 	args.func(args)

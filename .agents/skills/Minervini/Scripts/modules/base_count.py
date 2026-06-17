@@ -39,9 +39,9 @@ Notes:
 	- Base 1-2: Most reliable breakouts, largest average gains
 	- Base 3: Still tradeable but less reliable
 	- Base 4+: Late stage, higher failure rate, smaller average gains
-	- Base count resets after Stage 4 decline (30+ of 40 days below 200MA)
-	- Each new base requires 15%+ advance from prior breakout price
-	- Correction depth: 8-50% (constructive: 10-35%)
+	- Base count resets to 1 when a fresh cycle begins after a Stage 4 decline (30+ of 40 days below 200MA)
+	- Each new base's high must exceed the prior breakout (a higher step); no fixed % advance is required by the method
+	- Correction depth ceiling is keyed to base length: <=3wk ->25%, <=25wk ->35%, >25wk ->50%; 60% is the absolute redline
 	- Cross-base analysis: deepening corrections = late-stage exhaustion
 
 See Also:
@@ -57,17 +57,27 @@ import sys
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
 import yfinance as yf
-from indicators import calculate_sma
-from utils import output_json, safe_run
+from utils import output_json, safe_run, calculate_sma, max_constructive_depth_pct
 
 # ── Constants ──────────────────────────────────────────────────────────
-MIN_ADVANCE_PCT = 15.0    # Min advance from prior breakout for new base
-MIN_CORRECTION_PCT = 8.0  # Min correction depth to count as base
-MAX_CORRECTION_PCT = 50.0 # Max correction (above = failed pattern)
-SWING_HIGH_WINDOW = 20    # Days to look back/forward for swing high
-MAX_BASE_DAYS = 325       # Max base duration (~65 weeks)
-RESET_WINDOW = 40         # Rolling window for reset detection
-RESET_THRESHOLD = 30      # Days below 200MA within window to trigger reset
+# A new base's high need only EXCEED the prior breakout (a higher step in the
+# advance). The old fixed "15% above prior breakout" gate was not in the method —
+# it's structure that separates bases, not a magic percentage. Kept as a knob
+# (default 0 = off) for an analyst who wants to demand bigger steps; that is a
+# non-canonical tightening, not Minervini's rule.
+MIN_ADVANCE_PCT = 0.0     # New base high must exceed prior breakout (off = 0)
+MIN_CORRECTION_PCT = 8.0  # Min correction depth to count as a base at all
+REDLINE_DEPTH_PCT = 60.0  # Absolute redline — any base deeper than this fails outright
+SWING_HIGH_WINDOW = 20    # Days to look back/forward for swing high (CLI: --swing-window)
+MAX_BASE_WEEKS = 65       # Max base duration / breakout search horizon (CLI: --max-base-weeks)
+FORMING_RECENCY_DAYS = 60  # A still-unbroken base counts as "forming" only if its low is this recent (CLI: --forming-recency-days)
+RESET_WINDOW = 40         # Rolling window for reset detection (CLI: --reset-window)
+RESET_THRESHOLD = 30      # Days below 200MA within window to trigger reset (CLI: --reset-days)
+# Duration-keyed constructive depth ceiling lives in utils (max_constructive_depth_pct),
+# shared with vcp so the two modules cannot drift apart on the spec rule.
+# Relative-correction severity band: avoid a base falling >2–3x the market's own decline.
+REL_CORRECTION_NORMAL_RATIO = 2.0    # <=2x SPY's drop = normal
+REL_CORRECTION_ELEVATED_RATIO = 3.0  # <=3x = elevated; above = excessive
 
 
 def _is_swing_high(highs_arr, idx, window=SWING_HIGH_WINDOW):
@@ -85,14 +95,16 @@ def _is_swing_high(highs_arr, idx, window=SWING_HIGH_WINDOW):
 	return highs_arr[idx] == np.max(highs_arr[start:end])
 
 
-def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
+def _find_bases(closes, highs, lows, sma200, min_base_weeks=3,
+				swing_window=SWING_HIGH_WINDOW, max_base_days=MAX_BASE_WEEKS * 5,
+				forming_recency_days=FORMING_RECENCY_DAYS, min_advance_pct=MIN_ADVANCE_PCT):
 	"""Identify bases within a Stage 2 advance.
 
 	A base is a distinct step in the stock's advance:
 	1. Stock must be above 200MA (Stage 2)
-	2. A significant swing high forms (20-day window)
-	3. For base 2+: high must be 15%+ above prior breakout (new step)
-	4. Price corrects 8-50% from the high
+	2. A significant swing high forms (swing_window-day window)
+	3. For base 2+: high must exceed the prior breakout (a higher step)
+	4. Price corrects at least 8%, within the duration-keyed depth ceiling
 	5. Price breaks out above the high (base complete)
 
 	Returns:
@@ -118,7 +130,7 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 			continue
 
 		# Check for swing high
-		if not _is_swing_high(highs_arr, i):
+		if not _is_swing_high(highs_arr, i, swing_window):
 			i += 1
 			continue
 
@@ -128,12 +140,12 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 		# For base 2+: require minimum advance from prior breakout
 		if last_breakout_price > 0:
 			advance_pct = (base_high - last_breakout_price) / last_breakout_price * 100
-			if advance_pct < MIN_ADVANCE_PCT:
+			if advance_pct < min_advance_pct:
 				i += 1
 				continue
 
 		# Find pullback low after the swing high
-		search_end = min(i + MAX_BASE_DAYS, n)
+		search_end = min(i + max_base_days, n)
 		if search_end <= i + min_base_days:
 			i += 1
 			continue
@@ -149,17 +161,19 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 
 		if correction_depth < MIN_CORRECTION_PCT:
 			# Too shallow — not a real base, skip past this high
-			i += SWING_HIGH_WINDOW
+			i += swing_window
 			continue
 
-		if correction_depth > MAX_CORRECTION_PCT:
-			# Too deep — failed pattern, skip
-			i += SWING_HIGH_WINDOW
+		if correction_depth > REDLINE_DEPTH_PCT:
+			# Past the absolute redline — failed outright, regardless of duration.
+			# The duration-keyed constructive ceiling is applied below, once the
+			# base's length is known.
+			i += swing_window
 			continue
 
 		# Find breakout: close above base_high after the low
 		breakout_idx = None
-		for k in range(base_low_idx + 1, min(base_low_idx + MAX_BASE_DAYS, n)):
+		for k in range(base_low_idx + 1, min(base_low_idx + max_base_days, n)):
 			if closes_arr[k] > base_high:
 				breakout_idx = k
 				break
@@ -168,7 +182,7 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 			# No breakout found — check if base is still forming
 			duration_days = n - 1 - base_start_idx
 			duration_weeks = max(1, duration_days // 5)
-			if duration_weeks >= min_base_weeks and base_low_idx > n - 60:
+			if duration_weeks >= min_base_weeks and base_low_idx > n - forming_recency_days:
 				# Recent base, still forming
 				forming_base = {
 					"start_date": str(dates[base_start_idx].date()),
@@ -179,7 +193,7 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 					"status": "forming",
 				}
 			# Move past the low and continue searching
-			i = base_low_idx + SWING_HIGH_WINDOW
+			i = base_low_idx + swing_window
 			continue
 
 		# Base completed — validate duration
@@ -188,6 +202,12 @@ def _find_bases(closes, highs, lows, sma200, min_base_weeks=3):
 
 		if duration_weeks < min_base_weeks:
 			# Too short to be a real base
+			i = breakout_idx + 1
+			continue
+
+		# Duration-keyed depth ceiling: a correction that's deep for a base of this
+		# LENGTH is non-constructive (deep-and-fast), even under the absolute redline.
+		if correction_depth > max_constructive_depth_pct(duration_weeks):
 			i = breakout_idx + 1
 			continue
 
@@ -225,10 +245,10 @@ def _classify_base_pattern(depth, duration_weeks):
 		return "Cup"  # Default for 8-35% depth, 3-5 week duration
 
 
-def _check_base_reset(closes, sma200):
+def _check_base_reset(closes, sma200, reset_window=RESET_WINDOW, reset_threshold=RESET_THRESHOLD):
 	"""Check if base count should reset (Stage 4 decline).
 
-	Uses rolling window: 30+ of 40 trading days below 200MA.
+	Uses rolling window: reset_threshold+ of reset_window trading days below 200MA.
 	This is more robust than consecutive-day counting — handles
 	brief bounces during Stage 4 declines.
 	"""
@@ -240,24 +260,24 @@ def _check_base_reset(closes, sma200):
 	below = np.zeros(len(closes_arr), dtype=int)
 	below[valid_mask] = (closes_arr[valid_mask] < sma200_arr[valid_mask]).astype(int)
 
-	if len(below) < RESET_WINDOW:
+	if len(below) < reset_window:
 		return []
 
 	# Rolling sum of days below 200MA
-	kernel = np.ones(RESET_WINDOW, dtype=int)
+	kernel = np.ones(reset_window, dtype=int)
 	rolling_sum = np.convolve(below, kernel, mode="valid")
 
 	# Find points where rolling sum exceeds threshold
-	reset_indices = np.where(rolling_sum >= RESET_THRESHOLD)[0]
+	reset_indices = np.where(rolling_sum >= reset_threshold)[0]
 	if len(reset_indices) == 0:
 		return []
 
 	# Convert to original index space and deduplicate (keep first of each cluster)
 	reset_points = []
-	last_reset = -RESET_WINDOW
+	last_reset = -reset_window
 	for idx in reset_indices:
-		original_idx = idx + RESET_WINDOW - 1
-		if original_idx - last_reset >= RESET_WINDOW:
+		original_idx = idx + reset_window - 1
+		if original_idx - last_reset >= reset_window:
 			reset_points.append(original_idx)
 			last_reset = original_idx
 
@@ -286,9 +306,9 @@ def _compute_relative_correction(dates, start_idx, end_idx, stock_correction_pct
 
 		ratio = round(stock_correction_pct / spy_correction, 2)
 
-		if ratio <= 2.0:
+		if ratio <= REL_CORRECTION_NORMAL_RATIO:
 			severity = "normal"
-		elif ratio <= 3.0:
+		elif ratio <= REL_CORRECTION_ELEVATED_RATIO:
 			severity = "elevated"
 		else:
 			severity = "excessive"
@@ -332,6 +352,7 @@ def cmd_count(args):
 	symbol = args.symbol.upper()
 	ticker = yf.Ticker(symbol)
 	data = ticker.history(period=args.period, interval="1d")
+	data = data.dropna(subset=["Open", "High", "Low", "Close"])
 
 	if data.empty or len(data) < 200:
 		output_json({
@@ -346,10 +367,16 @@ def cmd_count(args):
 	sma200 = calculate_sma(closes, 200)
 
 	# Check for base count resets
-	reset_points = _check_base_reset(closes, sma200)
+	reset_points = _check_base_reset(closes, sma200, args.reset_window, args.reset_days)
 
 	# Find bases
-	all_bases, forming_base = _find_bases(closes, highs, lows, sma200, args.min_base_weeks)
+	all_bases, forming_base = _find_bases(
+		closes, highs, lows, sma200, args.min_base_weeks,
+		swing_window=args.swing_window,
+		max_base_days=args.max_base_weeks * 5,
+		forming_recency_days=args.forming_recency_days,
+		min_advance_pct=args.min_advance_pct,
+	)
 
 	# Apply reset: only count bases after the last reset
 	if reset_points and all_bases:
@@ -421,10 +448,10 @@ def cmd_count(args):
 		"risk_level": risk_level,
 		"base_count_reset_detected": len(reset_points) > 0,
 		"thresholds": {
-			"min_advance_between_bases": f"{MIN_ADVANCE_PCT}% from prior breakout",
-			"correction_range": f"{MIN_CORRECTION_PCT}-{MAX_CORRECTION_PCT}% (constructive: 10-35%)",
+			"min_advance_between_bases": f"new high must exceed prior breakout (MIN_ADVANCE_PCT={MIN_ADVANCE_PCT}%, 0 = off; not a Minervini rule)",
+			"correction_range": f">={MIN_CORRECTION_PCT}% deep, ceiling keyed to duration (<=3wk:25% / <=25wk:35% / >25wk:50%); {REDLINE_DEPTH_PCT}% redline",
 			"risk_levels": "low: base 1-2 | moderate: base 3 | high: base 4-5 | very_high: base 6+",
-			"reset_trigger": f"{RESET_THRESHOLD}+ of {RESET_WINDOW} trading days below 200MA",
+			"reset_trigger": f"{args.reset_days}+ of {args.reset_window} trading days below 200MA",
 			"cross_base_warning": "deepening corrections = late-stage exhaustion",
 		},
 	})
@@ -438,6 +465,29 @@ def main():
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.add_argument("--period", default="2y", help="Data period (default: 2y)")
 	sp.add_argument("--min-base-weeks", type=int, default=3, help="Minimum weeks per base (default: 3)")
+	sp.add_argument("--swing-window", type=int, default=SWING_HIGH_WINDOW,
+		help="Symmetric (+/-) window in days for swing-high detection (default: %(default)s). "
+			 "A 'meaningful' swing high scales with the base's own timeframe — widen for longer "
+			 "bases / weekly-scale work, narrow for tighter intraday-to-swing structures.")
+	sp.add_argument("--max-base-weeks", type=int, default=MAX_BASE_WEEKS,
+		help="Max base duration / breakout search horizon in WEEKS (default: %(default)s; ~%(default)s*5 days). "
+			 "How long a consolidation still counts as a base vs dead money is context-dependent — "
+			 "shorten for fast momentum names, lengthen for slow multi-quarter bases.")
+	sp.add_argument("--forming-recency-days", type=int, default=FORMING_RECENCY_DAYS,
+		help="Recency window in days for an unbroken base to still count as 'currently forming' "
+			 "(default: %(default)s). Whether a still-open consolidation is live depends on the "
+			 "timeframe — raise it for longer bases, lower it to demand a fresher pullback.")
+	sp.add_argument("--reset-days", type=int, default=RESET_THRESHOLD,
+		help="Days below 200MA (within --reset-window) that confirm a Stage-4 reset of the base count "
+			 "(default: %(default)s). An arbitrary discretization of 'Stage-4 confirmed', not a canonical "
+			 "constant — tune with --reset-window to make the reset stricter or looser.")
+	sp.add_argument("--reset-window", type=int, default=RESET_WINDOW,
+		help="Rolling window in days over which --reset-days is counted (default: %(default)s). "
+			 "Pairs with --reset-days; the band, not either number alone, defines 'Stage-4 confirmed'.")
+	sp.add_argument("--min-advance-pct", type=float, default=MIN_ADVANCE_PCT,
+		help="Min %% a new base's high must exceed the prior breakout to count as a separate base "
+			 "(default: %(default)s = off). HEURISTIC with no canonical value — not a Minervini rule; "
+			 "bases are separated by structure, not a magic %%. Raise only to demand bigger steps.")
 	sp.set_defaults(func=cmd_count)
 
 	args = parser.parse_args()

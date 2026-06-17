@@ -10,6 +10,10 @@ Commands:
 	acceleration: Analyze quarterly EPS and sales growth trends
 	surprise: Get earnings surprise history and post-earnings drift signals
 	revisions: Track analyst estimate revision trends
+	valuation: Forward P/E + embedded-growth expectation barometer (NOT a gate;
+		absorbs the former forward_pe module — no GARP cheap/expensive bands)
+	margin: Net-headline quarterly margin trajectory (gross/op/net), no
+		classification badge (absorbs the former margin_tracker module)
 
 Args:
 	symbol (str): Ticker symbol (e.g., "AAPL", "NVDA", "META")
@@ -24,6 +28,7 @@ Returns:
 			"sales_accelerating": bool,
 			"sales_improving": bool,
 			"margin_expanding": bool,
+			"margin_basis": str,        # "net" | "operating" (fallback) | "unavailable"
 			"margin_data_quality": str,
 			"quarters_analyzed": int,
 			"eps_growth_rates": [float],
@@ -130,7 +135,7 @@ Use Cases:
 Notes:
 	- Code 33 requires 3 consecutive quarters of acceleration in ALL three metrics
 	- EPS growth rates compare to same quarter prior year (YoY)
-	- Margin expansion uses gross or operating margin trend
+	- Margin expansion uses NET margin (operating-margin fallback when net is unavailable, flagged via margin_basis; never gross)
 	- Margin expansion requires 3+ consecutive quarters with >= 0.5 ppt improvement each
 	- Analyst revisions of 5%+ are generally considered significant
 	- Post-Earnings Drift: market underreacts to earnings surprises
@@ -152,6 +157,30 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import yfinance as yf
 from utils import error_json, output_json, safe_run
+
+# --- Tunable defaults (CLI-overridable; see argparse) ----------------------
+# EPS YoY growth floor. This is the FLOOR, not a constant: raise it when
+# high-growth names are abundant (30-40%+, even 40-100% in a bull market).
+_EPS_MIN_PCT = 20.0
+# Sales-strength fallback floor. yfinance gives only ~5 quarters of revenue =>
+# at most ONE YoY rate, so the 3-consecutive-quarter ACCELERATION test the EPS
+# leg uses (deep earnings_dates history) is structurally unobtainable for sales.
+# When sales history is too shallow to test acceleration, the leg falls back to
+# STRENGTH — is the most recent YoY revenue growth strong and positive? — which
+# is the faithful substitute: revenue is the un-fakeable substrate ("EPS without
+# sales is gimmickry"), so the leg's real job is to prove real top-line demand.
+# A FLOOR, raisable per cohort/regime like the EPS bar.
+_SALES_STRENGTH_MIN_PCT = 20.0
+# Post-earnings drift horizons (trading days after the report). Drift is a
+# multi-MONTH phenomenon (bigger surprises drift longer); 1/5d only catch the
+# immediate gap — widen for the fuller effect.
+_DRIFT_DAYS = "1,5"
+# Consecutive-beat bucket cutoffs for the cockroach effect. Heuristic — depends
+# on the cohort's beat base-rate; raise where beating is near-universal.
+_COCKROACH_STRONG = 4
+_COCKROACH_MODERATE = 2
+# Rolling surprise-history lookback. Spec calls for a variable 4/6/8-quarter window.
+_SURPRISE_QUARTERS = 8
 
 
 def _get_quarterly_financials(symbol):
@@ -313,6 +342,14 @@ def _is_growth_sufficient(growth_rates, min_pct=20.0):
 	return most_recent_rate >= min_pct
 
 
+def _parse_drift_days(spec):
+	"""Parse a comma-separated drift-horizon spec ('1,5') into a sorted int list."""
+	days = sorted({int(p) for p in str(spec).split(",") if p.strip()})
+	if not days or any(d < 1 for d in days):
+		raise ValueError(f"--drift-days must be positive integers, got {spec!r}")
+	return days
+
+
 def _assess_data_quality(eps_count, sales_count):
 	"""Assess earnings data completeness for analysis reliability."""
 	min_count = min(eps_count, sales_count)
@@ -324,7 +361,9 @@ def _assess_data_quality(eps_count, sales_count):
 		return "minimal"
 
 
-# Minimum margin change in percentage points to count as real expansion
+# Minimum margin change in ppt to count as real expansion. INVENTED magnitude
+# floor — spec only requires DIRECTIONAL acceleration, so 0.0 is the canonical
+# default; kept at 0.5 to preserve behavior. Exposed as --margin-min-ppt.
 _MARGIN_MIN_CHANGE_PPT = 0.5
 
 
@@ -361,55 +400,75 @@ def cmd_code33(args):
 	sales_growth = _extract_growth_series(income, sales_metric)
 	sales_acc, sales_improving, sales_rates = _is_accelerating(sales_growth)
 
-	# Margin expansion (gross margin or operating margin)
-	# Fix 3: require 3+ consecutive quarters with >= 0.5 ppt improvement
-	margin_expanding = False
-	margin_data_quality = "full"
-	margin_values = []
-	gp_metric = next((m for m in ["GrossProfit", "Gross Profit"] if m in income.index), None)
-	if gp_metric is not None and sales_metric in income.index:
-		gross_profit = income.loc[gp_metric].sort_index(ascending=False)
-		revenue = income.loc[sales_metric].sort_index(ascending=False)
-		for i in range(min(5, len(gross_profit))):
-			gp = gross_profit.iloc[i]
-			rev = revenue.iloc[i]
-			if gp is not None and rev is not None and rev != 0:
-				gp_f = float(gp) if not (hasattr(gp, "__class__") and gp != gp) else 0
-				rev_f = float(rev) if not (hasattr(rev, "__class__") and rev != rev) else 1
-				if rev_f != 0:
-					margin_values.append(round(gp_f / rev_f * 100, 2))
-
-		if len(margin_values) >= 4:
-			# Need 3+ consecutive quarters of margin improvement with >= 0.5 ppt change
-			# margin_values is most-recent-first, so margin_values[i] > margin_values[i+1]
-			# means most recent margin > prior margin
-			consecutive_expansions = 0
-			for i in range(len(margin_values) - 1):
-				change = margin_values[i] - margin_values[i + 1]
-				if change >= _MARGIN_MIN_CHANGE_PPT:
-					consecutive_expansions += 1
-				else:
-					break
-			margin_expanding = consecutive_expansions >= 3
-			margin_data_quality = "full"
-		elif len(margin_values) >= 3:
-			# 3 values = only 2 comparisons possible, cannot reach 3 consecutive
-			consecutive_expansions = 0
-			for i in range(len(margin_values) - 1):
-				change = margin_values[i] - margin_values[i + 1]
-				if change >= _MARGIN_MIN_CHANGE_PPT:
-					consecutive_expansions += 1
-				else:
-					break
-			margin_expanding = False  # Cannot have 3+ consecutive with only 2 comparisons
-			margin_data_quality = "insufficient"
-		else:
-			margin_data_quality = "insufficient"
+	# Sales-leg qualification under real-world data depth. yfinance caps quarterly
+	# revenue at ~5 quarters => at most ONE YoY rate, so the strict 3-quarter
+	# acceleration test (which the EPS leg runs on deep earnings_dates history) is
+	# structurally unobtainable for sales. Qualify by data depth, never silently
+	# failing: >=3 YoY rates -> test ACCELERATION (the real thing); 1-2 rates ->
+	# test STRENGTH (latest YoY >= --sales-min-pct, positive), the un-fakeable-
+	# substrate read the leg exists to confirm; 0 rates -> insufficient.
+	n_sales_rates = len(sales_growth)
+	if n_sales_rates >= 3:
+		sales_basis = "acceleration"
+		sales_qualifies = sales_acc
+		sales_data_quality = "full"
+	elif n_sales_rates >= 1:
+		sales_basis = "strength_shallow"
+		sales_qualifies = sales_growth[0][1] >= args.sales_min_pct
+		sales_data_quality = "shallow"
 	else:
-		margin_data_quality = "insufficient"
+		sales_basis = "insufficient"
+		sales_qualifies = False
+		sales_data_quality = "insufficient"
 
-	code33_pass = eps_acc and sales_acc and margin_expanding
-	eps_sufficient = _is_growth_sufficient(eps_growth, min_pct=20.0)
+	# Margin expansion — NET margin (NetIncome / Revenue). The margin leg exists to
+	# confirm the acceleration survives ALL the way down the income statement, not
+	# just at the gross line. Gross margin is blind to operating leverage: a business
+	# can hold gross flat while SG&A leverage expands net margin, or paper over opex
+	# bloat behind a strong gross line — exactly the cost-structure-blind "growth"
+	# Code 33 is built to reject (its whole reason to exist). So: NET margin, falling
+	# back to OPERATING (flagged via margin_basis) only when net income is missing.
+	# Never gross.
+	margin_expanding = False
+	margin_data_quality = "insufficient"
+	margin_values = []
+	net_metric = next((m for m in ["NetIncome", "Net Income"] if m in income.index), None)
+	op_metric = next((m for m in ["OperatingIncome", "Operating Income"] if m in income.index), None)
+	if net_metric is not None:
+		income_metric, margin_basis = net_metric, "net"
+	elif op_metric is not None:
+		income_metric, margin_basis = op_metric, "operating"
+	else:
+		income_metric, margin_basis = None, "unavailable"
+
+	if income_metric is not None and sales_metric in income.index:
+		earnings_line = income.loc[income_metric].sort_index(ascending=False)
+		revenue = income.loc[sales_metric].sort_index(ascending=False)
+		for i in range(min(5, len(earnings_line))):
+			e = earnings_line.iloc[i]
+			rev = revenue.iloc[i]
+			# Guard None and NaN (x != x is True only for NaN).
+			if e is None or rev is None or e != e or rev != rev:
+				continue
+			rev_f = float(rev)
+			if rev_f != 0:
+				margin_values.append(round(float(e) / rev_f * 100, 2))
+
+		# margin_values is most-recent-first; 3 consecutive expansions each >=
+		# margin_min_ppt above the prior quarter needs >= 4 points (3
+		# comparisons). With fewer, the claim cannot be made.
+		if len(margin_values) >= 4:
+			consecutive = 0
+			for i in range(len(margin_values) - 1):
+				if margin_values[i] - margin_values[i + 1] >= args.margin_min_ppt:
+					consecutive += 1
+				else:
+					break
+			margin_expanding = consecutive >= 3
+			margin_data_quality = "full"
+
+	code33_pass = eps_acc and sales_qualifies and margin_expanding
+	eps_sufficient = _is_growth_sufficient(eps_growth, min_pct=args.eps_min_pct)
 	eps_decel = _is_decelerating(eps_growth)
 	sales_decel = _is_decelerating(sales_growth)
 
@@ -423,28 +482,37 @@ def cmd_code33(args):
 		"eps_growth_rates": eps_rates,
 		"eps_quarters": [q[0] for q in eps_growth[:3]] if eps_growth else [],
 		"sales_accelerating": sales_acc,
+		"sales_qualifies": sales_qualifies,
+		"sales_basis": sales_basis,
+		"sales_data_quality": sales_data_quality,
 		"sales_improving": sales_improving,
 		"sales_decelerating": sales_decel,
 		"sales_growth_rates": sales_rates,
 		"sales_quarters": [q[0] for q in sales_growth[:3]] if sales_growth else [],
 		"margin_expanding": margin_expanding,
+		"margin_basis": margin_basis,
 		"margin_data_quality": margin_data_quality,
 		"margin_values_pct": margin_values[:5] if margin_values else [],
 		"quarters_analyzed": min(len(eps_growth), len(sales_growth)),
 		"data_quality": _assess_data_quality(len(eps_growth), len(sales_growth)),
 		"thresholds": {
 			"accelerating": "3 consecutive quarters with increasing YoY growth rate",
-			"growth_sufficient": "most recent quarter YoY >= 20% (preferred 30%+)",
+			"growth_sufficient": f"most recent quarter YoY >= {args.eps_min_pct:g}% (preferred 30%+)",
 			"decelerating": "3 consecutive quarters with decreasing growth rate = warning",
-			"code33": "EPS + Sales + Margins all accelerating for 3 quarters",
-			"margin_expansion": "3+ consecutive quarters with >= 0.5 ppt margin improvement",
+			"code33": (
+				"EPS accelerating (3q, deep history) + Sales qualifying (acceleration "
+				f"when >=3 revenue YoY rates exist, else strength: latest YoY >= {args.sales_min_pct:g}%) "
+				"+ NET margin expanding (3q). sales_basis/sales_data_quality flag which sales test ran."
+			),
+			"margin_expansion": f"3+ consecutive quarters with >= {args.margin_min_ppt:g} ppt NET-margin improvement (operating-margin fallback flagged via margin_basis; never gross)",
 		},
 	}
 
 	# Compressed view for pipeline consumption
 	compressed = {}
 	for key in ("eps_accelerating", "eps_improving", "sales_accelerating",
-				"sales_improving", "margin_expanding", "margin_data_quality",
+				"sales_qualifies", "sales_basis", "sales_data_quality",
+				"sales_improving", "margin_expanding", "margin_basis", "margin_data_quality",
 				"data_quality", "quarters_analyzed", "code33_status"):
 		if key in full_result:
 			compressed[key] = full_result[key]
@@ -556,19 +624,29 @@ def cmd_acceleration(args):
 	)
 
 
-def _enrich_post_er_reactions(ticker, surprises):
+def _enrich_post_er_reactions(ticker, surprises, drift_days=(1, 5)):
 	"""Add post-earnings price reaction fields to each surprise entry.
 
 	For each earnings date, fetches surrounding price data and calculates:
-	- post_er_return_1d: return from pre-ER close to next day close (%)
-	- post_er_return_5d: return from pre-ER close to 5th trading day close (%)
 	- post_er_gap: gap from pre-ER close to next day open (%)
+	- post_er_return_{n}d for each n in drift_days: pre-ER close to the n-th
+	  trading day's close (%). Default (1, 5) yields post_er_return_1d and
+	  post_er_return_5d (1d catches the gap; 5d+ catch the longer drift).
 
 	Modifies surprises list in-place. Sets fields to None if data unavailable.
 	"""
 	from datetime import timedelta
 
 	import pandas as pd
+
+	# Keys this function owns; used to null out cleanly when data is unavailable.
+	return_keys = [f"post_er_return_{n}d" for n in drift_days]
+
+	# Null-out path mirrors the original key order (returns first, then gap).
+	def _null_out(s):
+		for k in return_keys:
+			s[k] = None
+		s["post_er_gap"] = None
 
 	if not surprises:
 		return
@@ -586,25 +664,29 @@ def _enrich_post_er_reactions(ticker, surprises):
 	valid_dates = [d for d in er_dates if d is not None]
 	if not valid_dates:
 		for s in surprises:
-			s["post_er_return_1d"] = None
-			s["post_er_return_5d"] = None
-			s["post_er_gap"] = None
+			_null_out(s)
 		return
 
+	# Window must span the longest requested drift horizon. 15 calendar days
+	# safely covers up to ~10 trading days (the default 1/5d); only widen the
+	# fetch when a longer horizon is requested (keeps the default fetch unchanged).
+	max_h = max(drift_days)
+	latest_slack = 15 if max_h <= 10 else int(max_h * 1.5) + 10
 	earliest = min(valid_dates) - timedelta(days=5)
-	latest = max(valid_dates) + timedelta(days=15)
+	latest = max(valid_dates) + timedelta(days=latest_slack)
 
 	# Fetch price history in one batch call
 	try:
 		hist = ticker.history(start=earliest, end=latest, auto_adjust=False)
+		if hist is not None and not hist.empty:
+			# Drop yfinance's trailing partial-session bar (NaN OHLC) before use.
+			hist = hist.dropna(subset=["Open", "Close"])
 	except Exception:
 		hist = None
 
 	if hist is None or hist.empty:
 		for s in surprises:
-			s["post_er_return_1d"] = None
-			s["post_er_return_5d"] = None
-			s["post_er_gap"] = None
+			_null_out(s)
 		return
 
 	# Normalize index to date-only for reliable comparison
@@ -615,9 +697,7 @@ def _enrich_post_er_reactions(ticker, surprises):
 	for i, s in enumerate(surprises):
 		er_dt = er_dates[i]
 		if er_dt is None:
-			s["post_er_return_1d"] = None
-			s["post_er_return_5d"] = None
-			s["post_er_gap"] = None
+			_null_out(s)
 			continue
 
 		try:
@@ -626,18 +706,14 @@ def _enrich_post_er_reactions(ticker, surprises):
 			# Find pre-ER close: last trading day on or before earnings date
 			mask_on_or_before = hist.index <= er_dt_norm
 			if not mask_on_or_before.any():
-				s["post_er_return_1d"] = None
-				s["post_er_return_5d"] = None
-				s["post_er_gap"] = None
+				_null_out(s)
 				continue
 
 			pre_er_idx = hist.index[mask_on_or_before][-1]
 			pre_er_close = float(hist.loc[pre_er_idx, "Close"])
 
 			if pre_er_close <= 0:
-				s["post_er_return_1d"] = None
-				s["post_er_return_5d"] = None
-				s["post_er_gap"] = None
+				_null_out(s)
 				continue
 
 			# Trading days after earnings date
@@ -652,26 +728,17 @@ def _enrich_post_er_reactions(ticker, surprises):
 			else:
 				s["post_er_gap"] = None
 
-			# post_er_return_1d: next trading day close vs pre-ER close
-			if len(days_after) >= 1:
-				next_day = days_after[0]
-				next_close = float(hist.loc[next_day, "Close"])
-				s["post_er_return_1d"] = round((next_close / pre_er_close - 1) * 100, 2)
-			else:
-				s["post_er_return_1d"] = None
-
-			# post_er_return_5d: 5th trading day close vs pre-ER close
-			if len(days_after) >= 5:
-				day5 = days_after[4]
-				day5_close = float(hist.loc[day5, "Close"])
-				s["post_er_return_5d"] = round((day5_close / pre_er_close - 1) * 100, 2)
-			else:
-				s["post_er_return_5d"] = None
+			# post_er_return_{n}d: n-th trading-day close vs pre-ER close, per horizon
+			for n, key in zip(drift_days, return_keys):
+				if len(days_after) >= n:
+					day_n = days_after[n - 1]
+					day_n_close = float(hist.loc[day_n, "Close"])
+					s[key] = round((day_n_close / pre_er_close - 1) * 100, 2)
+				else:
+					s[key] = None
 
 		except (KeyError, IndexError, TypeError, ValueError):
-			s["post_er_return_1d"] = None
-			s["post_er_return_5d"] = None
-			s["post_er_gap"] = None
+			_null_out(s)
 
 
 @safe_run
@@ -843,11 +910,11 @@ def cmd_surprise(args):
 			entry.setdefault("revenue_yoy_pct", None)
 			entry.setdefault("revenue_qoq_pct", None)
 
-	# Cap to 8 quarters
-	surprises = surprises[:8]
+	# Cap to the lookback window
+	surprises = surprises[:args.quarters]
 
 	# Enrich with post-ER price reaction data
-	_enrich_post_er_reactions(ticker, surprises)
+	_enrich_post_er_reactions(ticker, surprises, _parse_drift_days(args.drift_days))
 
 	# Consecutive beats
 	consecutive_beats = 0
@@ -877,9 +944,9 @@ def cmd_surprise(args):
 		avg_surprise_method = "simple_mean"
 
 	# Cockroach effect assessment
-	if consecutive_beats >= 4:
+	if consecutive_beats >= args.cockroach_strong:
 		cockroach = "strong"
-	elif consecutive_beats >= 2:
+	elif consecutive_beats >= args.cockroach_moderate:
 		cockroach = "moderate"
 	else:
 		cockroach = "none"
@@ -965,6 +1032,248 @@ def cmd_revisions(args):
 	output_json(full_result)
 
 
+# ===========================================================================
+# Valuation  (folded in from the former forward_pe module)
+#
+# Forward P/E and the growth the price is discounting — an EXPECTATIONS
+# barometer, NOT a valuation gate. Ch.4: P/E is "overused and misunderstood";
+# the biggest winners routinely traded at 30-40x+ BEFORE their largest advance,
+# so rejecting a leader for a rich multiple is the canonical way to miss it.
+# The deleted PEG cheap/fair/expensive bands were a GARP lens this method
+# rejects. What survives is the only part that is actionable here: what the
+# market has ALREADY priced in. High embedded growth = little room to surprise
+# and a low bar to disappoint; forward multiples that CONTRACT across years
+# (fwd_2y < fwd_1y) mean earnings are outrunning price — growing into the multiple.
+# ===========================================================================
+
+
+def _compute_valuation(symbol):
+	"""Forward P/E + embedded-growth expectation barometer. No buy/avoid bands."""
+	ticker = yf.Ticker(symbol)
+
+	current_price = None
+	try:
+		current_price = ticker.info.get("currentPrice")
+	except Exception:
+		pass
+	if current_price is None:
+		try:
+			current_price = ticker.fast_info.last_price
+		except Exception:
+			pass
+	if current_price is None:
+		error_json(f"Cannot retrieve current price for {symbol}")
+
+	# Forward EPS estimates (0y = this fiscal year, +1y = next).
+	forward_1y_eps = None
+	forward_2y_eps = None
+	try:
+		est = ticker.get_earnings_estimate()
+		if est is not None and not est.empty and "avg" in est.columns:
+			if "0y" in est.index and est.loc["0y", "avg"] == est.loc["0y", "avg"]:
+				forward_1y_eps = float(est.loc["0y", "avg"])
+			if "+1y" in est.index and est.loc["+1y", "avg"] == est.loc["+1y", "avg"]:
+				forward_2y_eps = float(est.loc["+1y", "avg"])
+			if forward_1y_eps is None and forward_2y_eps is not None:
+				forward_1y_eps, forward_2y_eps = forward_2y_eps, None
+	except Exception:
+		pass
+
+	forward_pe_1y = round(current_price / forward_1y_eps, 1) if forward_1y_eps and forward_1y_eps > 0 else None
+	forward_pe_2y = round(current_price / forward_2y_eps, 1) if forward_2y_eps and forward_2y_eps > 0 else None
+	pe_contracting = (
+		forward_pe_1y is not None and forward_pe_2y is not None and forward_pe_2y < forward_pe_1y
+	) if (forward_pe_1y is not None and forward_pe_2y is not None) else None
+
+	# Revenue growth (next year preferred, else current).
+	revenue_growth = None
+	try:
+		rev = ticker.get_revenue_estimate()
+		if rev is not None and not rev.empty and "growth" in rev.columns:
+			for key in ("+1y", "0y"):
+				if key in rev.index and rev.loc[key, "growth"] == rev.loc[key, "growth"]:
+					revenue_growth = round(float(rev.loc[key, "growth"]) * 100, 1)
+					break
+	except Exception:
+		pass
+
+	# Expected EPS growth rate (for the raw PEG scalar).
+	eps_growth_rate = None
+	try:
+		ge = ticker.get_growth_estimates()
+		if ge is not None and not ge.empty and "stockTrend" in ge.columns and "0y" in ge.index:
+			val = ge.loc["0y", "stockTrend"]
+			if val == val:
+				eps_growth_rate = round(float(val) * 100, 1)
+	except Exception:
+		pass
+
+	peg_ratio = None
+	if forward_pe_1y and eps_growth_rate and eps_growth_rate > 0:
+		peg_ratio = round(forward_pe_1y / eps_growth_rate, 2)
+
+	gross_margin_pct = None
+	try:
+		gm = ticker.info.get("grossMargins")
+		if gm is not None:
+			gross_margin_pct = round(gm * 100, 2)
+	except Exception:
+		pass
+
+	result = {
+		"symbol": symbol.upper(),
+		"current_price": round(current_price, 2),
+		"forward_pe_1y": forward_pe_1y,
+		"forward_pe_2y": forward_pe_2y,
+		"forward_pe_contracting": pe_contracting,
+		"peg_ratio": peg_ratio,
+		"peg_ratio_unit": "forward P/E / expected EPS growth % — years-of-growth priced in, NOT a cheap/expensive verdict",
+		"eps_growth_rate_used_pct": eps_growth_rate,
+		"revenue_growth_yoy_pct": revenue_growth,
+		"gross_margin_pct": gross_margin_pct,
+		"interpretation": {
+			"pe_is_not_a_gate": "High P/E never disqualifies — momentum leaders trade at premiums (Ch.4). Use this for context, not rejection.",
+			"expectation_barometer": "Forward P/E and PEG gauge how much growth is already priced. High = little room to beat, low = room to surprise.",
+			"pe_contraction": "fwd_2y < fwd_1y means earnings are outpacing price — the stock is growing into its multiple (constructive).",
+		},
+	}
+	result["compressed"] = {
+		k: result[k] for k in (
+			"forward_pe_1y", "forward_pe_2y", "forward_pe_contracting",
+			"peg_ratio", "peg_ratio_unit", "eps_growth_rate_used_pct",
+			"revenue_growth_yoy_pct", "gross_margin_pct",
+		)
+	}
+	return result
+
+
+@safe_run
+def cmd_valuation(args):
+	"""Forward P/E + embedded-growth expectation barometer (not a gate)."""
+	output_json(_compute_valuation(args.symbol))
+
+
+# ===========================================================================
+# Margin trajectory  (folded in from the former margin_tracker module)
+#
+# Quarterly gross/operating/NET margins over time, with NET as the headline and
+# NO classification badge. The deleted "EXPANDING/COMPRESSION" flag picked the
+# BEST of gross-or-operating via max() — which exactly inverts Code-33's logic:
+# Code 33 demands all legs improve TOGETHER, while max() lets a single improving
+# lever paint "EXPANDING" over deterioration elsewhere. Net is the headline for
+# the same reason Code-33's margin leg is net: a filter on the bottom line
+# catches the opex/SG&A leverage gross margin is blind to. Gross and operating
+# stay in the trajectory as diagnosis, not verdict — gross-flat + net-rising is
+# SG&A leverage; gross-rising + net-flat is opex bloat. The analyst reads it.
+# ===========================================================================
+
+
+def _calc_margin(numerator, denominator):
+	"""Margin as a percentage, or None when a value is missing/zero-denominator."""
+	if numerator is None or denominator is None or denominator == 0:
+		return None
+	return round(float(numerator) / float(denominator) * 100, 2)
+
+
+def _get_income_field(df, col, names):
+	"""First non-NaN value among candidate row names in an income-statement column."""
+	for name in names:
+		if name in df.index:
+			val = df.loc[name, col]
+			if val is not None and val == val:  # not NaN
+				return val
+	return None
+
+
+def _format_quarter(ts):
+	"""Format a Timestamp into a 'YYYY-QN' quarter label."""
+	month = getattr(ts, "month", None)
+	year = getattr(ts, "year", None)
+	if month is None or year is None:
+		return str(ts)
+	q = (month - 1) // 3 + 1
+	return f"{year}-Q{q}"
+
+
+def _build_margin_trajectory(income, quarters):
+	"""Gross/operating/net margin per quarter, most-recent-first."""
+	cols = list(income.columns[:quarters])
+	trajectory = []
+	for col in cols:
+		revenue = _get_income_field(income, col, ["TotalRevenue", "Total Revenue", "Revenue"])
+		gross = _get_income_field(income, col, ["GrossProfit", "Gross Profit"])
+		operating = _get_income_field(income, col, ["OperatingIncome", "Operating Income", "EBIT"])
+		net = _get_income_field(
+			income, col,
+			["NetIncome", "Net Income", "NetIncomeCommonStockholders", "Net Income Common Stockholders"],
+		)
+		trajectory.append({
+			"period": _format_quarter(col),
+			"gross": _calc_margin(gross, revenue),
+			"operating": _calc_margin(operating, revenue),
+			"net": _calc_margin(net, revenue),
+		})
+	return trajectory
+
+
+def _ppt_delta(a, b):
+	"""Percentage-point change a - b, or None if either is missing."""
+	if a is None or b is None:
+		return None
+	return round(a - b, 2)
+
+
+@safe_run
+def cmd_margin(args):
+	"""Net-headline margin trajectory (gross/op/net), no classification band."""
+	symbol = args.symbol.upper()
+	ticker, income = _get_quarterly_financials(symbol)
+	if income is None or income.empty:
+		error_json(f"No quarterly financial data available for {symbol}")
+
+	trajectory = _build_margin_trajectory(income, args.quarters)
+	if not trajectory:
+		error_json(f"No quarterly margin data available for {symbol}")
+
+	latest = trajectory[0]
+	prev = trajectory[1] if len(trajectory) >= 2 else None
+	yoy = trajectory[4] if len(trajectory) >= 5 else None
+
+	# Per-entry net QoQ delta, so the trajectory itself shows the bottom-line slope.
+	for i, entry in enumerate(trajectory):
+		nxt = trajectory[i + 1] if i + 1 < len(trajectory) else None
+		entry["net_qoq"] = _ppt_delta(entry["net"], nxt["net"]) if nxt else None
+
+	full_result = {
+		"symbol": symbol,
+		"quarters_analyzed": len(trajectory),
+		"latest_quarter": {
+			"period": latest["period"],
+			"gross_margin": latest["gross"],
+			"operating_margin": latest["operating"],
+			"net_margin": latest["net"],
+		},
+		"net_margin_qoq_change": _ppt_delta(latest["net"], prev["net"]) if prev else None,
+		"net_margin_yoy_change": _ppt_delta(latest["net"], yoy["net"]) if yoy else None,
+		"operating_margin_qoq_change": _ppt_delta(latest["operating"], prev["operating"]) if prev else None,
+		"operating_margin_yoy_change": _ppt_delta(latest["operating"], yoy["operating"]) if yoy else None,
+		"trajectory": trajectory,
+		"change_unit": "percentage points (pp)",
+		"interpretation": {
+			"why_net": "Net is the headline — a filter on the bottom line catches opex/SG&A leverage that gross margin is blind to (the same reason Code-33's margin leg uses net).",
+			"no_grade": "No EXPANDING/COMPRESSION badge: a max()-best-of-gross-or-operating flag inverts Code-33's all-legs-together logic. Read the trajectory — gross-flat + net-rising = SG&A leverage; gross-rising + net-flat = opex bloat.",
+		},
+	}
+	full_result["compressed"] = {
+		"quarters_analyzed": len(trajectory),
+		"latest_quarter": full_result["latest_quarter"],
+		"net_margin_qoq_change": full_result["net_margin_qoq_change"],
+		"net_margin_yoy_change": full_result["net_margin_yoy_change"],
+		"trajectory": trajectory[:4],
+	}
+	output_json(full_result)
+
+
 def main():
 	parser = argparse.ArgumentParser(description="Earnings Acceleration Analysis")
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -972,6 +1281,26 @@ def main():
 	# code33
 	sp = sub.add_parser("code33", help="Check Code 33 (Triple Acceleration)")
 	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument(
+		"--eps-min-pct", type=float, default=_EPS_MIN_PCT,
+		help="Most-recent-quarter YoY EPS growth floor for 'sufficient' (%%). "
+			 "This is the FLOOR, not a constant — raise it when high-growth "
+			 "names are abundant (30-40%%+, even 40-100%% in a bull market).",
+	)
+	sp.add_argument(
+		"--margin-min-ppt", type=float, default=_MARGIN_MIN_CHANGE_PPT,
+		help="Per-quarter NET-margin improvement (ppt) to count as expansion. "
+			 "INVENTED magnitude floor — spec requires only DIRECTIONAL "
+			 "acceleration, so 0 = pure-directional (canonical); default keeps "
+			 "the legacy 0.5 to preserve behavior.",
+	)
+	sp.add_argument(
+		"--sales-min-pct", type=float, default=_SALES_STRENGTH_MIN_PCT,
+		help="Sales-STRENGTH floor (%%) used only when revenue history is too "
+			 "shallow (<3 YoY rates, the yfinance norm) to test 3-quarter "
+			 "acceleration: the latest YoY revenue growth must clear this to "
+			 "confirm real top-line demand. A FLOOR, raisable per cohort/regime.",
+	)
 	sp.set_defaults(func=cmd_code33)
 
 	# acceleration
@@ -982,12 +1311,47 @@ def main():
 	# surprise
 	sp = sub.add_parser("surprise", help="Get earnings surprise history")
 	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument(
+		"--quarters", type=int, default=_SURPRISE_QUARTERS,
+		help="Rolling lookback window, in quarters, for surprise/beat history. "
+			 "Use a shorter 4/6 window to weight the current regime, longer to "
+			 "establish a base-rate.",
+	)
+	sp.add_argument(
+		"--drift-days", default=_DRIFT_DAYS,
+		help="Comma-separated post-earnings drift horizons in trading days "
+			 "(default '1,5'). Drift is a multi-MONTH phenomenon — bigger "
+			 "surprises drift longer; 1/5d only catch the immediate gap. "
+			 "Widen (e.g. '1,5,20,60') for the fuller effect.",
+	)
+	sp.add_argument(
+		"--cockroach-strong", type=int, default=_COCKROACH_STRONG,
+		help="Consecutive beats for a 'strong' cockroach signal. Heuristic — "
+			 "depends on the cohort's beat base-rate; raise where beating is "
+			 "near-universal.",
+	)
+	sp.add_argument(
+		"--cockroach-moderate", type=int, default=_COCKROACH_MODERATE,
+		help="Consecutive beats for a 'moderate' cockroach signal (see "
+			 "--cockroach-strong).",
+	)
 	sp.set_defaults(func=cmd_surprise)
 
 	# revisions
 	sp = sub.add_parser("revisions", help="Track analyst estimate revisions")
 	sp.add_argument("symbol", help="Ticker symbol")
 	sp.set_defaults(func=cmd_revisions)
+
+	# valuation (absorbed from forward_pe)
+	sp = sub.add_parser("valuation", help="Forward P/E + embedded-growth barometer (not a gate)")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.set_defaults(func=cmd_valuation)
+
+	# margin (absorbed from margin_tracker)
+	sp = sub.add_parser("margin", help="Net-headline margin trajectory (gross/op/net), no band")
+	sp.add_argument("symbol", help="Ticker symbol")
+	sp.add_argument("--quarters", type=int, default=8, help="quarters of trajectory (default 8)")
+	sp.set_defaults(func=cmd_margin)
 
 	args = parser.parse_args()
 	args.func(args)
