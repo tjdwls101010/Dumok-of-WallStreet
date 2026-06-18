@@ -454,6 +454,26 @@ def cmd_count(args):
 			"reset_trigger": f"{args.reset_days}+ of {args.reset_window} trading days below 200MA",
 			"cross_base_warning": "deepening corrections = late-stage exhaustion",
 		},
+		"doctrine": {
+			"base_number": (
+				"Base count proxies how 'discovered' and crowded the accumulation has become. "
+				"Each successive base off a correction taps more of the remaining heavy, "
+				"patient demand, so bases 1-2 are the prime entry — buying while the move is "
+				"still un-obvious. By bases 4-5 the advance is glaringly visible to everyone, "
+				"the deep-pocket buyers are largely in, and breakouts fail abruptly as the "
+				"last marginal demand is exhausted. Read a high count as a depleting fuel "
+				"gauge, not as proof the trend is strong."
+			),
+			"fresh_issue_breakdown": (
+				"A brand-new issue that craters too far too fast right after its debut has "
+				"shown distribution overwhelming demand at the stock's most-hyped, most-"
+				"liquid moment — supply won when buyers should have been most eager. There is "
+				"no prior constructive base to break out from, so the chart is technically "
+				"broken with no platform. This inverts the bargain instinct: 'cheap versus the "
+				"IPO price' is an anchor trap, not value — a lower number on a structurally "
+				"failed stock measures damage, not opportunity."
+			),
+		},
 	})
 
 

@@ -203,6 +203,14 @@ def cmd_score(args):
 		"spy_rs": spy_rs,
 		"history": history if history else None,
 		"threshold": "RS >= 70 for TT criterion 8",
+		"doctrine": (
+			"Relative strength isolates the stock's OWN cycle from the market's. A name that holds up under index "
+			"pressure — higher lows, RS rank rising while it merely marks time sideways — is in its own up-cycle with "
+			"supply exhausting, which precedes both its turn and the market's. The inverse is the warning: relative "
+			"weakness in a strong tape = avoid, regardless of the story. And a former leader whose RS breaks down "
+			"AFTER a big advance is the highest-information early siren that institutional distribution is spreading "
+			"through its group."
+		),
 	}
 
 	output_json(output)
@@ -238,6 +246,12 @@ def cmd_screen(args):
 			"count": len(stocks),
 			"min_rating": min_rating,
 		},
+		"doctrine": (
+			"Institutions concentrate into the single best name before broadening, so group confirmation LAGS the "
+			"leader's best entry. Run a stock-first (bottom-up) search and let the leader reveal the group — waiting "
+			"for the sector to look obviously hot means buying the leader late or buying a laggard in a now-crowded "
+			"group. Early, a true leader has only one or two confirming names."
+		),
 	})
 
 
@@ -260,6 +274,12 @@ def cmd_compare(args):
 	output_json({
 		"rankings": results,
 		"count": len(results),
+		"doctrine": (
+			"Institutions concentrate into the single best name before broadening, so group confirmation LAGS the "
+			"leader's best entry. Run a stock-first (bottom-up) search and let the leader reveal the group — waiting "
+			"for the sector to look obviously hot means buying the leader late or buying a laggard in a now-crowded "
+			"group. Early, a true leader has only one or two confirming names."
+		),
 	})
 
 

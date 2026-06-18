@@ -121,7 +121,7 @@ PULLBACK_DECLINE_FACTOR = 0.9
 # strong-but-not-dwarfing, C the neutral ~1.0 cluster, D/E the real decliners.
 #
 # DO NOT re-point these at the method's "several hundred to ~1,000%" (3-10x)
-# surge figure. That figure (spec.md L38, principles.md L114-115; book Ch.10-11:
+# surge figure. That figure (the single-day demand-surge standard; book Ch.10-11:
 # "a surge of several hundred percent or even as much as 1,000 percent compared
 # with the AVERAGE volume") is the magnitude of a SINGLE demand DAY's volume vs
 # its own average — a per-bar surge, with a "the day FOLLOWED by a bigger down
@@ -137,8 +137,8 @@ PULLBACK_DECLINE_FACTOR = 0.9
 # NO DISTRIBUTION-DAY COUNTING. Down-side pressure is already priced into this
 # grade through down-day VOLUME (the denominator) — the faithful asymmetry. We
 # do NOT add a "N distribution days -> cap the grade" tally: that is the O'Neil
-# distribution-day / follow-through mechanism the method rejects (principles.md
-# L17-18, spec.md L13; the source counts no distribution days). The forward
+# distribution-day / follow-through mechanism the method rejects (the source
+# counts no distribution days). The forward
 # "bigger-down-day-follows" disqualifier in demand-days is a magnitude rule, not
 # a count, and stays.
 ACCDIST_GRADE_A_PLUS_RATIO = 1.8   # strong accumulation (top up/down-volume tier)
@@ -526,6 +526,15 @@ def cmd_analyze(args):
 			"cluster_warning": "max_cluster_size >= 5 distribution days in a cluster",
 			"breakout_confirmation": "volume 25%+ above 50d avg on up day in last 5 days",
 		},
+		"doctrine": (
+			"Price is the aggregate of better-informed hands, so a failure to RALLY "
+			"on unambiguously good news (a beat or a guidance raise) is smart money "
+			"using the good-news liquidity to distribute — the dog that doesn't bark "
+			"front-runs deterioration that becomes public later; the DEPTH of the "
+			"sell-off separates healthy profit-taking from broken. And tape strength "
+			"here is only HALF of catalyst confirmation: it must be paired with the "
+			"numbers coming in strong, or it's a narrative with no earnings."
+		),
 	}
 
 	# Compressed view for pipeline consumption
@@ -577,7 +586,7 @@ _RIGHT_SIDE_ABOVE_10MA_PCT = 5.0
 # lives: volume_ratio = up-day vol / max prior down-day vol (a pocket-pivot
 # relative asymmetry). The book's "several hundred to ~1,000%" (3-10x) is the
 # IDEAL surge magnitude, but it is a relationship/ceiling, not a copyable floor
-# (principles.md L5): for liquid names the max-prior-down-day denominator never
+# (a relationship, not a copyable digit): for liquid names the max-prior-down-day denominator never
 # approaches zero, so even textbook footprints top out ~2.5-3x (observed basket
 # max ~2.71). 2.0x is the deliberately conservative-but-reached "high" bar — one
 # leg of a three-way AND (>=2.0 AND close in upper 70% of range AND above 50MA).
@@ -770,6 +779,13 @@ def cmd_demand_days(args):
 			"quality_moderate": "vol_ratio >= 1.5 AND close in upper 50% of range AND above 50MA",
 			"location": "right_side (constructive) / handle (late-base) / extended (chase, >10% above 10MA)",
 		},
+		"doctrine": (
+			"Institutional accumulation can't hide its footprint — it shows as "
+			"outsized up-volume with a conspicuous absence of down-spikes; the "
+			"ASYMMETRY, not the absolute level, distinguishes real sponsorship from a "
+			"crowd bounce. A big demand day FOLLOWED by an even bigger down-volume day "
+			"voids it — the supply came right back."
+		),
 	}
 
 	full_result["compressed"] = {

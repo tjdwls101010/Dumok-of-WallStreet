@@ -1513,6 +1513,12 @@ def cmd_detect(args):
 		},
 		"relative_correction": relative_correction,
 		"setup_readiness": setup_readiness,
+		"doctrine": {
+			"pivot": "The pivot is the final filter — where price confirms demand has won — so front-running a tight pivot saves negligible price but takes the full risk of an unconfirmed setup: it is negative-EV. Let price trade ABOVE the pivot first; this inverts the buy-the-dip instinct, because here you pay up for confirmation rather than discount for hope.",
+			"pivot_volume_dryup": "Pivot volume drying up is not bearish illiquidity but the tell of readiness — volume IS supply made visible, and a vacuum proves sellers have stopped coming. With no overhead supply left to absorb, even small demand snaps price up against no resistance, which is exactly why dryup precedes the cleanest breakouts.",
+			"post_surge_recovery": "After an explosive prior surge (Power Play), the load-bearing signal is not the surge itself but the SHALLOWNESS and speed of the tight recovery that follows. A shallow, fast snap-back means holders refused to sell into strength — demand persists; a deep or slow drift would mean the surge exhausted its buyers.",
+			"time_symmetry": "Supply takes TIME to digest, so a too-fast right side (a V-shaped recovery that sprints back to the highs with no proper right-side development) disqualifies the setup even though price looks repaired — a quick up-down bounce never relieved the weak holders, so the overhang is still live. Left/right symmetry is the tell that the digestion was real, not a reflexive snap-back. (MGA 2010 ran up the right side too quickly, needed more base, then +140%.)",
+		},
 		"contractions_detail": relevant_contractions,
 		"cup_and_handle": cup_handle,
 		"cup_completion_cheat": cup_completion_cheat,

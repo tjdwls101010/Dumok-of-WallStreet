@@ -506,6 +506,14 @@ def cmd_code33(args):
 			),
 			"margin_expansion": f"3+ consecutive quarters with >= {args.margin_min_ppt:g} ppt NET-margin improvement (operating-margin fallback flagged via margin_basis; never gross)",
 		},
+		"doctrine": (
+			"Acceleration is read against the stock's OWN history — the first material "
+			"*deceleration* tops the stock even when the absolute level is still high, "
+			"because price was priced for the prior rate and the market trades the delta "
+			"from expectation, not the level. So don't be reassured by 'still growing "
+			"nicely' — a falling second derivative breaks the discounting. (Dell EPS "
+			"growth 80→65→28% topped despite 'decent growth,' then −80%.)"
+		),
 	}
 
 	# Compressed view for pipeline consumption
@@ -968,6 +976,18 @@ def cmd_surprise(args):
 		compressed["surprise_history"] = history[:8]
 	full_result["compressed"] = compressed
 
+	# Added after compressed is built so doctrine stays a top-level lens only.
+	full_result["doctrine"] = (
+		"A beat only carries information relative to expectations the company did NOT "
+		"engineer: a sandbagged or lowered bar inverts the meaning of the same headline "
+		"beat, so read WHO moved consensus. The cleanest signal is a beat PLUS a "
+		"voluntary guidance RAISE — a costly signal management won't issue unless it can "
+		"beat the raised bar. And post-earnings drift is a liquidity phenomenon: large "
+		"buyers can't deploy at once, so a real surprise opens a multi-month window of "
+		"forced accumulation — bigger surprises drift longer, not a free lunch in "
+		"inefficiency."
+	)
+
 	output_json(full_result)
 
 
@@ -1136,6 +1156,15 @@ def _compute_valuation(symbol):
 			"expectation_barometer": "Forward P/E and PEG gauge how much growth is already priced. High = little room to beat, low = room to surprise.",
 			"pe_contraction": "fwd_2y < fwd_1y means earnings are outpacing price — the stock is growing into its multiple (constructive).",
 		},
+		"doctrine": (
+			"P/E is an expectation barometer, not a cheap/expensive verdict — it measures "
+			"the LEVEL of embedded expectation, so the real question is whether the company "
+			"can EXCEED it and whether that expectation is still rising. A high multiple is "
+			"dangerous only if growth can't sustain it; a low one is opportunity only if "
+			"expectations are about to inflect up. (For commodity-cyclicals this cycle "
+			"inverts — a high P/E marks the buy zone — so identify the business type before "
+			"reading the multiple.)"
+		),
 	}
 	result["compressed"] = {
 		k: result[k] for k in (

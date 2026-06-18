@@ -1,0 +1,171 @@
+{
+  "_note": "Machine-readable tool catalog for the Minervini skill — the 'hands'. The live source of truth for exact flags/defaults is each tool's `--help`; this file is the consolidated at-a-glance spec. The conceptual SPINE/BENCH meaning and the funnel-leg routing live in SKILL.md (the 'mind'). Invoke modules by path: `python Scripts/modules/<name>.py <subcommand> SYMBOL [flags]`. Pipeline verbs: `python -m pipeline <verb> [TICKER]`.",
+  "tiers": {
+    "spine": "Run on every name that clears the gate — skipping one is a blind spot, not economy.",
+    "bench": "Diagnostic depth, reached for only when a specific read raises a specific question."
+  },
+  "tools": [
+    {
+      "name": "pipeline discover", "invoke": "python -m pipeline discover",
+      "funnel_leg": "regime", "spine_bench": "spine",
+      "role": "One no-arg read of the whole tape: breadth, RS leadership (SPY/QQQ RS, top-20 leaders, 5-day movers), sector/industry board, SPY distribution state.",
+      "output": "breadth-primary market_verdict (bull_early | bull_late | correction | bear); distribution only nuances early-vs-late, never gates; leadership board is yours to weigh.",
+      "flags": {}, "emits_doctrine": false
+    },
+    {
+      "name": "market_breadth.py breadth", "invoke": "python Scripts/modules/market_breadth.py breadth",
+      "funnel_leg": "regime", "spine_bench": "bench",
+      "role": "Raw breadth snapshot discover consumes (adv/decl, new-high/low, % above 50/200 SMA).",
+      "output": "breadth metrics only; reach for it alone if you want breadth without the leadership pull.",
+      "flags": {}, "emits_doctrine": false
+    },
+    {
+      "name": "pipeline qualify", "invoke": "python -m pipeline qualify TICKER",
+      "funnel_leg": "gate", "spine_bench": "spine (always first)",
+      "role": "Tier-0 cheap hard gate: runs trend_template + stage_analysis + rs_ranking.",
+      "output": "deterministic PROCEED (both gates pass — a closer look, not a buy) | AVOID (a gate failed — stop, do not deepen). Gates: Stage==2, Trend Template 8/8 (no partial credit); RS reported but NOT a gate.",
+      "flags": {}, "emits_doctrine": false
+    },
+    {
+      "name": "trend_template.py check", "invoke": "python Scripts/modules/trend_template.py check TICKER",
+      "funnel_leg": "gate", "spine_bench": "bench",
+      "role": "The 8 criteria for one ticker: per-criterion pass/fail, passed_count/8, the MAs, 52w high/low, RS.",
+      "output": "8 booleans + passed_count. Thresholds definitional/fixed (52w-low×1.30, 52w-high×0.75, RS>=70, 50/150/200 SMA).",
+      "flags": {"--period": "data period"}, "emits_doctrine": false
+    },
+    {
+      "name": "stage_analysis.py classify", "invoke": "python Scripts/modules/stage_analysis.py classify TICKER",
+      "funnel_leg": "gate", "spine_bench": "bench",
+      "role": "Deterministic Stage 1-4 by a structural boolean cascade (no score, no argmax). Stage 2 is the gate's lifecycle twin.",
+      "output": "stage + structural_reads + doctrine.",
+      "flags": {"--swing-bars": "", "--ma-uptrend-days": "matched to Trend-Template criterion 3"}, "emits_doctrine": true
+    },
+    {
+      "name": "stage_analysis.py risk", "invoke": "python Scripts/modules/stage_analysis.py risk TICKER",
+      "funnel_leg": "risk", "spine_bench": "bench",
+      "role": "Sell diagnostic — the three character signals the method sells on: largest decline since Stage 2 (vs leader-correction bands), climax extension (blow-off), tennis-ball-vs-egg. Diagnostic only; no distribution-day count, no key-reversal.",
+      "output": "largest_decline_since_stage2, climax_extension, character + doctrine. No stop, no size.",
+      "flags": {"--period": "", "--climax-extension-pct": "", "--min-advance-weeks": "redefines climax 'long advance'"}, "emits_doctrine": true
+    },
+    {
+      "name": "stage_analysis.py transitions", "invoke": "python Scripts/modules/stage_analysis.py transitions TICKER",
+      "funnel_leg": "gate", "spine_bench": "bench",
+      "role": "Stage 1->2 early-turn (7 booleans -> strong/moderate/weak), the pre-gate read the Trend Template can't give yet. No Golden Cross.",
+      "output": "7 booleans + strength label.",
+      "flags": {}, "emits_doctrine": false
+    },
+    {
+      "name": "rs_ranking.py score", "invoke": "python Scripts/modules/rs_ranking.py score TICKER",
+      "funnel_leg": "leadership", "spine_bench": "spine (on a PROCEED)",
+      "role": "RS rating 1-99 + spy_rs (SPY's own rating, a benchmark — NOT a relative delta) + {1w,1m,3m,6m} history for divergence.",
+      "output": "rs_rating, spy_rs, history + doctrine.",
+      "flags": {}, "emits_doctrine": true
+    },
+    {
+      "name": "rs_ranking.py screen", "invoke": "python Scripts/modules/rs_ranking.py screen",
+      "funnel_leg": "leadership", "spine_bench": "bench",
+      "role": "Screen the ~4,600-name universe for high-RS leaders.",
+      "output": "ranked list.",
+      "flags": {"--min-rating": "default 80", "--limit": "default 50"}, "emits_doctrine": false
+    },
+    {
+      "name": "rs_ranking.py compare", "invoke": "python Scripts/modules/rs_ranking.py compare SYM...",
+      "funnel_leg": "leadership", "spine_bench": "bench",
+      "role": "Rank tickers (e.g. sector peers) by RS to find the strongest.",
+      "output": "ranked list + doctrine.",
+      "flags": {}, "emits_doctrine": true
+    },
+    {
+      "name": "vcp.py detect", "invoke": "python Scripts/modules/vcp.py detect TICKER",
+      "funnel_leg": "setup", "spine_bench": "spine (on a PROCEED)",
+      "role": "Primary base read: VCP (+ Cup&Handle, 3C cheat, Power Play), graded contraction/volume/shakeout/pivot-tightness, the pivot/buy point.",
+      "output": "pattern + 0-100 setup_readiness (within-setup quality, NOT a verdict) + doctrine (pivot, pivot_volume_dryup, post_surge_recovery, time_symmetry).",
+      "flags": {"--period": "", "--interval": "1d|1wk", "--min-contractions": "", "--max-depth": "", "--dryup-pct": "", "--breakout-vol-mult": "", "--powerplay-advance-bars": "", "--cheat-pause-bars": "", "--shakeout-search-bars": "", "--rel-correction-ratio": ""}, "emits_doctrine": true
+    },
+    {
+      "name": "volume_analysis.py analyze", "invoke": "python Scripts/modules/volume_analysis.py analyze TICKER",
+      "funnel_leg": "setup", "spine_bench": "spine (on a PROCEED — the demand confirmer)",
+      "role": "Accumulation/distribution: A-E grade (up/down volume ratio), breakout-volume confirmation, distribution clustering, climactic days, pullback-volume quality.",
+      "output": "A-E grade + signals + doctrine.",
+      "flags": {"--lookback": "", "--short-lookback": "", "--cluster-window": "", "--breakout-window": "", "--pullback-window": ""}, "emits_doctrine": true
+    },
+    {
+      "name": "volume_analysis.py demand-days", "invoke": "python Scripts/modules/volume_analysis.py demand-days TICKER",
+      "funnel_leg": "setup", "spine_bench": "bench",
+      "role": "Institutional demand days inside the base (up-day volume dwarfing the max prior down-day, upper-half close, voided by a later bigger down-day), graded + located right_side/handle/extended.",
+      "output": "demand_days, actionable_count + doctrine.",
+      "flags": {"--down-vol-lookback": "", "--scan-days": "", "--min-down-decline-pct": "", "--stale-days": ""}, "emits_doctrine": true
+    },
+    {
+      "name": "entry_patterns.py scan", "invoke": "python Scripts/modules/entry_patterns.py scan TICKER  (also: screen SYM...)",
+      "funnel_leg": "setup", "spine_bench": "bench",
+      "role": "Currently-active entry triggers (MA_PULLBACK, CONSOLIDATION_PIVOT, SUPPORT_RECLAIM) with trigger/stop/quality.",
+      "output": "active_patterns, setup_readiness + doctrine (scan).",
+      "flags": {"--pullback-vol-days": "", "--pivot-min-days": "", "--pivot-max-days": "", "--undercut-lookback-days": "", "--pivot-range-max": ""}, "emits_doctrine": true
+    },
+    {
+      "name": "tight_closes.py daily", "invoke": "python Scripts/modules/tight_closes.py daily TICKER  (also: weekly TICKER)",
+      "funnel_leg": "setup", "spine_bench": "bench",
+      "role": "Clusters of narrow-spread closes (supply drying up near the pivot), graded by tightness + dryup + in-base location. Weekly carries higher confluence weight.",
+      "output": "tight-close clusters + grade.",
+      "flags": {"--period": "", "--tolerance": "", "--max-window": "", "--location-lookback": ""}, "emits_doctrine": false
+    },
+    {
+      "name": "base_count.py count", "invoke": "python Scripts/modules/base_count.py count TICKER",
+      "funnel_leg": "setup", "spine_bench": "bench",
+      "role": "Counts bases in the Stage-2 advance: early (1-2, optimal) vs late (4+, failure-prone); per-base pattern, relative-to-SPY correction severity, depth trend, Stage-4 reset, risk_level.",
+      "output": "current_base_number, base_history, risk_level + doctrine.",
+      "flags": {"--min-base-weeks": "", "--swing-window": "", "--max-base-weeks": "", "--forming-recency-days": "", "--reset-days": "", "--reset-window": "", "--min-advance-pct": "explicitly non-canonical heuristic, off by default"}, "emits_doctrine": true
+    },
+    {
+      "name": "earnings_acceleration.py code33", "invoke": "python Scripts/modules/earnings_acceleration.py code33 TICKER",
+      "funnel_leg": "fundamental", "spine_bench": "spine (on a PROCEED)",
+      "role": "Triple acceleration: EPS + sales + NET margin. EPS strict 3-quarter acceleration on deep earnings_dates; sales adapts to data depth (acceleration if >=3 YoY rates, else strength fallback >= --sales-min-pct); NET margin must expand 3 consecutive quarters.",
+      "output": "code33_status, eps_growth_rates, sales_basis/sales_data_quality, margin_basis (net|operating|unavailable) + doctrine.",
+      "flags": {"--eps-min-pct": "raisable floor, default 20", "--sales-min-pct": "strength floor, default 20", "--margin-min-ppt": "invented floor; 0 = pure-directional canonical, default 0.5 legacy"}, "emits_doctrine": true
+    },
+    {
+      "name": "earnings_acceleration.py acceleration / surprise / revisions", "invoke": "python Scripts/modules/earnings_acceleration.py <sub> TICKER",
+      "funnel_leg": "fundamental", "spine_bench": "bench",
+      "role": "acceleration: per-quarter EPS&sales YoY trend. surprise: beat/surprise history + post-earnings drift + cockroach bucket. revisions: analyst revision trends.",
+      "output": "per-sub; surprise emits doctrine.",
+      "flags": {"--quarters": "", "--drift-days": "default '1,5'; widen to '1,5,20,60' for multi-month drift", "--cockroach-strong": "", "--cockroach-moderate": ""}, "emits_doctrine": "surprise only"
+    },
+    {
+      "name": "earnings_acceleration.py valuation", "invoke": "python Scripts/modules/earnings_acceleration.py valuation TICKER",
+      "funnel_leg": "fundamental", "spine_bench": "bench",
+      "role": "Forward-P/E barometer, explicitly NOT a gate: fwd P/E 1y/2y, whether contracting (growing into the multiple), a raw PEG scalar (years priced in, not a cheap/expensive verdict). GARP bands removed by design.",
+      "output": "forward_pe_1y/2y, peg_ratio, interpretation + doctrine.",
+      "flags": {}, "emits_doctrine": true
+    },
+    {
+      "name": "earnings_acceleration.py margin", "invoke": "python Scripts/modules/earnings_acceleration.py margin TICKER",
+      "funnel_leg": "fundamental", "spine_bench": "bench",
+      "role": "Gross/op/NET margin trajectory, NET as headline, NO classification badge (the old EXPANDING/COMPRESSION flag inverted Code-33's all-legs-together logic).",
+      "output": "margin trajectory.",
+      "flags": {"--quarters": ""}, "emits_doctrine": false
+    },
+    {
+      "name": "info.py", "invoke": "python Scripts/modules/info.py <subcommand> ...",
+      "funnel_leg": "infra", "spine_bench": "bench",
+      "role": "Metadata/quotes plumbing, no judgment.",
+      "output": "raw data.",
+      "subcommands": ["get-info", "get-info-fields FIELDS...", "get-shares", "get-history-metadata", "get-sec-filings [--since --form] (catalyst/quality digging)"],
+      "emits_doctrine": false
+    },
+    {
+      "name": "actions.py", "invoke": "python Scripts/modules/actions.py <subcommand> ...",
+      "funnel_leg": "infra", "spine_bench": "bench",
+      "role": "Corporate actions/events plumbing, no judgment.",
+      "output": "raw data.",
+      "subcommands": ["get-earnings", "get-earnings-dates", "get-dividends", "get-splits", "get-calendar", "get-news"],
+      "emits_doctrine": false
+    },
+    {
+      "name": "utils.py", "invoke": "(not a CLI — do not invoke)",
+      "funnel_leg": "infra", "spine_bench": "n/a",
+      "role": "Shared helper lib. Hosts calculate_sma and max_constructive_depth_pct (the duration-keyed depth ceiling). Listed only so you don't hunt for it as a tool.",
+      "output": null, "flags": {}, "emits_doctrine": false
+    }
+  ]
+}

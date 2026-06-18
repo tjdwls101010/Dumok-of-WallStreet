@@ -14,7 +14,7 @@ argmax'd, drift toward whatever factor the stock happens to have, not toward the
 lifecycle truth. A boolean cascade can't drift: it asks the structural questions
 in the order that resolves the lifecycle, and the first matching signature wins.
 
-The signatures, straight from the method (book Ch. 5; spec.md §Trend-Template
+The signatures, straight from the method (book Ch. 5; the Trend-Template
 climax lines):
 
 - Stage 4 (Declining): price BELOW a 200-day MA that is itself in a definite
@@ -369,6 +369,12 @@ def cmd_classify(args):
 			"pct_above_52w_low": round(pct_above_52w_low, 1),
 			"pct_below_52w_high": round(pct_below_52w_high, 1),
 		},
+		"doctrine": (
+			"A stock is in exactly ONE stage at a time — a question of structure, not degree. "
+			"The classification is a boolean cascade, not a weighted score, precisely because a "
+			"point-blend would invent a continuum where the reality is a switch, and would let a "
+			"strong factor paper over a disqualifying one. Read the stage as a gate, not a grade."
+		),
 	})
 
 
@@ -586,6 +592,16 @@ def cmd_risk(args):
 			"note": "tennis_ball = snaps back to highs, volatility contained; egg = widening two-way swings",
 		},
 		"interpretation": "diagnostic only — no stop, no size, no verdict",
+		"doctrine": (
+			"These are character reads, not stops. The single largest decline SINCE Stage 2 "
+			"began is the footprint of institutions exiting ahead of a deceleration they can see "
+			"and you can't yet — read it relative to the stock's OWN advance; the 'overreaction, "
+			"buy the dip' instinct fails precisely because the sellers know something not-yet-public. "
+			"Sell on NON-confirmation, not just on loss: a momentum entry predicts movement, so a "
+			"stock that just sits has falsified the thesis as surely as one that drops. Tennis-ball "
+			"vs egg — healthy pullbacks snap back fast on contracting volume; widening two-way swings "
+			"mean the supply/demand fight has turned contested."
+		),
 	})
 
 

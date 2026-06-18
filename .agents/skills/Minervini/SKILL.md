@@ -37,56 +37,31 @@ The methodology is not one big pipeline run that loads everything and hands you 
 
 **Only on `PROCEED`, deepen** — call the individual module CLIs in funnel order, one question per tool: the setup reads (`vcp detect` for the base, `volume_analysis analyze` for the demand footprint), the fundamental read (`earnings_acceleration code33`), the leadership read (`rs_ranking score`). There is deliberately no single command that runs everything at once — composing the tools yourself, in the order the evidence earns, is what keeps the gate load-bearing. Reach for `discover` to read the market and surface RS leaders before you even have a ticker.
 
-Why a kit and not a pipeline: the funnel is conditional, so computing all five dimensions on a name that failed the gate is wasted work *and* a temptation to rescue it ("the gate failed but look at these earnings"). The cost of this freedom is the opposite failure — skipping a tool you *should* run. Manage it by structure: the **spine** — `discover` → `qualify`, then on a PROCEED the four core reads named above — is never skipped; the **bench** (everything else, tagged below) is run only when the evidence calls for it. Skipping a bench tool with no reason is selectivity, not omission. The catalog below tags every tool spine or bench — that tag is exactly this line.
+Why a kit and not a pipeline: the funnel is conditional, so computing all five dimensions on a name that failed the gate is wasted work *and* a temptation to rescue it ("the gate failed but look at these earnings"). The cost of this freedom is the opposite failure — skipping a tool you *should* run. Manage it by structure: the **spine** is never skipped; the **bench** is run only when a specific read raises a specific question. Stopping there because the evidence hasn't earned a deeper look is discipline; stopping because you answered from memory is the omission to fear.
 
-## The composable kit — module catalog
+## The toolbox — funnel legs and tools
 
-A kit of small single-purpose CLIs, not a pipeline. Each module answers one funnel leg; you compose them in funnel order. The two **pipeline** verbs (`qualify`, `discover`) orchestrate the cheap legs for you; everything else you call directly as `Scripts/modules/<name>.py <subcommand> SYMBOL [flags]`. Each tool is tagged **SPINE** (run on every relevant pass — skipping one is omission) or **BENCH** (run only when the candidate calls for it — skipping with no reason is selectivity).
+Each tool answers one funnel leg; you compose them in funnel order. Each is **SPINE** (the funnel's structural reads — run on every name that clears the gate; skipping one is a blind spot, not economy) or **BENCH** (diagnostic depth reached for only when a specific read raises a specific question — a late-looking advance calls for `base_count`, a tight pivot for `tight_closes`, a held name for `stage_analysis risk`).
 
-**REGIME — "is the tide coming in at all?"**
-- **`pipeline discover`** *(SPINE)* — one no-arg call reading the whole tape: breadth, RS leadership (SPY/QQQ RS, top-20 leaders, 5-day movers), the sector/industry board, SPY distribution state. Returns a **breadth-primary** `market_verdict` (bull_early / bull_late / correction / bear); distribution only nuances early-vs-late, never gates. The leadership board is yours to weigh, not a label.
-- **`market_breadth.py breadth`** *(BENCH)* — the raw breadth snapshot `discover` consumes (adv/decl, new-high/low, % above 50/200 SMA). No args; reach for it alone only if you want breadth without the leadership pull.
+| Funnel leg | Tools — **SPINE** in bold, rest BENCH |
+|---|---|
+| **Regime** | **`pipeline discover`** (breadth-primary market_verdict) · `market_breadth breadth` |
+| **Gate** | **`pipeline qualify TICKER`** (PROCEED/AVOID; Stage 2 **and** Trend Template 8/8 — RS reported but *not* a gate) · `trend_template check` · `stage_analysis classify` / `transitions` |
+| **Setup** | **`vcp detect`** (base) · **`volume_analysis analyze`** (demand) · `volume_analysis demand-days` · `entry_patterns scan` · `tight_closes daily`/`weekly` · `base_count count` |
+| **Fundamental × quality** | **`earnings_acceleration code33`** (EPS+sales+NET margin together) · `acceleration` / `surprise` / `revisions` / `valuation` / `margin` |
+| **Leadership** | **`rs_ranking score`** (RS 1-99 + spy_rs + history) · `screen` · `compare` |
+| **Risk (diagnostic)** | `stage_analysis risk` (sell-tells; never a stop or a size) |
+| **Infra** | `info` · `actions` (data plumbing, no judgment) |
 
-**GATE — Stage 2 AND the full Trend Template, or reject**
-- **`pipeline qualify TICKER`** *(SPINE — always first)* — the Tier-0 cheap hard gate. Runs `trend_template` + `stage_analysis` + `rs_ranking` and returns a deterministic `PROCEED` (both gates pass — a closer look, not a buy) or `AVOID` (a gate failed — stop, do not deepen). Gates: Stage == 2, Trend Template 8/8 (no partial credit). RS is reported but is **not** a gate.
-- **`trend_template.py check TICKER`** — the 8 criteria for one ticker: per-criterion pass/fail, passed_count/8, the MAs, 52w high/low, RS. Thresholds are definitional/fixed (52w-low×1.30, 52w-high×0.75, RS≥70, 50/150/200 SMA); only knob is `--period`.
-- **`stage_analysis.py classify TICKER`** — deterministic Stage 1-4 by a structural boolean cascade (no score, no argmax). Stage 2 is the gate's lifecycle twin. Flex: `--swing-bars`, `--ma-uptrend-days` (matched to Trend-Template criterion 3).
-
-**LEADERSHIP — relative strength**
-- **`rs_ranking.py score TICKER`** *(SPINE on a PROCEED)* — RS rating 1-99 + `spy_rs` (SPY's own rating, a benchmark — *not* a relative delta) + a {1w,1m,3m,6m} history for divergence. No flags.
-- **`rs_ranking.py screen`** *(BENCH)* — screen the ~4,600-name universe for high-RS leaders. `--min-rating` (80), `--limit` (50).
-- **`rs_ranking.py compare SYM…`** *(BENCH)* — rank tickers (e.g. sector peers) by RS to find the strongest.
-
-**SETUP — "is the base built and the pivot dry?"**
-- **`vcp.py detect TICKER`** *(SPINE on a PROCEED)* — the primary base read: VCP (+ Cup&Handle, 3C cheat, Power Play), graded contraction/volume/shakeout/pivot-tightness, the pivot/buy point, and a 0-100 `setup_readiness` (a *within-setup* quality read, not a verdict). Flex: `--period`, `--interval {1d,1wk}`, `--min-contractions`, `--max-depth`, `--dryup-pct`, `--breakout-vol-mult`, `--powerplay-advance-bars`, `--cheat-pause-bars`, `--shakeout-search-bars`, `--rel-correction-ratio`.
-- **`volume_analysis.py analyze TICKER`** *(SPINE on a PROCEED — the demand confirmer)* — accumulation/distribution: A-E grade (up/down volume ratio), breakout-volume confirmation, distribution clustering, climactic days, pullback-volume quality. Flex: `--lookback`, `--short-lookback`, `--cluster-window`, `--breakout-window`, `--pullback-window`.
-- **`volume_analysis.py demand-days TICKER`** *(BENCH — absorbed the old pocket-pivot module)* — institutional demand days inside the base (up-day volume dwarfing the max prior down-day, upper-half close, voided by a later bigger down-day), graded + located right_side/handle/extended. Flex: `--down-vol-lookback`, `--scan-days`, `--min-down-decline-pct`, `--stale-days`.
-- **`entry_patterns.py scan TICKER`** / **`screen SYM…`** *(BENCH)* — currently-active entry triggers (MA_PULLBACK, CONSOLIDATION_PIVOT, SUPPORT_RECLAIM) with trigger/stop/quality. Flex: `--pullback-vol-days`, `--pivot-min-days`, `--pivot-max-days`, `--undercut-lookback-days`, `--pivot-range-max`.
-- **`tight_closes.py daily TICKER`** / **`weekly TICKER`** *(BENCH)* — clusters of narrow-spread closes (supply drying up near the pivot), graded by tightness + dryup + in-base location. `--period`, `--tolerance`, `--max-window`, `--location-lookback`. (Weekly carries higher confluence weight.)
-- **`base_count.py count TICKER`** *(BENCH)* — counts bases in the Stage-2 advance so you can tell early (base 1-2, optimal) from late (4+, failure-prone); per-base pattern, relative-to-SPY correction severity, depth trend, Stage-4 reset, risk_level. Flex: `--min-base-weeks`, `--swing-window`, `--max-base-weeks`, `--forming-recency-days`, `--reset-days`, `--reset-window`, `--min-advance-pct` (the last an explicitly non-canonical heuristic, off by default).
-
-**FUNDAMENTAL × QUALITY — the rare layer ~95% of chart-passers lack**
-- **`earnings_acceleration.py code33 TICKER`** *(SPINE on a PROCEED)* — triple acceleration: EPS + sales + **NET** margin. EPS runs strict 3-quarter acceleration on deep `earnings_dates` history. **Sales adapts to data depth** — acceleration where ≥3 revenue YoY rates exist, else a *strength* fallback (latest YoY ≥ `--sales-min-pct`), since yfinance caps quarterly revenue at ~5 quarters; `sales_basis`/`sales_data_quality` flag which test ran. NET margin must expand 3 consecutive quarters (`margin_basis`: net / operating-fallback / unavailable). Knobs: `--eps-min-pct` (raisable floor, 20), `--sales-min-pct` (strength floor, 20), `--margin-min-ppt` (an *invented* floor; `0` = pure-directional canonical, default 0.5 legacy).
-- **`earnings_acceleration.py acceleration` / `surprise` / `revisions`** *(BENCH)* — per-quarter EPS&sales YoY trend; beat/surprise history + post-earnings drift + cockroach bucket (`--quarters`, `--drift-days` default '1,5' — widen to '1,5,20,60' for the multi-month drift, `--cockroach-strong/-moderate`); analyst revision trends.
-- **`earnings_acceleration.py valuation TICKER`** *(BENCH — absorbed forward_pe)* — forward-P/E *barometer*, explicitly **not** a gate: fwd P/E 1y/2y, whether it's contracting (growing into the multiple), a raw PEG scalar (years priced in, not a cheap/expensive verdict). The old GARP bands were removed by design.
-- **`earnings_acceleration.py margin TICKER`** *(BENCH — absorbed margin_tracker)* — gross/op/NET margin trajectory, NET as headline, **no** classification badge (the old EXPANDING/COMPRESSION flag inverted Code-33's all-legs-together logic). `--quarters`.
-
-**RISK (diagnostic) — sell-tells and the early turn; never a stop or a size**
-- **`stage_analysis.py risk TICKER`** *(BENCH — sell diagnostic, re-homed from the deleted sell_signals)* — the three character signals the method sells on: largest decline since Stage 2 began (vs leader-correction bands), climax extension (blow-off), tennis-ball-vs-egg. Diagnostic only; deliberately **no** distribution-day count, no key-reversal. `--period`, `--climax-extension-pct`, `--min-advance-weeks`.
-- **`stage_analysis.py transitions TICKER`** *(BENCH)* — Stage 1→2 early-turn (7 booleans → strong/moderate/weak), the pre-gate read the Trend Template can't give yet. No Golden Cross.
-
-**INFRA — data plumbing, no judgment**
-- **`info.py`** *(BENCH)* — metadata/quotes: `get-info`, `get-info-fields FIELDS…`, `get-shares`, `get-history-metadata`, **`get-sec-filings [--since --form]`** (catalyst/quality digging), etc.
-- **`actions.py`** *(BENCH)* — corporate actions/events: `get-earnings[-dates]`, `get-dividends`, `get-splits`, `get-calendar`, `get-news`, etc.
-- **`utils.py`** — shared helper lib, **not a CLI** (don't invoke). Hosts `calculate_sma` and `max_constructive_depth_pct` (the duration-keyed depth ceiling). Listed only so you don't hunt for it as a tool.
+The full per-tool spec — every subcommand, flag, default, and output field — lives in **`References/tool_catalog.json`**, and each tool's `--help` is the live source of truth. Most lane-owning tools emit a **`doctrine`** field welded to the live number they just computed: consult it whenever you run the tool and *reason over it* — it is the lane's logic made visible, never a cross-dimensional verdict.
 
 ## Windows are tunable — but only the flex tier; the floors are locked
 
 Every analytics tool reads price/earnings over *windows*. The code splits them into two tiers, and the line between them is load-bearing.
 
-**Flex windows (the CLI flags above — tune per request, with a reason).** A base has its own time-axis: a 7-week power-play and an 18-month cup are different *scales*, and a fast leader tops in fewer weeks than a slow grinder. These windows scale with the base or regime in front of you, so they default to a sensible value and you only pass a flag when the structure asks — widen `vcp detect --powerplay-advance-bars` / `base_count --max-base-weeks` for a slow multi-quarter base; lengthen `earnings_acceleration surprise --drift-days 1,5,20,60` to catch the multi-month drift the default misses. The defaults reproduce the frozen behavior, so a flag means you had a reason — say it.
+**Flex windows (CLI flags — tune per request, with a reason).** A base has its own time-axis: a 7-week power-play and an 18-month cup are different *scales*, and a fast leader tops in fewer weeks than a slow grinder. These windows scale with the base or regime in front of you, so they default to a sensible value and you only pass a flag when the structure asks — widen `vcp detect --powerplay-advance-bars` / `base_count --max-base-weeks` for a slow multi-quarter base; lengthen `earnings_acceleration surprise --drift-days 1,5,20,60` to catch the multi-month drift the default misses. The defaults reproduce the frozen behavior, so a flag means you had a reason — say it.
 
-**Definitional floors (named constants, never flags, never argued).** These encode what a signal *means*, canonical across every stock: the 50/150/200 MAs, the 30%-above-low / 25%-below-high / RS≥70 thresholds, the duration-keyed depth ceiling (≤3wk 25% / ≤25wk 35% / >25wk 50%) and the 60% redline, the conviction multipliers (1.25× breakout, 2× climactic, the demand-day asymmetry bar). Flexing one isn't tuning — it's getting the method wrong; there is deliberately no flag to override them. *(The accumulation A-E bands are floors of this kind: they read a 50-day **aggregate** up/down ratio that tops out ~1.6 — do not "recalibrate" them toward the book's "several hundred to ~1,000%" demand-surge figure, which is a **single-day** standard living on `demand-days`, not the aggregate. spec.md carries the fixed numbers.)*
+**Definitional floors (named constants, never flags, never argued).** These encode what a signal *means*, canonical across every stock: the 50/150/200 MAs, the 30%-above-low / 25%-below-high / RS≥70 thresholds, the duration-keyed depth ceiling (≤3wk 25% / ≤25wk 35% / >25wk 50%) and the 60% redline, the conviction multipliers (1.25× breakout, 2× climactic, the demand-day asymmetry bar). Flexing one isn't tuning — it's getting the method wrong; there is deliberately no flag to override them. *(The accumulation A-E bands are floors of this kind: they read a 50-day **aggregate** up/down ratio that tops out ~1.6 — do not "recalibrate" them toward the book's "several hundred to ~1,000%" demand-surge figure, which is a **single-day** standard living on `demand-days`, not the aggregate. The Doctrine section below carries the fixed numbers.)*
 
 **One honest caveat.** A few flag defaults are *invented* heuristics, not method constants — notably `code33 --margin-min-ppt` (0.5): the method only requires margins to *accelerate directionally*, and `--margin-min-ppt 0` is the canonical read. When a default is heuristic rather than doctrine, the flag help says so — read it before you lean on the number.
 
@@ -98,7 +73,7 @@ And note what the tools deliberately *don't* give you. None emits a *cross-dimen
 
 ## The principles that should override your defaults
 
-These are the places where the right move contradicts a sensible-sounding instinct you probably hold. Internalize the *why*; the full set with instances and exact numbers lives in `References/principles.md` and `References/spec.md`.
+These are the places where the right move contradicts a sensible-sounding instinct you probably hold. Internalize the *why*; the deeper dimension-specific reads and the exact numbers are the Doctrine section at the end.
 
 - **Price leads fundamentals; a good company is not a good stock.** The tape is the aggregate of better-informed hands, and it moves *before* the reportable numbers. So institutional accumulation/distribution shows up in price and volume first — which is why technicals gate fundamentals here, why you *sell on non-confirmation* (a stock that just sits after you buy has falsified your thesis as surely as one that drops), and why the broken former leader screens as "cheap" exactly when its forward reality is worst. Your default reasons company→price; invert it.
 
@@ -111,6 +86,8 @@ These are the places where the right move contradicts a sensible-sounding instin
 - **Risk is the first screen, not a bolt-on — and company survival ≠ capital survival.** You assess "how much can I lose" *before* "how much can I gain," because loss compounds geometrically: even a blue chip can draw down 70–99% and take a decade-plus to recover, so "it won't go bankrupt" is irrelevant to *your capital's* survival. With sizing out of scope, this lives as *diagnosis*: read base depth, topping behavior, and stock character as **setup-quality** signals that decide whether a name is even eligible — never as a position-size or stop prescription.
 
 - **The market regime is a first-order base rate, not an overlay.** Over 90% of superperformers launch as the market comes *out of* a correction or bear bottom; almost none begin mid-bear. So "is the tide coming in?" is the first question, and grinding single-name screens deep in a bear is low-yield by construction.
+
+- **Gate the trend and stage BEFORE you read the base — context vetoes the pattern.** The amateur habit is to fall for a beautiful consolidation on its own merits, but a flawless base in a long-term downtrend is failure-prone by *context*, not by shape. That is exactly why `qualify` runs first and a base read is only earned on a PROCEED — you never let a pretty pattern override a broken trend. ("Going long a great base in a long-term downtrend is like saying you're healthy because of low cholesterol when you have pneumonia.")
 
 ## Two corrections — this skill previously got these wrong
 
@@ -129,29 +106,9 @@ A few invariants are settled — state them, don't re-argue them:
 - **Never brand the methodology in user-facing output — describe, don't brand.** Not the names ("Minervini", "SEPA"), and not its coined labels — "Code 33", "VCP", "Trend Template", "power play", "pocket pivot". Say what they *measure* in plain terms: "EPS, sales and margin accelerating together"; "a tightening base on drying-up volume"; "passed all 8 trend criteria"; "an institutional demand day." Generic chart vocabulary (uptrend, base, breakout, relative strength, the four market stages) is fine — it's the proprietary coinages that leak the system. You are "the analyst."
 - **Sizing, stops-as-orders, R:R targets, and position math are out of scope.** If asked, give the *diagnostic* read (setup quality, where the structure would be invalidated) and say that position sizing is the user's to set.
 
-## Routing
+## Walking the funnel
 
-Classify the request, then walk the funnel only as far as it needs; when ambiguous, market-context and timing outrank pure screening. The shape is always the same: **discover → qualify → (PROCEED) → spine deepen → bench as evidence calls → convergence.** Most names die at `qualify`, cheaply — that is the point.
-
-| Request | Path |
-|---|---|
-| "How's the market?" / regime | `discover` → read the breadth-primary verdict + leadership board |
-| "Find candidates" / screen / 발굴 | `discover` → `qualify` the surfaced leaders → deepen survivors |
-| "Is X a buy?" / diagnose / 분석 | `discover` (regime) → `qualify X` → if PROCEED, **spine deepen** (`vcp detect` + `volume_analysis analyze` + `earnings_acceleration code33` + `rs_ranking score`) → bench as evidence calls → converge |
-| "Should I buy X now?" / timing | as above, then weigh the *entry trigger* (`entry_patterns scan`; pivot/volume/breakout) against the regime — and check earnings proximity (`actions get-earnings-dates`): a report due within days is unhedgeable binary event risk no setup can protect against, so a fresh entry waits for the *reaction*, it doesn't anticipate the print |
-| "Hold or sell X?" | `stage_analysis risk X` (decline-since-Stage-2, climax, character) + the non-confirmation read (`volume_analysis analyze` for distribution); diagnostic only, no sizing |
-| "X vs Y" | `qualify` each, then deepen the survivors → compare on convergence, not a single score |
-
-**The "Is X a buy?" walk:** `discover` (regime) → `qualify X` (cheap gate) → on `PROCEED` only, the spine four (`vcp detect` setup, `volume_analysis analyze` demand, `earnings_acceleration code33` quality, `rs_ranking score` leadership) → then reach onto the bench for only what the evidence calls for (`base_count` if it looks late, `tight_closes` if the pivot looks tight, `earnings_acceleration margin`/`surprise` to interrogate the story, `stage_analysis risk` for a held name). Then **converge**: a logical AND across regime / stage+gate / setup / fundamental / leadership at the *same moment* — three-of-four is no trade, never an average. Convergence is your call; no tool renders it.
-
-Composite asks chain the obvious way ("what should I buy?" = regime → discovery → diagnosis). For a genuinely contested convergence call you may externalize reasoning with `clear_thought` — sparingly, never as a substitute for running a tool.
-
-## References
-
-Load these when a task needs the depth; most reads don't.
-
-- `References/principles.md` — the full principle set (claim + mechanism + instance), organized by funnel stage. Reach for it to deepen conviction on a specific dimension (why pivot volume must dry up, the broken-leader tell, the catalyst discriminator, …).
-- `References/spec.md` — the exact thresholds and gotchas as a terse spec sheet: the 8 Trend-Template criteria, EPS/sales bands, the VCP contraction ratio and footprint notation, Code 33, base-depth bands, base-count staging. The numbers, with one line of why each.
+There is no request-type → path lookup table here, by design: the funnel above *is* the route. A table of "if they ask X, run Y then Z" would only re-tabulate the funnel as a rail — and a rail snaps on the case it never listed. Instead, classify what's being asked, enter at the leg it touches, and walk only as far as the evidence earns: a pure regime question may stop at `discover`; "is X a buy?" runs the gate, then the spine on a `PROCEED`, then your convergence call; a hold-or-sell question is a `stage_analysis risk` read plus the non-confirmation tape. The toolbox tells you what each leg measures; the funnel tells you the order; you compose the rest. When a request is ambiguous, market-context and timing outrank pure screening. For a genuinely contested convergence call you may externalize reasoning with `clear_thought` — sparingly, never as a substitute for running a tool.
 
 ## Running the tools
 
@@ -171,19 +128,121 @@ $VENV Scripts/modules/volume_analysis.py analyze TICKER
 $VENV Scripts/modules/tight_closes.py daily TICKER
 ```
 
-All tools return JSON; errors are `{"error": "..."}` with exit code 1. Retry a failed call once, then declare it unavailable — don't fill the gap from memory. First-time setup: `cd Scripts && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
+All tools return JSON; errors are `{"error": "..."}` with exit code 1. Retry a failed call once, then declare it unavailable — don't fill the gap from memory. The full interface is `References/tool_catalog.json`; `<tool> <sub> --help` is the live source of truth for flags. First-time setup: `cd Scripts && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt`.
 
 ## Output
 
 Lead with the answer, then the evidence, risk-first. Voice: a confident practitioner who is visibly more worried about losing than missing — proof through methodology and the live numbers you pulled, not opinion. Concretely:
 
 - **Regime:** verdict → breadth (new highs vs lows) → leading groups → are we hunting or defending.
-- **Diagnosis / timing:** the convergence verdict (buy-ready / watch / avoid, in your words) → the hard gate → setup-quality risk *first* → fundamentals & catalyst → what would confirm or kill it. If it failed the gate, say which leg and stop. On a *timing* call, flag an imminent earnings report as event risk to wait out.
+- **Diagnosis / timing:** the convergence verdict (buy-ready / watch / avoid, in your words) → the hard gate → setup-quality risk *first* → fundamentals & catalyst → what would confirm or kill it. If it failed the gate, say which leg and stop. On a *timing* call, treat an imminent earnings report as unhedgeable binary event risk no setup can protect against — a fresh entry waits for the *reaction*, it doesn't anticipate the print.
 - **Discovery:** regime → the leaders the tools surfaced → why these, best-of-breed → the few worth deepening.
 - **Comparison:** side-by-side on the funnel dimensions → which converges, with the reasoning.
 
-Never imply a position size, a dollar stop, or an R:R target. The setup quality and the structural invalidation level are analysis; the sizing is the user's. And **describe the criteria in plain language — never surface the methodology's branded labels** (Code 33, VCP, Trend Template, SEPA, …); that rule governs this final answer, not just the internals. Likewise prefer a plain quality read — "a weak / developing / actionable base", "strong demand" — to surfacing a raw within-lane number like "13/100": a bare 0-100 invites exactly the cross-dimensional anchoring you otherwise refuse, even when it only scores one lane.
+Never imply a position size, a dollar stop, or an R:R target. The setup quality and the structural invalidation level are analysis; the sizing is the user's. And **describe the criteria in plain language — never surface the methodology's branded labels** (Code 33, VCP, Trend Template, SEPA, …); that rule governs this final answer, not just the internals. Likewise, in the user-facing answer prefer a plain quality read — "a weak / developing / actionable base", "strong demand" — to a raw within-lane number like "13/100": same anchoring trap, now aimed at the reader.
 
-<User_Input>
-$ARGUMENTS
-</User_Input>
+---
+
+# Doctrine — the deeper judgment reads + the exact thresholds, by funnel stage
+
+The seven principles above are the core reversals — the ones that govern almost every call. This is the layer beneath them: the dimension-specific tacit reads no tool can compute (the default-reversals you reach for when a particular leg is in play), with the fixed numbers that ground them co-located, because a principle without its threshold is half a thought. The tool-bound "why" still arrives at runtime in each tool's `doctrine` field; this is what no tool emits.
+
+A note on the numbers: a threshold here is a **floor or a relationship**, not a digit to paste onto a fresh stock. A band inside a judgment principle is *illustrating a relationship* — read it as "roughly." Named cases (Dell, Circuit City) are **precedents**, not prescriptions: a story that generalizes, never an outcome to copy.
+
+## Regime & market structure
+
+**A low multiple is the worst place to hide when the tide goes out.** A depressed P/E is itself a symptom — the market has already marked the fundamentals down — so when forward expectations collapse there is no cushion left to compress and the "margin of safety" evaporates exactly when you reach for it. This overrides the value instinct that cheap = defensive. In 2008 the low-P/E factor fell −70.9%, low-P/B −68.8%, low-P/S −66.9%, all worse than the Dow's −34%.
+
+**Rotation OUT of leaders and INTO laggards/defensives marks the late stage — even as the index makes new highs.** The averages can be held aloft by money rotating into stragglers (drugs, tobacco, utilities, food) while the real leadership has already broken, so the index *level* is a lagging, misleading top-indicator; *which* stocks carry it is the leading internal. This "shot across the bow" runs weeks-to-months ahead of the top. Keep your sights on the trees, not the forest — when cash flows to the laggards, the end is near.
+
+**Thresholds**
+- **>90% of superperformers launch out of a correction / bear bottom** — regime is a first-order base rate; almost none begin mid-bear.
+- **Funds rarely raise >5–10% cash** even in dreadful conditions — structurally ~90%+ invested, so they must lose in bears; individual cash is structural alpha.
+- **Leadership concentrates in ~3-4 up to 8-10 groups** — count names hitting 52-week highs early; concentrate in the top 4-5 sectors.
+- **Lockout-rally index pullbacks ~3–5%** — off an important bottom the first leg refuses the awaited pullback; that refusal is the buy tell.
+- **Regime read (corrected):** new-high vs new-low spread + its significant EXPANSION + leadership behavior + your own stop-out rate. **NOT** a follow-through-day or distribution-day count — that mechanism is absent from the method.
+
+## Trend Template & Stage — the hard gate
+
+- The 8 criteria: (1) price > 150d AND 200d MA; (2) 150d > 200d; (3) 200d trending up ≥1mo (pref. 4–5mo); (4) 50d > 150d AND 200d; (5) price > 50d; (6) price ≥30% above 52w low; (7) price within 25% of 52w high; (8) RS rank ≥70 (pref. 80s–90s). All eight or reject.
+- **Base rates: 99% above the 200-day / 96% above the 50-day before the move** — being below either bets on a <1% tail.
+- **Stage-2 confirmation: a prior 25–30% rally off the 52-week low, often far more** (Amgen +80%) — the surrendered first leg is the price of confirmation.
+- **~95% of Trend-Template survivors die at the fundamental/RS/volatility screen** — the chart is the easy qualifier.
+- **Intra-stage-2 bases: 5–26 weeks common** (broader waves 4–5wk to a year+).
+- **Climax/topping:** parabolic blow-off ENDS the trend (Stryker +65% in 11wk → top); 200-day flattens/rolls over with price whipsawing ACROSS it = Stage-3; Stage-4 only once the 200-day is in a definite downtrend with price below it.
+- **Emerging-leader pulse off a low:** advance 15–20%, rest with only a 5–10% pullback; the cohort must hold, not crash back.
+
+## VCP / Setup
+
+(The setup "why" is emitted at runtime by `vcp` / `volume_analysis` / `entry_patterns` doctrine; these are the numbers.)
+- **VCP contractions: each ~50% of the prior** (e.g. 25→10→5%), **2–4 (occ. 5–6) Ts** — shrinking swings track supply absorption.
+- **Footprint "40W 31/3 4T"** = Weeks / largest-correction% / final-pullback% / T-count.
+- **Pivot volume: below the 50-day average, 1–2 days near the base's LOWEST** — a volume vacuum proves sellers have stopped coming.
+- **Up-volume must dwarf down-volume** (single-day surges several hundred to ~1,000%); a demand day followed by a bigger down-volume day disqualifies.
+- **Base depth by duration:** 3-week ≤~25%; typical ≤25–35%; ~1-year up to 50%; **>60% = redline (fails)**; avoid >2–3x the market's decline — time absorbs supply.
+- **Flat base: correction ≤10–15%, buy above the base HIGH** — held within 10–15% proves sellers never gained control.
+- **Base count: 1–2 = prime; 3 = tradable but obvious; 4–5 = late, abrupt-failure-prone.**
+- **3C / cup-completion-cheat:** prior move +25–100% over 3–36 months; above a rising 200-day; pattern 3–45 weeks; correction 15–40% (>60% fails); cheat plateau within 5–10%.
+- **Power play / high tight flag:** +100% in <8 weeks on huge volume → tight sideways correcting ≤20–25% over 3–6 weeks, final tightness <10% — the only setup bought without fundamentals; digestion still mandatory.
+
+## Fundamentals × Quality
+
+**For commodity-sensitive cyclicals the P/E cycle inverts — a high multiple marks the buy zone, a low one the sell.** Price discounts the turn before earnings show it: at the trough, collapsed earnings inflate the multiple while price already anticipates recovery; at the peak, record earnings crush the multiple while price anticipates the downturn. A growth-stock "low P/E = cheap" lens mis-times it exactly — Lynch called buying a cyclical on a low post-record-earnings P/E "a proven method for losing half your money." So before you read any P/E, decide whether the business is a grower or a cyclical.
+
+**Industry maturity reads off the number of competitors, not the growth rate.** Every innovation traces a penetration-to-saturation S-curve where the *count* of firms rises to a peak, then collapses into a shakeout — and that firm-count peak (then margin collapse, bankruptcies) marks the growth→replacement transition more cleanly than decelerating sales, which lag. Rising count = land-grab; rolling over = the shakeout has begun. Autos peaked ~77 firms (1920) → ~15 (1960); disk drives 75 (1984) → 20 (1998); PCs 100 (1987) → 10 (1992).
+
+**The "growth stock" label is itself a late-cycle tell.** A name travels Value → positive surprises and upward revisions → officially-anointed "growth stock" (everyone knows) → loss of momentum → back to Value. By the time the story is obvious enough to earn the label, early institutional money is distributing into the naive buyers chasing the press — the label is a coincident-to-lagging readout of *crowding*, not strength. Buy in the under-followed phase; the urge to buy the celebrated, widely-recognized growth name is the trap.
+
+**A "one-time" charge that recurs, and book earnings that outrun taxable earnings, are both footprints of a managed narrative.** Earnings are a story management tells, and the lie shows where two reports of the same reality must reconcile. A "non-recurring" charge that reappears every few quarters means the core number is permanently flattered; lavish earnings to shareholders alongside little tax paid (GAAP books diverging from the cash-basis IRS books) signals the reported figure may be fiction. Don't exclude every charge on faith, and cross-read the tax footnotes against the income statement.
+
+**Watch the verbs in guidance — contraction vocabulary is the institutional sell-tell of a spent grower.** Expansion-phase firms describe the future in opening / hiring / new-market terms; the moment the language turns to *closing stores, opening fewer, renegotiating leases, cutting HQ staff*, the margin-and-scale flywheel has reversed — a leading classifier independent of the current print, which still looks fine. This overrides the value instinct that a restructuring plan is a bullish efficiency catalyst. Circuit City announced 155 store closures in 2008, then went to zero.
+
+**A dollar of franchise-fee earnings is lower quality than a dollar from owned operations — discount it.** Franchise income sits one step removed from the underlying unit economics and concentrates failure risk onto operators the franchisor doesn't fully control, so the same headline EPS is structurally more fragile. Don't treat the two as equal when you judge earnings durability. McDonald's ran ~60% franchisee-operated in 2007 — a very different earnings stream from a company-owned base.
+
+**Size flips which question you must answer.** A small float means demand moves price a lot (huge upside) but the business is unproven — so you substitute a *scalability / already-profitable* check for the track record you lack. A large float means proven execution but structurally muted appreciation — there is no float-driven repricing left. Don't run one fundamental checklist across both; on a small cap, demand proof that the model scales, and accept that the giant's upside is capped no matter how good the quarter.
+
+**Thresholds**
+- **Current-quarter EPS (most recent 1–3q):** 20–25% YoY floor / 30–40%+ for real superperformers / 40–100%+ in a bull — raise the bar when high-growth names are abundant.
+- **Sales: triple-digit for emerging leaders** (recent 2–3+ quarters) — revenue is the un-fakeable substrate; EPS without sales is gimmickry. (Home Depot 104/158/191/220% before +698%.)
+- **Code 33: 3 consecutive quarters of acceleration in EPS + sales + net margin, simultaneously** — multiplicative; filters cost-cut-only "growth."
+- **5% estimate-revision tripwire:** UP ≥5% → outperform, DOWN ≥5% → underperform; watch current quarter AND current/next fiscal year vs 30 days earlier.
+- **Turnaround gate:** recent 1–2 quarters +100%+, TTM-EPS recovering toward the old peak, not cost-cut-only.
+- **Quality is QUALITATIVE — NO numeric ROE / debt / float gate.** Read structurally: pricing-power + capital-intensity = structural disqualifier (airline archetype); margin-decline cause (cost-driven survivable / price-driven terminal); strip non-recurring GAINS before believing any growth number (can flip +25% → −7%).
+- **Inventory:** finished-goods rising much faster than raw/WIP = bearish; raw-materials buildup = bullish demand bet. Read the sub-segment, not the total.
+- **Double-whammy:** receivables AND inventory both growing ≥2x sales = high-probability earnings hit.
+- **Superperformers' age:** typically public 8–10 years before the move; biggest growth in the first 5–10 years post-IPO.
+- **No buy before the primary base** — the IPO pop and the post-IPO selloff are not the buy point.
+
+## Leadership & Catalysts
+
+**A tradeable catalyst must be both still-undiscounted AND confirmed in tape *and* numbers.** Price already embeds *known* catalysts, so the edge lives only in the gap between a real change in earnings power and the market's lagging recognition of it — develop an earnings expectation, then ask whether it is already widely recognized and therefore discounted. Requiring BOTH the stock acting well AND the numbers coming in strong filters the two classic false positives: a narrative with no earnings, and strong earnings under a dead tape. Any identifiable good-news event is not, by itself, a catalyst.
+
+**Don't stop at "it has a catalyst" — quantify how much of the move the catalyst actually drives.** Attribution turns a vague story into a testable, sizable claim: the *fraction* of growth that is product-led tells you whether the engine is durable and repeatable (a pipeline that refreshes) versus a one-off or a cost-cut, and gives a yardstick for whether the next launch can re-fuel the advance. Apple — ~73% of a 10,000%+ run came from newly launched products (iPod / iTunes / iPhone): a repeatable engine, not a single event.
+
+**Your structural edge over institutions is liquidity and speed, not information — so compete where size forbids them to play.** A manager who must move blocks is pushed toward big floats, broad diversification, and an arms race for informational superiority. You can enter and exit small-float, high-growth names with near-zero slippage — the exact trades their size prohibits. Don't try to out-research the institutions; fish where they physically can't, and treat your nimbleness as the alpha.
+
+**Thresholds**
+- **Leadership window: names breaking to NEW HIGHS within 4–8 weeks off a market low ARE the leaders** — new highs against thick bear overhead require overwhelming demand.
+- **>60% of superperformers ride a group advance** — a lone strong stock in a dead group is the lower-probability bet.
+- **Same-store-sales: ~10% healthy floor; 25–30%+ = unsustainable sell-tell** — comps have only price and volume as drivers, both capped; the upper bound is the actionable number.
+- **Store rollout: >~100 net new/yr = saturation alarm** — pace acceleration front-loads earnings and precedes the comp collapse by quarters.
+- **Prior-cycle leaders:** ~1/3 round-trip (avg subsequent decline 50–70%); <25% of one cycle's leaders lead the next — abandon them as candidates.
+- **Catalyst test:** still-undiscounted AND confirmed in BOTH tape and numbers; deregulation/sector change is its own class (map the second-order group cascade); screen the top 2–3 names (a #2 can take the RS baton), not only #1.
+
+## Risk-as-setup-quality (diagnostic only — no stops/sizing)
+
+- **Healthy-leader correction band: 25–35% healthy / >50% generally fails / 60% redline / >2–3x-market = avoid** — depth proxies trapped overhead supply.
+- **Value-trap flag:** absolute 3–5x P/E near a 52-week low + deteriorating fundamentals = a leading indicator of an earnings collapse, not a value floor (a 3x multiple = "this E is going to zero").
+- **Even quality blue chips can correct 70–99% and take 11–24 years to break even** — company survival ≠ capital survival; the why-avoid-Stage-4 diagnostic.
+- **Valuation upgrade after a major price break = short tell**, not a bottom — the upgrade reasons from a stale model the tape has already repriced.
+
+## Execution / Convergence
+
+**Once problems emerge, management is your worst information source — not from dishonesty but structure.** They have both the strongest incentive and the best means to obscure deterioration, so reassurances correlate *negatively* with reality at exactly the moments that matter, while the tape aggregates informed sellers and leads disclosure. When price and narrative diverge, weight the price — this inverts the instinct to seek comfort from the people closest to the company. GM 2008, AIG, Lehman, Enron, WorldCom all reassured into the abyss.
+
+**Thresholds**
+- **Trade only at four-way convergence** (fundamentals + price + volume + regime) — 3-of-4 is a no-trade, not a smaller trade.
+- **Largest decline since Stage 2 began = sell signal, even on a great beat** — magnitude relative to the stock's own move is the institutional-exit footprint.
+- **Tennis ball vs egg:** healthy pullbacks snap back to new highs within 1–2 weeks max, volume contracting on the dip / expanding on the recovery; widening two-way swings = egg.
+- **Two-quarter rolling average over the past 4/6/8 quarters** — smooths noisy single prints into the second-derivative trend.
+- **Run several small ANDed screens** and take cross-list recurrence — a monolithic AND-screen has a multiplicative false-rejection rate.

@@ -109,7 +109,7 @@ PIVOT_MIN_DAYS = 10
 PIVOT_MAX_DAYS = 25
 # Support-reclaim undercut lookback: how far back to scan for the undercut-and-reclaim.
 UNDERCUT_LOOKBACK_DAYS = 5
-# Flat-base correction ceiling: spec.md sets a flat base at 10-15%, so the ceiling
+# Flat-base correction ceiling: the method sets a flat base at 10-15%, so the ceiling
 # is a band, not a hard 10. 15.0 keeps valid 10-15% bases from being silently rejected.
 PIVOT_RANGE_MAX = 15.0
 
@@ -412,6 +412,16 @@ def _scan_symbol(
 		"active_patterns": active_patterns,
 		"pattern_count": len(active_patterns),
 		"setup_readiness": _determine_readiness(active_patterns),
+		"doctrine": (
+			"Whatever support looks obvious to you is obvious to everyone and densely "
+			"loaded with stops — what is too obvious seldom works. As a stop-using buyer "
+			"you are by definition a weak holder; the goal is to be the LAST one out. A "
+			"base that has undercut a prior obvious low and then reclaimed it (SUPPORT_RECLAIM, "
+			"or an undercut low inside a CONSOLIDATION_PIVOT) has already tripped those stops "
+			"and flushed the weak hands, so little supply is left below to stop you. Read the "
+			"undercut-then-reclaim as positive confirmation the flush is complete, not a "
+			"breakdown to fear — this inverts the instinct to sell the undercut."
+		),
 	}
 
 
@@ -518,7 +528,7 @@ def _add_tuning_args(p):
 		"--pivot-range-max",
 		type=float,
 		default=PIVOT_RANGE_MAX,
-		help="Flat-base tightness ceiling (%% high-to-low). Context-dependent: spec.md "
+		help="Flat-base tightness ceiling (%% high-to-low). Context-dependent: the method "
 		"sets the flat-base correction at a 10-15%% band, not a hard 10 — lower it to "
 		"demand a tighter base, raise it only within the band.",
 	)
