@@ -2,7 +2,7 @@
   "ticker": "MU",
   "role": "winner",
   "note": "memory \u2014 capacity-constrained physical bottleneck",
-  "captured_at": "2026-06-16",
+  "captured_at": "2026-06-20",
   "hard": {
     "l6_classification": "bottleneck",
     "business_model": "physical_goods",

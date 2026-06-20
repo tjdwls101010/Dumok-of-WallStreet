@@ -2,7 +2,7 @@
   "ticker": "CRCL",
   "role": "winner",
   "note": "stablecoin issuer \u2014 financial-float disruption",
-  "captured_at": "2026-06-16",
+  "captured_at": "2026-06-20",
   "hard": {
     "l6_classification": "disruption",
     "business_model": "financial_float",
@@ -20,8 +20,8 @@
     "unsubstantiated_bottleneck": false
   },
   "baseline": {
-    "grade": "ACCUMULATE",
-    "composite_score": 64.5,
+    "grade": "BUY",
+    "composite_score": 67.5,
     "l3_pre_score": 0.0
   }
 }

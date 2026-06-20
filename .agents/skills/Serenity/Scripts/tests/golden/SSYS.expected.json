@@ -2,7 +2,7 @@
   "ticker": "SSYS",
   "role": "divergence",
   "note": "legacy 3D printing \u2014 pipeline scores ACCUMULATE (partial bottleneck, cheap), but no growth + operating losses fire unsubstantiated_bottleneck; agent applies the prototype-vs-production / value-trap override",
-  "captured_at": "2026-06-16",
+  "captured_at": "2026-06-20",
   "hard": {
     "l6_classification": "bottleneck",
     "business_model": "physical_goods",

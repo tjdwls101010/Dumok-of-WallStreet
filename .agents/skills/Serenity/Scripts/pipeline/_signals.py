@@ -564,8 +564,13 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 	}
 	total_score += cat_points
 
-	# Component 5: Taxonomy (10 pts)
-	tax_points = 10.0 if ac_class in ("bottleneck", "disruption") else 7.0 if ac_class == "evolution" else 5.0
+	# Component 5: Taxonomy (10 pts). The three archetypes are CO-EQUAL (analysis.md
+	# "Three thesis archetypes" — "Bottleneck is one of three, not the spine"), so Evolution
+	# earns the same 10 as Bottleneck/Disruption. (It used to be docked to 7 — an unjustified
+	# 3-pt tax that, stacked on the physical-moat cap below, made a perfect Evolution name
+	# ceiling under the STRONG_BUY line. Un-caps no loser: the quantum/pre-commercial set is
+	# held by speculative_cap, not by this component.)
+	tax_points = 10.0 if ac_class in ("bottleneck", "disruption", "evolution") else 5.0
 	score_breakdown["taxonomy"] = {"classification": ac_class, "points": round(tax_points, 2)}
 	total_score += tax_points
 
@@ -591,10 +596,29 @@ def _generate_composite_signal(l1_result, l4_results, l5_results, health_severit
 			"mos_pct_floor": round(mos_pct, 2) if isinstance(mos_pct, (int, float)) else None,
 			"points": round(val_points, 2),
 		}
+	elif is_growth and isinstance(mos_pct, (int, float)) and mos_pct < 0:
+		# Driver-proxy track — the capital structure picks the metric (analysis.md §3
+		# "Lens-mismatch"). A genuine grower with NO usable PEG (pre-profit / asset-financed
+		# capacity buildout / pre-scale disruptor) whose no-growth floor sits BELOW price: the
+		# floor is the WRONG lens here — it "fabricates an overvalued verdict" the doctrine
+		# explicitly forbids (and used to hard-floor these names at 3/10). Floor-below-price is
+		# EXPECTED for a grower, not a kill, so score on GROWTH QUALITY as a proxy for the
+		# driver-based anchor (levered IRR / contracted-and-customer-funded backlog / TAM
+		# option) the agent computes and DEFENDS in prose. Capped at 8, not 10: the agent must
+		# do the real driver math to claim "screaming cheap." This does NOT loosen V2/V6 — a
+		# moat-less cash-burner is still held by the separate speculative_cap and pre-revenue
+		# cap below; this branch only stops the floor model from fabricating a penalty.
+		val_points = 8.0 if rev_growth_v > 50 else 6.0 if rev_growth_v > 25 else 4.0
+		score_breakdown["valuation"] = {
+			"track": "driver_proxy", "rev_growth_yoy": round(rev_growth_v, 1),
+			"mos_pct_floor": round(mos_pct, 2), "points": round(val_points, 2),
+			"note": "no-growth floor N/A (asset-financed / pre-profit grower) — growth-quality proxy; agent computes & defends the levered-IRR / contracted-backlog band",
+		}
 	elif isinstance(mos_pct, (int, float)):
-		# Growth name missing PEG, or a genuine low/no-growth name. A grower's no-growth
-		# floor below price is EXPECTED (not a kill) — floor growth names at 3, not 0.
-		val_points = 10.0 if mos_pct > 20 else 5.0 if mos_pct >= 0 else (3.0 if is_growth else 0.0)
+		# The no-growth floor IS the right lens here: a genuine low/no-growth name, or a grower
+		# cheap even at zero growth (mos>=0). A NON-grower trading below its own no-growth floor
+		# (mos<0) is a value trap -> 0. (A growing name with mos<0 was routed to driver_proxy.)
+		val_points = 10.0 if mos_pct > 20 else 5.0 if mos_pct >= 0 else 0.0
 		score_breakdown["valuation"] = {
 			"track": "no_growth_floor", "mos_pct": round(mos_pct, 2),
 			"is_growth": is_growth, "points": round(val_points, 2),
